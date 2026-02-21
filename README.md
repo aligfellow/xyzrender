@@ -24,12 +24,6 @@ Or with [uv](https://docs.astral.sh/uv/):
 uv add xyzrender
 ```
 
-For GIF support (requires cairosvg and Pillow):
-
-```bash
-pip install 'xyzrender[gif]'
-```
-
 ## Quick start
 
 ```bash
