@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="800" height="469">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <defs>
+    <g id="a0"><radialGradient id="g0" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="55.9" fill="url(#g0)" stroke="#000000" stroke-width="10.4"/></g>
+    <g id="a1"><radialGradient id="g1" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="55.9" fill="url(#g1)" stroke="#000000" stroke-width="10.4"/></g>
+    <g id="a2"><radialGradient id="g2" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ff5555"/><stop offset="100%" stop-color="#cc0a0a"/></radialGradient><circle cx="0" cy="0" r="50.1" fill="url(#g2)" stroke="#000000" stroke-width="10.4"/></g>
+    <g id="a8"><radialGradient id="g8" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#cccccc"/></radialGradient><circle cx="0" cy="0" r="29.4" fill="url(#g8)" stroke="#000000" stroke-width="10.4"/></g>
+  </defs>
+  <use x="564.0" y="369.7" xlink:href="#a2"/>
+  <line x1="606.2" y1="353.8" x2="679.4" y2="326.2" stroke="#000000" stroke-width="26.0" stroke-linecap="round"/>
+  <line x1="536.2" y1="334.1" x2="459.1" y2="235.8" stroke="#000000" stroke-width="26.0" stroke-linecap="round"/>
+  <use x="704.1" y="316.9" xlink:href="#a8"/>
+  <use x="428.1" y="196.3" xlink:href="#a1"/>
+  <line x1="380.4" y1="212.0" x2="254.0" y2="253.8" stroke="#000000" stroke-width="26.0" stroke-linecap="round"/>
+  <use x="206.2" y="269.6" xlink:href="#a0"/>
+</svg>

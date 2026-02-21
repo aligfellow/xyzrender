@@ -1,0 +1,58 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# Claude
+.claude*
+CLAUDE*
+*plan*
+*PLAN*
+tasks/
+
+# VSCode config (optional)
+.vscode/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Pytest cache
+.pytest_cache/
+ruff.out
+ty.out
+
+# ruff
+.ruff_cache/
+
+# mypy
+.mypy_cache/
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# macOS files
+.DS_Store
+
+# Windows
+*Zone.Identifier*
+
+# Backup files
+*~
+*.bak
+
+# Ignore temporary local notebooks/output
+output/

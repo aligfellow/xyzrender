@@ -1,0 +1,14 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v0.1.9
+_src_path: gh:aligfellow/python-template
+author: Dr Alister S. Goodfellow
+check_magic_numbers: true
+ci_python_version: '3.14'
+description: Renders Cartesian molecular structures as publication ready graphics.
+github_user: aligfellow
+include_citation: true
+include_cli: true
+package_name: xyzrender
+project_name: xyzrender
+python_version: '3.10'
+year: '2026'

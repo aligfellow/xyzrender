@@ -1,0 +1,114 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xyzrender"
+version = "0.1.0"
+description = "Renders Cartesian molecular structures as publication ready graphics."
+authors = [{name = "Dr Alister S. Goodfellow"}]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "xyzgraph>=0.3",
+    "cclib",
+    "graphrc",
+    "cairosvg",
+    "Pillow",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+homepage = "https://github.com/aligfellow/xyzrender"
+
+[project.scripts]
+xyzrender = "xyzrender.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+xyzrender = ["presets/*.json"]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=3.5.0",
+    "pytest>=8.3.5",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.14.14",
+    "ty>=0.0.14",
+]
+
+# ===== Ruff =====
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "B",      # bugbear
+    "D",      # pydocstyle
+    "E",      # pycodestyle errors
+    "F",      # pyflakes
+    "I",      # isort
+    "N",      # pep8-naming conventions
+    "W",      # pycodestyle warnings
+    "C4",     # comprehensions
+    "PL",     # pylint
+    "PT",     # flake8-pytest-style
+    "PIE",    # misc lints
+    "PYI",    # flake8-pyi
+    "TID",    # tidy imports
+    "TCH",    # type-checking imports
+    "RUF",    # Ruff-specific rules
+    "RSE",    # flake8-raise
+    "ICN001", # unconventional-import-alias
+]
+ignore = [
+    "PLR0911", # Too many returns
+    "PLR0912", # Too many branches
+    "PLR0913", # Too many arguments to function call
+    "PLR0914", # Too many locals
+    "PLR0915", # Too many statements
+    "PLR1702", # Too many nested-blocks
+    "PLC0415", # Local imports which may be performance related
+    "PLR2004", # Magic numbers
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]
+"tests/**" = ["D", "PLR2004"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+# ===== ty =====
+[tool.ty]
+
+# ===== Pytest =====
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "--doctest-modules"
+doctest_optionflags = "NORMALIZE_WHITESPACE"
+
+# ===== Coverage =====
+[tool.coverage.run]
+source = ["src/xyzrender"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]

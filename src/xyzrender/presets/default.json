@@ -1,0 +1,19 @@
+{
+  "canvas_size": 800,
+  "atom_scale": 2.5,
+  "bond_width": 20,
+  "bond_color": "#000000",
+  "atom_stroke_width": 8,
+  "gradient": true,
+  "gradient_strength": 1,
+  "fog": true,
+  "fog_strength": 1.2,
+  "bond_orders": true,
+  "background": "#ffffff",
+  "vdw_opacity": 0.25,
+  "vdw_scale": 1.0,
+  "vdw_gradient_strength": 1.0,
+  "colors": {
+    "C": "#AAAAAA"
+  }
+}
