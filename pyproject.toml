@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "xyzrender"
 version = "0.1.0"
-description = "Renders Cartesian molecular structures as publication ready graphics."
+description = "Publication-quality molecular graphics from the command line."
 authors = [{name = "Dr Alister S. Goodfellow"}]
 readme = "README.md"
 requires-python = ">=3.10"

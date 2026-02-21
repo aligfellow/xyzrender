@@ -1,4 +1,4 @@
-"""Renders Cartesian molecular structures as publication ready graphics."""
+"""Publication-quality molecular graphics from the command line."""
 
 import logging
 
