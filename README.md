@@ -14,6 +14,8 @@ xyzrender turns XYZ files and quantum chemistry output (ORCA, Gaussian, Q-Chem, 
 
 Most molecular visualisation tools require manual setup: loading files into a GUI, tweaking camera angles, exporting at the right resolution and adding specific TS or NCI bonds. `xyzrender` skips this. One command gives you a (mostly) oriented, depth-cued structure with correct bond orders, aromatic ring rendering, automatic bond connectivity, with TS bonds and NCI bonds.
 
+![TS bimp full nci](examples/bimp_nci_ts.gif) 
+
 **What it handles out of the box:**
 
 - **Bond orders and aromaticity** — double bonds, triple bonds, and aromatic ring notation detected automatically from geometry via [xyzgraph](https://github.com/aligfellow/xyzgraph)
