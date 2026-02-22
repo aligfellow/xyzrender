@@ -18,9 +18,9 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 
 **What it handles out of the box:**
 
-- **Bond orders and aromaticity** — double bonds, triple bonds, and aromatic ring notation detected automatically from geometry via [xyzgraph](https://github.com/aligfellow/xyzgraph)
-- **Transition state bonds** — forming/breaking bonds rendered as dashed lines, detected automatically from imaginary frequency vibrations via [graphRC](https://github.com/aligfellow/graphRC)
-- **Non-covalent interactions** — hydrogen bonds and other weak interactions shown as dotted lines, *automatic detection coming soon*
+- **Bond orders and aromaticity** — double bonds, triple bonds, and aromatic ring notation detected automatically from geometry via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
+- **Transition state bonds** — forming/breaking bonds rendered as dashed lines, detected automatically from imaginary frequency vibrations via [`graphRC`](https://github.com/aligfellow/graphRC)
+- **Non-covalent interactions** — hydrogen bonds and other weak interactions shown as dotted lines, detected automatically via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
 - **GIF animations** — rotation, TS vibration, and trajectory animations for presentations and SI
 - **VdW surface overlays** — van der Waals spheres on all or selected atoms
 - **Depth fog and gradients** — 3D depth cues without needing a 3D viewer
@@ -360,7 +360,7 @@ The SVG rendering in xyzrender is built on and heavily inspired by [xyz2svg](htt
 
 Key dependencies:
 
-- [xyzgraph](https://github.com/aligfellow/xyzgraph) — bond connectivity, bond orders, and aromaticity detection from molecular geometry
+- [xyzgraph](https://github.com/aligfellow/xyzgraph) — bond connectivity, bond orders, aromaticity detection and non-covalent interactions from molecular geometry
 - [graphRC](https://github.com/aligfellow/graphRC) — reaction coordinate analysis and TS bond detection from imaginary frequency vibrations
 - [cclib](https://github.com/cclib/cclib) — parsing quantum chemistry output files (ORCA, Gaussian, Q-Chem, etc.)
 - [CairoSVG](https://github.com/Kozea/CairoSVG) — SVG to PNG/PDF conversion
