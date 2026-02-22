@@ -259,16 +259,16 @@ Transition state analysis uses [graphRC](https://github.com/aligfellow/graphRC) 
 xyzrender ts.out --ts
 
 # Manual TS bond specification (1-indexed atom pairs)
-xyzrender molecule.xyz --ts-bonds "1-6,3-4"
+xyzrender molecule.xyz --ts-bond "1-6,3-4"
 
 # Auto-detect non-covalent interactions via xyzgraph (dotted bonds)
-xyzrender complex.xyz -N
+xyzrender complex.xyz --nci
 
 # Manual NCI bonds
-xyzrender complex.xyz --nci-bonds "1-5,2-8"
+xyzrender complex.xyz --nci-bond "1-5,2-8"
 
 # Combined TS + NCI
-xyzrender ts.out --ts -N
+xyzrender ts.out --ts --nci
 ```
 
 ## GIF animation
@@ -299,9 +299,9 @@ Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Pref
 | `--orient` / `--no-orient` | Auto-orientation toggle |
 | `--ts` | Auto-detect TS bonds via graphRC |
 | `--ts-frame` | TS reference frame (0-indexed) |
-| `--ts-bonds` | Manual TS bond pairs (1-indexed) |
-| `-N`, `--nci-detect` | Auto-detect NCI interactions |
-| `--nci-bonds` | Manual NCI bond pairs (1-indexed) |
+| `--ts-bond` | Manual TS bond pair(s) (1-indexed) |
+| `--nci` | Auto-detect NCI interactions |
+| `--nci-bond` | Manual NCI bond pair(s) (1-indexed) |
 | `--hy` | Show H atoms (no args=all, or 1-indexed) |
 | `--no-hy` | Hide all H atoms |
 | `--vdw` | VdW spheres (no args=all, or index ranges) |

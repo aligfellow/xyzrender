@@ -92,7 +92,7 @@ def main() -> None:
     # --- Orientation ---
     orient_g = p.add_argument_group("orientation")
     orient_g.add_argument(
-        "--orient", action=argparse.BooleanOptionalAction, default=None, help="PCA auto-orientation (default: on)"
+        "--orient", action=argparse.BooleanOptionalAction, default=None, help="Auto-orientation (default: on)"
     )
     orient_g.add_argument("-I", "--interactive", action="store_true", help="Open in v viewer for interactive rotation")
 
@@ -100,9 +100,9 @@ def main() -> None:
     ts_g = p.add_argument_group("transition state / NCI")
     ts_g.add_argument("--ts", action="store_true", dest="ts_detect", help="Auto-detect TS bonds via graphRC")
     ts_g.add_argument("--ts-frame", type=int, default=0, help="TS reference frame for graphRC (0-indexed)")
-    ts_g.add_argument("--ts-bonds", default="", help='Manual TS bond pairs, 1-indexed: "1-6,3-4"')
-    ts_g.add_argument("-N", "--nci-detect", action="store_true", help="Auto-detect NCI interactions via xyzgraph")
-    ts_g.add_argument("--nci-bonds", default="", help='NCI bond pairs, 1-indexed: "1-5,2-8"')
+    ts_g.add_argument("--ts-bond", default="", help='Manual TS bond pair(s), 1-indexed: "1-6,3-4"')
+    ts_g.add_argument("--nci", action="store_true", help="Auto-detect NCI interactions via xyzgraph")
+    ts_g.add_argument("--nci-bond", default="", help='Manual NCI bond pair(s), 1-indexed: "1-5,2-8"')
 
     # --- GIF animation ---
     gif_g = p.add_argument_group("GIF animation")
@@ -188,8 +188,8 @@ def main() -> None:
     else:
         cfg.hide_h = True  # --hy 1 3 5: show specific only
         cfg.show_h_indices = [i - 1 for i in args.hy]
-    cfg.ts_bonds = _parse_pairs(args.ts_bonds)
-    cfg.nci_bonds = _parse_pairs(args.nci_bonds)
+    cfg.ts_bonds = _parse_pairs(args.ts_bond)
+    cfg.nci_bonds = _parse_pairs(args.nci_bond)
     cfg.vdw_indices = (
         _parse_indices(args.vdw) if args.vdw is not None and args.vdw != "" else ([] if args.vdw == "" else None)
     )
@@ -221,7 +221,7 @@ def main() -> None:
         p.error("No input file and stdin is a terminal")
 
     # Post-load analysis
-    if args.nci_detect:
+    if args.nci:
         detect_nci(graph)
 
     # Orientation
