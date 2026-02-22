@@ -339,7 +339,7 @@ GitHub Actions runs lint, type-check, and tests on every push to `main` and ever
 
 ## Acknowledgements
 
-The SVG rendering in xyzrender is built on and heavily inspired by [xyz2svg](https://github.com/briling/xyz2svg) by [Ksenia Briling @briling](https://github.com/briling) — the CPK colour scheme, core SVG atom/bond rendering logic, and overall approach originate from that project. The radial gradient (pseudo-3D) rendering was contributed to xyz2svg by [Iñigo Iribarren Aguirre @iribirii](https://github.com/iribirii).
+The SVG rendering in xyzrender is built on and heavily inspired by [xyz2svg](https://github.com/briling/xyz2svg) by [Ksenia Briling @briling](https://github.com/briling). The CPK colour scheme, core SVG atom/bond rendering logic, fog, and overall approach originate from that project. The radial gradient (pseudo-3D) rendering was contributed to xyz2svg by [Iñigo Iribarren Aguirre @iribirii](https://github.com/iribirii).
 
 Key dependencies:
 
