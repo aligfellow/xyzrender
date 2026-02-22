@@ -115,12 +115,13 @@ xyzrender benzene.xyz --hy -o benzene.svg                # aromatic
 
 ### VdW spheres
 
-| All atoms | paton-style |
-|-----------|--------|
-| ![vdw](examples/asparagine_vdw.svg) | ![vdw paton](examples/asparagine_vdw_paton.svg) |
+| All atoms | Some vdW | paton-style |
+|-----------|--------|--------|
+| ![vdw](examples/asparagine_vdw.svg) | ![vdw paton](examples/asparagine_vdw_partial.svg) | ![vdw paton](examples/asparagine_vdw_paton.svg) |
 
 ```bash
 xyzrender asparagine.xyz --hy --vdw -o asparagine_vdw.svg  # VdW spheres on all atoms
+xyzrender asparagine.xyz --hy --vdw "1-6" -o asparagine_vdw_partial.svg  # VdW spheres on some atoms
 xyzrender asparagine.xyz --hy --vdw --config paton -o asparagine_vdw_paton.svg  # VdW spheres on all atoms
 ```
 
@@ -243,13 +244,15 @@ v molecule.xyz | xyzrender
 
 Orient the molecule, press `z` to output reoriented coordinates, then `q` to close.
 
-This must be installed separately if this option is to be used. The executable should be in `~/bin/` for discovery. TODO: Look into cleaning up this integration.
+This must be installed separately if this option is to be used. The executable should be in `~/bin/` for discovery. 
+
+*TODO: Look into cleaning up this integration.*
 
 ## Transition states and NCI
 
 xyzrender uses [xyzgraph](https://github.com/aligfellow/xyzgraph) for molecular graph construction from Cartesian coordinates — determining bond connectivity, bond orders, and detecting aromatic rings and non-covalent interactions. It also provides element data (van der Waals radii, atomic numbers) used throughout rendering.
 
-Transition state analysis uses [graphRC](https://github.com/aligfellow/graphRC) for internal coordinate vibrational mode analysis. Given a QM output file (ORCA, Gaussian, etc.), graphRC identifies which bonds are forming or breaking at the transition state. These are rendered as dashed bonds. graphRC is also used to generate TS vibration frames for `--gif-ts` animations.
+Transition state analysis uses [graphRC](https://github.com/aligfellow/graphRC) for internal coordinate vibrational mode analysis. Given a QM output file (ORCA, Gaussian, etc.), graphRC identifies which bonds are forming or breaking at the transition state with `--ts`. These are rendered as dashed bonds. graphRC is also used to generate TS vibration frames for `--gif-ts` animations.
 
 ```bash
 # Auto-detect TS bonds via graphRC (dashed bonds)
