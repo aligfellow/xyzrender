@@ -23,7 +23,12 @@ if TYPE_CHECKING:
 _Atoms: TypeAlias = list[tuple[str, tuple[float, float, float]]]
 
 
-def load_molecule(path: str | Path, charge: int = 0, multiplicity: int | None = None) -> nx.Graph:
+def load_molecule(
+    path: str | Path,
+    charge: int = 0,
+    multiplicity: int | None = None,
+    kekule: bool = False,
+) -> nx.Graph:
     """Read molecular structure file and build graph.
 
     Supports .xyz natively; all other formats (ORCA .out, Gaussian .log,
@@ -34,14 +39,14 @@ def load_molecule(path: str | Path, charge: int = 0, multiplicity: int | None = 
     logger.info("Loading %s", p)
     if p.endswith(".xyz"):
         logger.debug("Parsing as XYZ")
-        graph = build_graph(read_xyz_file(p), charge=charge, multiplicity=multiplicity)
+        graph = build_graph(read_xyz_file(p), charge=charge, multiplicity=multiplicity, kekule=kekule)
     else:
         logger.debug("Parsing as QM output via cclib")
         atoms, file_charge, file_mult = _parse_qm_output(p)
         c = charge if charge != 0 else file_charge
         m = multiplicity if multiplicity is not None else file_mult
         logger.debug("cclib: charge=%d, multiplicity=%s", c, m)
-        graph = build_graph(atoms, charge=c, multiplicity=m)
+        graph = build_graph(atoms, charge=c, multiplicity=m, kekule=kekule)
     logger.info("Built graph: %d atoms, %d bonds", graph.number_of_nodes(), graph.number_of_edges())
     return graph
 
@@ -70,6 +75,7 @@ def load_ts_molecule(
     multiplicity: int | None = None,
     mode: int = 0,
     ts_frame: int = 0,
+    kekule: bool = False,
 ) -> tuple[nx.Graph, list[dict]]:
     """Load TS and detect forming/breaking bonds via graphRC.
 
@@ -95,6 +101,20 @@ def load_ts_molecule(
 
     graph = results["graph"]["ts_graph"]
     frames = results["trajectory"]["frames"]
+
+    # Rebuild graph with Kekule bond orders if requested, copying TS attributes
+    if kekule:
+        ts_frame_data = frames[ts_frame]
+        atoms = list(zip(ts_frame_data["symbols"], [tuple(p) for p in ts_frame_data["positions"]], strict=True))
+        kekule_graph = build_graph(atoms, charge=charge, multiplicity=multiplicity, kekule=True)
+        for i, j, d in graph.edges(data=True):
+            if d.get("TS", False):
+                if kekule_graph.has_edge(i, j):
+                    kekule_graph[i][j].update({k: v for k, v in d.items() if k.startswith(("TS", "vib"))})
+                else:
+                    kekule_graph.add_edge(i, j, **{k: v for k, v in d.items() if k.startswith(("TS", "vib"))})
+        graph = kekule_graph
+
     logger.info(
         "TS graph: %d atoms, %d bonds, %d frames", graph.number_of_nodes(), graph.number_of_edges(), len(frames)
     )
@@ -220,9 +240,9 @@ def load_trajectory_frames(path: str | Path) -> list[dict]:
     return frames
 
 
-def load_stdin(charge: int = 0, multiplicity: int | None = None) -> nx.Graph:
+def load_stdin(charge: int = 0, multiplicity: int | None = None, kekule: bool = False) -> nx.Graph:
     """Read atoms from stdin — auto-detects XYZ and line-by-line formats."""
-    return build_graph(_parse_auto(sys.stdin.read()), charge=charge, multiplicity=multiplicity)
+    return build_graph(_parse_auto(sys.stdin.read()), charge=charge, multiplicity=multiplicity, kekule=kekule)
 
 
 def _parse_auto(text: str) -> list[tuple[str, tuple[float, float, float]]]:

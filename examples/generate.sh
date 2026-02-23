@@ -19,6 +19,7 @@ xyzrender "$DIR/ethanol.xyz" --hy -o "$OUT/ethanol_all_h.svg"           # all H
 xyzrender "$DIR/ethanol.xyz" --hy 7 8 9 -o "$OUT/ethanol_some_h.svg"   # specific H atoms
 xyzrender "$DIR/ethanol.xyz" --no-hy -o "$OUT/ethanol_no_h.svg"        # no H
 xyzrender "$DIR/benzene.xyz" --hy -o "$OUT/benzene.svg"                 # aromatic
+xyzrender "$DIR/caffeine.xyz" --bo -k -o "$OUT/caffeine_kekule.svg"    # Kekule bond orders
 
 echo "=== VdW spheres ==="
 xyzrender "$DIR/asparagine.xyz" --hy --vdw -o "$OUT/asparagine_vdw.svg"  # all atoms

@@ -319,6 +319,7 @@ def render_trajectory_gif(
     reference_graph: nx.Graph | None = None,
     detect_nci: bool = False,
     axis: str | None = None,
+    kekule: bool = False,
 ) -> None:
     """Render optimization/trajectory path as an animated GIF.
 
@@ -335,7 +336,7 @@ def render_trajectory_gif(
     # Build graph from last frame (optimized geometry → correct bond orders)
     last = frames[-1]
     last_atoms = list(zip(last["symbols"], [tuple(p) for p in last["positions"]], strict=True))
-    graph = build_graph(last_atoms, charge=charge, multiplicity=multiplicity)
+    graph = build_graph(last_atoms, charge=charge, multiplicity=multiplicity, kekule=kekule)
 
     # Copy TS/NCI edge attributes from reference graph
     if reference_graph is not None:

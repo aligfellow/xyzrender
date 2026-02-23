@@ -89,6 +89,9 @@ def main() -> None:
     disp_g.add_argument("--hy", nargs="*", type=int, default=None, help="Show H atoms (no args=all, or 1-indexed)")
     disp_g.add_argument("--no-hy", action="store_true", default=False, help="Hide all H atoms")
     disp_g.add_argument("--bo", action=argparse.BooleanOptionalAction, default=None, help="Bond orders")
+    disp_g.add_argument(
+        "-k", "--kekule", action="store_true", default=False, help="Use Kekule bond orders (no aromatic 1.5)"
+    )
     disp_g.add_argument("--fog", action=argparse.BooleanOptionalAction, default=None, help="Depth fog")
     disp_g.add_argument("--vdw", nargs="?", const="", default=None, help='VdW spheres (no args=all, or "1-20,25")')
 
@@ -233,12 +236,16 @@ def main() -> None:
     needs_ts = args.ts_detect or args.gif_ts
     if needs_ts and args.input:
         graph, _ts_frames = load_ts_molecule(
-            args.input, charge=args.charge, multiplicity=args.multiplicity, ts_frame=args.ts_frame
+            args.input,
+            charge=args.charge,
+            multiplicity=args.multiplicity,
+            ts_frame=args.ts_frame,
+            kekule=args.kekule,
         )
     elif args.input:
-        graph = load_molecule(args.input, charge=args.charge, multiplicity=args.multiplicity)
+        graph = load_molecule(args.input, charge=args.charge, multiplicity=args.multiplicity, kekule=args.kekule)
     elif not sys.stdin.isatty():
-        graph = load_stdin(charge=args.charge, multiplicity=args.multiplicity)
+        graph = load_stdin(charge=args.charge, multiplicity=args.multiplicity, kekule=args.kekule)
     else:
         p.error("No input file and stdin is a terminal")
 
@@ -313,6 +320,7 @@ def main() -> None:
                 reference_graph=graph,
                 detect_nci=args.nci,
                 axis=args.gif_rot or None,
+                kekule=args.kekule,
             )
         elif args.gif_rot:
             render_rotation_gif(graph, cfg, gif_path, n_frames=args.rot_frames, fps=args.gif_fps, axis=args.gif_rot)

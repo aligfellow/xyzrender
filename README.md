@@ -103,15 +103,20 @@ The `paton` style is inspired by the clean styling used by [Rob Paton](https://g
 
 ### Display options
 
-| All H | Some H | No H | Aromatic |
-|-------|--------|------|----------|
-| ![all H](examples/ethanol_all_h.svg) | ![some H](examples/ethanol_some_h.svg) | ![no H](examples/ethanol_no_h.svg) | ![benzene](examples/benzene.svg) |
+| All H | Some H | No H | 
+|-------|--------|------|
+| ![all H](examples/ethanol_all_h.svg) | ![some H](examples/ethanol_some_h.svg) | ![no H](examples/ethanol_no_h.svg) | 
+
+| Aromatic | Kekule |
+|----------|--------|
+| ![benzene](examples/benzene.svg) | ![kekule](examples/caffeine_kekule.svg) |
 
 ```bash
-xyzrender ethanol.xyz --hy -o ethanol_all_h.svg          # all H
+xyzrender ethanol.xyz --hy -o ethanol_all_h.svg         # all H
 xyzrender ethanol.xyz --hy 7 8 9 -o ethanol_some_h.svg  # specific H atoms
 xyzrender ethanol.xyz --no-hy -o ethanol_no_h.svg       # no H
-xyzrender benzene.xyz --hy -o benzene.svg                # aromatic
+xyzrender benzene.xyz --hy -o benzene.svg               # aromatic
+xyzrender caffeine.xyz --bo -k -o caffeine_kekule.svg   # Kekule bond orders
 ```
 
 ### VdW spheres
@@ -323,6 +328,7 @@ Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Pref
 | `--nci-bond` | Manual NCI bond pair(s) (1-indexed) |
 | `--hy` | Show H atoms (no args=all, or 1-indexed) |
 | `--no-hy` | Hide all H atoms |
+| `-k`, `--kekule` | Use Kekule bond orders (no aromatic 1.5) |
 | `--vdw` | VdW spheres (no args=all, or index ranges) |
 
 ## Development
