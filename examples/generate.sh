@@ -39,7 +39,7 @@ xyzrender "$DIR/bimp.out" --nci -o "$OUT/bimp_nci.svg"  # all NCI bonds
 
 echo "=== Molecular orbitals ==="
 xyzrender "$DIR/caffeine_homo.cube" --mo -o "$OUT/caffeine_homo.svg"
-xyzrender "$DIR/caffeine_lumo.cube" --mo -o "$OUT/caffeine_lumo.svg"
+xyzrender "$DIR/caffeine_lumo.cube" --mo --mo-colour maroon teal -o "$OUT/caffeine_lumo.svg"
 xyzrender "$DIR/caffeine_homo.cube" --mo --hy --iso 0.03 -o "$OUT/caffeine_homo_iso_hy.svg"
 xyzrender "$DIR/caffeine_homo.cube" --mo -o "$OUT/caffeine_homo_rot.svg" --gif-rot -go "$OUT/caffeine_homo.gif"
 

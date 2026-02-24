@@ -217,7 +217,7 @@ Render molecular orbitals from cube files (`.cube`). Requires the `--mo` flag. T
 
 ```bash
 xyzrender caffeine_homo.cube --mo -o caffeine_homo.svg              # HOMO
-xyzrender caffeine_lumo.cube --mo -o caffeine_lumo.svg              # LUMO
+xyzrender caffeine_lumo.cube --mo --mo-colour maroon teal -o caffeine_lumo.svg  # LUMO
 xyzrender caffeine_homo.cube --mo --hy --iso 0.03 -o homo_iso_hy.svg  # MO + H atoms + custom isovalue
 xyzrender caffeine_homo.cube --mo --gif-rot -go caffeine_homo.gif   # rotation GIF with MO
 ```
