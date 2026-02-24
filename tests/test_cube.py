@@ -1,18 +1,11 @@
-"""Tests for cube file math: marching squares, segment chaining, 3D lobe finding."""
+"""Tests for cube file parsing and MO math: marching squares, segment chaining, 3D lobe finding."""
 
 from __future__ import annotations
 
 import numpy as np
 
-from xyzrender.cube import (
-    BOHR_TO_ANG,
-    CubeData,
-    _cube_corners_ang,
-    _find_3d_lobes,
-    chain_segments,
-    marching_squares,
-    parse_cube,
-)
+from xyzrender.cube import BOHR_TO_ANG, CubeData, parse_cube
+from xyzrender.mo import chain_segments, cube_corners_ang, find_3d_lobes, marching_squares
 
 # ---------------------------------------------------------------------------
 # marching_squares
@@ -66,7 +59,7 @@ def test_chain_segments_empty():
 
 
 # ---------------------------------------------------------------------------
-# _find_3d_lobes
+# find_3d_lobes
 # ---------------------------------------------------------------------------
 
 
@@ -79,7 +72,7 @@ def _two_blob_grid() -> np.ndarray:
 
 
 def test_find_lobes_two_positive():
-    lobes = _find_3d_lobes(_two_blob_grid(), isovalue=0.5)
+    lobes = find_3d_lobes(_two_blob_grid(), isovalue=0.5)
     pos_lobes = [lb for lb in lobes if lb.phase == "pos"]
     assert len(pos_lobes) == 2
 
@@ -87,18 +80,18 @@ def test_find_lobes_two_positive():
 def test_find_lobes_pos_and_neg():
     g = _two_blob_grid()
     g[6:9, 6:9, 6:9] = -1.0  # make second blob negative
-    lobes = _find_3d_lobes(g, isovalue=0.5)
+    lobes = find_3d_lobes(g, isovalue=0.5)
     phases = {lb.phase for lb in lobes}
     assert phases == {"pos", "neg"}
 
 
 def test_find_lobes_empty():
     g = np.zeros((5, 5, 5))
-    assert _find_3d_lobes(g, isovalue=0.5) == []
+    assert find_3d_lobes(g, isovalue=0.5) == []
 
 
 # ---------------------------------------------------------------------------
-# _cube_corners_ang
+# cube_corners_ang
 # ---------------------------------------------------------------------------
 
 
@@ -111,7 +104,7 @@ def test_cube_corners():
         grid_data=np.zeros((3, 3, 3)),
         mo_index=None,
     )
-    corners = _cube_corners_ang(cube)
+    corners = cube_corners_ang(cube)
     assert corners.shape == (8, 3)
     # Origin corner should be (0,0,0) in Angstrom
     assert np.allclose(corners[0], [0.0, 0.0, 0.0])

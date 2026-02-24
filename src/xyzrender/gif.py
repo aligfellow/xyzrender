@@ -302,7 +302,9 @@ def render_rotation_gif(
         apply_axis_angle_rotation(graph, axis_vec, axis_sign * step * frame_idx)
 
         if mo_data is not None:
-            _recompute_mo(graph, rot_cfg, mo_data)
+            from xyzrender.mo import recompute_mo
+
+            recompute_mo(graph, rot_cfg, mo_data)
 
         svg = render_svg(graph, rot_cfg, _log=False)
         pngs.append(_svg_to_png(svg, config.canvas_size))
@@ -389,64 +391,6 @@ def render_trajectory_gif(
     )
     _stitch_gif(pngs, output, fps)
     logger.info("Wrote %s", output)
-
-
-def _recompute_mo(graph: nx.Graph, config: RenderConfig, mo_data: dict) -> None:
-    """Recompute MO contours for the current graph orientation (Kabsch).
-
-    Caches 3D lobes, grid positions, and bounding sphere on first call so
-    they are reused across frames — only the rotation changes per frame.
-    The fixed bounding sphere prevents the 2D bin grid from sliding
-    between frames, which is the main cause of lobe wiggle in gif-rot.
-    """
-    from xyzrender.cube import _compute_grid_positions, _cube_corners_ang, _find_3d_lobes, build_mo_contours
-
-    cube_data = mo_data["cube_data"]
-
-    # Cache lobes and positions on first call
-    if "lobes_3d" not in mo_data:
-        mo_data["lobes_3d"] = _find_3d_lobes(cube_data.grid_data, mo_data["isovalue"])
-        mo_data["pos_flat_ang"] = _compute_grid_positions(cube_data)
-
-    orig = np.array([p for _, p in cube_data.atoms], dtype=float)
-    curr = np.array([graph.nodes[i]["position"] for i in graph.nodes()], dtype=float)
-    atom_centroid = orig.mean(axis=0)
-    target_centroid = curr.mean(axis=0)
-
-    # Cache bounding sphere: rotation-invariant bounds from cube corners.
-    # The max 3D distance from atom centroid to any corner is the worst-case
-    # 2D projection extent under any rotation, giving stable grid bounds.
-    if "fixed_bounds" not in mo_data:
-        corners = _cube_corners_ang(cube_data)
-        r_max = float(np.linalg.norm(corners - atom_centroid, axis=1).max())
-        pad = r_max * 0.01 + 1e-9
-        mo_data["_bounding_radius"] = r_max + pad
-
-    r = mo_data["_bounding_radius"]
-    fixed_bounds = (
-        float(target_centroid[0] - r),
-        float(target_centroid[0] + r),
-        float(target_centroid[1] - r),
-        float(target_centroid[1] + r),
-    )
-    mo_data["fixed_bounds"] = fixed_bounds
-
-    # Kabsch rotation from original cube positions to current graph positions
-    rot = kabsch_rotation(orig, curr)
-
-    config.mo_contours = build_mo_contours(
-        cube_data,
-        rot=rot,
-        isovalue=mo_data["isovalue"],
-        pos_color=mo_data["pos_color"],
-        neg_color=mo_data["neg_color"],
-        atom_centroid=atom_centroid,
-        target_centroid=target_centroid,
-        lobes_3d=mo_data["lobes_3d"],
-        pos_flat_ang=mo_data["pos_flat_ang"],
-        fixed_bounds=fixed_bounds,
-    )
-    config.mo_opacity = mo_data["mo_opacity"]
 
 
 def _rotation_config(positions: np.ndarray, config: RenderConfig) -> RenderConfig:

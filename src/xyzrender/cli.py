@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from xyzrender.config import build_render_config, load_config
 
 if TYPE_CHECKING:
+    from xyzrender.cube import CubeData
     from xyzrender.types import RenderConfig
 
 from xyzrender.io import (
@@ -300,7 +301,7 @@ def main() -> None:
 
         import numpy as np
 
-        from xyzrender.cube import CubeData, build_mo_contours
+        from xyzrender.mo import build_mo_contours
         from xyzrender.utils import kabsch_rotation, pca_orient
 
         assert mo_colors is not None  # set when args.mo is True

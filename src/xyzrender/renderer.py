@@ -8,7 +8,8 @@ import numpy as np
 from xyzgraph import DATA
 
 from xyzrender.colors import _FOG_NEAR, WHITE, blend_fog, get_color, get_gradient_colors
-from xyzrender.types import BondStyle, Color, RenderConfig
+from xyzrender.mo import classify_mo_lobes, mo_back_lobes_svg, mo_front_lobes_svg, mo_gradient_defs_svg
+from xyzrender.types import BondStyle, RenderConfig
 
 logger = logging.getLogger(__name__)
 
@@ -200,35 +201,15 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
     mo_is_front = None
     if cfg.mo_contours is not None:
         mo = cfg.mo_contours
-        mo_is_front = _classify_mo_lobes(mo.lobes, float(pos[:, 2].mean()))
+        mo_is_front = classify_mo_lobes(mo.lobes, float(pos[:, 2].mean()))
         svg.append("  <defs>")
-        for phase, color_hex in [("pos", mo.pos_color), ("neg", mo.neg_color)]:
-            c = Color.from_hex(color_hex)
-            hi_f = c.lighten(0.25)
-            lo_f = c.darken(0.40)
-            svg.append(
-                f'    <radialGradient id="mo_{phase}_front" cx=".5" cy=".5" fx=".33" fy=".33" r=".66">'
-                f'<stop offset="0%" stop-color="{hi_f.hex}"/>'
-                f'<stop offset="100%" stop-color="{lo_f.hex}"/>'
-                f"</radialGradient>"
-            )
+        svg.extend(mo_gradient_defs_svg(mo))
         svg.append("  </defs>")
 
     # --- Back MO orbital lobes (behind molecule) — flat faded fill ---
     if cfg.mo_contours is not None:
-        mo = cfg.mo_contours
         assert mo_is_front is not None
-        mo_opacity = cfg.mo_opacity
-        for idx_l, lobe in enumerate(mo.lobes):
-            if mo_is_front[idx_l]:
-                continue
-            color_hex = mo.pos_color if lobe.phase == "pos" else mo.neg_color
-            flat_color = Color.from_hex(color_hex).lighten(0.30).hex
-            d_all = _mo_combined_path_d(lobe.loops, mo, scale, cx, cy, canvas_w, canvas_h)
-            if d_all:
-                svg.append(f'  <g opacity="{mo_opacity:.2f}">')
-                svg.append(f'    <path d="{d_all}" fill="{flat_color}" fill-rule="evenodd" stroke="none"/>')
-                svg.append("  </g>")
+        svg.extend(mo_back_lobes_svg(cfg.mo_contours, mo_is_front, cfg.mo_opacity, scale, cx, cy, canvas_w, canvas_h))
 
     # Interleaved z-order: for each atom, render it then its bonds to deeper atoms
     gap = cfg.bond_gap * bw  # pixel gap scales with bond width
@@ -327,17 +308,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
 
     # --- Front MO orbital lobes (on top of molecule) ---
     if cfg.mo_contours is not None:
-        mo = cfg.mo_contours
         assert mo_is_front is not None
-        for idx_l, lobe in enumerate(mo.lobes):
-            if not mo_is_front[idx_l]:
-                continue
-            grad_id = f"mo_{lobe.phase}_front"
-            d_all = _mo_combined_path_d(lobe.loops, mo, scale, cx, cy, canvas_w, canvas_h)
-            if d_all:
-                svg.append(f'  <g opacity="{mo_opacity:.2f}">')
-                svg.append(f'    <path d="{d_all}" fill="url(#{grad_id})" fill-rule="evenodd" stroke="none"/>')
-                svg.append("  </g>")
+        svg.extend(mo_front_lobes_svg(cfg.mo_contours, mo_is_front, cfg.mo_opacity, scale, cx, cy, canvas_w, canvas_h))
 
     # VdW surface overlay — on top of molecule, group opacity for proper occlusion
     if vdw_set is not None:
@@ -356,56 +328,6 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-
-def _classify_mo_lobes(lobes, mol_z: float) -> list[bool]:
-    """Classify each lobe as front (True) or back (False).
-
-    Pairs opposite-phase lobes by 3D centroid proximity — paired lobes are
-    on opposite sides of the molecular plane, so within each pair the
-    higher-z lobe is front and the lower-z is back.  This avoids the
-    ambiguity of a global threshold and keeps paired lobes stable during
-    rotation.  Unpaired lobes fall back to the molecule z-centroid.
-    """
-    n = len(lobes)
-    if n == 0:
-        return []
-    is_front: list[bool | None] = [None] * n
-
-    # Build all candidate opposite-phase pairs sorted by 3D distance
-    pos_idx = [i for i in range(n) if lobes[i].phase == "pos"]
-    neg_idx = [i for i in range(n) if lobes[i].phase == "neg"]
-    candidates = []
-    for pi in pos_idx:
-        pc = lobes[pi].centroid_3d
-        for ni in neg_idx:
-            nc = lobes[ni].centroid_3d
-            d2 = (pc[0] - nc[0]) ** 2 + (pc[1] - nc[1]) ** 2 + (pc[2] - nc[2]) ** 2
-            candidates.append((d2, pi, ni))
-    candidates.sort()  # closest pairs first
-
-    # Greedy matching — closest pair wins
-    used_pos: set[int] = set()
-    used_neg: set[int] = set()
-    for _, pi, ni in candidates:
-        if pi in used_pos or ni in used_neg:
-            continue
-        used_pos.add(pi)
-        used_neg.add(ni)
-        # Within pair: higher z = front
-        if lobes[pi].z_depth >= lobes[ni].z_depth:
-            is_front[pi] = True
-            is_front[ni] = False
-        else:
-            is_front[pi] = False
-            is_front[ni] = True
-
-    # Unpaired lobes: fallback to molecule z-centroid
-    for i in range(n):
-        if is_front[i] is None:
-            is_front[i] = lobes[i].z_depth >= mol_z
-
-    return is_front  # type: ignore[return-value]
 
 
 def _fit_canvas(pos, radii, cfg, extra_lo=None, extra_hi=None):
@@ -439,57 +361,6 @@ def _fit_canvas(pos, radii, cfg, extra_lo=None, extra_hi=None):
 def _proj(p, scale, cx, cy, cw, ch):
     """3D position → 2D pixel coordinates (y-flipped for SVG)."""
     return cw / 2 + scale * (p[0] - cx), ch / 2 - scale * (p[1] - cy)
-
-
-def _mo_loop_to_path_d(loop, mo, scale, cx, cy, canvas_w, canvas_h):
-    """Convert a single MO contour loop to a smooth SVG path using cubic Bezier curves.
-
-    Uses Catmull-Rom spline conversion: for each segment P1→P2, the cubic
-    Bezier control points are CP1 = P1 + (P2 - P0)/6, CP2 = P2 - (P3 - P1)/6
-    where P0 and P3 are the neighbouring points (wrapping for closed loops).
-    """
-    if len(loop) < 3:
-        return None
-    res = max(mo.resolution - 1, 1)
-    # Convert grid coords to SVG pixel coords
-    pts = []
-    for row, col in loop:
-        x_ang = mo.x_min + (col / res) * (mo.x_max - mo.x_min)
-        y_ang = mo.y_min + (row / res) * (mo.y_max - mo.y_min)
-        sx = canvas_w / 2 + scale * (x_ang - cx)
-        sy = canvas_h / 2 - scale * (y_ang - cy)
-        pts.append((sx, sy))
-
-    n = len(pts)
-    # Build Catmull-Rom cubic Bezier path (closed loop)
-    parts = [f"M {pts[0][0]:.1f} {pts[0][1]:.1f}"]
-    for i in range(n):
-        p0 = pts[(i - 1) % n]
-        p1 = pts[i]
-        p2 = pts[(i + 1) % n]
-        p3 = pts[(i + 2) % n]
-        # Control points
-        cp1x = p1[0] + (p2[0] - p0[0]) / 6
-        cp1y = p1[1] + (p2[1] - p0[1]) / 6
-        cp2x = p2[0] - (p3[0] - p1[0]) / 6
-        cp2y = p2[1] - (p3[1] - p1[1]) / 6
-        parts.append(f"C {cp1x:.1f} {cp1y:.1f} {cp2x:.1f} {cp2y:.1f} {p2[0]:.1f} {p2[1]:.1f}")
-    parts.append("Z")
-    return " ".join(parts)
-
-
-def _mo_combined_path_d(loops, mo, scale, cx, cy, canvas_w, canvas_h):
-    """Combine all contour loops of one phase into a single SVG path d-string.
-
-    Uses fill-rule="evenodd" so inner loops become holes automatically.
-    Eliminates gradient stepping between adjacent/nested loops.
-    """
-    parts = []
-    for loop in loops:
-        d = _mo_loop_to_path_d(loop, mo, scale, cx, cy, canvas_w, canvas_h)
-        if d:
-            parts.append(d)
-    return " ".join(parts) if parts else None
 
 
 def _ring_side(pos, ai, aj, aromatic_rings, x1, y1, x2, y2, px, py, scale, cx, cy, canvas_w, canvas_h):
