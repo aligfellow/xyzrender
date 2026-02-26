@@ -285,9 +285,9 @@ Map electrostatic potential onto the electron density isosurface using two cube 
 
 The surface is colored using a diverging colormap centered at zero: blue (positive ESP / electron-poor) through green (zero) to red (negative ESP / electron-rich).
 
-| ESP surface | ESP custom |
-|-------------|-------------|-------------|
-| ![esp](examples/caffeine_esp.svg) | ![esp custom](examples/caffeine_esp_custom.svg) |
+| ESP surface | ESP custom |  
+|-------------|-------------|  
+| ![esp](examples/caffeine_esp.svg) | ![esp custom](examples/caffeine_esp_custom.svg) |  
 
 ```bash
 xyzrender caffeine_dens.cube --esp caffeine_esp.cube -o caffeine_esp.svg
