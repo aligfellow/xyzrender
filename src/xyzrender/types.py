@@ -7,6 +7,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from xyzrender.esp import ESPSurface
     from xyzrender.mo import MOContours
 
 
@@ -164,6 +165,8 @@ class RenderConfig:
     fixed_span: float | None = None  # fixed viewport span (disables auto-fit)
     fixed_center: tuple[float, float] | None = None  # fixed XY center (disables auto-center)
     color_overrides: dict[str, str] | None = None  # element symbol → hex color
-    # MO rendering
+    # Surface rendering (MO / density / ESP share one opacity)
     mo_contours: MOContours | None = None
-    mo_opacity: float = 0.6
+    dens_contours: MOContours | None = None
+    esp_surface: ESPSurface | None = None
+    surface_opacity: float = 1.0

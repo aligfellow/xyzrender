@@ -10,7 +10,7 @@ Render molecular structures as publication-quality SVG, PNG, PDF, and animated G
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/aligfellow/xyzrender/ci.yml?branch=main&logo=github-actions)](https://github.com/aligfellow/xyzrender/actions)
 [![Codecov](https://img.shields.io/codecov/c/github/aligfellow/xyzrender)](https://codecov.io/gh/aligfellow/xyzrender)
 
-xyzrender turns XYZ files and quantum chemistry output (ORCA, Gaussian, Q-Chem, etc.) into clean SVG, PNG, PDF, and animated GIF graphics — ready for papers, presentations, and supporting information. The SVG rendering approach is built on and inspired by [**xyz2svg**](https://github.com/briling/xyz2svg) by [**Ksenia Briling @briling**](https://github.com/briling).
+xyzrender turns XYZ files and quantum chemistry output (ORCA, Gaussian, Q-Chem, etc.) into clean SVG, PNG, PDF, and animated GIF graphics — ready for papers, presentations, and supporting information. The SVG rendering approach is built on and inspired by [**xyz2svg**](https://github.com/briling/xyz2svg) by [Ksenia Briling **@briling**](https://github.com/briling).
 
 Most molecular visualisation tools require manual setup: loading files into a GUI, tweaking camera angles, exporting at the right resolution and adding specific TS or NCI bonds. `xyzrender` skips this. One command gives you a (mostly) oriented, depth-cued structure with correct bond orders, aromatic ring rendering, automatic bond connectivity, with TS bonds and NCI bonds.
 
@@ -21,8 +21,11 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Bond orders and aromaticity** — double bonds, triple bonds, and aromatic ring notation detected automatically from geometry via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
 - **Transition state bonds** — forming/breaking bonds rendered as dashed lines, detected automatically from imaginary frequency vibrations via [`graphRC`](https://github.com/aligfellow/graphRC)
 - **Non-covalent interactions** — hydrogen bonds and other weak interactions shown as dotted lines, detected automatically via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
-- **GIF animations** — rotation, TS vibration, and trajectory animations for presentations and SI
-- **VdW surface overlays** — van der Waals spheres on all or selected atoms
+- **GIF animations** — rotation, TS vibration, and trajectory animations for presentations
+- **Molecular orbitals** — render MO lobes from cube files with front/back depth cueing
+- **Electron density surfaces** — depth-graded translucent isosurfaces from density cube files
+- **Electrostatic potential (ESP)** — ESP colormapped onto the density surface from paired cube files
+- **vdW surface overlays** — van der Waals spheres on all or selected atoms
 - **Depth fog and gradients** — 3D depth cues without needing a 3D viewer
 - **Multiple output formats** — SVG (default), PNG, PDF, and GIF from the same command
 
@@ -119,16 +122,16 @@ xyzrender benzene.xyz --hy -o benzene.svg               # aromatic
 xyzrender caffeine.xyz --bo -k -o caffeine_kekule.svg   # Kekule bond orders
 ```
 
-### VdW spheres
+### vdW spheres
 
 | All atoms | Some vdW | paton-style |
 |-----------|--------|--------|
 | ![vdw](examples/asparagine_vdw.svg) | ![vdw paton](examples/asparagine_vdw_partial.svg) | ![vdw paton](examples/asparagine_vdw_paton.svg) |
 
 ```bash
-xyzrender asparagine.xyz --hy --vdw -o asparagine_vdw.svg  # VdW spheres on all atoms
-xyzrender asparagine.xyz --hy --vdw "1-6" -o asparagine_vdw_partial.svg  # VdW spheres on some atoms
-xyzrender asparagine.xyz --hy --vdw --config paton -o asparagine_vdw_paton.svg  # VdW spheres on all atoms
+xyzrender asparagine.xyz --hy --vdw -o asparagine_vdw.svg  # vdW spheres on all atoms
+xyzrender asparagine.xyz --hy --vdw "1-6" -o asparagine_vdw_partial.svg  # vdW spheres on some atoms
+xyzrender asparagine.xyz --hy --vdw --config paton -o asparagine_vdw_paton.svg  # vdW spheres on all atoms
 ```
 
 ### Transition states and NCI
@@ -198,8 +201,8 @@ The visualisation supports most combinations of these options.
 | ![TS bimp full nci](examples/bimp_nci_ts.gif) | ![Bimp trj nci](examples/bimp_nci_trj.gif) |
 
 ```bash
-xyzrender bimp.out --gif-ts --gif-rot --nci --vdw 84-169 -go bimp_nci_ts.gif  # TS animation + nci + vdw + rotate
-xyzrender bimp.out --gif-trj --nci --ts --vdw 84-169 -go bimp_nci_trj.gif  # TS bonds + nci + vdw + trj
+xyzrender bimp.out --gif-ts --gif-rot --nci --vdw 84-169 -go bimp_nci_ts.gif  # TS animation + nci + vdW + rotate
+xyzrender bimp.out --gif-trj --nci --ts --vdw 84-169 -go bimp_nci_trj.gif  # TS bonds + nci + vdW + trj
 ```
 
 ### Molecular orbitals
@@ -233,12 +236,74 @@ MO-specific flags:
 |------|-------------|
 | `--mo` | Enable MO lobe rendering (required for `.cube` input) |
 | `--iso` | Isosurface threshold (default: 0.05, smaller = larger lobes) |
-| `--mo-opacity` | Lobe opacity (default: 0.6) |
-| `--mo-colors POS NEG` | Lobe colors as hex or [named color](https://matplotlib.org/stable/gallery/color/named_colors.html) (default: `#2554A5` `#851639`) |
+| `--opacity` | (Surface opacity multiplier, default: 1.0) |
+| `--mo-colors POS NEG` | Lobe colors as hex or [named color](https://matplotlib.org/stable/gallery/color/named_colors.html) (default: `steelblue` `maroon`) |
 
-Cube files are typically generated by ORCA (`orca_plot` block) or Gaussian (`cubegen`). These are projected onto 2D and drawn as SVG paths behind and in front of the molecule. Each 3D lobe is tracked separately so lobes stay coherent during rotation GIFs.
+Cube files are typically generated by ORCA (`orca_plot` block) or Gaussian (`cubegen`).
 
-When `--mo` is used with auto-orientation (the default), the molecule is tilted 45° around the x-axis after alignment. This separates orbital lobes that sit above and below the molecular plane so they are clearly visible in the 2D projection. Use `--no-orient` to disable this and render in the raw cube file coordinates or `--interactive` for orientation with [`v`](https://github.com/briling/v) (below).
+When `--mo` is used with auto-orientation (the default), the molecule is tilted 45 degrees around the x-axis after alignment. This separates orbital lobes above and below the molecular plane so they are clearly visible in the 2D projection. Use `--no-orient` to disable this and render in the raw cube file coordinates or `--interactive` for orientation with [`v`](https://github.com/briling/v) (below).
+
+This has been tested using MO cube files generated from ORCA (see the [**documentation**](https://www.faccts.de/docs/orca/6.1/manual/contents/utilitiesvisualization/utilities.html?q=cube&n=1#orca-plot) for more information).
+
+### Electron density surface
+
+> These surface plots are schematic 2D representations suitable for figures. For quantitative isosurface analysis, use a dedicated 3D viewer.
+
+Render electron density isosurfaces from cube files (`.cube`). Uses `--dens` instead of `--mo`. The density surface is rendered as a depth-graded translucent shell — multiple concentric contour rings are stacked with partial opacity so the centre (high density) appears more opaque than the edges.
+
+| Density surface | Density (iso 0.01) |
+|-----------------|-------------------|
+| ![dens](examples/caffeine_dens.svg) | ![dens iso](examples/caffeine_dens_iso.svg) |
+
+| Custom styling | Density rotation |
+|---------------|-----------------|
+| ![dens styled](examples/caffeine_dens_custom.svg) | ![dens rot](examples/caffeine_dens.gif) |
+
+```bash
+xyzrender caffeine_sp_dens.cube --dens -o caffeine_dens.svg                                   # density surface
+xyzrender caffeine_sp_dens.cube --dens --iso 0.01 -o caffeine_dens_iso.svg                    # larger isovalue (smaller surface)
+xyzrender caffeine_sp_dens.cube --dens --dens-color teal --opacity 0.75 -o caffeine_dens_styled.svg  # custom color and opacity
+xyzrender caffeine_sp_dens.cube --dens --gif-rot -go caffeine_dens.gif                        # rotation GIF
+```
+
+This has been tested using density cube files generated from ORCA (see the [**documentation**](https://www.faccts.de/docs/orca/6.1/manual/contents/utilitiesvisualization/utilities.html?q=cube&n=1#orca-plot) for more information).
+
+Density-specific flags:
+
+| Flag | Description |
+|------|-------------|
+| `--dens` | Enable density isosurface rendering (requires `.cube` input) |
+| `--iso` | Isosurface threshold (default: 0.001) |
+| `--dens-color` | Surface color as hex or [named color](https://matplotlib.org/stable/gallery/color/named_colors.html) (default: `steelblue`) |
+| `--opacity` | (Surface opacity multiplier, default: 1.0) |
+
+Density cube files contain total electron density on a 3D grid. These can be generated with ORCA (`orca_plot` with density mode) or Gaussian (`cubegen` with `density`). `--dens` and `--mo` are mutually exclusive.
+
+### Electrostatic potential (ESP) surface
+
+Map electrostatic potential onto the electron density isosurface using two cube files: a density cube (main input) and an ESP cube (`--esp` argument). Both must come from the same calculation (identical grid dimensions).
+
+The surface is colored using a diverging colormap centered at zero: blue (positive ESP / electron-poor) through green (zero) to red (negative ESP / electron-rich).
+
+| ESP surface | ESP custom |
+|-------------|-------------|-------------|
+| ![esp](examples/caffeine_esp.svg) | ![esp custom](examples/caffeine_esp_custom.svg) |
+
+```bash
+xyzrender caffeine_dens.cube --esp caffeine_esp.cube -o caffeine_esp.svg
+xyzrender caffeine_dens.cube --esp caffeine_esp.cube --iso 0.005 --opacity 0.75 -o caffeine_esp_custom.svg
+```
+
+ESP-specific flags:
+
+| Flag | Description |
+|------|-------------|
+| `--esp CUBE` | ESP cube file path (implies density surface rendering) |
+| `--opacity` | (Surface opacity multiplier, default: 1.0) |
+| `--iso` | Density isosurface threshold (default: 0.01) |
+
+`--esp` is mutually exclusive with `--mo`, `--dens`, and `--vdw`.
+`--gif-rot` is **not available**; however, the `-I` flag allows for interactive orientation of the molecule prior to generating the image.
 
 ## Orientation
 
@@ -298,9 +363,9 @@ xyzrender caffeine.xyz --config default --no-fog
 | `--grad` / `--no-grad` | Toggle radial gradients |
 | `--fog` / `--no-fog` | Toggle depth fog |
 | `--bo` / `--no-bo` | Toggle bond order rendering |
-| `--vdw-opacity` | VdW sphere opacity |
-| `--vdw-scale` | VdW sphere radius scale |
-| `--vdw-gradient` | VdW sphere gradient strength |
+| `--vdw-opacity` | vdW sphere opacity |
+| `--vdw-scale` | vdW sphere radius scale |
+| `--vdw-gradient` | vdW sphere gradient strength |
 
 ### Custom presets
 
@@ -367,11 +432,14 @@ Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Pref
 | `--hy` | Show H atoms (no args=all, or 1-indexed) |
 | `--no-hy` | Hide all H atoms |
 | `-k`, `--kekule` | Use Kekule bond orders (no aromatic 1.5) |
-| `--vdw` | VdW spheres (no args=all, or index ranges) |
+| `--vdw` | vdW spheres (no args=all, or index ranges) |
 | `--mo` | Render MO lobes from `.cube` input |
-| `--iso` | MO isosurface threshold (default: 0.05) |
-| `--mo-opacity` | MO lobe opacity (default: 0.6) |
+| `--iso` | Isosurface threshold (MO default: 0.05, density default: 0.001) |
+| `--opacity` | Surface opacity multiplier (default: 1.0) |
 | `--mo-colors` | MO lobe colors (hex or named: POS NEG) |
+| `--dens` | Render density isosurface from `.cube` input |
+| `--dens-color` | Density surface color (default: `steelblue`) |
+| `--esp CUBE` | ESP cube file for potential coloring (implies `--dens`) |
 
 ## Development
 
@@ -404,15 +472,19 @@ GitHub Actions runs lint, type-check, and tests on every push to `main` and ever
 
 ## Acknowledgements
 
-The SVG rendering in xyzrender is built on and heavily inspired by [xyz2svg](https://github.com/briling/xyz2svg) by [Ksenia Briling @briling](https://github.com/briling). The CPK colour scheme, core SVG atom/bond rendering logic, fog, and overall approach originate from that project. The radial gradient (pseudo-3D) rendering was contributed to xyz2svg by [Iñigo Iribarren Aguirre @iribirii](https://github.com/iribirii).
+The SVG rendering in xyzrender is built on and heavily inspired by [**xyz2svg**](https://github.com/briling/xyz2svg) by [Ksenia Briling **@briling**](https://github.com/briling). The CPK colour scheme, core SVG atom/bond rendering logic, fog, and overall approach originate from that project. The radial gradient (pseudo-3D) rendering was contributed to xyz2svg by [Iñigo Iribarren Aguirre **@iribirii**](https://github.com/iribirii).
 
 Key dependencies:
 
-- [xyzgraph](https://github.com/aligfellow/xyzgraph) — bond connectivity, bond orders, aromaticity detection and non-covalent interactions from molecular geometry
-- [graphRC](https://github.com/aligfellow/graphRC) — reaction coordinate analysis and TS bond detection from imaginary frequency vibrations
-- [cclib](https://github.com/cclib/cclib) — parsing quantum chemistry output files (ORCA, Gaussian, Q-Chem, etc.)
-- [CairoSVG](https://github.com/Kozea/CairoSVG) — SVG to PNG/PDF conversion
-- [Pillow](https://github.com/python-pillow/Pillow) — GIF frame assembly
+- [**xyzgraph**](https://github.com/aligfellow/xyzgraph) — bond connectivity, bond orders, aromaticity detection and non-covalent interactions from molecular geometry
+- [**graphRC**](https://github.com/aligfellow/graphRC) — reaction coordinate analysis and TS bond detection from imaginary frequency vibrations
+- [**cclib**](https://github.com/cclib/cclib) — parsing quantum chemistry output files (ORCA, Gaussian, Q-Chem, etc.)
+- [**CairoSVG**](https://github.com/Kozea/CairoSVG) — SVG to PNG/PDF conversion
+- [**Pillow**](https://github.com/python-pillow/Pillow) — GIF frame assembly
+
+Optional dependency:
+
+- [**v**](https://github.com/briling/v) - interactive molecule orientation
 
 Generated from [aligfellow/python-template](https://github.com/aligfellow/python-template).
 

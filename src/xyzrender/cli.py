@@ -120,16 +120,26 @@ def main() -> None:
     )
     disp_g.add_argument("--fog", action=argparse.BooleanOptionalAction, default=None, help="Depth fog")
     disp_g.add_argument("--vdw", nargs="?", const="", default=None, help='VdW spheres (no args=all, or "1-20,25")')
-    disp_g.add_argument("--mo", action="store_true", default=False, help="Render MO lobes from .cube input")
-    disp_g.add_argument("--iso", type=float, default=0.05, help="MO isosurface threshold (default: 0.05)")
-    disp_g.add_argument("--mo-opacity", type=float, default=None, help="MO lobe opacity (default: 0.6)")
-    disp_g.add_argument(
+
+    # --- Surfaces (MO / density / ESP) ---
+    surf_g = p.add_argument_group("surfaces")
+    surf_g.add_argument("--mo", action="store_true", default=False, help="Render MO lobes from .cube input")
+    surf_g.add_argument(
         "--mo-colors",
         nargs=2,
         default=None,
         metavar=("POS", "NEG"),
-        help="MO lobe colors as hex or named color (default: #2554A5 #851639)",
+        help="MO lobe colors as hex or named color (default: steelblue maroon)",
     )
+    surf_g.add_argument("--dens", action="store_true", default=False, help="Render density isosurface from .cube input")
+    surf_g.add_argument("--dens-color", default=None, help="Density surface color (hex or named, default: steelblue)")
+    surf_g.add_argument(
+        "--esp", default=None, metavar="CUBE", help="ESP cube file for potential coloring (implies --dens)"
+    )
+    surf_g.add_argument(
+        "--iso", type=float, default=None, help="Isosurface threshold (MO default: 0.05, density/ESP default: 0.001)"
+    )
+    surf_g.add_argument("--opacity", type=float, default=None, help="Surface opacity (default: 1.0, >1 boosts)")
 
     # --- Orientation ---
     orient_g = p.add_argument_group("orientation")
@@ -251,6 +261,22 @@ def main() -> None:
         p.error("--mo and --gif-trj are mutually exclusive")
     if args.mo and not is_cube:
         p.error("--mo requires a .cube input file")
+    if args.dens and args.mo:
+        p.error("--dens and --mo are mutually exclusive")
+    if args.dens and args.vdw is not None:
+        p.error("--dens and --vdw are mutually exclusive")
+    if args.dens and not is_cube:
+        p.error("--dens requires a .cube input file")
+    if args.esp and args.mo:
+        p.error("--esp and --mo are mutually exclusive")
+    if args.esp and args.vdw is not None:
+        p.error("--esp and --vdw are mutually exclusive")
+    if args.esp and args.dens:
+        p.error("--esp and --dens are mutually exclusive (--esp implies density rendering)")
+    if args.esp and not is_cube:
+        p.error("--esp requires a .cube density input file")
+    if args.esp and wants_gif:
+        p.error("--esp does not support GIF rotation")
     if wants_gif:
         gif_path = args.gif_output or f"{base}.gif"
         gif_ext = gif_path.rsplit(".", 1)[-1].lower()
@@ -287,14 +313,18 @@ def main() -> None:
     if args.interactive:
         rotate_with_viewer(graph)
 
+    # Surface opacity (shared across MO / density / ESP)
+    if args.opacity is not None:
+        cfg.surface_opacity = args.opacity
+
     # MO: resolve colors once (used for both static render and gif-rot)
     mo_colors = None
     if args.mo:
         from xyzrender.types import resolve_color
 
         mo_colors = args.mo_colors or [
-            config_data.get("mo_pos_color", "#2554A5"),
-            config_data.get("mo_neg_color", "#851639"),
+            config_data.get("mo_pos_color", "steelblue"),
+            config_data.get("mo_neg_color", "maroon"),
         ]
         mo_colors = [resolve_color(c) for c in mo_colors]
 
@@ -352,14 +382,115 @@ def main() -> None:
         cfg.mo_contours = build_mo_contours(
             cube,
             rot=rot,
-            isovalue=args.iso,
+            isovalue=args.iso if args.iso is not None else 0.05,
             pos_color=mo_colors[0],
             neg_color=mo_colors[1],
             atom_centroid=atom_centroid,
             target_centroid=curr_centroid,
         )
-        if args.mo_opacity is not None:
-            cfg.mo_opacity = args.mo_opacity
+
+    # Density isosurface computation
+    if args.dens and cube_data is not None:
+        from typing import cast
+
+        import numpy as np
+
+        from xyzrender.dens import build_density_contours
+        from xyzrender.types import resolve_color
+        from xyzrender.utils import kabsch_rotation, pca_orient
+
+        cube = cast("CubeData", cube_data)
+        dens_color = resolve_color(args.dens_color or config_data.get("dens_color", "steelblue"))
+        dens_isovalue = args.iso if args.iso is not None else config_data.get("dens_iso", 0.001)
+
+        rot = None
+        if cfg.auto_orient:
+            node_ids = list(graph.nodes())
+            pos = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
+            oriented, rot = pca_orient(pos, return_matrix=True)
+            # No tilt for density (unlike MO which tilts -30 degrees)
+            for idx, nid in enumerate(node_ids):
+                graph.nodes[nid]["position"] = tuple(oriented[idx].tolist())
+            cfg.auto_orient = False
+
+        if rot is None:
+            orig = np.array([p for _, p in cube.atoms], dtype=float)
+            curr = np.array([graph.nodes[i]["position"] for i in graph.nodes()], dtype=float)
+            if not np.allclose(orig, curr, atol=1e-6):
+                rot = kabsch_rotation(orig, curr)
+
+        atom_centroid = np.array([p for _, p in cube.atoms], dtype=float).mean(axis=0)
+        node_ids_dens = list(graph.nodes())
+        curr_centroid = np.array(
+            [graph.nodes[i]["position"] for i in node_ids_dens],
+            dtype=float,
+        ).mean(axis=0)
+
+        cfg.dens_contours = build_density_contours(
+            cube,
+            isovalue=dens_isovalue,
+            color=dens_color,
+            rot=rot,
+            atom_centroid=atom_centroid,
+            target_centroid=curr_centroid,
+        )
+
+    # ESP surface computation
+    esp_cube_data = None
+    if args.esp and cube_data is not None:
+        from typing import cast
+
+        import numpy as np
+
+        from xyzrender.cube import parse_cube
+        from xyzrender.esp import _compute_normals_phys, build_esp_surface
+        from xyzrender.utils import kabsch_rotation, pca_orient
+
+        cube = cast("CubeData", cube_data)
+        esp_cube_data = parse_cube(args.esp)
+
+        # Verify grid shapes match
+        if cube.grid_shape != esp_cube_data.grid_shape:
+            p.error(
+                f"Grid shape mismatch: density cube {cube.grid_shape} vs ESP cube {esp_cube_data.grid_shape}. "
+                "Both cubes must come from the same calculation."
+            )
+
+        esp_isovalue = args.iso if args.iso is not None else config_data.get("dens_iso", 0.001)
+
+        rot = None
+        if cfg.auto_orient:
+            node_ids = list(graph.nodes())
+            pos = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
+            oriented, rot = pca_orient(pos, return_matrix=True)
+            # No tilt for ESP (same as density)
+            for idx, nid in enumerate(node_ids):
+                graph.nodes[nid]["position"] = tuple(oriented[idx].tolist())
+            cfg.auto_orient = False
+
+        if rot is None:
+            orig = np.array([p for _, p in cube.atoms], dtype=float)
+            curr = np.array([graph.nodes[i]["position"] for i in graph.nodes()], dtype=float)
+            if not np.allclose(orig, curr, atol=1e-6):
+                rot = kabsch_rotation(orig, curr)
+
+        atom_centroid = np.array([p for _, p in cube.atoms], dtype=float).mean(axis=0)
+        node_ids_esp = list(graph.nodes())
+        curr_centroid = np.array(
+            [graph.nodes[i]["position"] for i in node_ids_esp],
+            dtype=float,
+        ).mean(axis=0)
+
+        normals_phys = _compute_normals_phys(cube)
+        cfg.esp_surface = build_esp_surface(
+            cube,
+            esp_cube_data,
+            isovalue=esp_isovalue,
+            rot=rot,
+            atom_centroid=atom_centroid,
+            target_centroid=curr_centroid,
+            normals_phys=normals_phys,
+        )
 
     # Render static output
     svg = render_svg(graph, cfg)
@@ -432,10 +563,20 @@ def main() -> None:
                 assert mo_colors is not None  # set when args.mo is True
                 mo_data = {
                     "cube_data": cube_data,
-                    "isovalue": args.iso,
+                    "isovalue": args.iso if args.iso is not None else 0.05,
                     "pos_color": mo_colors[0],
                     "neg_color": mo_colors[1],
-                    "mo_opacity": args.mo_opacity if args.mo_opacity is not None else cfg.mo_opacity,
+                    "surface_opacity": cfg.surface_opacity,
+                }
+            dens_data = None
+            if args.dens and cube_data is not None:
+                from xyzrender.types import resolve_color
+
+                dens_data = {
+                    "cube_data": cube_data,
+                    "isovalue": args.iso if args.iso is not None else config_data.get("dens_iso", 0.001),
+                    "color": resolve_color(args.dens_color or config_data.get("dens_color", "steelblue")),
+                    "surface_opacity": cfg.surface_opacity,
                 }
             render_rotation_gif(
                 graph,
@@ -445,6 +586,7 @@ def main() -> None:
                 fps=args.gif_fps,
                 axis=args.gif_rot,
                 mo_data=mo_data,
+                dens_data=dens_data,
             )
 
 

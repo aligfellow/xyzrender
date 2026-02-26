@@ -45,7 +45,7 @@ class Lobe3D:
 class LobeContour2D:
     """Contour loops for one 3D lobe projected to 2D."""
 
-    loops: list[list[tuple[float, float]]]
+    loops: list[np.ndarray]  # each (M, 2) array of [row, col] points
     phase: str  # "pos" or "neg"
     z_depth: float  # average z-coordinate (for front/back ordering)
     centroid_3d: tuple[float, float, float] = (0.0, 0.0, 0.0)  # for pairing
@@ -180,14 +180,15 @@ _MS_TABLE: dict[int, list[tuple[int, int]]] = {
 def marching_squares(
     grid: np.ndarray,
     threshold: float,
-) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+) -> np.ndarray:
     """Extract contour line segments from a 2D scalar field.
 
-    Returns list of ((row1, col1), (row2, col2)) segments in grid coordinates.
+    Returns (N, 4) array where each row is [row1, col1, row2, col2].
     """
     ny, nx = grid.shape
+    _empty = np.empty((0, 4))
     if ny < 2 or nx < 2:
-        return []
+        return _empty
 
     # Corner values for all (ny-1) x (nx-1) cells
     v0 = grid[:-1, :-1]  # top-left
@@ -205,7 +206,7 @@ def marching_squares(
 
     # Early exit: no contour crossings
     if not np.any(case & (case != 15)):
-        return []
+        return _empty
 
     # Cell row/col index grids
     ri, ci = np.indices((ny - 1, nx - 1), dtype=float)
@@ -220,10 +221,6 @@ def marching_squares(
     t01, t12, t23, t30 = _t(v0, v1), _t(v1, v2), _t(v2, v3), _t(v3, v0)
 
     # Edge crossing positions (row, col) for each of the 4 edges:
-    #   Edge 0 (top):    corners 0->1  ->  (i,       j + t)
-    #   Edge 1 (right):  corners 1->2  ->  (i + t,   j + 1)
-    #   Edge 2 (bottom): corners 2->3  ->  (i + 1,   j + 1 - t)
-    #   Edge 3 (left):   corners 3->0  ->  (i + 1-t, j)
     er = [ri, ri + t12, ri + 1, ri + 1 - t30]
     ec = [ci + t01, ci + 1, ci + 1 - t23, ci]
 
@@ -267,10 +264,9 @@ def marching_squares(
                 _gather(mask, ea, eb)
 
     if not seg_r1:
-        return []
+        return _empty
 
-    # Stack into (N, 4) array and convert to list of tuple pairs
-    pts = np.column_stack(
+    return np.column_stack(
         [
             np.concatenate(seg_r1),
             np.concatenate(seg_c1),
@@ -278,7 +274,6 @@ def marching_squares(
             np.concatenate(seg_c2),
         ]
     )
-    return [((r[0], r[1]), (r[2], r[3])) for r in pts.tolist()]
 
 
 # ---------------------------------------------------------------------------
@@ -287,91 +282,104 @@ def marching_squares(
 
 
 def chain_segments(
-    segments: list[tuple[tuple[float, float], tuple[float, float]]],
+    segments: np.ndarray,
     decimals: int = 4,
-) -> list[list[tuple[float, float]]]:
+) -> list[np.ndarray]:
     """Connect line segments into closed contour loops."""
-    if not segments:
+    n_seg = len(segments)
+    if n_seg == 0:
         return []
 
-    # Build adjacency: rounded endpoint -> list of (segment_index, other_endpoint)
-    adj: dict[tuple[float, float], list[tuple[int, tuple[float, float]]]] = {}
-    for idx, (p1, p2) in enumerate(segments):
-        k1 = (round(p1[0], decimals), round(p1[1], decimals))
-        k2 = (round(p2[0], decimals), round(p2[1], decimals))
-        adj.setdefault(k1, []).append((idx, p2))
-        adj.setdefault(k2, []).append((idx, p1))
+    # 2*n_seg endpoints: endpoint 2i = start of segment i, 2i+1 = end
+    endpoints = np.empty((2 * n_seg, 2))
+    endpoints[0::2] = segments[:, :2]
+    endpoints[1::2] = segments[:, 2:]
 
-    used = set()
-    loops: list[list[tuple[float, float]]] = []
+    # Integer keys for fast pair matching via sort
+    kscale = 10.0**decimals
+    ikeys = np.rint(endpoints * kscale).astype(np.int64)
+    ikeys[:, 0] -= ikeys[:, 0].min()
+    ikeys[:, 1] -= ikeys[:, 1].min()
+    max_col = int(ikeys[:, 1].max()) + 1
+    combined = ikeys[:, 0] * max_col + ikeys[:, 1]
 
-    for seg_idx, (start, end) in enumerate(segments):
-        if seg_idx in used:
+    # Sort and pair-match consecutive equal keys
+    order = np.argsort(combined, kind="mergesort")
+    sorted_keys = combined[order]
+
+    match = np.full(2 * n_seg, -1, dtype=np.intp)
+    i = 0
+    while i < 2 * n_seg - 1:
+        if sorted_keys[i] == sorted_keys[i + 1]:
+            a, b = int(order[i]), int(order[i + 1])
+            match[a] = b
+            match[b] = a
+            i += 2
+        else:
+            i += 1
+
+    # Walk chains using array indexing
+    used = np.zeros(n_seg, dtype=bool)
+    loops: list[np.ndarray] = []
+
+    for start_seg in range(n_seg):
+        if used[start_seg]:
             continue
-        used.add(seg_idx)
-        loop = [start, end]
-        current_key = (round(end[0], decimals), round(end[1], decimals))
-        start_key = (round(start[0], decimals), round(start[1], decimals))
+        used[start_seg] = True
+        chain_pts = [endpoints[2 * start_seg], endpoints[2 * start_seg + 1]]
+        cur = 2 * start_seg + 1
 
-        while current_key != start_key:
-            found = False
-            for next_idx, next_pt in adj.get(current_key, []):
-                if next_idx not in used:
-                    used.add(next_idx)
-                    loop.append(next_pt)
-                    current_key = (round(next_pt[0], decimals), round(next_pt[1], decimals))
-                    found = True
-                    break
-            if not found:
+        while True:
+            partner = match[cur]
+            if partner < 0:
                 break
+            seg = partner >> 1
+            if used[seg]:
+                break
+            used[seg] = True
+            exit_ep = partner ^ 1
+            chain_pts.append(endpoints[exit_ep])
+            cur = exit_ep
 
-        if len(loop) >= 3:
-            loops.append(loop)
+        if len(chain_pts) >= 3:
+            loops.append(np.array(chain_pts))
 
     return loops
 
 
 def _resample_loop(
-    loop: list[tuple[float, float]],
+    loop: np.ndarray,
     target_spacing: float = 1.5,
-) -> list[tuple[float, float]]:
+) -> np.ndarray:
     """Resample a closed contour loop at uniform arc-length intervals."""
-    if len(loop) < 3:
+    n = len(loop)
+    if n < 3:
         return loop
 
-    # Compute cumulative arc length (closed: include segment back to start)
-    dists = []
-    for i in range(len(loop)):
-        j = (i + 1) % len(loop)
-        dx = loop[j][0] - loop[i][0]
-        dy = loop[j][1] - loop[i][1]
-        dists.append((dx * dx + dy * dy) ** 0.5)
-    total_len = sum(dists)
+    closed = np.vstack([loop, loop[:1]])
+    diffs = np.diff(closed, axis=0)
+    dists = np.hypot(diffs[:, 0], diffs[:, 1])
+    total_len = float(dists.sum())
     if total_len < 1e-6:
         return loop
 
     n_pts = max(int(total_len / target_spacing + 0.5), 8)
 
-    cum = [0.0]
-    for d in dists:
-        cum.append(cum[-1] + d)
+    cum = np.empty(n + 1)
+    cum[0] = 0.0
+    np.cumsum(dists, out=cum[1:])
 
-    step = total_len / n_pts
-    resampled = []
-    seg = 0
-    for i in range(n_pts):
-        target = i * step
-        while seg < len(dists) - 1 and cum[seg + 1] < target:
-            seg += 1
-        seg_len = dists[seg]
-        if seg_len < 1e-12:
-            t = 0.0
-        else:
-            t = (target - cum[seg]) / seg_len
-        p0 = loop[seg % len(loop)]
-        p1 = loop[(seg + 1) % len(loop)]
-        resampled.append((p0[0] + t * (p1[0] - p0[0]), p0[1] + t * (p1[1] - p0[1])))
-    return resampled
+    targets = np.linspace(0, total_len, n_pts, endpoint=False)
+    seg_idx = np.searchsorted(cum[1:], targets, side="right")
+    seg_idx = np.clip(seg_idx, 0, n - 1)
+
+    seg_len = dists[seg_idx]
+    safe_len = np.where(seg_len > 1e-12, seg_len, 1.0)
+    t = np.where(seg_len > 1e-12, (targets - cum[seg_idx]) / safe_len, 0.0)
+
+    p0 = closed[seg_idx]
+    p1 = closed[seg_idx + 1]
+    return p0 + t[:, np.newaxis] * (p1 - p0)
 
 
 # ---------------------------------------------------------------------------
@@ -379,16 +387,10 @@ def _resample_loop(
 # ---------------------------------------------------------------------------
 
 
-def _loop_perimeter(loop: list[tuple[float, float]]) -> float:
+def _loop_perimeter(loop: np.ndarray) -> float:
     """Sum of segment lengths around a contour loop."""
-    total = 0.0
-    n = len(loop)
-    for i in range(n):
-        j = (i + 1) % n
-        dx = loop[j][0] - loop[i][0]
-        dy = loop[j][1] - loop[i][1]
-        total += (dx * dx + dy * dy) ** 0.5
-    return total
+    diffs = np.diff(np.vstack([loop, loop[:1]]), axis=0)
+    return float(np.hypot(diffs[:, 0], diffs[:, 1]).sum())
 
 
 def _gaussian_blur_2d(grid: np.ndarray, sigma: float) -> np.ndarray:
@@ -498,9 +500,8 @@ def _project_lobe_2d(
         raw_loops = chain_segments(marching_squares(-upsampled, isovalue))
 
     # Offset contour coords back to full-grid space
-    off_r = r0 * _UPSAMPLE_FACTOR
-    off_c = c0 * _UPSAMPLE_FACTOR
-    offset_loops = [[(r + off_r, c + off_c) for r, c in loop] for loop in raw_loops]
+    offset = np.array([r0 * _UPSAMPLE_FACTOR, c0 * _UPSAMPLE_FACTOR])
+    offset_loops = [loop + offset for loop in raw_loops]
 
     loops = [_resample_loop(lp) for lp in offset_loops if _loop_perimeter(lp) >= _MIN_LOOP_PERIMETER]
 
@@ -607,9 +608,9 @@ def build_mo_contours(
     )
     # Compute tight Angstrom extent from actual contour loops
     lobe_x_min = lobe_x_max = lobe_y_min = lobe_y_max = None
-    all_pts = [pt for lc in lobe_contours for loop in lc.loops for pt in loop]
-    if all_pts:
-        pts = np.array(all_pts)
+    all_loops = [loop for lc in lobe_contours for loop in lc.loops]
+    if all_loops:
+        pts = np.concatenate(all_loops, axis=0)
         res_m1 = max(res - 1, 1)
         lobe_x_min = float(x_min + (pts[:, 1].min() / res_m1) * (x_max - x_min))
         lobe_x_max = float(x_min + (pts[:, 1].max() / res_m1) * (x_max - x_min))
@@ -695,7 +696,7 @@ def classify_mo_lobes(lobes: list[LobeContour2D], mol_z: float) -> list[bool]:
 
 
 def _mo_loop_to_path_d(
-    loop: list[tuple[float, float]],
+    loop: np.ndarray,
     mo: MOContours,
     scale: float,
     cx: float,
@@ -707,35 +708,31 @@ def _mo_loop_to_path_d(
     if len(loop) < 3:
         return None
     res = max(mo.resolution - 1, 1)
-    # Convert grid coords to SVG pixel coords
-    pts = []
-    for row, col in loop:
-        x_ang = mo.x_min + (col / res) * (mo.x_max - mo.x_min)
-        y_ang = mo.y_min + (row / res) * (mo.y_max - mo.y_min)
-        sx = canvas_w / 2 + scale * (x_ang - cx)
-        sy = canvas_h / 2 - scale * (y_ang - cy)
-        pts.append((sx, sy))
 
-    n = len(pts)
-    # Build Catmull-Rom cubic Bezier path (closed loop)
-    parts = [f"M {pts[0][0]:.1f} {pts[0][1]:.1f}"]
-    for i in range(n):
-        p0 = pts[(i - 1) % n]
-        p1 = pts[i]
-        p2 = pts[(i + 1) % n]
-        p3 = pts[(i + 2) % n]
-        # Control points
-        cp1x = p1[0] + (p2[0] - p0[0]) / 6
-        cp1y = p1[1] + (p2[1] - p0[1]) / 6
-        cp2x = p2[0] - (p3[0] - p1[0]) / 6
-        cp2y = p2[1] - (p3[1] - p1[1]) / 6
-        parts.append(f"C {cp1x:.1f} {cp1y:.1f} {cp2x:.1f} {cp2y:.1f} {p2[0]:.1f} {p2[1]:.1f}")
-    parts.append("Z")
-    return " ".join(parts)
+    # Vectorized grid → SVG coordinate transform
+    x_ang = mo.x_min + (loop[:, 1] / res) * (mo.x_max - mo.x_min)
+    y_ang = mo.y_min + (loop[:, 0] / res) * (mo.y_max - mo.y_min)
+    sx = canvas_w / 2 + scale * (x_ang - cx)
+    sy = canvas_h / 2 - scale * (y_ang - cy)
+
+    # Catmull-Rom control points via rolled arrays
+    p0x, p0y = np.roll(sx, 1), np.roll(sy, 1)
+    p2x, p2y = np.roll(sx, -1), np.roll(sy, -1)
+    p3x, p3y = np.roll(sx, -2), np.roll(sy, -2)
+
+    cp1x = sx + (p2x - p0x) / 6
+    cp1y = sy + (p2y - p0y) / 6
+    cp2x = p2x - (p3x - sx) / 6
+    cp2y = p2y - (p3y - sy) / 6
+
+    # Build SVG path string
+    coords = np.column_stack([cp1x, cp1y, cp2x, cp2y, p2x, p2y])
+    cmds = [f"C {a:.1f} {b:.1f} {c:.1f} {d:.1f} {e:.1f} {f:.1f}" for a, b, c, d, e, f in coords.tolist()]
+    return f"M {sx[0]:.1f} {sy[0]:.1f} " + " ".join(cmds) + " Z"
 
 
 def _mo_combined_path_d(
-    loops: list[list[tuple[float, float]]],
+    loops: list[np.ndarray],
     mo: MOContours,
     scale: float,
     cx: float,
@@ -773,10 +770,13 @@ def mo_gradient_defs_svg(mo: MOContours) -> list[str]:
     return lines
 
 
+_MO_BASE_OPACITY = 0.7  # base opacity for MO lobes (scaled by surface_opacity)
+
+
 def mo_back_lobes_svg(
     mo: MOContours,
     mo_is_front: list[bool],
-    mo_opacity: float,
+    surface_opacity: float,
     scale: float,
     cx: float,
     cy: float,
@@ -786,15 +786,16 @@ def mo_back_lobes_svg(
     """Return SVG lines for back MO lobes (flat faded fill, behind molecule)."""
     from xyzrender.types import Color
 
+    opacity = _MO_BASE_OPACITY * surface_opacity
     lines: list[str] = []
     for idx_l, lobe in enumerate(mo.lobes):
         if mo_is_front[idx_l]:
             continue
         color_hex = mo.pos_color if lobe.phase == "pos" else mo.neg_color
-        flat_color = Color.from_hex(color_hex).lighten(0.30).hex
+        flat_color = Color.from_hex(color_hex).lighten(0.25).hex
         d_all = _mo_combined_path_d(lobe.loops, mo, scale, cx, cy, canvas_w, canvas_h)
         if d_all:
-            lines.append(f'  <g opacity="{mo_opacity:.2f}">')
+            lines.append(f'  <g opacity="{opacity:.2f}">')
             lines.append(f'    <path d="{d_all}" fill="{flat_color}" fill-rule="evenodd" stroke="none"/>')
             lines.append("  </g>")
     return lines
@@ -803,7 +804,7 @@ def mo_back_lobes_svg(
 def mo_front_lobes_svg(
     mo: MOContours,
     mo_is_front: list[bool],
-    mo_opacity: float,
+    surface_opacity: float,
     scale: float,
     cx: float,
     cy: float,
@@ -811,6 +812,7 @@ def mo_front_lobes_svg(
     canvas_h: int,
 ) -> list[str]:
     """Return SVG lines for front MO lobes (gradient fill, on top of molecule)."""
+    opacity = _MO_BASE_OPACITY * surface_opacity
     lines: list[str] = []
     for idx_l, lobe in enumerate(mo.lobes):
         if not mo_is_front[idx_l]:
@@ -818,7 +820,7 @@ def mo_front_lobes_svg(
         grad_id = f"mo_{lobe.phase}_front"
         d_all = _mo_combined_path_d(lobe.loops, mo, scale, cx, cy, canvas_w, canvas_h)
         if d_all:
-            lines.append(f'  <g opacity="{mo_opacity:.2f}">')
+            lines.append(f'  <g opacity="{opacity:.2f}">')
             lines.append(f'    <path d="{d_all}" fill="url(#{grad_id})" fill-rule="evenodd" stroke="none"/>')
             lines.append("  </g>")
     return lines
@@ -879,4 +881,4 @@ def recompute_mo(graph: nx.Graph, config: RenderConfig, mo_data: dict) -> None:
         pos_flat_ang=mo_data["pos_flat_ang"],
         fixed_bounds=fixed_bounds,
     )
-    config.mo_opacity = mo_data["mo_opacity"]
+    config.surface_opacity = mo_data["surface_opacity"]

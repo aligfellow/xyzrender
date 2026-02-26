@@ -8,7 +8,13 @@ import numpy as np
 from xyzgraph import DATA
 
 from xyzrender.colors import _FOG_NEAR, WHITE, blend_fog, get_color, get_gradient_colors
-from xyzrender.mo import classify_mo_lobes, mo_back_lobes_svg, mo_front_lobes_svg, mo_gradient_defs_svg
+from xyzrender.dens import dens_layers_svg
+from xyzrender.mo import (
+    classify_mo_lobes,
+    mo_back_lobes_svg,
+    mo_front_lobes_svg,
+    mo_gradient_defs_svg,
+)
 from xyzrender.types import BondStyle, RenderConfig
 
 logger = logging.getLogger(__name__)
@@ -58,14 +64,21 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
         fit_radii = np.array([raw_vdw_sphere[i] * cfg.vdw_scale if i in vdw_active else radii[i] for i in range(n)])
     else:
         fit_radii = radii
-    # Include MO lobe extent in canvas fitting so orbitals aren't clipped
-    mo_lo = mo_hi = None
+
+    # Expand canvas for surface bounds (MO / density / ESP are mutually exclusive)
+    extra_lo = extra_hi = None
     if cfg.mo_contours is not None:
         mo = cfg.mo_contours
         if mo.lobe_x_min is not None:
-            mo_lo = np.array([mo.lobe_x_min, mo.lobe_y_min])
-            mo_hi = np.array([mo.lobe_x_max, mo.lobe_y_max])
-    scale, cx, cy, canvas_w, canvas_h = _fit_canvas(pos, fit_radii, cfg, extra_lo=mo_lo, extra_hi=mo_hi)
+            extra_lo = np.array([mo.lobe_x_min, mo.lobe_y_min])
+            extra_hi = np.array([mo.lobe_x_max, mo.lobe_y_max])
+    elif cfg.dens_contours is not None:
+        extra_lo = np.array([cfg.dens_contours.x_min, cfg.dens_contours.y_min])
+        extra_hi = np.array([cfg.dens_contours.x_max, cfg.dens_contours.y_max])
+    if cfg.esp_surface is not None:
+        extra_lo = np.array([cfg.esp_surface.x_min, cfg.esp_surface.y_min])
+        extra_hi = np.array([cfg.esp_surface.x_max, cfg.esp_surface.y_max])
+    scale, cx, cy, canvas_w, canvas_h = _fit_canvas(pos, fit_radii, cfg, extra_lo=extra_lo, extra_hi=extra_hi)
 
     # Scale bond width and stroke proportionally with zoom so ratios stay constant
     ref_scale = (cfg.canvas_size - 2 * cfg.padding) / _REF_SPAN
@@ -216,7 +229,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
     # --- Back MO orbital lobes (behind molecule) — flat faded fill ---
     if cfg.mo_contours is not None:
         assert mo_is_front is not None
-        svg.extend(mo_back_lobes_svg(cfg.mo_contours, mo_is_front, cfg.mo_opacity, scale, cx, cy, canvas_w, canvas_h))
+        svg.extend(
+            mo_back_lobes_svg(cfg.mo_contours, mo_is_front, cfg.surface_opacity, scale, cx, cy, canvas_w, canvas_h)
+        )
 
     # Interleaved z-order: for each atom, render it then its bonds to deeper atoms
     gap = cfg.bond_gap * bw  # pixel gap scales with bond width
@@ -316,7 +331,19 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
     # --- Front MO orbital lobes (on top of molecule) ---
     if cfg.mo_contours is not None:
         assert mo_is_front is not None
-        svg.extend(mo_front_lobes_svg(cfg.mo_contours, mo_is_front, cfg.mo_opacity, scale, cx, cy, canvas_w, canvas_h))
+        svg.extend(
+            mo_front_lobes_svg(cfg.mo_contours, mo_is_front, cfg.surface_opacity, scale, cx, cy, canvas_w, canvas_h)
+        )
+
+    # --- Density surface (stacked z-layers on top of molecule) ---
+    if cfg.dens_contours is not None:
+        svg.extend(dens_layers_svg(cfg.dens_contours, cfg.surface_opacity, scale, cx, cy, canvas_w, canvas_h))
+
+    # --- ESP surface (embedded heatmap on top of molecule) ---
+    if cfg.esp_surface is not None:
+        from xyzrender.esp import esp_surface_svg
+
+        svg.extend(esp_surface_svg(cfg.esp_surface, scale, cx, cy, canvas_w, canvas_h, cfg.surface_opacity))
 
     # VdW surface overlay — on top of molecule, group opacity for proper occlusion
     if vdw_set is not None:

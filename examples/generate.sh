@@ -38,10 +38,18 @@ xyzrender "$DIR/Hbond.xyz" --hy --nci -o "$OUT/nci.svg"  # specific NCI bond onl
 xyzrender "$DIR/bimp.out" --nci -o "$OUT/bimp_nci.svg"  # all NCI bonds
 
 echo "=== Molecular orbitals ==="
-xyzrender "$DIR/caffeine_homo.cube" --mo -o "$OUT/caffeine_homo.svg"
 xyzrender "$DIR/caffeine_lumo.cube" --mo --mo-colour maroon teal -o "$OUT/caffeine_lumo.svg"
 xyzrender "$DIR/caffeine_homo.cube" --mo --hy --iso 0.03 -o "$OUT/caffeine_homo_iso_hy.svg"
 xyzrender "$DIR/caffeine_homo.cube" --mo -o "$OUT/caffeine_homo_rot.svg" --gif-rot -go "$OUT/caffeine_homo.gif"
+
+echo "=== Density surface ==="
+xyzrender "$DIR/caffeine_dens.cube" --dens --iso 0.01 -o "$OUT/caffeine_dens_iso.svg"
+xyzrender "$DIR/caffeine_dens.cube" --dens --dens-color teal --dens-opacity 0.75 -o "$OUT/caffeine_dens_custom.svg"
+xyzrender "$DIR/caffeine_dens.cube" --dens -o "$OUT/caffeine_dens.svg" --gif-rot -go "$OUT/caffeine_dens.gif"
+
+echo "=== ESP surface ==="
+xyzrender "$DIR/caffeine_dens.cube" --esp "$DIR/caffeine_esp.cube" -o "$OUT/caffeine_esp.svg"
+xyzrender "$DIR/caffeine_dens.cube" --esp "$DIR/caffeine_esp.cube" --iso 0.005 --opacity 0.75 -o "$OUT/caffeine_esp_custom.svg"
 
 echo "=== GIF animations ==="
 xyzrender "$DIR/caffeine.xyz" -o "$OUT/caffeine_gif.svg" --gif-rot -go "$OUT/caffeine.gif"

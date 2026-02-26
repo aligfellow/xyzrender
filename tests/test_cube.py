@@ -27,16 +27,16 @@ def test_marching_squares_circle():
 
 def test_marching_squares_empty():
     grid = np.zeros((10, 10))
-    assert marching_squares(grid, threshold=1.0) == []
+    assert len(marching_squares(grid, threshold=1.0)) == 0
 
 
 def test_marching_squares_all_above():
     grid = np.ones((5, 5))
-    assert marching_squares(grid, threshold=0.5) == []
+    assert len(marching_squares(grid, threshold=0.5)) == 0
 
 
 def test_marching_squares_tiny_grid():
-    assert marching_squares(np.array([[1.0]]), threshold=0.5) == []
+    assert len(marching_squares(np.array([[1.0]]), threshold=0.5)) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -55,7 +55,7 @@ def test_chain_segments_circle():
 
 
 def test_chain_segments_empty():
-    assert chain_segments([]) == []
+    assert chain_segments(np.empty((0, 4))) == []
 
 
 # ---------------------------------------------------------------------------

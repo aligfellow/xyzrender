@@ -272,6 +272,7 @@ def render_rotation_gif(
     fps: int = 10,
     axis: str = "y",
     mo_data: dict | None = None,
+    dens_data: dict | None = None,
 ) -> None:
     """Render a rotation animation as a GIF.
 
@@ -281,6 +282,8 @@ def render_rotation_gif(
 
     If *mo_data* is provided (dict with cube_data, isovalue, colors, opacity),
     MO contours are recomputed for each frame to match the rotation.
+    If *dens_data* is provided (dict with cube_data, isovalue, color, opacity),
+    density contours are recomputed for each frame to match the rotation.
     """
     from xyzrender.io import apply_axis_angle_rotation
 
@@ -291,9 +294,39 @@ def render_rotation_gif(
         _orient_graph(graph, pca_matrix(np.array([graph.nodes[n]["position"] for n in nodes])))
 
     original_positions = {n: graph.nodes[n]["position"] for n in nodes}
+
     axis_vec, axis_sign = _rotation_axis(axis)
     frame = {"positions": list(original_positions.values()), "symbols": [graph.nodes[n]["symbol"] for n in nodes]}
     rot_cfg = _fixed_viewport([frame], config, rotation_axis=axis_vec)
+
+    # Expand viewport if density surface extends beyond atoms
+    if dens_data is not None:
+        from xyzrender.mo import compute_grid_positions
+
+        cube = dens_data["cube_data"]
+        pos_flat = compute_grid_positions(cube)
+        mask = cube.grid_data >= dens_data["isovalue"]
+        flat_indices = np.flatnonzero(mask)
+        # Pre-populate cache for recompute_dens
+        dens_data["pos_flat_ang"] = pos_flat
+        dens_data["flat_indices"] = flat_indices
+
+        dens_pos = pos_flat[flat_indices]
+        orig_atoms = np.array([p for _, p in cube.atoms], dtype=float)
+        atom_cent = orig_atoms.mean(axis=0)
+        # Pre-populate cache for recompute_dens
+        dens_data["_orig_atoms"] = orig_atoms
+        dens_data["_atom_centroid"] = atom_cent
+
+        dens_r = float(np.linalg.norm(dens_pos - atom_cent, axis=1).max())
+        needed = dens_r * 1.05  # 5% padding for blur/smoothing
+        assert rot_cfg.fixed_span is not None  # set by _fixed_viewport
+        current_half = rot_cfg.fixed_span / 2
+        if needed > current_half:
+            rot_cfg.fixed_span = 2 * needed
+            logger.debug("Expanded GIF viewport for density: r=%.2f -> span=%.2f", dens_r, rot_cfg.fixed_span)
+
+    axis_vec, axis_sign = _rotation_axis(axis)
     step = 360.0 / n_frames
     logger.info("Rendering rotation GIF (%d frames, axis=%s)", n_frames, axis)
     pngs = []
@@ -307,6 +340,11 @@ def render_rotation_gif(
             from xyzrender.mo import recompute_mo
 
             recompute_mo(graph, rot_cfg, mo_data)
+
+        if dens_data is not None:
+            from xyzrender.dens import recompute_dens
+
+            recompute_dens(graph, rot_cfg, dens_data)
 
         svg = render_svg(graph, rot_cfg, _log=False)
         pngs.append(_svg_to_png(svg, config.canvas_size))

@@ -52,11 +52,13 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
     if colors:
         merged["color_overrides"] = {sym: resolve_color(c) for sym, c in colors.items()}
 
-    # MO color keys are stored in config but not passed to RenderConfig directly
-    # (they're used at MO build time, not render time). Strip them to avoid
-    # TypeError from unexpected kwargs.
+    # MO/density keys are stored in config but not passed to RenderConfig
+    # directly (they're used at build time, not render time). Strip them to
+    # avoid TypeError from unexpected kwargs.
     merged.pop("mo_pos_color", None)
     merged.pop("mo_neg_color", None)
+    merged.pop("dens_iso", None)
+    merged.pop("dens_color", None)
 
     # Resolve any named colors to hex for fields that downstream code parses as hex
     for key in ("background", "bond_color", "atom_stroke_color"):
