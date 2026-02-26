@@ -58,7 +58,14 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
         fit_radii = np.array([raw_vdw_sphere[i] * cfg.vdw_scale if i in vdw_active else radii[i] for i in range(n)])
     else:
         fit_radii = radii
-    scale, cx, cy, canvas_w, canvas_h = _fit_canvas(pos, fit_radii, cfg)
+    # Include MO lobe extent in canvas fitting so orbitals aren't clipped
+    mo_lo = mo_hi = None
+    if cfg.mo_contours is not None:
+        mo = cfg.mo_contours
+        if mo.lobe_x_min is not None:
+            mo_lo = np.array([mo.lobe_x_min, mo.lobe_y_min])
+            mo_hi = np.array([mo.lobe_x_max, mo.lobe_y_max])
+    scale, cx, cy, canvas_w, canvas_h = _fit_canvas(pos, fit_radii, cfg, extra_lo=mo_lo, extra_hi=mo_hi)
 
     # Scale bond width and stroke proportionally with zoom so ratios stay constant
     ref_scale = (cfg.canvas_size - 2 * cfg.padding) / _REF_SPAN

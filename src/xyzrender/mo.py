@@ -63,6 +63,11 @@ class MOContours:
     y_max: float = 0.0
     pos_color: str = "#2554A5"
     neg_color: str = "#851639"
+    # Tight Angstrom extent of actual lobe contours (for canvas fitting)
+    lobe_x_min: float | None = None
+    lobe_x_max: float | None = None
+    lobe_y_min: float | None = None
+    lobe_y_max: float | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -600,6 +605,23 @@ def build_mo_contours(
         total_loops,
         isovalue,
     )
+    # Compute tight Angstrom extent from actual contour loops
+    lobe_x_min = lobe_x_max = lobe_y_min = lobe_y_max = None
+    res_m1 = max(res - 1, 1)
+    for lc in lobe_contours:
+        for loop in lc.loops:
+            for row, col in loop:
+                xa = x_min + (col / res_m1) * (x_max - x_min)
+                ya = y_min + (row / res_m1) * (y_max - y_min)
+                if lobe_x_min is None:
+                    lobe_x_min = lobe_x_max = xa
+                    lobe_y_min = lobe_y_max = ya
+                else:
+                    lobe_x_min = min(lobe_x_min, xa)
+                    lobe_x_max = max(lobe_x_max, xa)
+                    lobe_y_min = min(lobe_y_min, ya)
+                    lobe_y_max = max(lobe_y_max, ya)
+
     return MOContours(
         lobes=lobe_contours,
         resolution=res,
@@ -609,6 +631,10 @@ def build_mo_contours(
         y_max=y_max,
         pos_color=pos_color,
         neg_color=neg_color,
+        lobe_x_min=lobe_x_min,
+        lobe_x_max=lobe_x_max,
+        lobe_y_min=lobe_y_min,
+        lobe_y_max=lobe_y_max,
     )
 
 
