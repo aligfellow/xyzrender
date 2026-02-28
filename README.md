@@ -48,19 +48,39 @@ pip install xyzrender
 Or with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uv add xyzrender
+uv tool install xyzrender
 ```
 
-### From Source:  
+To test without installing, you can use [uvx](https://docs.astral.sh/uv/guides/tools/#running-tools)
+
+```bash
+uvx xyzrender 
+```
+
+### From Source:
+
+Using pip: 
 
 ```bash
 git clone https://github.com/aligfellow/xyzrender.git
 cd xyzrender
 pip install .
-# or
+# install in editable mode
 pip install -e .
-# or simply
+# or straight from git
 pip install git+https://github.com/aligfellow/xyzrender.git
+```
+
+Or with you'd rather use [uv](https://docs.astral.sh/uv/):
+
+```bash
+git clone https://github.com/aligfellow/xyzrender.git
+cd xyzrender
+uv tool install .
+# install in editable mode
+uv tool install --editable .
+# or straight from git
+uv tool install git+https://github.com/aligfellow/xyzrender.git
 ```
 
 ## Quick start
@@ -331,7 +351,7 @@ v molecule.xyz | xyzrender
 
 Orient the molecule, press `z` to output reoriented coordinates, then `q` to close.
 
-This must be installed separately if this option is to be used. The executable should be in `~/bin/` for discovery. 
+This must be installed separately if this option is to be used. The executable should be anywhere in `$PATH` or in `~/bin/` for discovery. 
 
 *TODO: Look into cleaning up this integration.*
 
