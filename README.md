@@ -71,7 +71,7 @@ pip install -e .
 pip install git+https://github.com/aligfellow/xyzrender.git
 ```
 
-Or with you'd rather use [uv](https://docs.astral.sh/uv/):
+Or if you'd rather use [uv](https://docs.astral.sh/uv/):
 
 ```bash
 git clone https://github.com/aligfellow/xyzrender.git
