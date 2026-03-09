@@ -515,7 +515,7 @@ def main() -> None:
 
     # --- Vector arrows ---
     if args.vectors:
-        from xyzrender.io import load_vectors
+        from xyzrender.annotations import load_vectors
         try:
             cfg.vectors = load_vectors(args.vectors, mol.graph)
         except (ValueError, FileNotFoundError) as e:

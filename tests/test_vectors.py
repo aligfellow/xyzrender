@@ -9,7 +9,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from xyzrender.io import load_molecule, load_vectors
+from xyzrender.annotations import load_vectors
+from xyzrender.readers import load_molecule
 from xyzrender.renderer import render_svg
 from xyzrender.types import RenderConfig, VectorArrow
 
@@ -30,7 +31,7 @@ def _write_json(data, suffix=".json") -> Path:
 
 
 def test_load_vectors_com_origin(tmp_path):
-    graph = load_molecule(EXAMPLES / "caffeine.xyz")
+    graph, _ = load_molecule(EXAMPLES / "caffeine.xyz")
     jf = _write_json([{"vector": [1.0, 0.0, 0.0]}])
     arrows = load_vectors(jf, graph)
     assert len(arrows) == 1
@@ -42,7 +43,7 @@ def test_load_vectors_com_origin(tmp_path):
 
 
 def test_load_vectors_atom_origin(tmp_path):
-    graph = load_molecule(EXAMPLES / "ethanol.xyz")
+    graph, _ = load_molecule(EXAMPLES / "ethanol.xyz")
     jf = _write_json([{"origin": 1, "vector": [0.0, 1.0, 0.0]}])
     arrows = load_vectors(jf, graph)
     assert len(arrows) == 1
@@ -51,14 +52,14 @@ def test_load_vectors_atom_origin(tmp_path):
 
 
 def test_load_vectors_explicit_origin(tmp_path):
-    graph = load_molecule(EXAMPLES / "ethanol.xyz")
+    graph, _ = load_molecule(EXAMPLES / "ethanol.xyz")
     jf = _write_json([{"origin": [1.5, 2.5, 3.5], "vector": [0.0, 0.0, 1.0]}])
     arrows = load_vectors(jf, graph)
     assert np.allclose(arrows[0].origin, [1.5, 2.5, 3.5])
 
 
 def test_load_vectors_color_and_label(tmp_path):
-    graph = load_molecule(EXAMPLES / "caffeine.xyz")
+    graph, _ = load_molecule(EXAMPLES / "caffeine.xyz")
     jf = _write_json([{"vector": [1.0, 0.0, 0.0], "color": "red", "label": "μ", "scale": 2.5}])
     arrows = load_vectors(jf, graph)
     va = arrows[0]
@@ -68,7 +69,7 @@ def test_load_vectors_color_and_label(tmp_path):
 
 
 def test_load_vectors_multiple(tmp_path):
-    graph = load_molecule(EXAMPLES / "caffeine.xyz")
+    graph, _ = load_molecule(EXAMPLES / "caffeine.xyz")
     jf = _write_json([
         {"vector": [1.0, 0.0, 0.0], "color": "#cc0000"},
         {"origin": 2, "vector": [0.0, 1.0, 0.0]},
@@ -86,14 +87,14 @@ def test_load_vectors_multiple(tmp_path):
 
 
 def test_load_vectors_missing_vector_key():
-    graph = load_molecule(EXAMPLES / "caffeine.xyz")
+    graph, _ = load_molecule(EXAMPLES / "caffeine.xyz")
     jf = _write_json([{"origin": "com"}])
     with pytest.raises(ValueError, match="missing required key 'vector'"):
         load_vectors(jf, graph)
 
 
 def test_load_vectors_atom_index_out_of_range():
-    graph = load_molecule(EXAMPLES / "ethanol.xyz")
+    graph, _ = load_molecule(EXAMPLES / "ethanol.xyz")
     n = graph.number_of_nodes()
     jf = _write_json([{"origin": n + 100, "vector": [1.0, 0.0, 0.0]}])
     with pytest.raises(ValueError, match="out of range"):
@@ -101,14 +102,14 @@ def test_load_vectors_atom_index_out_of_range():
 
 
 def test_load_vectors_bad_color():
-    graph = load_molecule(EXAMPLES / "caffeine.xyz")
+    graph, _ = load_molecule(EXAMPLES / "caffeine.xyz")
     jf = _write_json([{"vector": [1.0, 0.0, 0.0], "color": "notacolor"}])
     with pytest.raises(ValueError, match="color"):
         load_vectors(jf, graph)
 
 
 def test_load_vectors_not_an_array():
-    graph = load_molecule(EXAMPLES / "caffeine.xyz")
+    graph, _ = load_molecule(EXAMPLES / "caffeine.xyz")
     # A plain object without a 'vectors' key is not valid
     jf = _write_json({"color": "red"})  # no 'vectors' key → empty list
     arrows = load_vectors(jf, graph)
@@ -117,7 +118,7 @@ def test_load_vectors_not_an_array():
 
 def test_load_vectors_anchor_per_entry():
     """Per-entry anchor overrides the file-level default."""
-    graph = load_molecule(EXAMPLES / "ethanol.xyz")
+    graph, _ = load_molecule(EXAMPLES / "ethanol.xyz")
     # File default is 'tail', but first entry overrides to 'center'
     jf = _write_json({
         "anchor": "tail",
@@ -133,7 +134,7 @@ def test_load_vectors_anchor_per_entry():
 
 def test_load_vectors_anchor_center():
     """anchor=center: origin ends up as arrow midpoint."""
-    graph = load_molecule(EXAMPLES / "ethanol.xyz")
+    graph, _ = load_molecule(EXAMPLES / "ethanol.xyz")
     jf = _write_json({"anchor": "center", "vectors": [{"origin": "com", "vector": [1.0, 0.0, 0.0]}]})
     arrows = load_vectors(jf, graph)
     assert len(arrows) == 1
@@ -142,14 +143,14 @@ def test_load_vectors_anchor_center():
 
 def test_load_vectors_anchor_tail_default():
     """Without anchor key the default is 'tail'."""
-    graph = load_molecule(EXAMPLES / "ethanol.xyz")
+    graph, _ = load_molecule(EXAMPLES / "ethanol.xyz")
     jf = _write_json([{"origin": "com", "vector": [1.0, 0.0, 0.0]}])
     arrows = load_vectors(jf, graph)
     assert arrows[0].anchor == "tail"
 
 
 def test_load_vectors_anchor_invalid():
-    graph = load_molecule(EXAMPLES / "ethanol.xyz")
+    graph, _ = load_molecule(EXAMPLES / "ethanol.xyz")
     jf = _write_json({"anchor": "middle", "vectors": [{"origin": "com", "vector": [1.0, 0.0, 0.0]}]})
     with pytest.raises(ValueError, match="anchor"):
         load_vectors(jf, graph)
@@ -157,7 +158,7 @@ def test_load_vectors_anchor_invalid():
 
 def test_render_anchor_center_differs_from_tail():
     """With anchor=center the rendered tip is offset relative to anchor=tail."""
-    graph = load_molecule(EXAMPLES / "caffeine.xyz")
+    graph, _ = load_molecule(EXAMPLES / "caffeine.xyz")
     positions = np.array([graph.nodes[i]["position"] for i in graph.nodes()])
     centroid = positions.mean(axis=0)
     va_tail = VectorArrow(vector=np.array([2.0, 0.0, 0.0]), origin=centroid.copy(), anchor="tail")
@@ -174,7 +175,7 @@ def test_render_anchor_center_differs_from_tail():
 
 
 def test_render_with_vector_arrows():
-    graph = load_molecule(EXAMPLES / "caffeine.xyz")
+    graph, _ = load_molecule(EXAMPLES / "caffeine.xyz")
     positions = np.array([graph.nodes[i]["position"] for i in graph.nodes()])
     centroid = positions.mean(axis=0)
     va = VectorArrow(vector=np.array([1.0, 0.0, 0.0]), origin=centroid, color="#cc0000", label="μ")
@@ -186,7 +187,7 @@ def test_render_with_vector_arrows():
 
 
 def test_render_vector_global_scale():
-    graph = load_molecule(EXAMPLES / "caffeine.xyz")
+    graph, _ = load_molecule(EXAMPLES / "caffeine.xyz")
     positions = np.array([graph.nodes[i]["position"] for i in graph.nodes()])
     centroid = positions.mean(axis=0)
     va = VectorArrow(vector=np.array([1.0, 0.0, 0.0]), origin=centroid)
@@ -201,7 +202,7 @@ def test_render_vector_global_scale():
 
 def test_render_zero_length_vector_no_crash():
     """A zero-length vector should render without errors (shaft only, no arrowhead)."""
-    graph = load_molecule(EXAMPLES / "caffeine.xyz")
+    graph, _ = load_molecule(EXAMPLES / "caffeine.xyz")
     positions = np.array([graph.nodes[i]["position"] for i in graph.nodes()])
     centroid = positions.mean(axis=0)
     va = VectorArrow(vector=np.array([0.0, 0.0, 0.0]), origin=centroid)
