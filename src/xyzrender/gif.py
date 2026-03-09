@@ -613,7 +613,6 @@ def _rotate_vectors_in_cfg(
     the function can be called from a loop without accumulating floating-point
     error across frames.
     """
-
     import copy
 
     new_cfg = copy.copy(cfg)
