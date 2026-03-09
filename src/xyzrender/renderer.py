@@ -315,6 +315,10 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
     # Vectors are drawn just before the atom at their depth in the back-to-front
     # loop below, so each shaft is covered by its own atom while still being
     # occluded by any atoms closer to the viewer.
+    # However, when an arrow points toward the viewer the tip or
+    # tail may protrude in front of the host atom. To keep
+    # those elements visible they are placed in ``_vec_front_heads`` / ``_vec_front_tails``
+    # and redrawn on top of relevant atoms in a second pass below.
     _vec_lw = max(bw * 0.6, 1.5) if cfg.vectors else 0.0
     _fs_vec = fs_label * 1.2 if cfg.vectors else 0.0
     # Back-to-front order (ascending z, matching z_order convention)
@@ -324,21 +328,58 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
     )
     _pv_pos = 0  # pointer into _pending_vecs
 
-    def _draw_vector_arrow(vi: int) -> None:
-        va = cfg.vectors[vi]
-        scaled_vec = _vec_dirs[vi] * va.scale * cfg.vector_scale
-        if va.anchor == "center":
-            tail3d = _vec_origins[vi] - scaled_vec / 2
-        else:
-            tail3d = _vec_origins[vi]
-        tip3d = tail3d + scaled_vec
+    # Calculate whether a vector tip/tail protrudes beyond the atom sphere.
+    _atom_r3d = raw_vdw * cfg.atom_scale * _RADIUS_SCALE  # shape (n,)
+
+    # A vector endpoint "protrudes in front" when its z exceeds the z of the
+    # nearest atom plus that atom's 3D radius.
+    _vec_tip3d: list = []
+    _vec_tail3d: list = []
+    _vec_head_front: list[bool] = []
+    _vec_tail_front: list[bool] = []
+    if cfg.vectors:
+        for vi in range(len(cfg.vectors)):
+            va = cfg.vectors[vi]
+            scaled_vec = _vec_dirs[vi] * va.scale * cfg.vector_scale
+            if va.anchor == "center":
+                tail3d = _vec_origins[vi] - scaled_vec / 2
+            else:
+                tail3d = _vec_origins[vi]
+            tip3d = tail3d + scaled_vec
+            _vec_tip3d.append(tip3d)
+            _vec_tail3d.append(tail3d)
+            # Resolve host atom: use the prescribed index when available (atom-index
+            # origin from JSON), otherwise fall back to a nearest-neighbour search.
+            if va.host_atom is not None:
+                host_ai = va.host_atom
+            else:
+                host_ai = int(np.argmin(np.linalg.norm(pos - _vec_origins[vi], axis=1)))
+            host_z = pos[host_ai][2]
+            host_r = _atom_r3d[host_ai]
+            # Tip protrudes in front when tip_z > host_z + host_r
+            _vec_head_front.append(bool(tip3d[2] > host_z + host_r))
+            # Tail protrudes in front when tail_z > host_z + host_r (rare but symmetric)
+            _vec_tail_front.append(bool(tail3d[2] > host_z + host_r))
+
+    def _draw_vector_shaft(vi: int) -> None:
+        """Draw only the line shaft of vector vi (called before the host atom)."""
+        tail3d = _vec_tail3d[vi]
+        tip3d = _vec_tip3d[vi]
         ox, oy = _proj(tail3d, scale, cx, cy, canvas_w, canvas_h)
         tx, ty = _proj(tip3d, scale, cx, cy, canvas_w, canvas_h)
-        color = va.color
+        color = cfg.vectors[vi].color
         svg.append(
             f'  <line x1="{ox:.1f}" y1="{oy:.1f}" x2="{tx:.1f}" y2="{ty:.1f}" '
             f'stroke="{color}" stroke-width="{_vec_lw:.1f}" stroke-linecap="round"/>'
         )
+
+    def _draw_vector_head(vi: int) -> None:
+        """Draw the arrowhead polygon and label of vector vi."""
+        tail3d = _vec_tail3d[vi]
+        tip3d = _vec_tip3d[vi]
+        ox, oy = _proj(tail3d, scale, cx, cy, canvas_w, canvas_h)
+        tx, ty = _proj(tip3d, scale, cx, cy, canvas_w, canvas_h)
+        color = cfg.vectors[vi].color
         dx, dy = tx - ox, ty - oy
         px_len = (dx * dx + dy * dy) ** 0.5
         if px_len > 4:
@@ -357,11 +398,18 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
             ly = ty + nvy * (arr * 0.6 + _fs_vec * 0.5) + _fs_vec * 0.35
         else:
             lx, ly = tx + 4, ty
+        va = cfg.vectors[vi]
         if va.label:
             svg.append(
                 f'  <text x="{lx:.1f}" y="{ly:.1f}" font-size="{_fs_vec:.1f}" fill="{color}" '
                 f'font-family="Arial,sans-serif" text-anchor="middle" font-weight="bold">{va.label}</text>'
             )
+
+    def _draw_vector_arrow(vi: int) -> None:
+        """Draw shaft + (if not front-protruding) head for vector vi."""
+        _draw_vector_shaft(vi)
+        if not _vec_head_front[vi]:
+            _draw_vector_head(vi)
 
     # --- Unit cell box (12 edges, drawn before atoms so bonds/atoms render on top) ---
     if cfg.cell_data is not None and cfg.show_cell:
@@ -559,6 +607,14 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
     while _pv_pos < len(_pending_vecs):
         _draw_vector_arrow(_pending_vecs[_pv_pos])
         _pv_pos += 1
+
+    # --- Second pass: redraw arrowheads that protrude in front of their host atom ---
+    # These were skipped in the first pass (_draw_vector_arrow) so that the shaft
+    # is still painter-sorted correctly, but the head must appear on top of the atom.
+    if cfg.vectors:
+        for vi in range(len(cfg.vectors)):
+            if _vec_head_front[vi]:
+                _draw_vector_head(vi)
 
     # --- Front MO orbital lobes (on top of molecule) ---
     if cfg.mo_contours is not None:

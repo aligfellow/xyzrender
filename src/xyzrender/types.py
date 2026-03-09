@@ -157,6 +157,11 @@ class VectorArrow:
     scale:
         Additional per-arrow length scale factor applied on top of any global
         ``vector_scale`` setting (default 1.0).
+    host_atom:
+        0-based index of the atom this arrow is centred on, or ``None`` when
+        the origin was specified as ``"com"`` or explicit coordinates.  Used
+        by the renderer to determine whether the arrowhead protrudes in front
+        of the host atom without an expensive nearest-neighbour search.
     """
 
     vector: np.ndarray          # shape (3,)
@@ -165,6 +170,7 @@ class VectorArrow:
     label: str = ""
     scale: float = 1.0
     anchor: str = "tail"        # "tail" (origin = arrow tail) or "center" (origin = arrow midpoint)
+    host_atom: int | None = None  # 0-based atom index, or None for com/explicit origins
 
 
 @dataclass
