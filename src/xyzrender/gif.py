@@ -606,8 +606,7 @@ def _rotate_vectors_in_cfg(
     src_origins: np.ndarray,
     src_dirs: np.ndarray,
 ) -> "RenderConfig":
-    """Return a shallow copy of *cfg* with vector arrows rotated by *rot* around
-    *centroid*.
+    """Return a shallow copy of *cfg* with vector arrows rotated by *rot* around *centroid*.
 
     Uses *src_origins* / *src_dirs* as the reference un-rotated coordinates so
     the function can be called from a loop without accumulating floating-point
