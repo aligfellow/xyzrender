@@ -1,9 +1,22 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "xyzrender: Publication-quality molecular graphics from the command line."
-version: 0.1.0
-date-released: "2026-01-01"
+title: "xyzrender: Publication-quality molecular graphics."
+version: 0.2.0
+date-released: "2026-02-22"
 url: "https://github.com/aligfellow/xyzrender"
 authors:
   - given-names: "Alister S."
     family-names: "Goodfellow"
+
+references:
+  - type: article
+    title: "Graph-Based Internal Coordinate Analysis for Transition State Characterization"
+    authors:
+      - given-names: "Alister S."
+        family-names: "Goodfellow"
+      - given-names: "Bao N."
+        family-names: "Nguyen"
+    journal: "Journal of Chemical Theory and Computation"
+    year: 2026
+    doi: "10.1021/acs.jctc.5c02073"
+    notes: "Please also cite this paper, which introduces xyzgraph and graphRC used by xyzrender for molecular graph construction."

@@ -1,0 +1,8 @@
+# Core Sphinx and theme
+sphinx>=5.0.0
+furo>=2022.6.0 # Alternative modern theme (instead of RTD theme)
+
+# Extensions used in your conf.py
+sphinx-autodoc-typehints>=1.19.0
+myst-parser>=0.18.0
+

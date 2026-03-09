@@ -1,0 +1,16 @@
+@<TRIPOS>MOLECULE
+water.pdb
+3 2 1 0 0
+SMALL
+NO_CHARGES
+
+
+@<TRIPOS>ATOM
+      1 OH          4.0130    0.8310   -9.0830 O.3       1 OSP3    0.0000
+      2 HH1         4.9410    0.8440   -8.8370 H         1 OSP3    0.0000
+      3 HH2         3.7500   -0.0680   -9.2930 H         1 OSP3    0.0000
+@<TRIPOS>BOND
+     1    1    2 1
+     2    1    3 1
+@<TRIPOS>SUBSTRUCTURE
+     1 OSP3     1 RESIDUE           4 A     OSP3     0 ROOT

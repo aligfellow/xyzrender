@@ -26,15 +26,12 @@ from xyzrender.mo import (
     _upsample_2d,
     chain_segments,
     compute_grid_positions,
-    cube_corners_ang,
     marching_squares,
 )
 
 if TYPE_CHECKING:
-    import networkx as nx
-
     from xyzrender.cube import CubeData
-    from xyzrender.types import RenderConfig
+    from xyzrender.types import ESPParams
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +119,7 @@ _LUT = _build_lut(ESP_COLORMAP)
 def build_esp_surface(
     dens_cube: CubeData,
     esp_cube: CubeData,
-    isovalue: float,
+    params: ESPParams,
     *,
     rot: np.ndarray | None = None,
     atom_centroid: np.ndarray | None = None,
@@ -140,7 +137,42 @@ def build_esp_surface(
     Projects density and ESP to 2D, builds an RGB heatmap from ESP values
     with 3D lighting, then extracts density contour rings for depth-graded
     clip-path rendering.
+
+    Parameters
+    ----------
+    dens_cube:
+        Gaussian cube file containing electron density values.
+    esp_cube:
+        Gaussian cube file containing electrostatic potential values.
+    params:
+        ESP surface parameters (isovalue of the density isosurface).
+    rot:
+        Optional rotation matrix for cube-grid alignment.
+    atom_centroid:
+        Centroid of the original cube atom positions (Å).
+    target_centroid:
+        Centroid of the current (possibly rotated) atom positions (Å).
+    pos_flat_ang:
+        Pre-computed flattened grid positions (cached between GIF frames).
+    flat_indices:
+        Pre-computed indices of above-isovalue voxels (cached).
+    fixed_bounds:
+        Fixed ``(x_min, x_max, y_min, y_max)`` in Å (cached between GIF frames).
+    n_layers:
+        Number of density contour threshold levels for depth-graded rendering.
+    upsample:
+        Integer upsampling factor for the ESP heatmap raster.
+    esp_range:
+        Optional ``(vmin, vmax)`` range for ESP color mapping.
+    normals_phys:
+        Pre-computed surface normals in physical space (cached).
+
+    Returns
+    -------
+    ESPSurface
+        Heatmap PNG and density contour layers ready for SVG rendering.
     """
+    isovalue = params.isovalue
     n1, n2, n3 = dens_cube.grid_shape
     base_res = max(n1, n2, n3)
 
@@ -438,100 +470,6 @@ def build_esp_surface(
 
 
 # ---------------------------------------------------------------------------
-# Per-frame ESP recomputation for gif-rot
-# ---------------------------------------------------------------------------
-
-
-def _compute_normals_phys(cube: CubeData) -> np.ndarray:
-    """Compute 3D density gradient in physical space for all voxels.
-
-    Returns a flat (N_total, 3) array of gradient vectors (one per voxel).
-    The gradient points toward increasing density; negate for outward normals.
-    """
-    n1, n2, n3 = cube.grid_shape
-    vol = cube.grid_data.reshape(n1, n2, n3)
-    g0, g1, g2 = np.gradient(vol)
-
-    # Convert grid-index-space gradient to physical space:
-    # ∇_phys V = steps^{-1} @ [g0, g1, g2]  (chain rule)
-    m_inv = np.linalg.inv(cube.steps)  # steps are in Bohr, but direction is all we need
-
-    flat_g = np.column_stack([g0.ravel(), g1.ravel(), g2.ravel()])
-    return flat_g @ m_inv.T
-
-
-def recompute_esp(graph: nx.Graph, config: RenderConfig, esp_data: dict) -> None:
-    """Recompute ESP surface for the current graph orientation."""
-    from xyzrender.utils import kabsch_rotation
-
-    dens_cube = esp_data["dens_cube"]
-    esp_cube = esp_data["esp_cube"]
-
-    if "flat_indices" not in esp_data:
-        mask = dens_cube.grid_data >= esp_data["isovalue"]
-        esp_data["flat_indices"] = np.flatnonzero(mask)
-        esp_data["pos_flat_ang"] = compute_grid_positions(dens_cube)
-    if "_orig_atoms" not in esp_data:
-        orig = np.array([p for _, p in dens_cube.atoms], dtype=float)
-        esp_data["_orig_atoms"] = orig
-        esp_data["_atom_centroid"] = orig.mean(axis=0)
-    if "_bounding_radius" not in esp_data:
-        corners = cube_corners_ang(dens_cube)
-        r_max = float(
-            np.linalg.norm(corners - esp_data["_atom_centroid"], axis=1).max(),
-        )
-        esp_data["_bounding_radius"] = r_max + r_max * 0.01 + 1e-9
-    # Precompute 3D normals (once — the gradient field doesn't change)
-    if "_normals_phys" not in esp_data:
-        esp_data["_normals_phys"] = _compute_normals_phys(dens_cube)
-    # Stable ESP color range from 3D shell data (view-independent).
-    if "_esp_range" not in esp_data:
-        iso = esp_data["isovalue"]
-        dens_flat = dens_cube.grid_data.ravel()
-        shell_3d = (dens_flat >= iso) & (dens_flat <= iso * _SHELL_UPPER)
-        esp_shell = esp_cube.grid_data.ravel()[shell_3d]
-        if esp_shell.size > 0:
-            esp_data["_esp_range"] = (
-                float(np.percentile(esp_shell, 5)),
-                float(np.percentile(esp_shell, 95)),
-            )
-
-    orig = esp_data["_orig_atoms"]
-    atom_centroid = esp_data["_atom_centroid"]
-    curr = np.array(
-        [graph.nodes[i]["position"] for i in graph.nodes()],
-        dtype=float,
-    )
-    target_centroid = curr.mean(axis=0)
-
-    r = esp_data["_bounding_radius"]
-    fixed_bounds = (
-        float(target_centroid[0] - r),
-        float(target_centroid[0] + r),
-        float(target_centroid[1] - r),
-        float(target_centroid[1] + r),
-    )
-
-    rot = kabsch_rotation(orig, curr)
-
-    config.esp_surface = build_esp_surface(
-        dens_cube,
-        esp_cube,
-        isovalue=esp_data["isovalue"],
-        rot=rot,
-        atom_centroid=atom_centroid,
-        target_centroid=target_centroid,
-        flat_indices=esp_data["flat_indices"],
-        pos_flat_ang=esp_data["pos_flat_ang"],
-        fixed_bounds=fixed_bounds,
-        n_layers=esp_data.get("n_layers", _N_LAYERS),
-        upsample=3,  # lower resolution for GIF speed
-        esp_range=esp_data.get("_esp_range"),
-        normals_phys=esp_data["_normals_phys"],
-    )
-
-
-# ---------------------------------------------------------------------------
 # ESP SVG rendering — PNG heatmap clipped by density contour rings
 # ---------------------------------------------------------------------------
 
@@ -578,7 +516,7 @@ def esp_surface_svg(
     # the same .resolution/.x_min/.x_max/.y_min/.y_max as MOContours)
     clip_ids: list[str] = []
     for i, lobe in enumerate(esp.layers):
-        d = _mo_combined_path_d(lobe.loops, esp, scale, cx, cy, canvas_w, canvas_h)  # type: ignore[arg-type]
+        d = _mo_combined_path_d(lobe.loops, esp, scale, cx, cy, canvas_w, canvas_h)
         if d:
             clip_id = f"esp_clip_{i}"
             clip_ids.append(clip_id)

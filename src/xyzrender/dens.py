@@ -11,7 +11,7 @@ from xyzrender.mo import (
     _MIN_LOOP_PERIMETER,
     _UPSAMPLE_FACTOR,
     LobeContour2D,
-    MOContours,
+    SurfaceContours,
     _gaussian_blur_2d,
     _loop_perimeter,
     _mo_combined_path_d,
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     import networkx as nx
 
     from xyzrender.cube import CubeData
-    from xyzrender.types import RenderConfig
+    from xyzrender.types import DensParams, RenderConfig
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ def build_density_contours(
     flat_indices: np.ndarray | None = None,
     fixed_bounds: tuple[float, float, float, float] | None = None,
     n_layers: int = _N_LAYERS,
-) -> MOContours:
+) -> SurfaceContours:
     """Build density contours from a parsed cube file.
 
     Projects all above-isovalue voxels to a 2D grid (max-intensity), then
@@ -114,7 +114,7 @@ def build_density_contours(
     # Crop to non-zero bounding box + blur padding
     nz_rows, nz_cols = np.nonzero(grid_2d)
     if len(nz_rows) == 0:
-        return MOContours(x_min=x_min, x_max=x_max, y_min=y_min, y_max=y_max, pos_color=color, neg_color=color)
+        return SurfaceContours(x_min=x_min, x_max=x_max, y_min=y_min, y_max=y_max, pos_color=color, neg_color=color)
 
     pad = max(3, int(_DENS_BLUR * 4) + 1)
     r0 = max(0, int(nz_rows.min()) - pad)
@@ -132,7 +132,7 @@ def build_density_contours(
     _up = max(1, _UPSAMPLE_FACTOR // _PROJ_MULT + 1)
     above = blurred[blurred > isovalue]
     if above.size == 0:
-        return MOContours(x_min=x_min, x_max=x_max, y_min=y_min, y_max=y_max, pos_color=color, neg_color=color)
+        return SurfaceContours(x_min=x_min, x_max=x_max, y_min=y_min, y_max=y_max, pos_color=color, neg_color=color)
 
     # Use 85th percentile as upper bound to avoid nuclear-peak outliers
     upper = float(np.percentile(above, 85))
@@ -157,7 +157,7 @@ def build_density_contours(
     else:
         logger.debug("Density contours: %d layers (%d loops total, isovalue=%.4g)", len(layers), total_loops, isovalue)
 
-    return MOContours(
+    return SurfaceContours(
         lobes=layers,
         resolution=res,
         x_min=x_min,
@@ -174,36 +174,58 @@ def build_density_contours(
 # ---------------------------------------------------------------------------
 
 
-def recompute_dens(graph: nx.Graph, config: RenderConfig, dens_data: dict) -> None:
-    """Recompute density contours for the current graph orientation.
+def recompute_dens(
+    graph: nx.Graph,
+    config: RenderConfig,
+    params: DensParams,
+    cube: CubeData,
+    surface_opacity: float,
+    _cache: dict,
+) -> None:
+    """Recompute density contours for the current graph orientation (GIF frames).
 
-    Caches flat indices, grid positions, and bounding sphere on first call;
-    only the rotation changes per frame.
+    *_cache* is a mutable dict managed by the caller across frames.  On the
+    first call it is populated with pre-computed flat voxel indices, grid
+    positions, and a bounding sphere radius.
+
+    Parameters
+    ----------
+    graph:
+        Molecular graph at the current GIF frame orientation.
+    config:
+        Render configuration; ``dens_contours`` and ``surface_opacity`` are
+        updated in-place.
+    params:
+        Density surface parameters (isovalue, color).
+    cube:
+        Gaussian cube file data (read-only; cached values stored in ``_cache``).
+    surface_opacity:
+        Opacity to apply to the density surface.
+    _cache:
+        Mutable dict for inter-frame caching.  Populated on first call.
     """
     from xyzrender.utils import kabsch_rotation
 
-    cube_data = dens_data["cube_data"]
-
     # Cache invariants on first call
-    if "flat_indices" not in dens_data:
-        mask = cube_data.grid_data >= dens_data["isovalue"]
-        dens_data["flat_indices"] = np.flatnonzero(mask)
-        dens_data["pos_flat_ang"] = compute_grid_positions(cube_data)
-    if "_orig_atoms" not in dens_data:
-        orig = np.array([p for _, p in cube_data.atoms], dtype=float)
-        dens_data["_orig_atoms"] = orig
-        dens_data["_atom_centroid"] = orig.mean(axis=0)
-    if "_bounding_radius" not in dens_data:
-        corners = cube_corners_ang(cube_data)
-        r_max = float(np.linalg.norm(corners - dens_data["_atom_centroid"], axis=1).max())
-        dens_data["_bounding_radius"] = r_max + r_max * 0.01 + 1e-9
+    if "flat_indices" not in _cache:
+        mask = cube.grid_data >= params.isovalue
+        _cache["flat_indices"] = np.flatnonzero(mask)
+        _cache["pos_flat_ang"] = compute_grid_positions(cube)
+    if "_orig_atoms" not in _cache:
+        orig = np.array([p for _, p in cube.atoms], dtype=float)
+        _cache["_orig_atoms"] = orig
+        _cache["_atom_centroid"] = orig.mean(axis=0)
+    if "_bounding_radius" not in _cache:
+        corners = cube_corners_ang(cube)
+        r_max = float(np.linalg.norm(corners - _cache["_atom_centroid"], axis=1).max())
+        _cache["_bounding_radius"] = r_max + r_max * 0.01 + 1e-9
 
-    orig = dens_data["_orig_atoms"]
-    atom_centroid = dens_data["_atom_centroid"]
+    orig = _cache["_orig_atoms"]
+    atom_centroid = _cache["_atom_centroid"]
     curr = np.array([graph.nodes[i]["position"] for i in graph.nodes()], dtype=float)
     target_centroid = curr.mean(axis=0)
 
-    r = dens_data["_bounding_radius"]
+    r = _cache["_bounding_radius"]
     fixed_bounds = (
         float(target_centroid[0] - r),
         float(target_centroid[0] + r),
@@ -213,19 +235,20 @@ def recompute_dens(graph: nx.Graph, config: RenderConfig, dens_data: dict) -> No
 
     rot = kabsch_rotation(orig, curr)
 
+    from xyzrender.types import resolve_color
+
     config.dens_contours = build_density_contours(
-        cube_data,
-        isovalue=dens_data["isovalue"],
-        color=dens_data["color"],
+        cube,
+        isovalue=params.isovalue,
+        color=resolve_color(params.color),
         rot=rot,
         atom_centroid=atom_centroid,
         target_centroid=target_centroid,
-        flat_indices=dens_data["flat_indices"],
-        pos_flat_ang=dens_data["pos_flat_ang"],
+        flat_indices=_cache["flat_indices"],
+        pos_flat_ang=_cache["pos_flat_ang"],
         fixed_bounds=fixed_bounds,
-        n_layers=dens_data.get("n_layers", _N_LAYERS),
     )
-    config.surface_opacity = dens_data["surface_opacity"]
+    config.surface_opacity = surface_opacity
 
 
 # ---------------------------------------------------------------------------
@@ -237,7 +260,7 @@ _DENS_BASE_OPACITY = 0.95  # base opacity for density surface (scaled by surface
 
 
 def dens_layers_svg(
-    dens: MOContours,
+    dens: SurfaceContours,
     surface_opacity: float,
     scale: float,
     cx: float,

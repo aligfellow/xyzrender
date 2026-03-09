@@ -1,80 +1,66 @@
-"""Tests for config loading and merging."""
+"""Tests for config loading and merging via the public build_config() API."""
 
 import json
 import tempfile
 
 import pytest
 
-from xyzrender.config import build_render_config, load_config
+from xyzrender import build_config
 
 
-def test_load_default_preset():
-    data = load_config("default")
-    assert data["gradient"] is True
-    assert data["fog"] is True
-    assert "canvas_size" in data
-
-
-def test_load_flat_preset():
-    data = load_config("flat")
-    assert data["gradient"] is False
-
-
-def test_load_paton_preset():
-    data = load_config("paton")
-    assert "colors" in data
-    assert data["bond_orders"] is False
-
-
-def test_load_nonexistent_raises():
-    with pytest.raises(FileNotFoundError):
-        load_config("nonexistent_preset_xyz")
-
-
-def test_load_custom_json_file():
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-        json.dump({"canvas_size": 500, "gradient": False}, f)
-        f.flush()
-        data = load_config(f.name)
-    assert data["canvas_size"] == 500
-    assert data["gradient"] is False
-
-
-def test_build_render_config_defaults():
-    cfg = build_render_config({}, {})
-    assert cfg.canvas_size == 800  # dataclass default
-    assert cfg.gradient is False
-
-
-def test_build_render_config_from_preset():
-    data = load_config("default")
-    cfg = build_render_config(data, {})
+def test_default_preset_has_gradient_and_fog():
+    cfg = build_config("default")
     assert cfg.gradient is True
     assert cfg.fog is True
 
 
-def test_cli_overrides_win():
-    data = {"gradient": True, "fog": True, "canvas_size": 800}
-    overrides = {"gradient": False, "canvas_size": 400}
-    cfg = build_render_config(data, overrides)
+def test_flat_preset_has_no_gradient():
+    cfg = build_config("flat")
+    assert cfg.gradient is False
+
+
+def test_paton_preset_has_no_bond_orders():
+    cfg = build_config("paton")
+    assert cfg.bond_orders is False
+
+
+def test_nonexistent_preset_raises():
+    with pytest.raises(FileNotFoundError):
+        build_config("nonexistent_preset_xyz")
+
+
+def test_custom_json_file():
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump({"canvas_size": 500, "gradient": False}, f)
+        path = f.name
+    cfg = build_config(path)
+    assert cfg.canvas_size == 500
+    assert cfg.gradient is False
+
+
+def test_kwarg_overrides_preset():
+    """Explicit kwargs win over preset values."""
+    cfg = build_config("default", gradient=False, canvas_size=400)
     assert cfg.gradient is False
     assert cfg.canvas_size == 400
     assert cfg.fog is True  # not overridden
 
 
-def test_colors_mapped_to_color_overrides():
-    data = {"colors": {"C": "#333333", "N": "#0000ff"}}
-    cfg = build_render_config(data, {})
-    assert cfg.color_overrides == {"C": "#333333", "N": "#0000ff"}
-
-
-def test_colors_absent_gives_none():
-    cfg = build_render_config({}, {})
-    assert cfg.color_overrides is None
-
-
 def test_named_colors_resolved_to_hex():
-    data = {"colors": {"C": "silver", "N": "slateblue"}, "background": "ivory"}
-    cfg = build_render_config(data, {})
-    assert cfg.color_overrides == {"C": "#c0c0c0", "N": "#6a5acd"}
+    cfg = build_config("default", background="ivory")
     assert cfg.background == "#fffff0"
+
+
+def test_paton_colors_resolved():
+    """Paton preset uses named colors — verify they are resolved to hex."""
+    cfg = build_config("paton")
+    if cfg.color_overrides:
+        for v in cfg.color_overrides.values():
+            assert v.startswith("#"), f"Color not resolved to hex: {v}"
+
+
+def test_build_config_returns_render_config():
+    from xyzrender.types import RenderConfig
+
+    cfg = build_config("default")
+    assert isinstance(cfg, RenderConfig)

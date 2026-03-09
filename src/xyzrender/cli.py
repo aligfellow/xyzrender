@@ -6,23 +6,10 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-from xyzrender.config import build_render_config, load_config
-
-if TYPE_CHECKING:
-    from xyzrender.cube import CubeData
-    from xyzrender.types import RenderConfig
-
-from xyzrender.io import (
-    detect_nci,
-    load_molecule,
-    load_stdin,
-    load_trajectory_frames,
-    load_ts_molecule,
-    rotate_with_viewer,
-)
-from xyzrender.renderer import render_svg
+from xyzrender.api import Molecule, load, orient, render, render_gif
+from xyzrender.config import build_config
+from xyzrender.readers import load_stdin
 
 logger = logging.getLogger(__name__)
 
@@ -34,25 +21,6 @@ def _basename(input_path: str | None, from_stdin: bool) -> str:
     if from_stdin or not input_path:
         return "graphic"
     return Path(input_path).stem
-
-
-def _write_output(svg: str, output: str, cfg: RenderConfig, parser: argparse.ArgumentParser) -> None:
-    """Write SVG to file, converting to PNG/PDF based on extension."""
-    ext = output.rsplit(".", 1)[-1].lower()
-    if ext == "svg":
-        with open(output, "w") as f:
-            f.write(svg)
-    elif ext == "png":
-        from xyzrender.export import svg_to_png
-
-        svg_to_png(svg, output, size=cfg.canvas_size, dpi=cfg.dpi)
-    elif ext == "pdf":
-        from xyzrender.export import svg_to_pdf
-
-        svg_to_pdf(svg, output)
-    else:
-        supported = ", ".join("." + e for e in sorted(_SUPPORTED_EXTENSIONS))
-        parser.error(f"Unsupported output format: .{ext} (use {supported})")
 
 
 def _parse_pairs(s: str) -> list[tuple[int, int]]:
@@ -88,11 +56,30 @@ def main() -> None:
 
     # --- Input / Output ---
     io_g = p.add_argument_group("input/output")
-    io_g.add_argument("input", nargs="?", help="XYZ file (reads stdin if omitted)")
+    io_g.add_argument("input", nargs="?", help="Input file (.xyz, .mol, .sdf, .mol2, .pdb, .smi, .cif, .cube, …)")
     io_g.add_argument("-o", "--output", help="Output file (.svg, .png, .pdf)")
     io_g.add_argument("-c", "--charge", type=int, default=0)
     io_g.add_argument("-m", "--multiplicity", type=int, default=None)
     io_g.add_argument("-d", "--debug", action="store_true", help="Debug output")
+    io_g.add_argument(
+        "--smi",
+        default=None,
+        metavar="SMILES",
+        help="Parse a SMILES string directly (requires rdkit: pip install 'xyzrender[smiles]')",
+    )
+    io_g.add_argument(
+        "--mol-frame",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Record index to read from a multi-molecule SDF file (default: 0)",
+    )
+    io_g.add_argument(
+        "--rebuild",
+        action="store_true",
+        default=False,
+        help="Ignore file connectivity and re-detect bonds with xyzgraph",
+    )
 
     # --- Styling ---
     style_g = p.add_argument_group("styling")
@@ -138,9 +125,53 @@ def main() -> None:
         "--esp", default=None, metavar="CUBE", help="ESP cube file for potential coloring (implies --dens)"
     )
     surf_g.add_argument(
-        "--iso", type=float, default=None, help="Isosurface threshold (MO default: 0.05, density/ESP default: 0.001)"
+        "--nci-surf",
+        default=None,
+        metavar="CUBE",
+        dest="nci_surf",
+        help="NCI gradient cube file — find patches where RDG is low (implies density rendering)",
     )
+    surf_g.add_argument(
+        "--nci-color", default=None, help="NCI patch colour for uniform mode (hex or named, default: forestgreen)"
+    )
+    surf_g.add_argument(
+        "--nci-coloring",
+        default=None,
+        choices=["avg", "pixel", "uniform"],
+        dest="nci_coloring",
+        help="NCI surface coloring: avg=per-lobe mean sign(l2)*rho blue/green/red (default), pixel=per-pixel raster, "
+        "uniform=flat color (see --nci-color)",
+    )
+    surf_g.add_argument(
+        "--iso",
+        type=float,
+        default=None,
+        help="Isosurface threshold (MO default: 0.05, density/ESP default: 0.001, NCI/RDG default: 0.3)",
+    )
+    surf_g.add_argument(
+        "--flat-mo",
+        action="store_true",
+        default=False,
+        help="Disable MO depth classification (all lobes rendered as front)",
+    )
+    surf_g.add_argument("--mo-blur", type=float, default=None, help="MO Gaussian blur sigma (default: 0.8)")
+    surf_g.add_argument("--mo-upsample", type=int, default=None, help="MO upsample factor (default: 3)")
     surf_g.add_argument("--opacity", type=float, default=None, help="Surface opacity (default: 1.0, >1 boosts)")
+
+    # --- Overlay ---
+    ov_g = p.add_argument_group("overlay")
+    ov_g.add_argument(
+        "--overlay",
+        default=None,
+        metavar="FILE",
+        help="Overlay molecule file — aligned onto the main input and drawn in magenta",
+    )
+    ov_g.add_argument(
+        "--overlay-color",
+        default=None,
+        dest="overlay_color",
+        help="Overlay molecule color (hex or named, default: darkmagenta)",
+    )
 
     # --- Orientation ---
     orient_g = p.add_argument_group("orientation")
@@ -154,7 +185,12 @@ def main() -> None:
     ts_g.add_argument("--ts", action="store_true", dest="ts_detect", help="Auto-detect TS bonds via graphRC")
     ts_g.add_argument("--ts-frame", type=int, default=0, help="TS reference frame for graphRC (0-indexed)")
     ts_g.add_argument("--ts-bond", default="", help='Manual TS bond pair(s), 1-indexed: "1-6,3-4"')
-    ts_g.add_argument("--nci", action="store_true", help="Auto-detect NCI interactions via xyzgraph")
+    ts_g.add_argument(
+        "--nci",
+        action="store_true",
+        dest="nci_detect",
+        help="Auto-detect NCI interactions via xyzgraph",
+    )
     ts_g.add_argument("--nci-bond", default="", help='Manual NCI bond pair(s), 1-indexed: "1-5,2-8"')
 
     # --- GIF animation ---
@@ -245,66 +281,109 @@ def main() -> None:
         help="Global length scale factor applied to all vector arrows (default: 1.0)",
     )
 
+    # --- Crystal / periodic structures ---
+    crystal_g = p.add_argument_group("crystal / periodic structures")
+    crystal_g.add_argument(
+        "--crystal",
+        nargs="?",
+        const="auto",
+        default=None,
+        metavar="{vasp,qe}",
+        help=(
+            "Load as a periodic crystal structure via phonopy (requires xyzrender[crystal]). "
+            "Enables unit cell box, crystallographic axes (a/b/c), and image atoms. "
+            "Optionally specify the phonopy interface: vasp, qe (auto-detected from filename "
+            "if omitted). Examples: --crystal, --crystal vasp, --crystal qe"
+        ),
+    )
+    crystal_g.add_argument(
+        "--cell",
+        action="store_true",
+        default=False,
+        help=(
+            "Draw the unit cell box from an extXYZ Lattice= header. "
+            "No crystallographic axes or image atoms — just the box. "
+            "Does not require phonopy."
+        ),
+    )
+    crystal_g.add_argument("--no-cell", action="store_true", default=False, help="Hide the unit cell box (--crystal)")
+    crystal_g.add_argument(
+        "--ghosts",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Show/hide periodic image atoms (default: on when --cell/--crystal, off otherwise)",
+    )
+    crystal_g.add_argument(
+        "--axes",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show/hide crystallographic axis arrows a/b/c (--crystal)",
+    )
+    crystal_g.add_argument("--cell-color", default=None, help="Unit cell box color (hex or named, default: #333333)")
+    crystal_g.add_argument("--cell-width", type=float, default=None, help="Unit cell box line width (default: 1.5)")
+    crystal_g.add_argument(
+        "--ghost-opacity",
+        type=float,
+        default=None,
+        help="Opacity for ghost (periodic image) atoms/bonds (default: 0.5)",
+    )
+    crystal_g.add_argument(
+        "--axis",
+        default=None,
+        metavar="HKL",
+        help=(
+            "Orient crystal looking down a crystallographic direction, e.g. --axis 111. "
+            "Each digit is one Miller index (0-9). Requires --crystal or --cell."
+        ),
+    )
+
     args = p.parse_args()
     from xyzrender import configure_logging
 
     configure_logging(verbose=True, debug=args.debug)
 
-    # Build config: preset/JSON base + CLI overrides
-    config_data = load_config(args.config or "default")
+    # Normalise argparse --hy (None | [] | [1,3,5]) → shared (None | True | [1,3,5])
+    hy_spec: bool | list[int] | None = None
+    if args.hy is not None:
+        hy_spec = True if len(args.hy) == 0 else args.hy
 
-    cli_overrides: dict = {}
-    for attr, key in [
-        ("canvas_size", "canvas_size"),
-        ("atom_scale", "atom_scale"),
-        ("bond_width", "bond_width"),
-        ("atom_stroke_width", "atom_stroke_width"),
-        ("bond_color", "bond_color"),
-        ("gradient_strength", "gradient_strength"),
-        ("transparent", "transparent"),
-        ("fog_strength", "fog_strength"),
-        ("background", "background"),
-        ("vdw_opacity", "vdw_opacity"),
-        ("vdw_scale", "vdw_scale"),
-        ("label_size", "label_font_size"),
-    ]:
-        val = getattr(args, attr)
-        if val is not None:
-            cli_overrides[key] = val
-    if args.vdw_gradient is not None:
-        cli_overrides["vdw_gradient_strength"] = args.vdw_gradient
-    if args.grad is not None:
-        cli_overrides["gradient"] = args.grad
-    if args.fog is not None:
-        cli_overrides["fog"] = args.fog
-    if args.bo is not None:
-        cli_overrides["bond_orders"] = args.bo
-
-    cfg = build_render_config(config_data, cli_overrides)
-
-    # Per-molecule settings (always from CLI)
-    if args.no_hy:
-        cfg.hide_h = True  # --no-hy: hide all H
-    elif args.hy is None:
-        cfg.hide_h = True  # default: hide C-H
-    elif len(args.hy) == 0:
-        cfg.hide_h = False  # --hy with no args: show all
-    else:
-        cfg.hide_h = True  # --hy 1 3 5: show specific only
-        cfg.show_h_indices = [i - 1 for i in args.hy]
-    cfg.ts_bonds = _parse_pairs(args.ts_bond)
-    cfg.nci_bonds = _parse_pairs(args.nci_bond)
-    cfg.vdw_indices = (
-        _parse_indices(args.vdw) if args.vdw is not None and args.vdw != "" else ([] if args.vdw == "" else None)
-    )
-    # Auto-orient: on by default, off for interactive/stdin
+    # Resolve orient flag before build_config so it can be passed in directly
     from_stdin = not args.input and not sys.stdin.isatty()
-    if args.orient is not None:
-        cfg.auto_orient = args.orient
-    elif args.interactive or from_stdin:
-        cfg.auto_orient = False
-    else:
-        cfg.auto_orient = True
+    _orient: bool | None = args.orient
+    if _orient is None and (args.interactive or from_stdin):
+        _orient = False
+
+    cfg = build_config(
+        args.config or "default",
+        canvas_size=args.canvas_size,
+        atom_scale=args.atom_scale,
+        bond_width=args.bond_width,
+        atom_stroke_width=args.atom_stroke_width,
+        bond_color=args.bond_color,
+        background=args.background,
+        transparent=args.transparent,
+        gradient=args.grad,
+        gradient_strength=args.gradient_strength,
+        fog=args.fog,
+        fog_strength=args.fog_strength,
+        bo=args.bo,
+        hy=hy_spec,
+        no_hy=args.no_hy,
+        orient=_orient,
+        opacity=args.opacity,
+        label_font_size=args.label_size,
+        vdw_opacity=args.vdw_opacity,
+        vdw_scale=args.vdw_scale,
+        vdw_gradient_strength=args.vdw_gradient,
+        ts_bonds=_parse_pairs(args.ts_bond),
+        nci_bonds=_parse_pairs(args.nci_bond),
+        vdw_indices=(
+            _parse_indices(args.vdw) if args.vdw is not None and args.vdw != "" else ([] if args.vdw == "" else None)
+        ),
+        show_indices=args.idx is not None,
+        idx_format=args.idx or "sn",
+        cmap_range=tuple(args.cmap_range) if args.cmap_range else None,
+    )
 
     # Output path defaults and validation
     base = _basename(args.input, from_stdin)
@@ -326,101 +405,93 @@ def main() -> None:
             file=sys.stderr,
         )
 
-    if args.rot_frames != 120 and not args.gif_rot:
-        logger.warning("--rot-frames ignored without --gif-rot")
-    if args.gif_ts and args.gif_trj:
-        p.error(
-            "--gif-ts and --gif-trj are mutually exclusive. "
-            "Use --gif-trj with --ts if you want TS bonds shown in the trj gif"
-        )
-
-    if args.transparent and args.background is not None:
-        logger.warning("--transparent and --background are mutually exclusive; using transparent")
-        args.background = None
-
     is_cube = args.input and args.input.endswith(".cube")
 
-    # MO mutual exclusivity
-    if args.mo and args.vdw is not None:
-        p.error("--mo and --vdw are mutually exclusive")
-    if args.mo and args.gif_ts:
-        p.error("--mo and --gif-ts are mutually exclusive")
-    if args.mo and args.gif_trj:
-        p.error("--mo and --gif-trj are mutually exclusive")
-    if args.mo and not is_cube:
-        p.error("--mo requires a .cube input file")
-    if args.dens and args.mo:
-        p.error("--dens and --mo are mutually exclusive")
-    if args.dens and args.vdw is not None:
-        p.error("--dens and --vdw are mutually exclusive")
-    if args.dens and not is_cube:
-        p.error("--dens requires a .cube input file")
-    if args.esp and args.mo:
-        p.error("--esp and --mo are mutually exclusive")
-    if args.esp and args.vdw is not None:
-        p.error("--esp and --vdw are mutually exclusive")
-    if args.esp and args.dens:
-        p.error("--esp and --dens are mutually exclusive (--esp implies density rendering)")
-    if args.esp and not is_cube:
-        p.error("--esp requires a .cube density input file")
-    if args.esp and wants_gif:
-        p.error("--esp does not support GIF rotation")
+    # Validate --smi / --mol-frame / --rebuild usage
+    if args.smi and args.input:
+        p.error("--smi cannot be combined with a positional input file")
+    if args.mol_frame != 0 and not (args.input and args.input.endswith(".sdf")):
+        logger.warning("--mol-frame has no effect on non-SDF input")
+    if args.rebuild and args.smi:
+        logger.warning("--rebuild has no effect on SMILES input (rdkit bonds are always used)")
+
+    # --crystal: interface_mode is non-None iff phonopy crystal loading is requested.
+    # Auto-detection (stem/extension) is handled inside load() → _resolve_crystal_interface().
+    # --cell is a separate lighter path: extXYZ box only, no phonopy, no image atoms.
+    interface_mode: str | None = None
+    if args.crystal is not None:
+        if args.input is None:
+            p.error("--crystal requires an input file")
+        # Resolve now so we know interface_mode for axes/ghosts defaulting below.
+        # load() will call _resolve_crystal_interface() again; ValueError → p.error().
+        from xyzrender.api import _resolve_crystal_interface
+
+        try:
+            interface_mode = _resolve_crystal_interface(Path(args.input), args.crystal)
+        except ValueError as e:
+            p.error(str(e))
+
     if wants_gif:
         gif_path = args.gif_output or f"{base}.gif"
         gif_ext = gif_path.rsplit(".", 1)[-1].lower()
         if gif_ext != "gif":
             p.error(f"GIF output must have .gif extension, got: .{gif_ext}")
 
-    # Load molecule (--gif-ts implies TS detection)
-    cube_data = None
+    # --- Load molecule ---
     needs_ts = args.ts_detect or args.gif_ts
     if is_cube and needs_ts:
         print(
             "Warning: --ts/--gif-ts has no effect with cube files (single geometry, no frequency data). "
             "Use --ts-bond to manually specify TS bonds."
         )
-    if is_cube:
-        from xyzrender.io import load_cube
-        graph, cube_data = load_cube(args.input, charge=args.charge, multiplicity=args.multiplicity, kekule=args.kekule)
-    elif needs_ts and args.input:
-        graph, _ts_frames = load_ts_molecule(
-            args.input,
-            charge=args.charge,
-            multiplicity=args.multiplicity,
-            ts_frame=args.ts_frame,
-            kekule=args.kekule,
-        )
-    elif args.input:
-        graph = load_molecule(args.input, charge=args.charge, multiplicity=args.multiplicity, kekule=args.kekule)
-    elif not sys.stdin.isatty():
+
+    if args.smi:
+        mol = load(args.smi, smiles=True, charge=args.charge, multiplicity=args.multiplicity, kekule=args.kekule)
+        xyz_path = Path(args.output).with_suffix(".xyz")
+        mol.to_xyz(xyz_path, title=args.smi)
+        logger.info("3D geometry written to %s", xyz_path)
+    elif from_stdin:
         graph = load_stdin(charge=args.charge, multiplicity=args.multiplicity, kekule=args.kekule)
-    else:
+        mol = Molecule(graph=graph, cube_data=None, cell_data=None, oriented=False)
+    elif not args.input:
         p.error("No input file and stdin is a terminal")
+    else:
+        try:
+            mol = load(
+                args.input,
+                charge=args.charge,
+                multiplicity=args.multiplicity,
+                kekule=args.kekule,
+                rebuild=args.rebuild,
+                mol_frame=args.mol_frame,
+                ts_detect=needs_ts,
+                ts_frame=args.ts_frame,
+                nci_detect=args.nci_detect,
+                crystal=interface_mode or False,
+                cell=args.cell,
+                quick=args.bo is False,
+            )
+        except ValueError as e:
+            p.error(str(e))
 
-    # Post-load analysis
-    if args.nci:
-        graph = detect_nci(graph)
+    # Pre-load overlay once so render() + render_gif() don't each load it from disk.
+    if args.overlay and isinstance(args.overlay, str):
+        _ov_charge = mol.graph.graph.get("total_charge", 0)
+        _ov_mult = mol.graph.graph.get("multiplicity")
+        args.overlay = load(args.overlay, charge=_ov_charge, multiplicity=_ov_mult)
 
-    # Measurements (terminal only — no SVG effect)
+    # --- Measurements (terminal output only) ---
     if args.measure is not None:
         from xyzrender.measure import print_measurements
 
-        modes = args.measure if args.measure else ["all"]  # bare --measure means all
+        modes = args.measure if args.measure else ["all"]
         valid_modes = {"all", "d", "a", "t", "tor", "dih"}
         for m in modes:
             if m.lower() not in valid_modes:
                 p.error(f"--measure: unknown type {m!r} (valid: d, a, t, or omit for all)")
-        print_measurements(graph, modes)
+        print_measurements(mol.graph, modes)
 
-    # Atom index labels in SVG
-    if args.idx is not None:
-        valid_fmts = {"sn", "s", "n"}
-        if args.idx not in valid_fmts:
-            p.error(f"--idx: unknown format {args.idx!r} (valid: sn, s, n)")
-        cfg.show_indices = True
-        cfg.idx_format = args.idx
-
-    # SVG annotations (-l / --label)
+    # --- Annotations (store on cfg; render() uses cfg.annotations directly) ---
     if args.label_specs or args.label:
         from xyzrender.annotations import parse_annotations
 
@@ -428,311 +499,123 @@ def main() -> None:
             cfg.annotations = parse_annotations(
                 inline_specs=args.label_specs or [],
                 file_path=args.label,
-                graph=graph,
+                graph=mol.graph,
             )
         except (ValueError, FileNotFoundError) as e:
             p.error(str(e))
 
-    # Atom property colormap
+    # --- Atom property colormap (store on cfg) ---
     if args.cmap:
         from xyzrender.annotations import load_cmap
 
         try:
-            cfg.atom_cmap = load_cmap(args.cmap, graph)
+            cfg.atom_cmap = load_cmap(args.cmap, mol.graph)
         except (ValueError, FileNotFoundError) as e:
             p.error(str(e))
-        if args.cmap_range is not None:
-            cfg.cmap_range = tuple(args.cmap_range)
 
-    # Vector arrows
+    # --- Vector arrows ---
     if args.vectors:
         from xyzrender.io import load_vectors
         try:
-            cfg.vectors = load_vectors(args.vectors, graph)
+            cfg.vectors = load_vectors(args.vectors, mol.graph)
         except (ValueError, FileNotFoundError) as e:
             p.error(str(e))
     if args.vector_scale is not None:
         cfg.vector_scale = args.vector_scale
 
-    # Orientation
+    # --- Interactive viewer ---
     if args.interactive:
-        rotate_with_viewer(graph)
+        orient(mol)
+        if not mol.oriented:
+            sys.exit(1)
 
-    # Surface opacity (shared across MO / density / ESP)
-    if args.opacity is not None:
-        cfg.surface_opacity = args.opacity
+    # --- Crystal ghost resolution ---
+    # Ghosts default: on whenever the molecule carries cell_data (auto-detected or explicit)
+    _show_ghosts = args.ghosts if args.ghosts is not None else mol.cell_data is not None
 
-    # MO: resolve colors once (used for both static render and gif-rot)
-    mo_colors = None
-    if args.mo:
-        from xyzrender.types import resolve_color
-
-        mo_colors = args.mo_colors or [
-            config_data.get("mo_pos_color", "steelblue"),
-            config_data.get("mo_neg_color", "maroon"),
-        ]
-        mo_colors = [resolve_color(c) for c in mo_colors]
-
-    # MO contour computation (PCA must happen here so rot is available for the grid)
-    if args.mo and cube_data is not None:
-        from typing import cast
-
-        import numpy as np
-
-        from xyzrender.mo import build_mo_contours
-        from xyzrender.utils import kabsch_rotation, pca_orient
-
-        assert mo_colors is not None  # set when args.mo is True
-        cube = cast("CubeData", cube_data)
-        rot = None
-        if cfg.auto_orient:
-            node_ids = list(graph.nodes())
-            pos = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
-            oriented, rot = pca_orient(pos, return_matrix=True)
-
-            # Tilt -30° around x-axis so orbital lobes above/below the
-            # molecular plane are clearly separated in the projection.
-            tilt = np.radians(-30)
-            rx = np.array(
-                [
-                    [1, 0, 0],
-                    [0, np.cos(tilt), -np.sin(tilt)],
-                    [0, np.sin(tilt), np.cos(tilt)],
-                ]
-            )
-            rot = rx @ rot
-            oriented = oriented @ rx.T
-
-            for idx, nid in enumerate(node_ids):
-                graph.nodes[nid]["position"] = tuple(oriented[idx].tolist())
-            cfg.auto_orient = False  # already applied, don't re-apply in render_svg
-
-        # If positions were modified (e.g. by interactive viewer) but PCA was not
-        # applied, compute R from the correspondence between original cube atom
-        # positions and current graph positions (Kabsch algorithm).
-        if rot is None:
-            orig = np.array([p for _, p in cube.atoms], dtype=float)
-            curr = np.array([graph.nodes[i]["position"] for i in graph.nodes()], dtype=float)
-            if not np.allclose(orig, curr, atol=1e-6):
-                rot = kabsch_rotation(orig, curr)
-
-        # Centroids for aligning the orbital grid with atom positions
-        atom_centroid = np.array([p for _, p in cube.atoms], dtype=float).mean(axis=0)
-        node_ids_mo = list(graph.nodes())
-        curr_centroid = np.array(
-            [graph.nodes[i]["position"] for i in node_ids_mo],
-            dtype=float,
-        ).mean(axis=0)
-
-        cfg.mo_contours = build_mo_contours(
-            cube,
-            rot=rot,
-            isovalue=args.iso if args.iso is not None else 0.05,
-            pos_color=mo_colors[0],
-            neg_color=mo_colors[1],
-            atom_centroid=atom_centroid,
-            target_centroid=curr_centroid,
+    # --- Render static SVG ---
+    try:
+        render(
+            mol,
+            config=cfg,
+            no_cell=args.no_cell,
+            axes=args.axes,
+            axis=args.axis,
+            ghosts=_show_ghosts,
+            cell_color=args.cell_color,
+            cell_width=args.cell_width,
+            ghost_opacity=args.ghost_opacity,
+            mo=args.mo,
+            dens=args.dens,
+            esp=args.esp,
+            nci=args.nci_surf,
+            iso=args.iso,
+            mo_pos_color=args.mo_colors[0] if args.mo_colors else None,
+            mo_neg_color=args.mo_colors[1] if args.mo_colors else None,
+            mo_blur=args.mo_blur,
+            mo_upsample=args.mo_upsample,
+            flat_mo=args.flat_mo,
+            dens_color=args.dens_color,
+            nci_color=args.nci_color,
+            nci_coloring=args.nci_coloring,
+            overlay=args.overlay,
+            overlay_color=args.overlay_color,
+            output=args.output,
         )
+    except ValueError as e:
+        p.error(str(e))
 
-    # Density isosurface computation
-    if args.dens and cube_data is not None:
-        from typing import cast
-
-        import numpy as np
-
-        from xyzrender.dens import build_density_contours
-        from xyzrender.types import resolve_color
-        from xyzrender.utils import kabsch_rotation, pca_orient
-
-        cube = cast("CubeData", cube_data)
-        dens_color = resolve_color(args.dens_color or config_data.get("dens_color", "steelblue"))
-        dens_isovalue = args.iso if args.iso is not None else config_data.get("dens_iso", 0.001)
-
-        rot = None
-        if cfg.auto_orient:
-            node_ids = list(graph.nodes())
-            pos = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
-            oriented, rot = pca_orient(pos, return_matrix=True)
-            # No tilt for density (unlike MO which tilts -30 degrees)
-            for idx, nid in enumerate(node_ids):
-                graph.nodes[nid]["position"] = tuple(oriented[idx].tolist())
-            cfg.auto_orient = False
-
-        if rot is None:
-            orig = np.array([p for _, p in cube.atoms], dtype=float)
-            curr = np.array([graph.nodes[i]["position"] for i in graph.nodes()], dtype=float)
-            if not np.allclose(orig, curr, atol=1e-6):
-                rot = kabsch_rotation(orig, curr)
-
-        atom_centroid = np.array([p for _, p in cube.atoms], dtype=float).mean(axis=0)
-        node_ids_dens = list(graph.nodes())
-        curr_centroid = np.array(
-            [graph.nodes[i]["position"] for i in node_ids_dens],
-            dtype=float,
-        ).mean(axis=0)
-
-        cfg.dens_contours = build_density_contours(
-            cube,
-            isovalue=dens_isovalue,
-            color=dens_color,
-            rot=rot,
-            atom_centroid=atom_centroid,
-            target_centroid=curr_centroid,
-        )
-
-    # ESP surface computation
-    esp_cube_data = None
-    if args.esp and cube_data is not None:
-        from typing import cast
-
-        import numpy as np
-
-        from xyzrender.cube import parse_cube
-        from xyzrender.esp import _compute_normals_phys, build_esp_surface
-        from xyzrender.utils import kabsch_rotation, pca_orient
-
-        cube = cast("CubeData", cube_data)
-        esp_cube_data = parse_cube(args.esp)
-
-        # Verify grid shapes match
-        if cube.grid_shape != esp_cube_data.grid_shape:
-            p.error(
-                f"Grid shape mismatch: density cube {cube.grid_shape} vs ESP cube {esp_cube_data.grid_shape}. "
-                "Both cubes must come from the same calculation."
-            )
-
-        esp_isovalue = args.iso if args.iso is not None else config_data.get("dens_iso", 0.001)
-
-        rot = None
-        if cfg.auto_orient:
-            node_ids = list(graph.nodes())
-            pos = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
-            oriented, rot = pca_orient(pos, return_matrix=True)
-            # No tilt for ESP (same as density)
-            for idx, nid in enumerate(node_ids):
-                graph.nodes[nid]["position"] = tuple(oriented[idx].tolist())
-            cfg.auto_orient = False
-
-        if rot is None:
-            orig = np.array([p for _, p in cube.atoms], dtype=float)
-            curr = np.array([graph.nodes[i]["position"] for i in graph.nodes()], dtype=float)
-            if not np.allclose(orig, curr, atol=1e-6):
-                rot = kabsch_rotation(orig, curr)
-
-        atom_centroid = np.array([p for _, p in cube.atoms], dtype=float).mean(axis=0)
-        node_ids_esp = list(graph.nodes())
-        curr_centroid = np.array(
-            [graph.nodes[i]["position"] for i in node_ids_esp],
-            dtype=float,
-        ).mean(axis=0)
-
-        normals_phys = _compute_normals_phys(cube)
-        cfg.esp_surface = build_esp_surface(
-            cube,
-            esp_cube_data,
-            isovalue=esp_isovalue,
-            rot=rot,
-            atom_centroid=atom_centroid,
-            target_centroid=curr_centroid,
-            normals_phys=normals_phys,
-        )
-
-    # Render static output
-    svg = render_svg(graph, cfg)
-    _write_output(svg, args.output, cfg, p)
-
-    # GIF output
+    # --- GIF output ---
     if wants_gif:
-        from xyzrender.gif import (
-            ROTATION_AXES,
-            render_rotation_gif,
-            render_trajectory_gif,
-            render_vibration_gif,
-            render_vibration_rotation_gif,
-        )
+        if args.gif_rot:
+            from xyzrender.gif import ROTATION_AXES
 
-        if args.gif_rot and args.gif_rot not in ROTATION_AXES:
-            p.error(f"Invalid rotation axis: {args.gif_rot} (valid: {', '.join(ROTATION_AXES)})")
+            if args.gif_rot not in ROTATION_AXES:
+                _test_ax = args.gif_rot.lstrip("-")
+                if not (_test_ax.isdigit() and len(_test_ax) >= 3 and mol.cell_data is not None):
+                    p.error(
+                        f"Invalid rotation axis: {args.gif_rot!r} "
+                        f"(valid: {', '.join(ROTATION_AXES)}, or 3-digit hkl for crystal inputs)"
+                    )
 
-        if args.gif_ts and args.gif_rot:
-            if not args.input:
-                p.error("--gif-ts requires an input file")
-            render_vibration_rotation_gif(
-                args.input,
-                cfg,
-                gif_path,
-                charge=args.charge,
-                multiplicity=args.multiplicity,
+        mol_or_path: str | Molecule = args.input if (args.gif_ts or args.gif_trj) else mol
+        # For gif_ts/gif_trj the trajectory is read from disk (mol_or_path is a path),
+        # but pass mol.graph as reference_graph so -I orientation and TS/NCI bonds are respected.
+        _ref_graph = mol.graph if (args.gif_ts or args.gif_trj) else None
+        try:
+            render_gif(
+                mol_or_path,
+                config=cfg,
+                gif_rot=args.gif_rot or None,
+                gif_trj=args.gif_trj,
+                gif_ts=args.gif_ts,
+                output=gif_path,
+                gif_fps=args.gif_fps,
+                rot_frames=args.rot_frames,
                 ts_frame=args.ts_frame,
-                fps=args.gif_fps,
-                axis=args.gif_rot,
-                n_frames=args.rot_frames,
-                reference_graph=graph,
-                detect_nci=args.nci,
+                overlay=args.overlay,
+                overlay_color=args.overlay_color,
+                reference_graph=_ref_graph,
+                detect_nci=args.nci_detect,
+                mo=args.mo,
+                dens=args.dens,
+                iso=args.iso,
+                mo_pos_color=args.mo_colors[0] if args.mo_colors else None,
+                mo_neg_color=args.mo_colors[1] if args.mo_colors else None,
+                mo_blur=args.mo_blur,
+                mo_upsample=args.mo_upsample,
+                flat_mo=args.flat_mo,
+                dens_color=args.dens_color,
+                no_cell=args.no_cell,
+                axes=args.axes,
+                axis=args.axis,
+                ghosts=_show_ghosts,
+                cell_color=args.cell_color,
+                cell_width=args.cell_width,
+                ghost_opacity=args.ghost_opacity,
             )
-        elif args.gif_ts:
-            if not args.input:
-                p.error("--gif-ts requires an input file")
-            render_vibration_gif(
-                args.input,
-                cfg,
-                gif_path,
-                charge=args.charge,
-                multiplicity=args.multiplicity,
-                ts_frame=args.ts_frame,
-                fps=args.gif_fps,
-                reference_graph=graph,
-                detect_nci=args.nci,
-            )
-        elif args.gif_trj:
-            if not args.input:
-                p.error("--gif-trj requires an input file")
-            frames = load_trajectory_frames(args.input)
-            if len(frames) < 2:
-                p.error("--gif-trj requires multi-frame input")
-            render_trajectory_gif(
-                frames,
-                cfg,
-                gif_path,
-                charge=args.charge,
-                multiplicity=args.multiplicity,
-                fps=args.gif_fps,
-                reference_graph=graph,
-                detect_nci=args.nci,
-                axis=args.gif_rot or None,
-                kekule=args.kekule,
-            )
-        elif args.gif_rot:
-            mo_data = None
-            if args.mo and cube_data is not None:
-                assert mo_colors is not None  # set when args.mo is True
-                mo_data = {
-                    "cube_data": cube_data,
-                    "isovalue": args.iso if args.iso is not None else 0.05,
-                    "pos_color": mo_colors[0],
-                    "neg_color": mo_colors[1],
-                    "surface_opacity": cfg.surface_opacity,
-                }
-            dens_data = None
-            if args.dens and cube_data is not None:
-                from xyzrender.types import resolve_color
-
-                dens_data = {
-                    "cube_data": cube_data,
-                    "isovalue": args.iso if args.iso is not None else config_data.get("dens_iso", 0.001),
-                    "color": resolve_color(args.dens_color or config_data.get("dens_color", "steelblue")),
-                    "surface_opacity": cfg.surface_opacity,
-                }
-            render_rotation_gif(
-                graph,
-                cfg,
-                gif_path,
-                n_frames=args.rot_frames,
-                fps=args.gif_fps,
-                axis=args.gif_rot,
-                mo_data=mo_data,
-                dens_data=dens_data,
-            )
+        except ValueError as e:
+            p.error(str(e))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="800" height="710">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <defs>
+    <g id="x0a0"><radialGradient id="x0g0" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="47.8" fill="url(#x0g0)" stroke="#000000" stroke-width="8.4"/></g>
+    <g id="x0a1"><radialGradient id="x0g1" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="47.8" fill="url(#x0g1)" stroke="#000000" stroke-width="8.4"/></g>
+    <g id="x0a2"><radialGradient id="x0g2" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="47.8" fill="url(#x0g2)" stroke="#000000" stroke-width="8.4"/></g>
+    <g id="x0a3"><radialGradient id="x0g3" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="47.8" fill="url(#x0g3)" stroke="#000000" stroke-width="8.4"/></g>
+    <g id="x0a4"><radialGradient id="x0g4" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="47.8" fill="url(#x0g4)" stroke="#000000" stroke-width="8.4"/></g>
+    <g id="x0a5"><radialGradient id="x0g5" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="47.8" fill="url(#x0g5)" stroke="#000000" stroke-width="8.4"/></g>
+    <g id="x0a6"><radialGradient id="x0g6" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#cccccc"/></radialGradient><circle cx="0" cy="0" r="25.1" fill="url(#x0g6)" stroke="#000000" stroke-width="8.4"/></g>
+    <g id="x0a7"><radialGradient id="x0g7" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#cccccc"/></radialGradient><circle cx="0" cy="0" r="25.1" fill="url(#x0g7)" stroke="#000000" stroke-width="8.4"/></g>
+    <g id="x0a8"><radialGradient id="x0g8" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#cccccc"/></radialGradient><circle cx="0" cy="0" r="25.1" fill="url(#x0g8)" stroke="#000000" stroke-width="8.4"/></g>
+    <g id="x0a9"><radialGradient id="x0g9" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#cccccc"/></radialGradient><circle cx="0" cy="0" r="25.1" fill="url(#x0g9)" stroke="#000000" stroke-width="8.4"/></g>
+    <g id="x0a10"><radialGradient id="x0g10" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#cccccc"/></radialGradient><circle cx="0" cy="0" r="25.1" fill="url(#x0g10)" stroke="#000000" stroke-width="8.4"/></g>
+    <g id="x0a11"><radialGradient id="x0g11" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#cccccc"/></radialGradient><circle cx="0" cy="0" r="25.1" fill="url(#x0g11)" stroke="#000000" stroke-width="8.4"/></g>
+  </defs>
+  <use x="493.4" y="516.8" xlink:href="#x0a0"/>
+  <line x1="450.4" y1="529.4" x2="349.6" y2="529.4" stroke="#000000" stroke-width="14.7" stroke-linecap="round"/>
+  <line x1="450.4" y1="504.1" x2="349.6" y2="504.1" stroke="#000000" stroke-width="14.7" stroke-linecap="round" stroke-dasharray="14.7,29.5"/>
+  <line x1="504.0" y1="473.2" x2="554.3" y2="385.9" stroke="#000000" stroke-width="14.7" stroke-linecap="round" stroke-dasharray="14.7,29.5"/>
+  <line x1="525.8" y1="485.8" x2="576.2" y2="398.6" stroke="#000000" stroke-width="14.7" stroke-linecap="round"/>
+  <line x1="514.9" y1="554.0" x2="554.8" y2="623.1" stroke="#000000" stroke-width="21.1" stroke-linecap="round"/>
+  <use x="306.6" y="516.8" xlink:href="#x0a1"/>
+  <line x1="274.2" y1="485.8" x2="223.8" y2="398.6" stroke="#000000" stroke-width="14.7" stroke-linecap="round"/>
+  <line x1="296.0" y1="473.2" x2="245.7" y2="385.9" stroke="#000000" stroke-width="14.7" stroke-linecap="round" stroke-dasharray="14.7,29.5"/>
+  <line x1="285.1" y1="554.0" x2="245.2" y2="623.1" stroke="#000000" stroke-width="21.1" stroke-linecap="round"/>
+  <use x="213.2" y="355.0" xlink:href="#x0a2"/>
+  <line x1="223.8" y1="311.4" x2="274.2" y2="224.2" stroke="#000000" stroke-width="14.7" stroke-linecap="round"/>
+  <line x1="245.7" y1="324.1" x2="296.0" y2="236.8" stroke="#000000" stroke-width="14.7" stroke-linecap="round" stroke-dasharray="14.7,29.5"/>
+  <line x1="170.2" y1="355.0" x2="90.4" y2="355.0" stroke="#000000" stroke-width="21.1" stroke-linecap="round"/>
+  <use x="306.6" y="193.2" xlink:href="#x0a3"/>
+  <line x1="349.6" y1="180.6" x2="450.4" y2="180.6" stroke="#000000" stroke-width="14.7" stroke-linecap="round"/>
+  <line x1="349.6" y1="205.9" x2="450.4" y2="205.9" stroke="#000000" stroke-width="14.7" stroke-linecap="round" stroke-dasharray="14.7,29.5"/>
+  <line x1="285.1" y1="156.0" x2="245.2" y2="86.9" stroke="#000000" stroke-width="21.1" stroke-linecap="round"/>
+  <use x="493.4" y="193.2" xlink:href="#x0a4"/>
+  <line x1="525.8" y1="224.2" x2="576.2" y2="311.4" stroke="#000000" stroke-width="14.7" stroke-linecap="round"/>
+  <line x1="504.0" y1="236.8" x2="554.3" y2="324.1" stroke="#000000" stroke-width="14.7" stroke-linecap="round" stroke-dasharray="14.7,29.5"/>
+  <line x1="514.9" y1="156.0" x2="554.8" y2="86.9" stroke="#000000" stroke-width="21.1" stroke-linecap="round"/>
+  <use x="586.8" y="355.0" xlink:href="#x0a5"/>
+  <line x1="629.8" y1="355.0" x2="709.6" y2="355.0" stroke="#000000" stroke-width="21.1" stroke-linecap="round"/>
+  <use x="566.1" y="642.7" xlink:href="#x0a6"/>
+  <use x="233.9" y="642.7" xlink:href="#x0a7"/>
+  <use x="67.8" y="355.0" xlink:href="#x0a8"/>
+  <use x="233.9" y="67.3" xlink:href="#x0a9"/>
+  <use x="566.1" y="67.3" xlink:href="#x0a10"/>
+  <use x="732.2" y="355.0" xlink:href="#x0a11"/>
+</svg>

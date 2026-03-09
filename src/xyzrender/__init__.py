@@ -1,12 +1,26 @@
-"""Publication-quality molecular graphics from the command line."""
+"""Publication-quality molecular graphics."""
 
 import logging
 
-from xyzrender.io import load_molecule
-from xyzrender.renderer import render_svg
+from xyzrender.annotations import load_cmap
+from xyzrender.api import GIFResult, Molecule, SVGResult, load, measure, orient, render, render_gif
+from xyzrender.config import build_config
 from xyzrender.types import RenderConfig
 
-__all__ = ["RenderConfig", "configure_logging", "load_molecule", "render_svg"]
+__all__ = [
+    "GIFResult",
+    "Molecule",
+    "RenderConfig",
+    "SVGResult",
+    "build_config",
+    "configure_logging",
+    "load",
+    "load_cmap",
+    "measure",
+    "orient",
+    "render",
+    "render_gif",
+]
 
 
 def configure_logging(*, verbose: bool = False, debug: bool = False) -> None:

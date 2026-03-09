@@ -4,18 +4,19 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xyzrender"
-version = "0.1.6"
-description = "Publication-quality molecular graphics from the command line."
+version = "0.2.2"
+description = "Publication-quality molecular graphics."
 authors = [{name = "Dr Alister S. Goodfellow"}]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.24",
-    "xyzgraph>=1.6.1",
+    "xyzgraph>=1.6.2",
     "cclib",
-    "graphrc",
+    "graphrc>=1.3.6",
     "cairosvg",
     "Pillow",
+    "ipykernel>=7.2.0",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -28,6 +29,12 @@ homepage = "https://github.com/aligfellow/xyzrender"
 
 [project.scripts]
 xyzrender = "xyzrender.cli:main"
+
+[project.optional-dependencies]
+crystal = ["phonopy"]
+smi     = ["rdkit"]
+cif     = ["ase"]
+all     = ["phonopy", "rdkit", "ase"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -42,6 +49,9 @@ dev = [
     "pytest-cov>=5.0.0",
     "ruff>=0.14.14",
     "ty>=0.0.14",
+    "phonopy",  # optional dep
+    "ase",      # optional dep (needed for test_formats.py pdb fixtures)
+    "rdkit",    # optional dep (needed for test_formats.py mol/sdf fixtures)
 ]
 
 # ===== Ruff =====
@@ -49,6 +59,7 @@ dev = [
 line-length = 120
 target-version = "py310"
 src = ["src", "tests"]
+exclude = ["docs/"]
 
 [tool.ruff.lint]
 select = [

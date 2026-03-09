@@ -9,8 +9,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from xyzrender import load_molecule, render_svg
-from xyzrender.io import load_vectors
+from xyzrender.io import load_molecule, load_vectors
+from xyzrender.renderer import render_svg
 from xyzrender.types import RenderConfig, VectorArrow
 
 EXAMPLES = Path(__file__).parent.parent / "examples" / "structures"
