@@ -39,8 +39,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
     a_nums = [DATA.s2n.get(s, 0) for s in symbols]  # 0 for NCI centroid nodes ("*")
 
     # Pre-compute local vector origins/directions so we can rotate them with auto_orient
-    _vec_origins = np.array([va.origin for va in cfg.vectors], dtype=float) if cfg.vectors else None
-    _vec_dirs = np.array([va.vector for va in cfg.vectors], dtype=float) if cfg.vectors else None
+    _vec_origins = np.array([va.origin for va in cfg.vectors], dtype=float) if cfg.vectors else np.full((0, 3), np.nan)
+    _vec_dirs = np.array([va.vector for va in cfg.vectors], dtype=float) if cfg.vectors else np.full((0, 3), np.nan)
 
     if cfg.auto_orient and n > 1:
         # Collect TS bond pairs to prioritize in orientation
@@ -70,7 +70,6 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
             cfg.cell_data.cell_origin = _rot_mat @ (cfg.cell_data.cell_origin - pre_centroid)
         else:
             pos = pca_orient(pos, ts_pairs or None, fit_mask=fit_mask)
-
 
     raw_vdw = np.array(
         [_CENTROID_VDW if s == "*" else DATA.vdw.get(s, 1.5) * (_H_ATOM_SCALE if s == "H" else 1.0) for s in symbols]
@@ -322,10 +321,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
     _vec_lw = max(bw * 0.6, 1.5) if cfg.vectors else 0.0
     _fs_vec = fs_label * 1.2 if cfg.vectors else 0.0
     # Back-to-front order (ascending z, matching z_order convention)
-    _pending_vecs = (
-        sorted(range(len(cfg.vectors)), key=lambda vi: _vec_origins[vi][2])
-        if cfg.vectors else []
-    )
+    _pending_vecs = sorted(range(len(cfg.vectors)), key=lambda vi: _vec_origins[vi][2]) if cfg.vectors else []
     _pv_pos = 0  # pointer into _pending_vecs
 
     # Calculate whether a vector tip/tail protrudes beyond the atom sphere.
@@ -391,8 +387,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
             p2x = tx - nvx * arr - pvx * arr * 0.38
             p2y = ty - nvy * arr - pvy * arr * 0.38
             svg.append(
-                f'  <polygon points="{tx:.1f},{ty:.1f} {p1x:.1f},{p1y:.1f} {p2x:.1f},{p2y:.1f}" '
-                f'fill="{color}"/>'
+                f'  <polygon points="{tx:.1f},{ty:.1f} {p1x:.1f},{p1y:.1f} {p2x:.1f},{p2y:.1f}" fill="{color}"/>'
             )
             lx = tx + nvx * (arr * 0.6 + _fs_vec * 0.5)
             ly = ty + nvy * (arr * 0.6 + _fs_vec * 0.5) + _fs_vec * 0.35

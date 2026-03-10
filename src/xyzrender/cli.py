@@ -269,8 +269,8 @@ def main() -> None:
         metavar="FILE",
         help=(
             "JSON file defining vector arrows to overlay on the image.  "
-            "Each entry: {\"origin\": \"com\"|<atom_index>|[x,y,z], "
-            "\"vector\": [vx,vy,vz], \"color\": \"#rrggbb\", \"label\": \"μ\", \"scale\": 1.0}"
+            'Each entry: {"origin": "com"|<atom_index>|[x,y,z], '
+            '"vector": [vx,vy,vz], "color": "#rrggbb", "label": "μ", "scale": 1.0}'
         ),
     )
     annot_g.add_argument(
@@ -516,6 +516,7 @@ def main() -> None:
     # --- Vector arrows ---
     if args.vectors:
         from xyzrender.annotations import load_vectors
+
         try:
             cfg.vectors = load_vectors(args.vectors, mol.graph)
         except (ValueError, FileNotFoundError) as e:

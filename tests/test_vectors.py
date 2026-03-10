@@ -70,11 +70,13 @@ def test_load_vectors_color_and_label(tmp_path):
 
 def test_load_vectors_multiple(tmp_path):
     graph, _ = load_molecule(EXAMPLES / "caffeine.xyz")
-    jf = _write_json([
-        {"vector": [1.0, 0.0, 0.0], "color": "#cc0000"},
-        {"origin": 2, "vector": [0.0, 1.0, 0.0]},
-        {"origin": [0, 0, 0], "vector": [0.0, 0.0, 1.0], "label": "z"},
-    ])
+    jf = _write_json(
+        [
+            {"vector": [1.0, 0.0, 0.0], "color": "#cc0000"},
+            {"origin": 2, "vector": [0.0, 1.0, 0.0]},
+            {"origin": [0, 0, 0], "vector": [0.0, 0.0, 1.0], "label": "z"},
+        ]
+    )
     arrows = load_vectors(jf, graph)
     assert len(arrows) == 3
     assert arrows[0].color == "#cc0000"
@@ -120,13 +122,15 @@ def test_load_vectors_anchor_per_entry():
     """Per-entry anchor overrides the file-level default."""
     graph, _ = load_molecule(EXAMPLES / "ethanol.xyz")
     # File default is 'tail', but first entry overrides to 'center'
-    jf = _write_json({
-        "anchor": "tail",
-        "vectors": [
-            {"origin": "com", "vector": [1.0, 0.0, 0.0], "anchor": "center"},
-            {"origin": "com", "vector": [0.0, 1.0, 0.0]},
-        ],
-    })
+    jf = _write_json(
+        {
+            "anchor": "tail",
+            "vectors": [
+                {"origin": "com", "vector": [1.0, 0.0, 0.0], "anchor": "center"},
+                {"origin": "com", "vector": [0.0, 1.0, 0.0]},
+            ],
+        }
+    )
     arrows = load_vectors(jf, graph)
     assert arrows[0].anchor == "center"
     assert arrows[1].anchor == "tail"

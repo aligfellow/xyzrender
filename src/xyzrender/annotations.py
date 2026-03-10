@@ -359,9 +359,9 @@ def load_vectors(
     ::
 
         [
-            {"origin": "com",  "vector": [1.2, 0.0, 0.5], "color": "#e63030", "label": "μ"},
-            {"origin": 3,      "vector": [0.0, 0.8, 0.0], "color": "steelblue"},
-            {"origin": [0, 0, 0], "vector": [0.5, 0.5, 0.5]}
+            {"origin": "com", "vector": [1.2, 0.0, 0.5], "color": "#e63030", "label": "μ"},
+            {"origin": 3, "vector": [0.0, 0.8, 0.0], "color": "steelblue"},
+            {"origin": [0, 0, 0], "vector": [0.5, 0.5, 0.5]},
         ]
     """
     import json
@@ -461,15 +461,17 @@ def load_vectors(
             msg = f"Vector file {path!r}: entry {idx} 'anchor' must be 'tail' or 'center', got {entry_anchor!r}"
             raise ValueError(msg)
 
-        arrows.append(VectorArrow(
-            vector=vec,
-            origin=origin,
-            color=color,
-            label=label,
-            scale=per_scale,
-            anchor=entry_anchor,
-            host_atom=atom_idx,
-        ))
+        arrows.append(
+            VectorArrow(
+                vector=vec,
+                origin=origin,
+                color=color,
+                label=label,
+                scale=per_scale,
+                anchor=entry_anchor,
+                host_atom=atom_idx,
+            )
+        )
 
     _log.info("Loaded %d vector arrows from %s", len(arrows), path)
     return arrows

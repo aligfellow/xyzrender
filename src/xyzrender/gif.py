@@ -327,6 +327,7 @@ def render_rotation_gif(
         _orient_graph(graph, _pca_vt)
         if config.vectors:
             import copy as _cp
+
             config = _cp.copy(config)
             _o = np.array([va.origin for va in config.vectors])
             _d = np.array([va.vector for va in config.vectors])
@@ -358,7 +359,6 @@ def render_rotation_gif(
     # _orient_graph already does this for the PCA path; this covers --no-orient.
     if "lattice" in graph.graph and "lattice_origin" not in graph.graph:
         graph.graph["lattice_origin"] = np.zeros(3)
-
 
     original_positions = {n: graph.nodes[n]["position"] for n in nodes}
     original_lattice = np.array(graph.graph["lattice"], dtype=float) if "lattice" in graph.graph else None
@@ -402,11 +402,9 @@ def render_rotation_gif(
     step = 360.0 / n_frames
     logger.info("Rendering rotation GIF (%d frames, axis=%s)", n_frames, axis)
     # Save pre-rotation vector data so each frame applies a fresh rotation (no drift).
-    _gif_vec_origins = np.array([va.origin for va in rot_cfg.vectors]) if rot_cfg.vectors else None
-    _gif_vec_dirs = np.array([va.vector for va in rot_cfg.vectors]) if rot_cfg.vectors else None
-    _gif_vec_centroid = (
-        np.mean(list(original_positions.values()), axis=0) if _gif_vec_origins is not None else None
-    )
+    _gif_vec_origins = np.array([va.origin for va in rot_cfg.vectors]) if rot_cfg.vectors else np.full((0, 3), np.nan)
+    _gif_vec_dirs = np.array([va.vector for va in rot_cfg.vectors]) if rot_cfg.vectors else np.full((0, 3), np.nan)
+    _gif_vec_centroid = np.mean(list(original_positions.values()), axis=0) if rot_cfg.vectors else np.full(3, np.nan)
 
     _mo_cache: dict = {}
     _dens_cache: dict = {}
@@ -423,11 +421,9 @@ def render_rotation_gif(
         apply_axis_angle_rotation(graph, axis_vec, total_angle)
 
         frame_cfg = rot_cfg
-        if _gif_vec_origins is not None:
+        if rot_cfg.vectors:
             rot_mat = _axis_angle_matrix(axis_vec, axis_sign * step * frame_idx)
-            frame_cfg = _rotate_vectors_in_cfg(
-                rot_cfg, rot_mat, _gif_vec_centroid, _gif_vec_origins, _gif_vec_dirs
-            )
+            frame_cfg = _rotate_vectors_in_cfg(rot_cfg, rot_mat, _gif_vec_centroid, _gif_vec_origins, _gif_vec_dirs)
 
         # Keep the unit cell box co-rotating with the atoms.
         if rot_cfg.cell_data is not None and _orig_lattice is not None:
@@ -445,7 +441,6 @@ def render_rotation_gif(
             from xyzrender.mo import recompute_mo
 
             recompute_mo(graph, frame_cfg, mo_params, mo_cube, frame_cfg.surface_opacity, _mo_cache)
-
 
         if dens_params is not None and dens_cube is not None:
             from xyzrender.dens import recompute_dens
@@ -677,12 +672,12 @@ def _render_frames(
     _rf_vec_origins = (
         np.array([va.origin for va in config.vectors])
         if (config.vectors and rotation_axis is not None)
-        else None
+        else np.full((0, 3), np.nan)
     )
     _rf_vec_dirs = (
         np.array([va.vector for va in config.vectors])
         if (config.vectors and rotation_axis is not None)
-        else None
+        else np.full((0, 3), np.nan)
     )
 
     pngs = []
@@ -703,15 +698,11 @@ def _render_frames(
         if rotation_axis is not None:
             # Capture centroid before rotation — same value apply_axis_angle_rotation uses.
             _rg_nodes = list(render_graph.nodes())
-            _rg_centroid = np.mean(
-                [render_graph.nodes[n]["position"] for n in _rg_nodes], axis=0
-            )
+            _rg_centroid = np.mean([render_graph.nodes[n]["position"] for n in _rg_nodes], axis=0)
             rot_mat = _axis_angle_matrix(rotation_axis, rotation_sign * step * idx)
             apply_axis_angle_rotation(render_graph, rotation_axis, rotation_sign * step * idx)
-            if _rf_vec_origins is not None:
-                frame_config = _rotate_vectors_in_cfg(
-                    config, rot_mat, _rg_centroid, _rf_vec_origins, _rf_vec_dirs
-                )
+            if config.vectors:
+                frame_config = _rotate_vectors_in_cfg(config, rot_mat, _rg_centroid, _rf_vec_origins, _rf_vec_dirs)
 
         svg = render_svg(render_graph, frame_config, _log=False)
         pngs.append(_svg_to_png(svg, config.canvas_size))

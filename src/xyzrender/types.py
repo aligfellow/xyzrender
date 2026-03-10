@@ -164,12 +164,12 @@ class VectorArrow:
         of the host atom without an expensive nearest-neighbour search.
     """
 
-    vector: np.ndarray          # shape (3,)
-    origin: np.ndarray          # shape (3,) — resolved Cartesian position
+    vector: np.ndarray  # shape (3,)
+    origin: np.ndarray  # shape (3,) — resolved Cartesian position
     color: str = "#444444"
     label: str = ""
     scale: float = 1.0
-    anchor: str = "tail"        # "tail" (origin = arrow tail) or "center" (origin = arrow midpoint)
+    anchor: str = "tail"  # "tail" (origin = arrow tail) or "center" (origin = arrow midpoint)
     host_atom: int | None = None  # 0-based atom index, or None for com/explicit origins
 
 
@@ -189,7 +189,6 @@ class CellData:
 
     lattice: np.ndarray  # shape (3, 3), rows = a, b, c in Å
     cell_origin: np.ndarray = field(default_factory=lambda: np.zeros(3))  # (3,) in Å
-
 
 
 # ---------------------------------------------------------------------------
@@ -299,7 +298,6 @@ class NCIParams:
     color: str = _DEFAULT_NCI_COLOR
     color_mode: str = _DEFAULT_NCI_COLOR_MODE
     dens_cutoff: float | None = None
-
 
 
 @dataclass
