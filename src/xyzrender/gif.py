@@ -315,7 +315,8 @@ def render_rotation_gif(
     If *dens_params* and *dens_cube* are provided, density contours are
     recomputed for each frame to match the rotation.
     """
-    from xyzrender.utils import apply_axis_angle_rotation
+    # TODO readd this when vector annotations upstreamed
+    # from xyzrender.utils import apply_axis_angle_rotation
 
     nodes = list(graph.nodes())
 
@@ -394,7 +395,7 @@ def render_rotation_gif(
     pngs = [b""] * n_frames
     import multiprocessing
     from functools import partial
-    
+
     worker = partial(
         _render_rotation_single_frame,
         graph=graph,
@@ -570,32 +571,33 @@ def _axis_angle_matrix(axis: np.ndarray, angle_deg: float) -> np.ndarray:
     return c * np.eye(3) + s * kx + (1 - c) * np.outer(k, k)
 
 
-def _rotate_vectors_in_cfg(
-    cfg: "RenderConfig",
-    rot: np.ndarray,
-    centroid: np.ndarray,
-    src_origins: np.ndarray,
-    src_dirs: np.ndarray,
-) -> "RenderConfig":
-    """Return a shallow copy of *cfg* with vector arrows rotated by *rot* around *centroid*.
-
-    Uses *src_origins* / *src_dirs* as the reference un-rotated coordinates so
-    the function can be called from a loop without accumulating floating-point
-    error across frames.
-    """
-    import copy
-
-    new_cfg = copy.copy(cfg)
-    new_origins = centroid + (rot @ (src_origins - centroid).T).T
-    new_dirs = (rot @ src_dirs.T).T
-    new_vecs = []
-    for va, o, d in zip(cfg.vectors, new_origins, new_dirs, strict=True):
-        nv = copy.copy(va)
-        nv.origin = o
-        nv.vector = d
-        new_vecs.append(nv)
-    new_cfg.vectors = new_vecs
-    return new_cfg
+# TODO: Uncomment when vector annotations are added
+# def _rotate_vectors_in_cfg(
+#     cfg: "RenderConfig",
+#     rot: np.ndarray,
+#     centroid: np.ndarray,
+#     src_origins: np.ndarray,
+#     src_dirs: np.ndarray,
+# ) -> "RenderConfig":
+#     """Return a shallow copy of *cfg* with vector arrows rotated by *rot* around *centroid*.
+#
+#     Uses *src_origins* / *src_dirs* as the reference un-rotated coordinates so
+#     the function can be called from a loop without accumulating floating-point
+#     error across frames.
+#     """
+#     import copy
+#
+#     new_cfg = copy.copy(cfg)
+#     new_origins = centroid + (rot @ (src_origins - centroid).T).T
+#     new_dirs = (rot @ src_dirs.T).T
+#     new_vecs = []
+#     for va, o, d in zip(cfg.vectors, new_origins, new_dirs, strict=True):
+#         nv = copy.copy(va)
+#         nv.origin = o
+#         nv.vector = d
+#         new_vecs.append(nv)
+#     new_cfg.vectors = new_vecs
+#     return new_cfg
 
 
 def _compute_rotation(original_graph: nx.Graph, rotated_graph: nx.Graph) -> np.ndarray:
@@ -645,6 +647,7 @@ def _render_rotation_single_frame(
 ) -> tuple[int, bytes]:
     """Worker function to render a single rotation GIF frame in parallel."""
     import copy
+
     from xyzrender.utils import apply_axis_angle_rotation
 
     for n in nodes:
@@ -680,10 +683,12 @@ def _render_rotation_single_frame(
 
     if mo_params is not None and mo_cube is not None:
         from xyzrender.mo import recompute_mo
+
         recompute_mo(graph, frame_cfg, mo_params, mo_cube, frame_cfg.surface_opacity, _mo_cache)
 
     if dens_params is not None and dens_cube is not None:
         from xyzrender.dens import recompute_dens
+
         recompute_dens(graph, frame_cfg, dens_params, dens_cube, frame_cfg.surface_opacity, _dens_cache)
 
     svg = render_svg(graph, frame_cfg, _log=False)
@@ -711,7 +716,7 @@ def _render_single_frame(
 
     idx, frame = idx_frame
     positions = frame["positions"]
-    
+
     for i, (x, y, z) in enumerate(positions):
         graph.nodes[i]["position"] = (float(x), float(y), float(z))
 
@@ -726,10 +731,9 @@ def _render_single_frame(
     frame_config = config
     if rotation_axis is not None:
         _rg_nodes = list(render_graph.nodes())
-        _rg_centroid = np.mean(
-            [render_graph.nodes[n]["position"] for n in _rg_nodes], axis=0
-        )
-        rot_mat = _axis_angle_matrix(rotation_axis, rotation_sign * step * idx)
+        _rg_centroid = np.mean([render_graph.nodes[n]["position"] for n in _rg_nodes], axis=0)
+        # TODO: Uncomment when vector annotations are added
+        # rot_mat = _axis_angle_matrix(rotation_axis, rotation_sign * step * idx)
         apply_axis_angle_rotation(render_graph, rotation_axis, rotation_sign * step * idx)
         # TODO: Uncomment when vector annotations are added
         # if rf_vec_origins is not None:
@@ -760,11 +764,6 @@ def _render_frames(
     If *rotation_axis* is provided, each frame is incrementally rotated
     around that axis for a full 360° over all frames.
     """
-    if nci_analyzer is not None or fixed_ncis is not None:
-        from xyzgraph.nci import build_nci_graph
-    if rotation_axis is not None:
-        from xyzrender.utils import apply_axis_angle_rotation
-
     total = len(frames)
     step = 360.0 / total if rotation_axis is not None else 0
 
@@ -782,9 +781,10 @@ def _render_frames(
     # )
 
     pngs = [b""] * total
-    
+
     import multiprocessing
     from functools import partial
+
     worker = partial(
         _render_single_frame,
         graph=graph,
@@ -803,7 +803,6 @@ def _render_frames(
         for i, (idx, png_data) in enumerate(pool.imap_unordered(worker, enumerate(frames))):
             pngs[idx] = png_data
             _progress(i + 1, total)
-
 
     return pngs
 
