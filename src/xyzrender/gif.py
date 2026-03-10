@@ -380,45 +380,52 @@ def render_rotation_gif(
 
     step = 360.0 / n_frames
     logger.info("Rendering rotation GIF (%d frames, axis=%s)", n_frames, axis)
+
+    # TODO: Uncomment when vector annotations are added
+    # # Save pre-rotation vector data so each frame applies a fresh rotation (no drift).
+    # _gif_vec_origins = np.array([va.origin for va in rot_cfg.vectors]) if rot_cfg.vectors else None
+    # _gif_vec_dirs = np.array([va.vector for va in rot_cfg.vectors]) if rot_cfg.vectors else None
+    # _gif_vec_centroid = (
+    #     np.mean(list(original_positions.values()), axis=0) if _gif_vec_origins is not None else None
+    # )
+
     _mo_cache: dict = {}
     _dens_cache: dict = {}
-    pngs = []
-    for frame_idx in range(n_frames):
-        for n in nodes:
-            graph.nodes[n]["position"] = original_positions[n]
-        if original_lattice is not None:
-            graph.graph["lattice"] = original_lattice.copy()
-        if original_lattice_origin is not None:
-            graph.graph["lattice_origin"] = original_lattice_origin.copy()
+    pngs = [b""] * n_frames
+    import multiprocessing
+    from functools import partial
+    
+    worker = partial(
+        _render_rotation_single_frame,
+        graph=graph,
+        config=config,
+        nodes=nodes,
+        original_positions=original_positions,
+        original_lattice=original_lattice,
+        original_lattice_origin=original_lattice_origin,
+        axis_vec=axis_vec,
+        axis_sign=axis_sign,
+        step=step,
+        rot_cfg=rot_cfg,
+        # TODO: Uncomment when vector annotations are added
+        # _gif_vec_origins=_gif_vec_origins,
+        # _gif_vec_dirs=_gif_vec_dirs,
+        # _gif_vec_centroid=_gif_vec_centroid,
+        _orig_lattice=_orig_lattice,
+        _orig_cell_origin=_orig_cell_origin,
+        _atom_centroid=_atom_centroid,
+        mo_params=mo_params,
+        mo_cube=mo_cube,
+        dens_params=dens_params,
+        dens_cube=dens_cube,
+        _mo_cache=_mo_cache,
+        _dens_cache=_dens_cache,
+    )
 
-        total_angle = axis_sign * step * frame_idx
-        apply_axis_angle_rotation(graph, axis_vec, total_angle)
-
-        # Keep the unit cell box co-rotating with the atoms.
-        if rot_cfg.cell_data is not None and _orig_lattice is not None:
-            assert _orig_cell_origin is not None
-            assert _atom_centroid is not None
-            theta = np.radians(total_angle)
-            k = axis_vec / np.linalg.norm(axis_vec)
-            c_r, s_r = np.cos(theta), np.sin(theta)
-            k_cross = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
-            rot_mat = c_r * np.eye(3) + s_r * k_cross + (1 - c_r) * np.outer(k, k)
-            rot_cfg.cell_data.lattice = _orig_lattice @ rot_mat.T
-            rot_cfg.cell_data.cell_origin = rot_mat @ (_orig_cell_origin - _atom_centroid) + _atom_centroid
-
-        if mo_params is not None and mo_cube is not None:
-            from xyzrender.mo import recompute_mo
-
-            recompute_mo(graph, rot_cfg, mo_params, mo_cube, rot_cfg.surface_opacity, _mo_cache)
-
-        if dens_params is not None and dens_cube is not None:
-            from xyzrender.dens import recompute_dens
-
-            recompute_dens(graph, rot_cfg, dens_params, dens_cube, rot_cfg.surface_opacity, _dens_cache)
-
-        svg = render_svg(graph, rot_cfg, _log=False)
-        pngs.append(_svg_to_png(svg, config.canvas_size))
-        _progress(frame_idx + 1, n_frames)
+    with multiprocessing.Pool() as pool:
+        for i, (idx, png_data) in enumerate(pool.imap_unordered(worker, range(n_frames))):
+            pngs[idx] = png_data
+            _progress(i + 1, n_frames)
 
     for n in nodes:
         graph.nodes[n]["position"] = original_positions[n]
@@ -554,6 +561,43 @@ def _fixed_viewport(frames: list[dict], config: RenderConfig, rotation_axis: np.
     return cfg
 
 
+def _axis_angle_matrix(axis: np.ndarray, angle_deg: float) -> np.ndarray:
+    """Rodrigues rotation matrix for *axis* (unit vector) and *angle_deg* (degrees)."""
+    theta = np.radians(angle_deg)
+    k = axis / np.linalg.norm(axis) if np.linalg.norm(axis) > 1e-10 else axis
+    c, s = np.cos(theta), np.sin(theta)
+    kx = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
+    return c * np.eye(3) + s * kx + (1 - c) * np.outer(k, k)
+
+
+def _rotate_vectors_in_cfg(
+    cfg: "RenderConfig",
+    rot: np.ndarray,
+    centroid: np.ndarray,
+    src_origins: np.ndarray,
+    src_dirs: np.ndarray,
+) -> "RenderConfig":
+    """Return a shallow copy of *cfg* with vector arrows rotated by *rot* around *centroid*.
+
+    Uses *src_origins* / *src_dirs* as the reference un-rotated coordinates so
+    the function can be called from a loop without accumulating floating-point
+    error across frames.
+    """
+    import copy
+
+    new_cfg = copy.copy(cfg)
+    new_origins = centroid + (rot @ (src_origins - centroid).T).T
+    new_dirs = (rot @ src_dirs.T).T
+    new_vecs = []
+    for va, o, d in zip(cfg.vectors, new_origins, new_dirs, strict=True):
+        nv = copy.copy(va)
+        nv.origin = o
+        nv.vector = d
+        new_vecs.append(nv)
+    new_cfg.vectors = new_vecs
+    return new_cfg
+
+
 def _compute_rotation(original_graph: nx.Graph, rotated_graph: nx.Graph) -> np.ndarray:
     """Compute 3x3 rotation matrix from original to rotated graph positions."""
     n = original_graph.number_of_nodes()
@@ -571,6 +615,130 @@ def _rotate_frames(frames: list[dict], rot: np.ndarray) -> list[dict]:
         pos_rotated = (rot @ (pos - centroid).T).T + centroid
         rotated.append({"symbols": frame["symbols"], "positions": pos_rotated})
     return rotated
+
+
+def _render_rotation_single_frame(
+    frame_idx: int,
+    graph: "nx.Graph",
+    config: "RenderConfig",
+    nodes: list,
+    original_positions: dict,
+    original_lattice: np.ndarray | None,
+    original_lattice_origin: np.ndarray | None,
+    axis_vec: np.ndarray,
+    axis_sign: float,
+    step: float,
+    rot_cfg: "RenderConfig",
+    # TODO: Uncomment when vector annotations are added
+    # _gif_vec_origins: np.ndarray | None,
+    # _gif_vec_dirs: np.ndarray | None,
+    # _gif_vec_centroid: np.ndarray | None,
+    _orig_lattice: np.ndarray | None,
+    _orig_cell_origin: np.ndarray | None,
+    _atom_centroid: np.ndarray | None,
+    mo_params: "MOParams | None",
+    mo_cube: "CubeData | None",
+    dens_params: "DensParams | None",
+    dens_cube: "CubeData | None",
+    _mo_cache: dict,
+    _dens_cache: dict,
+) -> tuple[int, bytes]:
+    """Worker function to render a single rotation GIF frame in parallel."""
+    import copy
+    from xyzrender.utils import apply_axis_angle_rotation
+
+    for n in nodes:
+        graph.nodes[n]["position"] = original_positions[n]
+    if original_lattice is not None:
+        graph.graph["lattice"] = original_lattice.copy()
+    if original_lattice_origin is not None:
+        graph.graph["lattice_origin"] = original_lattice_origin.copy()
+
+    total_angle = axis_sign * step * frame_idx
+    apply_axis_angle_rotation(graph, axis_vec, total_angle)
+
+    frame_cfg = copy.copy(rot_cfg)
+
+    # TODO: Uncomment when vector annotations are added
+    # if _gif_vec_origins is not None:
+    #     rot_mat = _axis_angle_matrix(axis_vec, axis_sign * step * frame_idx)
+    #     frame_cfg = _rotate_vectors_in_cfg(
+    #         rot_cfg, rot_mat, _gif_vec_centroid, _gif_vec_origins, _gif_vec_dirs
+    #     )
+
+    if rot_cfg.cell_data is not None and _orig_lattice is not None:
+        assert _orig_cell_origin is not None
+        assert _atom_centroid is not None
+        theta = np.radians(total_angle)
+        k = axis_vec / np.linalg.norm(axis_vec)
+        c_r, s_r = np.cos(theta), np.sin(theta)
+        k_cross = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
+        rot_mat = c_r * np.eye(3) + s_r * k_cross + (1 - c_r) * np.outer(k, k)
+        frame_cfg.cell_data = copy.deepcopy(rot_cfg.cell_data)
+        frame_cfg.cell_data.lattice = _orig_lattice @ rot_mat.T
+        frame_cfg.cell_data.cell_origin = rot_mat @ (_orig_cell_origin - _atom_centroid) + _atom_centroid
+
+    if mo_params is not None and mo_cube is not None:
+        from xyzrender.mo import recompute_mo
+        recompute_mo(graph, frame_cfg, mo_params, mo_cube, frame_cfg.surface_opacity, _mo_cache)
+
+    if dens_params is not None and dens_cube is not None:
+        from xyzrender.dens import recompute_dens
+        recompute_dens(graph, frame_cfg, dens_params, dens_cube, frame_cfg.surface_opacity, _dens_cache)
+
+    svg = render_svg(graph, frame_cfg, _log=False)
+    return frame_idx, _svg_to_png(svg, config.canvas_size)
+
+
+def _render_single_frame(
+    idx_frame: tuple[int, dict],
+    graph: "nx.Graph",
+    config: "RenderConfig",
+    nci_analyzer: "NCIAnalyzer | None",
+    fixed_ncis: list | None,
+    rotation_axis: np.ndarray | None,
+    rotation_sign: float,
+    step: float,
+    # TODO: Uncomment when vector annotations are added
+    # rf_vec_origins: np.ndarray | None,
+    # rf_vec_dirs: np.ndarray | None,
+) -> tuple[int, bytes]:
+    """Worker function to render a single GIF frame in parallel."""
+    if nci_analyzer is not None or fixed_ncis is not None:
+        from xyzgraph.nci import build_nci_graph
+    if rotation_axis is not None:
+        from xyzrender.utils import apply_axis_angle_rotation
+
+    idx, frame = idx_frame
+    positions = frame["positions"]
+    
+    for i, (x, y, z) in enumerate(positions):
+        graph.nodes[i]["position"] = (float(x), float(y), float(z))
+
+    if nci_analyzer is not None:
+        ncis = nci_analyzer.detect(np.array(positions))
+        render_graph = build_nci_graph(graph, ncis)
+    elif fixed_ncis is not None:
+        render_graph = build_nci_graph(graph, fixed_ncis)
+    else:
+        render_graph = graph
+
+    frame_config = config
+    if rotation_axis is not None:
+        _rg_nodes = list(render_graph.nodes())
+        _rg_centroid = np.mean(
+            [render_graph.nodes[n]["position"] for n in _rg_nodes], axis=0
+        )
+        rot_mat = _axis_angle_matrix(rotation_axis, rotation_sign * step * idx)
+        apply_axis_angle_rotation(render_graph, rotation_axis, rotation_sign * step * idx)
+        # TODO: Uncomment when vector annotations are added
+        # if rf_vec_origins is not None:
+        #     frame_config = _rotate_vectors_in_cfg(
+        #         config, rot_mat, _rg_centroid, rf_vec_origins, rf_vec_dirs
+        #     )
+
+    svg = render_svg(render_graph, frame_config, _log=False)
+    return idx, _svg_to_png(svg, config.canvas_size)
 
 
 def _render_frames(
@@ -599,26 +767,44 @@ def _render_frames(
 
     total = len(frames)
     step = 360.0 / total if rotation_axis is not None else 0
-    pngs = []
-    for idx, frame in enumerate(frames):
-        positions = frame["positions"]
-        for i, (x, y, z) in enumerate(positions):
-            graph.nodes[i]["position"] = (float(x), float(y), float(z))
 
-        if nci_analyzer is not None:
-            ncis = nci_analyzer.detect(np.array(positions))
-            render_graph = build_nci_graph(graph, ncis)
-        elif fixed_ncis is not None:
-            render_graph = build_nci_graph(graph, fixed_ncis)
-        else:
-            render_graph = graph
+    # TODO: Uncomment when vector annotations are added
+    # # Save pre-rotation vector data (used only when rotation_axis is set).
+    # _rf_vec_origins = (
+    #     np.array([va.origin for va in config.vectors])
+    #     if (config.vectors and rotation_axis is not None)
+    #     else None
+    # )
+    # _rf_vec_dirs = (
+    #     np.array([va.vector for va in config.vectors])
+    #     if (config.vectors and rotation_axis is not None)
+    #     else None
+    # )
 
-        if rotation_axis is not None:
-            apply_axis_angle_rotation(render_graph, rotation_axis, rotation_sign * step * idx)
+    pngs = [b""] * total
+    
+    import multiprocessing
+    from functools import partial
+    worker = partial(
+        _render_single_frame,
+        graph=graph,
+        config=config,
+        nci_analyzer=nci_analyzer,
+        fixed_ncis=fixed_ncis,
+        rotation_axis=rotation_axis,
+        rotation_sign=rotation_sign,
+        step=step,
+        # TODO: Uncomment when vector annotations are added
+        # rf_vec_origins=_rf_vec_origins,
+        # rf_vec_dirs=_rf_vec_dirs,
+    )
 
-        svg = render_svg(render_graph, config, _log=False)
-        pngs.append(_svg_to_png(svg, config.canvas_size))
-        _progress(idx + 1, total)
+    with multiprocessing.Pool() as pool:
+        for i, (idx, png_data) in enumerate(pool.imap_unordered(worker, enumerate(frames))):
+            pngs[idx] = png_data
+            _progress(i + 1, total)
+
+
     return pngs
 
 
