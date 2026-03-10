@@ -34,6 +34,7 @@ xyzrender = "xyzrender.cli:main"
 crystal = ["phonopy"]
 smi     = ["rdkit"]
 cif     = ["ase"]
+v       = ["vmol"]
 all     = ["phonopy", "rdkit", "ase"]
 
 [tool.setuptools.packages.find]
