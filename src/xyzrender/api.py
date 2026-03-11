@@ -478,6 +478,16 @@ def render(
         Inline annotation spec strings (e.g. ``["1 2 d", "3 a", "1 NBO"]``).
     label_file:
         Path to an annotation file (same format as ``--label``).
+    vectors:
+        Vector arrows to overlay.  Pass a path/dict to a JSON file, or a list
+        of :class:`xyzrender.types.VectorArrow` objects.  Each arrow is drawn
+        as a shaft + filled arrowhead pointing from ``origin`` in the direction
+        of ``vector``.  When the 2D projected length is shorter than the
+        arrowhead size (i.e. the arrow points nearly along the viewing axis), a
+        compact symbol is drawn instead: a filled dot (•) when the tip is closer
+        to the viewer, or a cross (x) when it points away.  The label is
+        suppressed in these cases and reappears automatically once the arrow is
+        long enough to draw a proper arrowhead.
     mo, dens:
         Render MO lobes / density isosurface from a cube file loaded via
         :func:`load`.
