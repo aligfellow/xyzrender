@@ -60,6 +60,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
             pos, _orient_rot = pca_orient(pos, ts_pairs or None, fit_mask=fit_mask, return_matrix=True)
             _vec_origins = (_vec_origins - _centroid) @ _orient_rot.T
             _vec_dirs = _vec_dirs @ _orient_rot.T
+            logger.debug("render_svg PCA centroid: %s", _centroid)
+            for _vi, _vo in enumerate(_vec_origins):
+                logger.debug("  vector[%d] origin after PCA: %s (should be ~0 for COM origins)", _vi, _vo)
             if cfg.cell_data is not None:
                 cfg.cell_data.lattice = (_orient_rot @ cfg.cell_data.lattice.T).T
                 cfg.cell_data.cell_origin = _orient_rot @ (cfg.cell_data.cell_origin - _centroid)
@@ -116,6 +119,29 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
         box_hi = box_verts[:, :2].max(axis=0)
         extra_lo = np.minimum(extra_lo, box_lo) if extra_lo is not None else box_lo
         extra_hi = np.maximum(extra_hi, box_hi) if extra_hi is not None else box_hi
+    # Expand canvas to encompass vector arrow tips, tails, and labels
+    if cfg.vectors:
+        _ref_px_per_ang = (_REF_CANVAS - 2 * cfg.padding) / _REF_SPAN
+        _vec_tips = []
+        for vi, va in enumerate(cfg.vectors):
+            scaled_vec = _vec_dirs[vi] * va.scale * cfg.vector_scale
+            tail3d = _vec_origins[vi] - scaled_vec / 2 if va.anchor == "center" else _vec_origins[vi]
+            tip3d = tail3d + scaled_vec
+            _vec_tips.append(tip3d)
+            for pt in (tail3d, tip3d):
+                pt2d = pt[:2]
+                extra_lo = np.minimum(extra_lo, pt2d) if extra_lo is not None else pt2d.copy()
+                extra_hi = np.maximum(extra_hi, pt2d) if extra_hi is not None else pt2d.copy()
+        for vi, va in enumerate(cfg.vectors):
+            if not va.label:
+                continue
+            tip2d = _vec_tips[vi][:2]
+            label_half_w = len(va.label) * cfg.label_font_size * 1.2 * 0.35 / _ref_px_per_ang
+            label_h = cfg.label_font_size * 1.2 / _ref_px_per_ang
+            lo = tip2d - np.array([label_half_w, label_h])
+            hi = tip2d + np.array([label_half_w, label_h])
+            extra_lo = np.minimum(extra_lo, lo) if extra_lo is not None else lo
+            extra_hi = np.maximum(extra_hi, hi) if extra_hi is not None else hi
     scale, cx, cy, canvas_w, canvas_h = _fit_canvas(pos, fit_radii, cfg, extra_lo=extra_lo, extra_hi=extra_hi)
 
     # scale_ratio: encodes both molecule complexity AND canvas size so that
@@ -364,8 +390,17 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
         ox, oy = _proj(tail3d, scale, cx, cy, canvas_w, canvas_h)
         tx, ty = _proj(tip3d, scale, cx, cy, canvas_w, canvas_h)
         color = cfg.vectors[vi].color
+        dx, dy = tx - ox, ty - oy
+        px_len = (dx * dx + dy * dy) ** 0.5
+        # Stop shaft at arrowhead base so the round linecap doesn't poke through the head
+        if px_len > 4:
+            arr = max(_vec_lw * 3.5, 7.0)
+            frac = max(0.0, 1.0 - arr / px_len)
+            sx, sy = ox + dx * frac, oy + dy * frac
+        else:
+            sx, sy = tx, ty
         svg.append(
-            f'  <line x1="{ox:.1f}" y1="{oy:.1f}" x2="{tx:.1f}" y2="{ty:.1f}" '
+            f'  <line x1="{ox:.1f}" y1="{oy:.1f}" x2="{sx:.1f}" y2="{sy:.1f}" '
             f'stroke="{color}" stroke-width="{_vec_lw:.1f}" stroke-linecap="round"/>'
         )
 

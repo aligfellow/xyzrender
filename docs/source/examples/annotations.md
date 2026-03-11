@@ -86,28 +86,26 @@ xyzrender caffeine.xyz --hy --cmap caffeine_charges.txt --cmap-range -0.5 0.5
 
 Overlay arbitrary 3D vectors as arrows on the rendered image via a JSON file. Useful for dipole moments, forces, electric fields, transition vectors, etc.
 
+| Dipole moment | Rotation |  
+|-------------|-------------|  
+| ![dip](examples/images/ethanol_dip.svg) | ![dip rot](examples/images/ethanol_dip.gif) |  
+
+
+```bash
+xyzrender ethanol.xyz --vectors ethanol_dip.json -o ethanol_dip.svg
+```
+
 Each entry in the JSON array defines one arrow:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `vector` | `[vx, vy, vz]` | *required* | Three numeric components (x,y,z). Use the same coordinate units as the input (Å). |
-| `origin` | `"com"` / integer / `[x,y,z]` | `"com"` | Tail location: `"com"` = molecule centroid; integer = 1-based atom index; list = explicit coordinates. |
-| `color` | `"#rrggbb"` / named | `"#444444"` | Arrow color (hex or named). |
+| `vector` | `[vx, vy, vz]` | *required* | Three numeric components (x,y,z). Use the same coordinate units as the input (Å). Example: `[1.2, 0.0, 0.5]`. |
+| `origin` | `"com"` / integer / `[x,y,z]` | `"com"` | Tail location: `"com"` = molecule centroid; integer = 1-based atom index from the input XYZ; list = explicit coordinates. |
+| `color` | `"#rrggbb"` / named | `"#444444"` | Arrow color. Accepts hex (`#e63030`) or CSS color names (`steelblue`). |
 | `label` | string | `""` | Text placed near the arrowhead (e.g. "μ"). |
-| `scale` | float | `1.0` | Per-arrow multiplier applied on top of `--vector-scale`. |
-
-Custom global settings can also be included at the top-level of the JSON:
-- `"anchor": "center"` makes the `origin` the midpoint of the arrow instead of the tail.
-- `"units": "string"` for documentation purposes.
-
-```bash
-xyzrender caffeine.xyz --vectors dipole.json -o caffeine_dipole.svg
-xyzrender caffeine.xyz --vectors forces.json --vector-scale 0.3 -o caffeine_forces.svg
-```
+| `scale` | float | `1.0` | Per-arrow multiplier applied on top of `--vector-scale`. Final arrow length = `scale * --vector-scale * |vector|`. |
 
 **Example — Dipole Moment:**
-
-![ethanol dip gif](../../../examples/images/ethanol_dip.gif)
 
 ```json
 {
@@ -115,7 +113,11 @@ xyzrender caffeine.xyz --vectors forces.json --vector-scale 0.3 -o caffeine_forc
   "vectors": [
     {
       "origin": "com",
-      "vector": [1.032, -0.043, -1.332],
+      "vector": [
+        1.0320170291976951,
+        -0.042708195030485986,
+        -1.332397645862797
+      ],
       "color": "red",
       "label": "μ"
     }
@@ -123,9 +125,11 @@ xyzrender caffeine.xyz --vectors forces.json --vector-scale 0.3 -o caffeine_forc
 }
 ```
 
-**Example — Forces on heavy atoms due to E field:**
+**Example — forces on heavy atoms due to E field:**
 
-![ethanol forces gif](../../../examples/images/ethanol_forces_efield.gif)
+| Forces | Rotation |  
+|-------------|-------------|  
+| ![forces](examples/images/ethanol_forces_efield.svg) | ![forces rot](examples/images/ethanol_forces_efield.gif) |  
 
 ```json
 {
@@ -134,7 +138,11 @@ xyzrender caffeine.xyz --vectors forces.json --vector-scale 0.3 -o caffeine_forc
   "vectors": [
     {
       "origin": 1,
-      "vector": [-0.318, -0.438, 0.368],
+      "vector": [
+        -0.318122066384213,
+        -0.437907743038215,
+        0.3679005313657949
+      ],
       "color": "red"
     },
     ...

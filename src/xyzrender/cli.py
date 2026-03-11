@@ -513,17 +513,6 @@ def main() -> None:
         except (ValueError, FileNotFoundError) as e:
             p.error(str(e))
 
-    # --- Vector arrows ---
-    if args.vectors:
-        from xyzrender.annotations import load_vectors
-
-        try:
-            cfg.vectors = load_vectors(args.vectors, mol.graph)
-        except (ValueError, FileNotFoundError) as e:
-            p.error(str(e))
-    if args.vector_scale is not None:
-        cfg.vector_scale = args.vector_scale
-
     # --- Interactive viewer ---
     if args.interactive:
         orient(mol)
@@ -561,6 +550,8 @@ def main() -> None:
             nci_coloring=args.nci_coloring,
             overlay=args.overlay,
             overlay_color=args.overlay_color,
+            vectors=args.vectors,
+            vector_scale=args.vector_scale,
             output=args.output,
         )
     except ValueError as e:
@@ -614,6 +605,8 @@ def main() -> None:
                 cell_color=args.cell_color,
                 cell_width=args.cell_width,
                 ghost_opacity=args.ghost_opacity,
+                vectors=args.vectors,
+                vector_scale=args.vector_scale,
             )
         except ValueError as e:
             p.error(str(e))

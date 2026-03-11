@@ -35,12 +35,8 @@ xyzrender "$DIR/ala_phe_ala.pdb" -o "$IMG/ala_phe_ala.svg"
 xyzrender --smi "C1CCCCC1" --hy -o "$IMG/cyclohexane_smi.svg"
 
 echo "=== TS and NCI options ==="
-if [ -n "$(which ORCA)" ]; then
-    xyzrender "$DIR/sn2.out" --ts-bond "1-2" -o "$IMG/sn2_ts_man.svg"
-    xyzrender "$DIR/sn2.out" --ts --hy -o "$IMG/sn2_ts.svg"
-else
-    echo "ORCA not found, skipping TS rendering for sn2.out"
-fi
+xyzrender "$DIR/sn2.out" --ts-bond "1-2" -o "$IMG/sn2_ts_man.svg"
+xyzrender "$DIR/sn2.out" --ts --hy -o "$IMG/sn2_ts.svg"
 xyzrender "$DIR/bimp.out" --nci -o "$IMG/bimp_nci.svg"
 xyzrender "$DIR/Hbond.xyz" --hy --nci-bond "8-9" -o "$IMG/nci_man.svg"  # specific NCI bond only
 xyzrender "$DIR/Hbond.xyz" --hy --nci -o "$IMG/nci.svg"  # specific NCI bond only
@@ -52,11 +48,7 @@ xyzrender "$DIR/caffeine.xyz" --hy --cmap "$DIR/caffeine_charges.txt" -o "$IMG/c
 xyzrender "$DIR/caffeine.xyz" --hy --cmap "$DIR/caffeine_charges.txt" -o "$IMG/caffeine_cmap.svg" --cmap-range -0.5 0.5
 xyzrender "$DIR/caffeine.xyz" -l 13 6 9 4 t -l 1 a -l 14 d -l 7 12 8 a -l 11 d -o "$IMG/caffeine_dihedral.svg"
 xyzrender "$DIR/caffeine.xyz" -l 1 best -l 2 "NBO: 0.4" -o "$IMG/caffeine_labels.svg"
-if [ -n "$(which ORCA)" ]; then
-    xyzrender "$DIR/sn2.out" --ts --label "$DIR/sn2_label.txt" -o "$IMG/sn2_ts_label.svg" --label-size 40
-else
-    echo "ORCA not found, skipping TS rendering for sn2.out"
-fi
+xyzrender "$DIR/sn2.out" --ts --label "$DIR/sn2_label.txt" -o "$IMG/sn2_ts_label.svg" --label-size 40
 
 echo "=== Molecular orbitals ==="
 xyzrender "$DIR/caffeine_lumo.cube" --mo --mo-colors maroon teal -o "$IMG/caffeine_lumo.svg"
@@ -82,8 +74,8 @@ xyzrender "$DIR/bimp.out" -o "$IMG/bimp_ts_nci.svg" --ts --gif-trj --vdw 84-169 
 xyzrender "$DIR/bimp.out" -o "$IMG/bimp_ts_nci.svg" --gif-ts --gif-rot --vdw 84-169 --nci -go "$IMG/bimp_nci_ts.gif"
 
 echo "=== Vector arrows ==="
-xyzrender "$DIR/ethanol.xyz" --vectors "$OUT/ethanol_dip.json" -go "$IMG/ethanol_dip.gif" --gif-rot            # dipole at center of mass, with rotation
-xyzrender "$DIR/ethanol.xyz" --hy --vectors "$OUT/ethanol_forces_efield.json" --vector-scale 1.5 -go "$IMG/ethanol_forces_efield.gif" --gif-rot  # per-atom forces, with rotation
+xyzrender "$DIR/ethanol.xyz" --vectors "$OUT/ethanol_dip.json" -o "$IMG/ethanol_dip.svg" --gif-rot -go "$IMG/ethanol_dip.gif"           # dipole at center of mass, with rotation
+xyzrender "$DIR/ethanol.xyz" --hy --vectors "$OUT/ethanol_forces_efield.json" --vector-scale 1.5 -o "$IMG/ethanol_forces_efield.svg" -go "$IMG/ethanol_forces_efield.gif" --gif-rot  # per-atom forces, with rotation
 
 echo "=== Crystal / unit cell ==="
 xyzrender "$DIR/caffeine_cell.xyz" --cell -o "$IMG/caffeine_cell.svg" --no-orient --gif-rot -go "$IMG/caffeine_cell.gif" 

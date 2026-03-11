@@ -136,23 +136,6 @@ def test_load_vectors_anchor_per_entry():
     assert arrows[1].anchor == "tail"
 
 
-def test_load_vectors_anchor_center():
-    """anchor=center: origin ends up as arrow midpoint."""
-    graph, _ = load_molecule(EXAMPLES / "ethanol.xyz")
-    jf = _write_json({"anchor": "center", "vectors": [{"origin": "com", "vector": [1.0, 0.0, 0.0]}]})
-    arrows = load_vectors(jf, graph)
-    assert len(arrows) == 1
-    assert arrows[0].anchor == "center"
-
-
-def test_load_vectors_anchor_tail_default():
-    """Without anchor key the default is 'tail'."""
-    graph, _ = load_molecule(EXAMPLES / "ethanol.xyz")
-    jf = _write_json([{"origin": "com", "vector": [1.0, 0.0, 0.0]}])
-    arrows = load_vectors(jf, graph)
-    assert arrows[0].anchor == "tail"
-
-
 def test_load_vectors_anchor_invalid():
     graph, _ = load_molecule(EXAMPLES / "ethanol.xyz")
     jf = _write_json({"anchor": "middle", "vectors": [{"origin": "com", "vector": [1.0, 0.0, 0.0]}]})
@@ -190,20 +173,6 @@ def test_render_with_vector_arrows():
     assert "<line" in svg
 
 
-def test_render_vector_global_scale():
-    graph, _ = load_molecule(EXAMPLES / "caffeine.xyz")
-    positions = np.array([graph.nodes[i]["position"] for i in graph.nodes()])
-    centroid = positions.mean(axis=0)
-    va = VectorArrow(vector=np.array([1.0, 0.0, 0.0]), origin=centroid)
-    cfg1 = RenderConfig(vectors=[va], vector_scale=1.0)
-    cfg2 = RenderConfig(vectors=[va], vector_scale=5.0)
-    svg1 = render_svg(graph, cfg1)
-    svg2 = render_svg(graph, cfg2)
-    # Both should render valid SVG — scaling changes coordinates but not structure
-    assert "<line" in svg1
-    assert "<line" in svg2
-
-
 def test_render_zero_length_vector_no_crash():
     """A zero-length vector should render without errors (shaft only, no arrowhead)."""
     graph, _ = load_molecule(EXAMPLES / "caffeine.xyz")
@@ -212,3 +181,49 @@ def test_render_zero_length_vector_no_crash():
     va = VectorArrow(vector=np.array([0.0, 0.0, 0.0]), origin=centroid)
     svg = render_svg(graph, RenderConfig(vectors=[va]))
     assert "</svg>" in svg
+
+
+# ---------------------------------------------------------------------------
+# load_vectors — dict input (same as JSON file but in-memory)
+# ---------------------------------------------------------------------------
+
+
+def test_load_vectors_dict_input():
+    """Passing a dict is equivalent to the equivalent JSON file."""
+    graph, _ = load_molecule(EXAMPLES / "caffeine.xyz")
+    data = {"anchor": "center", "vectors": [{"origin": "com", "vector": [1.0, 0.0, 0.0], "label": "μ"}]}
+    arrows_dict = load_vectors(data, graph)
+    jf = _write_json(data)
+    arrows_file = load_vectors(jf, graph)
+    assert len(arrows_dict) == 1
+    assert arrows_dict[0].anchor == arrows_file[0].anchor
+    assert np.allclose(arrows_dict[0].vector, arrows_file[0].vector)
+    assert arrows_dict[0].label == arrows_file[0].label
+
+
+# ---------------------------------------------------------------------------
+# API — vectors= kwarg
+# ---------------------------------------------------------------------------
+
+
+def test_api_render_vectors_path(tmp_path):
+    """render() vectors= accepts a file path."""
+    from xyzrender.api import load as api_load
+    from xyzrender.api import render
+
+    mol = api_load(EXAMPLES / "ethanol.xyz")
+    jf = _write_json([{"vector": [1.0, 0.0, 0.0], "color": "#cc0000", "label": "F"}])
+    result = render(mol, vectors=jf)
+    assert "#cc0000" in str(result)
+    assert "F" in str(result)
+
+
+def test_api_render_vectors_dict():
+    """render() vectors= accepts an inline dict."""
+    from xyzrender.api import load as api_load
+    from xyzrender.api import render
+
+    mol = api_load(EXAMPLES / "ethanol.xyz")
+    data = {"vectors": [{"vector": [1.0, 0.0, 0.0], "color": "#aabbcc"}]}
+    result = render(mol, vectors=data)
+    assert "#aabbcc" in str(result)

@@ -1,0 +1,15 @@
+{
+    "anchor": "center",
+    "vectors": [
+        {
+            "origin": "com",
+            "vector": [
+                1.0320170291976951,
+                -0.042708195030485986,
+                -1.332397645862797
+            ],
+            "color": "firebrick",
+            "label": "\u03bc"
+        }
+    ]
+}

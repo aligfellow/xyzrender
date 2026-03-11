@@ -309,8 +309,9 @@ def load_cmap(file_path: str, graph) -> dict[int, float]:
 
 
 def load_vectors(
-    path: str | Path,
+    path: str | Path | dict | list,
     graph,
+    default_color: str = "firebrick",
 ) -> list:
     """Load vector arrows from a JSON file and resolve their origins.
 
@@ -371,8 +372,11 @@ def load_vectors(
 
     _log = logging.getLogger(__name__)
 
-    with Path(path).open() as fh:
-        raw = json.load(fh)
+    if isinstance(path, (dict, list)):
+        raw = path
+    else:
+        with Path(path).open() as fh:
+            raw = json.load(fh)
 
     # Accept either a bare array or an object with optional top-level "anchor" key.
     anchor = "tail"
@@ -391,8 +395,12 @@ def load_vectors(
         raise ValueError(msg)
 
     node_ids = list(graph.nodes())
-    positions = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
+    real_ids = [i for i in node_ids if graph.nodes[i].get("symbol", graph.nodes[i].get("element", "")) != "*"]
+    if not real_ids:
+        real_ids = node_ids
+    positions = np.array([graph.nodes[i]["position"] for i in real_ids], dtype=float)
     centroid = positions.mean(axis=0)
+    _log.debug("load_vectors COM: %s (from %d real atoms)", centroid, len(real_ids))
 
     arrows: list[VectorArrow] = []
     for idx, entry in enumerate(raw):
@@ -443,7 +451,7 @@ def load_vectors(
 
         # --- optional fields ---
         try:
-            color = resolve_color(entry.get("color", "#444444"))
+            color = resolve_color(entry.get("color", default_color))
         except ValueError as exc:
             msg = f"Vector file {path!r}: entry {idx} invalid color: {exc}"
             raise ValueError(msg) from exc

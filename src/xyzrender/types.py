@@ -379,3 +379,4 @@ class RenderConfig:
     # Arbitrary vector arrows (--vectors)
     vectors: list[VectorArrow] = field(default_factory=list)
     vector_scale: float = 1.0  # global length multiplier applied to all vectors
+    vector_color: str = "firebrick"  # default arrow color (firebrick) when not specified per-arrow

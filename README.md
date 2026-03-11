@@ -782,9 +782,13 @@ ESP-specific flags:
 
 Overlay arbitrary 3D vectors as arrows on the rendered image via a JSON file. Useful for dipole moments, forces, electric fields, transition vectors, etc.
 
+| Dipole moment | Rotation |  
+|-------------|-------------|  
+| ![dip](examples/images/ethanol_dip.svg) | ![dip rot](examples/images/ethanol_dip.gif) |  
+
+
 ```bash
-xyzrender caffeine.xyz --vectors dipole.json -o caffeine_dipole.svg
-xyzrender caffeine.xyz --vectors forces.json --vector-scale 0.3 -o caffeine_forces.svg
+xyzrender ethanol.xyz --vectors ethanol_dip.json -o ethanol_dip.svg
 ```
 
 Each entry in the JSON array defines one arrow:
@@ -799,8 +803,6 @@ Each entry in the JSON array defines one arrow:
 
 **Example — Dipole Moment:**
 
-![ethanol dip gif](examples/ethanol_dip.gif) |
-
 ```json
 {
   "anchor": "center",
@@ -812,7 +814,7 @@ Each entry in the JSON array defines one arrow:
         -0.042708195030485986,
         -1.332397645862797
       ],
-      "color": "red",
+      "color": "firebrick",
       "label": "μ"
     }
   ]
@@ -821,7 +823,9 @@ Each entry in the JSON array defines one arrow:
 
 **Example — forces on heavy atoms due to E field:**
 
-![ethanol forces gif](examples/ethanol_forces_efield.gif) |
+| Forces | Rotation |  
+|-------------|-------------|  
+| ![forces](examples/images/ethanol_forces_efield.svg) | ![forces rot](examples/images/ethanol_forces_efield.gif) |  
 
 ```json
 {
@@ -835,7 +839,7 @@ Each entry in the JSON array defines one arrow:
         -0.437907743038215,
         0.3679005313657949
       ],
-      "color": "red"
+      "color": "firebrick"
     },
     ...
   ]
@@ -1141,7 +1145,7 @@ Optional dependencies:
 
 Contributors:
 
-- [Sander Cohen-Janes (@scohenjanes5)](https://github.com/scohenjanes5) — crystal/periodic structure support (VASP, Quantum ESPRESSO, ghost atoms, crystallographic axes)
+- [Sander Cohen-Janes (@scohenjanes5)](https://github.com/scohenjanes5) — crystal/periodic structure support (VASP, Quantum ESPRESSO, ghost atoms, crystallographic axes) and vector annotations
 - [Vinicius Port (@caprilesport)](https://github.com/caprilesport) — `v` binary path discovery
 - [Lucas Attia (@lucasattia)](https://github.com/lucasattia) — `--transparent` background flag
 
