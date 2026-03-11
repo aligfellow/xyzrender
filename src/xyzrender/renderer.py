@@ -480,64 +480,6 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
             # Tail protrudes in front when tail_z > host_z + host_r (rare but symmetric)
             _vec_tail_front.append(bool(tail3d[2] > host_z + host_r))
 
-    def _draw_vector_shaft(vi: int) -> None:
-        """Draw only the line shaft of vector vi (called before the host atom)."""
-        tail3d = _vec_tail3d[vi]
-        tip3d = _vec_tip3d[vi]
-        ox, oy = _proj(tail3d, scale, cx, cy, canvas_w, canvas_h)
-        tx, ty = _proj(tip3d, scale, cx, cy, canvas_w, canvas_h)
-        color = cfg.vectors[vi].color
-        dx, dy = tx - ox, ty - oy
-        px_len = (dx * dx + dy * dy) ** 0.5
-        # Stop shaft at arrowhead base so the round linecap doesn't poke through the head
-        if px_len > 4:
-            arr = max(_vec_lw * 3.5, 7.0)
-            frac = max(0.0, 1.0 - arr / px_len)
-            sx, sy = ox + dx * frac, oy + dy * frac
-        else:
-            sx, sy = tx, ty
-        svg.append(
-            f'  <line x1="{ox:.1f}" y1="{oy:.1f}" x2="{sx:.1f}" y2="{sy:.1f}" '
-            f'stroke="{color}" stroke-width="{_vec_lw:.1f}" stroke-linecap="round"/>'
-        )
-
-    def _draw_vector_head(vi: int) -> None:
-        """Draw the arrowhead polygon and label of vector vi."""
-        tail3d = _vec_tail3d[vi]
-        tip3d = _vec_tip3d[vi]
-        ox, oy = _proj(tail3d, scale, cx, cy, canvas_w, canvas_h)
-        tx, ty = _proj(tip3d, scale, cx, cy, canvas_w, canvas_h)
-        color = cfg.vectors[vi].color
-        dx, dy = tx - ox, ty - oy
-        px_len = (dx * dx + dy * dy) ** 0.5
-        if px_len > 4:
-            nvx, nvy = dx / px_len, dy / px_len
-            pvx, pvy = -nvy, nvx
-            arr = max(_vec_lw * 3.5, 7.0)
-            p1x = tx - nvx * arr + pvx * arr * 0.38
-            p1y = ty - nvy * arr + pvy * arr * 0.38
-            p2x = tx - nvx * arr - pvx * arr * 0.38
-            p2y = ty - nvy * arr - pvy * arr * 0.38
-            svg.append(
-                f'  <polygon points="{tx:.1f},{ty:.1f} {p1x:.1f},{p1y:.1f} {p2x:.1f},{p2y:.1f}" fill="{color}"/>'
-            )
-            lx = tx + nvx * (arr * 0.6 + _fs_vec * 0.5)
-            ly = ty + nvy * (arr * 0.6 + _fs_vec * 0.5) + _fs_vec * 0.35
-        else:
-            lx, ly = tx + 4, ty
-        va = cfg.vectors[vi]
-        if va.label:
-            svg.append(
-                f'  <text x="{lx:.1f}" y="{ly:.1f}" font-size="{_fs_vec:.1f}" fill="{color}" '
-                f'font-family="Arial,sans-serif" text-anchor="middle" font-weight="bold">{va.label}</text>'
-            )
-
-    def _draw_vector_arrow(vi: int) -> None:
-        """Draw shaft + (if not front-protruding) head for vector vi."""
-        _draw_vector_shaft(vi)
-        if not _vec_head_front[vi]:
-            _draw_vector_head(vi)
-
     # --- Unit cell box (12 edges, drawn before atoms so bonds/atoms render on top) ---
     if cfg.cell_data is not None and cfg.show_cell:
         lat = cfg.cell_data.lattice
@@ -674,7 +616,27 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
         # check is intentionally after the flush so hidden atoms still act as
         # depth markers, keeping vector z-ordering correct.
         while _pv_pos < len(_pending_vecs) and _vec_origins[_pending_vecs[_pv_pos]][2] <= pos[ai][2]:
-            _draw_vector_arrow(_pending_vecs[_pv_pos])
+            vi = _pending_vecs[_pv_pos]
+            va = cfg.vectors[vi]
+            if not va.draw_on_top:
+                # Interleaved: draw shaft now, head later if front-protruding
+                _fs = (va.font_size * scale_ratio) if va.font_size is not None else _fs_vec
+                _lw = (va.width * scale_ratio) if va.width is not None else _vec_lw
+                _draw_arrow_svg(
+                    svg,
+                    _vec_tail3d[vi],
+                    _vec_tip3d[vi],
+                    va.color,
+                    va.label,
+                    _lw,
+                    _fs,
+                    scale,
+                    cx,
+                    cy,
+                    canvas_w,
+                    canvas_h,
+                    draw_head=not _vec_head_front[vi],
+                )
             _pv_pos += 1
 
         if ai in hidden:
@@ -733,7 +695,14 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
 
     # Flush any vectors whose origin is in front of all atoms
     while _pv_pos < len(_pending_vecs):
-        _draw_vector_arrow(_pending_vecs[_pv_pos])
+        vi = _pending_vecs[_pv_pos]
+        va = cfg.vectors[vi]
+        if not va.draw_on_top:
+            _fs = (va.font_size * scale_ratio) if va.font_size is not None else _fs_vec
+            _lw = (va.width * scale_ratio) if va.width is not None else _vec_lw
+            _draw_arrow_svg(
+                svg, _vec_tail3d[vi], _vec_tip3d[vi], va.color, va.label, _lw, _fs, scale, cx, cy, canvas_w, canvas_h
+            )
         _pv_pos += 1
 
     # --- Second pass: redraw arrowheads that protrude in front of their host atom ---
@@ -741,8 +710,25 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
     # is still painter-sorted correctly, but the head must appear on top of the atom.
     if cfg.vectors:
         for vi in range(len(cfg.vectors)):
-            if _vec_head_front[vi]:
-                _draw_vector_head(vi)
+            va = cfg.vectors[vi]
+            if not va.draw_on_top and _vec_head_front[vi]:
+                _fs = (va.font_size * scale_ratio) if va.font_size is not None else _fs_vec
+                _lw = (va.width * scale_ratio) if va.width is not None else _vec_lw
+                _draw_arrow_svg(
+                    svg,
+                    _vec_tail3d[vi],
+                    _vec_tip3d[vi],
+                    va.color,
+                    va.label,
+                    _lw,
+                    _fs,
+                    scale,
+                    cx,
+                    cy,
+                    canvas_w,
+                    canvas_h,
+                    draw_shaft=False,
+                )
 
     # --- Front MO orbital lobes (on top of molecule) ---
     if cfg.mo_contours is not None:
@@ -780,50 +766,26 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
             )
         )
 
-    # --- Crystallographic axis arrows (a=red, b=green, c=blue) ---
-    # Drawn last so they are always on top of atoms, bonds, and image atoms.
-    if cfg.cell_data is not None and cfg.show_crystal_axes:
-        lat = cfg.cell_data.lattice
-        orig3d = cfg.cell_data.cell_origin
-        axis_lw = cfg.cell_line_width * scale_ratio * cfg.axis_width_scale
-        fs_axis = fs_label * 1.6  # larger than atom index labels
-        _axis_labels = ("a", "b", "c")
-        svg.append("  <!-- crystal axes -->")
-        for vec, color, label in zip(lat, cfg.axis_colors, _axis_labels, strict=True):
-            length = float(np.linalg.norm(vec))
-            if length < 1e-6:
-                continue
-            # Arrow spans 25% of the cell edge (max 2 Å) from the origin corner
-            frac = min(0.25, 2.0 / length)
-            tip3d = orig3d + frac * vec
-            ox, oy = _proj(orig3d, scale, cx, cy, canvas_w, canvas_h)
-            tx, ty = _proj(tip3d, scale, cx, cy, canvas_w, canvas_h)
-            # Shaft
-            svg.append(
-                f'  <line x1="{ox:.1f}" y1="{oy:.1f}" x2="{tx:.1f}" y2="{ty:.1f}" '
-                f'stroke="{color}" stroke-width="{axis_lw:.1f}" stroke-linecap="round"/>'
-            )
-            dx, dy = tx - ox, ty - oy
-            px_len = (dx * dx + dy * dy) ** 0.5
-            if px_len > 4:
-                nvx, nvy = dx / px_len, dy / px_len  # shaft direction (unit)
-                pvx, pvy = -nvy, nvx  # perpendicular
-                arr = max(axis_lw * 3.5, 8.0)  # arrowhead size (px)
-                p1x = tx - nvx * arr + pvx * arr * 0.38
-                p1y = ty - nvy * arr + pvy * arr * 0.38
-                p2x = tx - nvx * arr - pvx * arr * 0.38
-                p2y = ty - nvy * arr - pvy * arr * 0.38
-                svg.append(
-                    f'  <polygon points="{tx:.1f},{ty:.1f} {p1x:.1f},{p1y:.1f} {p2x:.1f},{p2y:.1f}" fill="{color}"/>'
+    # --- Final pass: Vectors with draw_on_top=True ---
+    if cfg.vectors:
+        for vi, va in enumerate(cfg.vectors):
+            if va.draw_on_top:
+                _fs = (va.font_size * scale_ratio) if va.font_size is not None else _fs_vec
+                _lw = (va.width * scale_ratio) if va.width is not None else _vec_lw
+                _draw_arrow_svg(
+                    svg,
+                    _vec_tail3d[vi],
+                    _vec_tip3d[vi],
+                    va.color,
+                    va.label,
+                    _lw,
+                    _fs,
+                    scale,
+                    cx,
+                    cy,
+                    canvas_w,
+                    canvas_h,
                 )
-                lx = tx + nvx * (arr * 0.6 + fs_axis * 0.5)
-                ly = ty + nvy * (arr * 0.6 + fs_axis * 0.5) + fs_axis * 0.35
-            else:
-                lx, ly = tx + 4, ty
-            svg.append(
-                f'  <text x="{lx:.1f}" y="{ly:.1f}" font-size="{fs_axis:.1f}" fill="{color}" '
-                f'font-family="Arial,sans-serif" text-anchor="middle" font-weight="bold">{label}</text>'
-            )
 
     svg.append("</svg>")
     raw = "\n".join(svg)
@@ -841,6 +803,83 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _draw_arrow_svg(
+    svg: list[str],
+    tail3d: np.ndarray,
+    tip3d: np.ndarray,
+    color: str,
+    label: str,
+    lw: float,
+    fs: float,
+    scale: float,
+    cx: float,
+    cy: float,
+    cw: float,
+    ch: float,
+    draw_shaft: bool = True,
+    draw_head: bool = True,
+) -> None:
+    """SVG arrow rendering.
+
+    When the 2D projected length is shorter than the arrowhead size, a dot
+    (tip facing viewer) or 'x' (tip facing away) is drawn instead and the
+    label is suppressed.  The label reappears automatically once the arrow
+    is long enough to draw a proper arrowhead, where it is centred on the
+    arrowhead tip.
+    """
+    ox, oy = _proj(tail3d, scale, cx, cy, cw, ch)
+    tx, ty = _proj(tip3d, scale, cx, cy, cw, ch)
+    dx, dy = tx - ox, ty - oy
+    px_len = (dx * dx + dy * dy) ** 0.5
+    arr = max(lw * 3.5, 7.0)
+
+    # If the projected length is shorter than the arrowhead itself, draw a dot or
+    # 'x' and suppress the label.
+    if px_len < arr:
+        if tip3d[2] > tail3d[2]:
+            # Facing viewer: draw a dot
+            r = max(lw * 0.8, 2.0)
+            svg.append(f'  <circle cx="{ox:.1f}" cy="{oy:.1f}" r="{r:.1f}" fill="{color}"/>')
+        else:
+            # Facing away: draw an 'x'
+            r = max(lw * 0.8, 2.0)
+            svg.append(
+                f'  <line x1="{ox - r:.1f}" y1="{oy - r:.1f}" x2="{ox + r:.1f}" y2="{oy + r:.1f}" '
+                f'stroke="{color}" stroke-width="{lw:.1f}" stroke-linecap="round"/>'
+            )
+            svg.append(
+                f'  <line x1="{ox - r:.1f}" y1="{oy + r:.1f}" x2="{ox + r:.1f}" y2="{oy - r:.1f}" '
+                f'stroke="{color}" stroke-width="{lw:.1f}" stroke-linecap="round"/>'
+            )
+        return
+
+    if draw_shaft:
+        # Stop shaft at arrowhead base so the round linecap doesn't poke through the head
+        frac = max(0.0, 1.0 - arr / px_len)
+        sx, sy = ox + dx * frac, oy + dy * frac
+        svg.append(
+            f'  <line x1="{ox:.1f}" y1="{oy:.1f}" x2="{sx:.1f}" y2="{sy:.1f}" '
+            f'stroke="{color}" stroke-width="{lw:.1f}" stroke-linecap="round"/>'
+        )
+
+    if draw_head:
+        nvx, nvy = dx / px_len, dy / px_len
+        pvx, pvy = -nvy, nvx
+        p1x = tx - nvx * arr + pvx * arr * 0.38
+        p1y = ty - nvy * arr + pvy * arr * 0.38
+        p2x = tx - nvx * arr - pvx * arr * 0.38
+        p2y = ty - nvy * arr - pvy * arr * 0.38
+        svg.append(f'  <polygon points="{tx:.1f},{ty:.1f} {p1x:.1f},{p1y:.1f} {p2x:.1f},{p2y:.1f}" fill="{color}"/>')
+        if label:
+            sep = fs * 0.65
+            lx = tx + nvx * sep
+            ly = ty + nvy * sep + fs * 0.35
+            svg.append(
+                f'  <text x="{lx:.1f}" y="{ly:.1f}" font-size="{fs:.1f}" fill="{color}" '
+                f'font-family="Arial,sans-serif" text-anchor="middle" font-weight="bold">{label}</text>'
+            )
 
 
 def _fit_canvas(pos, radii, cfg, extra_lo=None, extra_hi=None):
