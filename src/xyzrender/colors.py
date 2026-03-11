@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from xyzrender.types import Color
+from xyzrender.types import Color, RenderConfig
 
 WHITE = Color(255, 255, 255)
 
@@ -48,9 +48,11 @@ def get_color(atomic_number: int, overrides: dict[str, str] | None = None) -> Co
     return Color.from_int(_DEFAULT_COLOR)
 
 
-def get_gradient_colors(color: Color, strength: float = 1.0) -> tuple[Color, Color]:
+def get_gradient_colors(color: Color, hue_shift_factor:float, light_shift_factor:float, saturation_shift_factor:float, config: RenderConfig | None = None,) -> tuple[Color, Color]:
     """Compute gradient pair from a base color: (lighter center, darker edge)."""
-    return color.lighten(0.3), color.darken(0.2 * strength)
+    cfg = config or RenderConfig()
+    print(f'colors{cfg.light_shift_factor}')
+    return color.lighten(cfg.hue_shift_factor, cfg.light_shift_factor, cfg.saturation_shift_factor), color, color.darken(cfg.hue_shift_factor, cfg.light_shift_factor, cfg.saturation_shift_factor)
 
 
 _FOG_NEAR = 1.0  # Å of depth before fog kicks in

@@ -5,7 +5,6 @@
   "bond_color": "black",
   "atom_stroke_width": 8,
   "gradient": true,
-  "gradient_strength": 1,
   "fog": true,
   "fog_strength": 1.2,
   "bond_orders": true,
