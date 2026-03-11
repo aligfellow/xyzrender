@@ -32,7 +32,6 @@ _H_VDW_SCALE = 0.8  # VdW-sphere shrink factor for H atoms
 def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) -> str:
     """Render molecular graph to SVG string."""
     cfg = config or RenderConfig()
-    print(f'renderer {cfg.light_shift_factor}')
     node_ids = list(graph.nodes())
     n = len(node_ids)
     symbols = [graph.nodes[i]["symbol"] for i in node_ids]

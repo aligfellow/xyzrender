@@ -51,7 +51,6 @@ def get_color(atomic_number: int, overrides: dict[str, str] | None = None) -> Co
 def get_gradient_colors(color: Color, hue_shift_factor:float, light_shift_factor:float, saturation_shift_factor:float, config: RenderConfig | None = None,) -> tuple[Color, Color]:
     """Compute gradient pair from a base color: (lighter center, darker edge)."""
     cfg = config or RenderConfig()
-    print(f'colors{cfg.light_shift_factor}')
     return color.lighten(cfg.hue_shift_factor, cfg.light_shift_factor, cfg.saturation_shift_factor), color, color.darken(cfg.hue_shift_factor, cfg.light_shift_factor, cfg.saturation_shift_factor)
 
 
