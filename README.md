@@ -837,16 +837,23 @@ xyzrender molecule.xyz -I                      # interactive rotation via v view
 
 The `-I` flag opens the molecule in the [**v** molecular viewer](https://github.com/briling/v) by [Ksenia Briling **@briling**](https://github.com/briling)
 for interactive rotation. Rotate the molecule to the desired orientation
-and close the window with `q` or `esc`.
+and close the window with `q` or `esc`.  
 `xyzrender` captures the rotated coordinates and renders from those.
 
-We can also pipe from `v` directly when working with `.xyz` files:
+We can also pipe from `v` (or `vmol`) directly when working with `.xyz` files:
 
 ```bash
 v molecule.xyz | xyzrender
 ```
 
-Orient the molecule, press `z` to output reoriented coordinates, then `q`/`esc` to close.
+Orient the molecule, press `z` to output reoriented coordinates, then `q` or `esc` to close.
+
+This is an *optional* dependency (Linux only) and should be installed by using either:
+```bash
+pip install xyzrender[v]
+# or directly with
+pip install vmol 
+```
 
 ## Styling
 
@@ -1069,6 +1076,7 @@ Optional dependencies:
 
 Contributors:
 
+- [Ksenia Briling (@briling)](https://github.com/briling) — `vmol` integration and the [xyz2svg](https://github.com/briling/xyz2svg) foundation
 - [Sander Cohen-Janes (@scohenjanes5)](https://github.com/scohenjanes5) — crystal/periodic structure support (VASP, Quantum ESPRESSO, ghost atoms, crystallographic axes)
 - [Vinicius Port (@caprilesport)](https://github.com/caprilesport) — `v` binary path discovery
 - [Lucas Attia (@lucasattia)](https://github.com/lucasattia) — `--transparent` background flag

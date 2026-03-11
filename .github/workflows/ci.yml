@@ -33,7 +33,7 @@ jobs:
 
       - run: uv run ruff format .
       - run: uv run ruff check .
-      - run: uv run --extra v ty check
+      - run: uv run ty check
       - run: uv run pytest --cov --cov-report=xml
 
       - name: Upload Coverage to Codecov

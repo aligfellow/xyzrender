@@ -2263,6 +2263,7 @@ dev = [
     { name = "rdkit" },
     { name = "ruff" },
     { name = "ty" },
+    { name = "vmol" },
 ]
 
 [package.metadata]
@@ -2294,4 +2295,5 @@ dev = [
     { name = "rdkit" },
     { name = "ruff", specifier = ">=0.14.14" },
     { name = "ty", specifier = ">=0.0.14" },
+    { name = "vmol" },
 ]
