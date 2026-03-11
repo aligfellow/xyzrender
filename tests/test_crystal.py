@@ -195,7 +195,6 @@ def test_extxyz_cell_box_renders(extxyz_graph):
     cfg = RenderConfig(
         cell_data=CellData(lattice=np.array(extxyz_graph.graph["lattice"], dtype=float)),
         show_cell=True,
-        show_crystal_axes=False,
     )
     svg = render_svg(extxyz_graph, cfg)
     cell_lines = [ln for ln in svg.splitlines() if 'class="cell-edge"' in ln]
@@ -213,7 +212,7 @@ def test_cell_corotates_with_atoms(extxyz_graph):
     cell_data = CellData(
         lattice=lat_before.copy(), cell_origin=np.array(graph.graph.get("lattice_origin", [0.0, 0.0, 0.0]), dtype=float)
     )
-    cfg = RenderConfig(cell_data=cell_data, show_cell=True, show_crystal_axes=False)
+    cfg = RenderConfig(cell_data=cell_data, show_cell=True)
     assert cfg.cell_data is not None
     apply_rotation(graph, rx=30.0, ry=45.0, rz=15.0)
     lat_graph = np.array(graph.graph["lattice"], dtype=float)
@@ -315,7 +314,6 @@ def test_cell_corotates_with_ghost_atoms(extxyz_graph):
     cfg = RenderConfig(
         cell_data=cell_data,
         show_cell=True,
-        show_crystal_axes=False,
         auto_orient=False,
     )
     svg = render_svg(graph, cfg)

@@ -1158,7 +1158,6 @@ def _apply_cell_config(
     assert cell_data is not None  # caller guarantees this
     cfg.cell_data = cell_data
     cfg.show_cell = not no_cell
-    cfg.show_crystal_axes = axes
     # PCA auto-orient makes no sense for full periodic crystals (unless user overrides)
     if cfg.auto_orient:
         cfg.auto_orient = False
@@ -1185,6 +1184,30 @@ def _apply_cell_config(
         from xyzrender.crystal import add_crystal_images
 
         add_crystal_images(mol.graph, cell_data)
+
+    # Crystal axes a/b/c as annotation vectors at the cell origin
+    if axes:
+        from xyzrender.types import VectorArrow
+        lat = cell_data.lattice
+        orig3d = cell_data.cell_origin
+        for i, (vec, color, label) in enumerate(zip(lat, cfg.axis_colors, ("a", "b", "c"), strict=True)):
+            length = float(np.linalg.norm(vec))
+            if length < 1e-6:
+                continue
+            # Arrow spans 25% of the cell edge (max 2 Å) from the origin corner
+            frac = min(0.25, 2.0 / length)
+            cfg.vectors.append(
+                VectorArrow(
+                    vector=vec * frac,
+                    origin=orig3d,
+                    color=color,
+                    label=label,
+                    scale=1.0,
+                    draw_on_top=True,
+                    font_size=cfg.label_font_size * 1.8,
+                    width=cfg.bond_width * 1.1,
+                )
+            )
 
     # Default no-bo for periodic structures (bond orders are not PBC-aware)
     if bo_explicit is None:

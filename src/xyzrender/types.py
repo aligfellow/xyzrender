@@ -171,6 +171,9 @@ class VectorArrow:
     scale: float = 1.0
     anchor: str = "tail"  # "tail" (origin = arrow tail) or "center" (origin = arrow midpoint)
     host_atom: int | None = None  # 0-based atom index, or None for com/explicit origins
+    draw_on_top: bool = False
+    font_size: float | None = None
+    width: float | None = None
 
 
 @dataclass
@@ -366,7 +369,6 @@ class RenderConfig:
     # Crystal / periodic structure
     cell_data: CellData | None = None
     show_cell: bool = True
-    show_crystal_axes: bool = True
     cell_color: str = "#333333"
     cell_line_width: float = 2.0
     periodic_image_opacity: float = 0.5
