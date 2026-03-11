@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="800" height="799">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 799" width="800" height="799">
   <rect width="100%" height="100%" fill="#ffffff"/>
   <defs>
     <g id="x0a0"><radialGradient id="x0g0" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#8496fa"/><stop offset="100%" stop-color="#475dce"/></radialGradient><circle cx="0" cy="0" r="21.4" fill="url(#x0g0)" stroke="#383838" stroke-width="4.0"/></g>
@@ -399,14 +399,13 @@
   <use x="376.0" y="309.9" xlink:href="#x0a105" opacity="0.50"/>
   <use x="489.6" y="423.5" xlink:href="#x0a115" opacity="0.50"/>
   <use x="334.4" y="465.1" xlink:href="#x0a97" opacity="0.50"/>
-  <!-- crystal axes -->
-  <line x1="400.0" y1="399.5" x2="489.3" y2="423.4" stroke="#b22222" stroke-width="10.0" stroke-linecap="round"/>
-  <polygon points="489.3,423.4 452.0,427.2 458.9,401.5" fill="#b22222"/>
-  <text x="525.1" y="444.2" font-size="32.1" fill="#b22222" font-family="Arial,sans-serif" text-anchor="middle" font-weight="bold">a</text>
-  <line x1="400.0" y1="399.5" x2="376.1" y2="310.2" stroke="#228b22" stroke-width="10.0" stroke-linecap="round"/>
-  <polygon points="376.1,310.2 398.0,340.6 372.3,347.5" fill="#228b22"/>
-  <text x="366.5" y="285.6" font-size="32.1" fill="#228b22" font-family="Arial,sans-serif" text-anchor="middle" font-weight="bold">b</text>
-  <line x1="400.0" y1="399.5" x2="334.6" y2="464.9" stroke="#4169e1" stroke-width="10.0" stroke-linecap="round"/>
-  <polygon points="334.6,464.9 350.0,430.7 368.8,449.5" fill="#4169e1"/>
-  <text x="308.4" y="502.3" font-size="32.1" fill="#4169e1" font-family="Arial,sans-serif" text-anchor="middle" font-weight="bold">c</text>
+  <line x1="400.0" y1="399.5" x2="452.1" y2="413.5" stroke="#b22222" stroke-width="11.0" stroke-linecap="round"/>
+  <polygon points="489.3,423.4 448.3,427.6 455.9,399.3" fill="#b22222"/>
+  <text x="512.0" y="442.1" font-size="36.1" fill="#b22222" font-family="Arial,sans-serif" text-anchor="middle" font-weight="bold">a</text>
+  <line x1="400.0" y1="399.5" x2="386.0" y2="347.4" stroke="#228b22" stroke-width="11.0" stroke-linecap="round"/>
+  <polygon points="376.1,310.2 400.2,343.6 371.9,351.2" fill="#228b22"/>
+  <text x="370.0" y="300.2" font-size="36.1" fill="#228b22" font-family="Arial,sans-serif" text-anchor="middle" font-weight="bold">b</text>
+  <line x1="400.0" y1="399.5" x2="361.9" y2="437.6" stroke="#4169e1" stroke-width="11.0" stroke-linecap="round"/>
+  <polygon points="334.6,464.9 351.5,427.2 372.2,448.0" fill="#4169e1"/>
+  <text x="318.0" y="494.1" font-size="36.1" fill="#4169e1" font-family="Arial,sans-serif" text-anchor="middle" font-weight="bold">c</text>
 </svg>
