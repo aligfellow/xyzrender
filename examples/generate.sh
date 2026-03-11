@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-OUT=$(realpath ${BASH_SOURCE[0]%/*})
+OUT=$(dirname $(realpath ${BASH_SOURCE[0]}))
 DIR=$OUT/structures
 IMG=$OUT/images
 mkdir -p "$IMG"
