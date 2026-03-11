@@ -236,7 +236,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
                 sa = f' stroke="{fs}" stroke-width="{sw:.1f}"'
                 svg.append(
                     f'    <g id="a{ai}"><radialGradient id="g{ai}" cx=".5" cy=".5" fx=".33" fy=".33" r=".66">'
-                    f'<stop offset="0%" stop-color="{hi.hex}"/><stop offset="50%" stop-color="{me.hex}"/><stop offset="100%" stop-color="{lo.hex}"/>'
+                    f'<stop offset="0%" stop-color="{hi.hex}"/><stop offset="30%" stop-color="{me.hex}"/><stop offset="100%" stop-color="{lo.hex}"/>'
                     f'</radialGradient><circle cx="0" cy="0" r="{r:.1f}" fill="url(#g{ai})"{sa}/></g>'
                 )
         else:
@@ -252,7 +252,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
                 sa = f' stroke="{cfg.atom_stroke_color}" stroke-width="{sw:.1f}"'
                 svg.append(
                     f'    <g id="a{an}"><radialGradient id="g{an}" cx=".5" cy=".5" fx=".33" fy=".33" r=".66">'
-                    f'<stop offset="0%" stop-color="{hi.hex}"/><stop offset="50%" stop-color="{me.hex}"/><stop offset="100%" stop-color="{lo.hex}"/>'
+                    f'<stop offset="0%" stop-color="{hi.hex}"/><stop offset="30%" stop-color="{me.hex}"/><stop offset="100%" stop-color="{lo.hex}"/>'
                     f'</radialGradient><circle cx="0" cy="0" r="{r:.1f}" fill="url(#g{an})"{sa}/></g>'
                 )
         svg.append("  </defs>")
