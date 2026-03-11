@@ -13,6 +13,7 @@ uv run bash examples/generate.sh
 - [Molecular Orbitals](examples/mo.md) — molecular orbital lobes from cube files
 - [Electron Density and ESP](examples/dens_esp.md) — electron density isosurfaces and ESP colormapping
 - [NCI Surface](examples/nci_surf.md) — NCI surface patches from NCIPLOT cube files
+- [Convex hull](examples/hull.md) — semi-transparent hull facets over selected atoms (rings, coordination spheres)
 - [Crystal Structures](examples/crystal.md) — unit cell rendering, VASP/QE periodic structures, and crystallographic axes
 - [Annotations](examples/annotations.md) — atom indices, SVG labels, measurements, and vector arrows
 - [Atom Colormap](examples/cmap.md) — per-atom scalar colormaps (charges, shifts, Fukui indices)
@@ -28,6 +29,7 @@ examples/ts_nci
 examples/mo
 examples/dens_esp
 examples/nci_surf
+examples/hull
 examples/crystal
 examples/annotations
 examples/cmap
