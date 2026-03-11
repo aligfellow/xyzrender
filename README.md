@@ -899,7 +899,7 @@ Auto-orientation is on by default (largest variance along x-axis). Disabled auto
 ```bash
 xyzrender molecule.xyz                         # auto-oriented
 xyzrender molecule.xyz --no-orient             # raw coordinates
-xyzrender molecule.xyz -I                      # interactive rotation via v viewer
+xyzrender molecule.xyz -I                      # interactive rotation via vmol
 ```
 
 ### Interactive rotation (`-I`)

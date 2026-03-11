@@ -45,7 +45,11 @@ def rotate_with_viewer(
 
     logger = logging.getLogger(__name__)
 
-    from vmol import vmol as viewer
+    try:
+        from vmol import vmol as viewer
+    except ImportError:
+        msg = "Interactive viewer requires vmol: `pip install xyzrender[v]` or pip install vmol"
+        raise ImportError(msg) from None
 
     logger.info("Using viewer: %s", viewer)
     n = graph.number_of_nodes()
