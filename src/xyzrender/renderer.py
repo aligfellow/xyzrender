@@ -383,7 +383,6 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
             # Tail protrudes in front when tail_z > host_z + host_r (rare but symmetric)
             _vec_tail_front.append(bool(tail3d[2] > host_z + host_r))
 
-
     # --- Unit cell box (12 edges, drawn before atoms so bonds/atoms render on top) ---
     if cfg.cell_data is not None and cfg.show_cell:
         lat = cfg.cell_data.lattice
@@ -527,9 +526,19 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
                 _fs = (va.font_size * scale_ratio) if va.font_size is not None else _fs_vec
                 _lw = (va.width * scale_ratio) if va.width is not None else _vec_lw
                 _draw_arrow_svg(
-                    svg, _vec_tail3d[vi], _vec_tip3d[vi], va.color, va.label,
-                    _lw, _fs, scale, cx, cy, canvas_w, canvas_h,
-                    draw_head=not _vec_head_front[vi]
+                    svg,
+                    _vec_tail3d[vi],
+                    _vec_tip3d[vi],
+                    va.color,
+                    va.label,
+                    _lw,
+                    _fs,
+                    scale,
+                    cx,
+                    cy,
+                    canvas_w,
+                    canvas_h,
+                    draw_head=not _vec_head_front[vi],
                 )
             _pv_pos += 1
 
@@ -594,8 +603,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
             _fs = (va.font_size * scale_ratio) if va.font_size is not None else _fs_vec
             _lw = (va.width * scale_ratio) if va.width is not None else _vec_lw
             _draw_arrow_svg(
-                svg, _vec_tail3d[vi], _vec_tip3d[vi], va.color, va.label,
-                _lw, _fs, scale, cx, cy, canvas_w, canvas_h
+                svg, _vec_tail3d[vi], _vec_tip3d[vi], va.color, va.label, _lw, _fs, scale, cx, cy, canvas_w, canvas_h
             )
         _pv_pos += 1
 
@@ -609,9 +617,19 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
                 _fs = (va.font_size * scale_ratio) if va.font_size is not None else _fs_vec
                 _lw = (va.width * scale_ratio) if va.width is not None else _vec_lw
                 _draw_arrow_svg(
-                    svg, _vec_tail3d[vi], _vec_tip3d[vi], va.color, va.label,
-                    _lw, _fs, scale, cx, cy, canvas_w, canvas_h,
-                    draw_shaft=False
+                    svg,
+                    _vec_tail3d[vi],
+                    _vec_tip3d[vi],
+                    va.color,
+                    va.label,
+                    _lw,
+                    _fs,
+                    scale,
+                    cx,
+                    cy,
+                    canvas_w,
+                    canvas_h,
+                    draw_shaft=False,
                 )
 
     # --- Front MO orbital lobes (on top of molecule) ---
@@ -657,10 +675,19 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
                 _fs = (va.font_size * scale_ratio) if va.font_size is not None else _fs_vec
                 _lw = (va.width * scale_ratio) if va.width is not None else _vec_lw
                 _draw_arrow_svg(
-                    svg, _vec_tail3d[vi], _vec_tip3d[vi], va.color, va.label,
-                    _lw, _fs, scale, cx, cy, canvas_w, canvas_h
+                    svg,
+                    _vec_tail3d[vi],
+                    _vec_tip3d[vi],
+                    va.color,
+                    va.label,
+                    _lw,
+                    _fs,
+                    scale,
+                    cx,
+                    cy,
+                    canvas_w,
+                    canvas_h,
                 )
-
 
     svg.append("</svg>")
     raw = "\n".join(svg)
@@ -746,9 +773,7 @@ def _draw_arrow_svg(
         p1y = ty - nvy * arr + pvy * arr * 0.38
         p2x = tx - nvx * arr - pvx * arr * 0.38
         p2y = ty - nvy * arr - pvy * arr * 0.38
-        svg.append(
-            f'  <polygon points="{tx:.1f},{ty:.1f} {p1x:.1f},{p1y:.1f} {p2x:.1f},{p2y:.1f}" fill="{color}"/>'
-        )
+        svg.append(f'  <polygon points="{tx:.1f},{ty:.1f} {p1x:.1f},{p1y:.1f} {p2x:.1f},{p2y:.1f}" fill="{color}"/>')
         if label:
             sep = fs * 0.65
             lx = tx + nvx * sep

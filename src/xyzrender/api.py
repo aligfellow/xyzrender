@@ -1188,9 +1188,10 @@ def _apply_cell_config(
     # Crystal axes a/b/c as annotation vectors at the cell origin
     if axes:
         from xyzrender.types import VectorArrow
+
         lat = cell_data.lattice
         orig3d = cell_data.cell_origin
-        for i, (vec, color, label) in enumerate(zip(lat, cfg.axis_colors, ("a", "b", "c"), strict=True)):
+        for vec, color, label in zip(lat, cfg.axis_colors, ("a", "b", "c"), strict=True):
             length = float(np.linalg.norm(vec))
             if length < 1e-6:
                 continue
