@@ -4,19 +4,25 @@ from __future__ import annotations
 
 import itertools
 import logging
+from typing import cast
 
 import numpy as np
 from xyzgraph import DATA
 
 from xyzrender.colors import _FOG_NEAR, WHITE, blend_fog, cmap_viridis, get_color, get_gradient_colors
 from xyzrender.dens import dens_layers_svg
+from xyzrender.hull import (
+    get_convex_hull_edges_silhouette,
+    get_convex_hull_facets,
+    hull_facets_svg,
+)
 from xyzrender.mo import (
     classify_mo_lobes,
     mo_back_lobes_svg,
     mo_front_lobes_svg,
     mo_gradient_defs_svg,
 )
-from xyzrender.types import BondStyle, Color, RenderConfig
+from xyzrender.types import BondStyle, Color, RenderConfig, resolve_color
 
 logger = logging.getLogger(__name__)
 
@@ -336,6 +342,97 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
             mo_back_lobes_svg(cfg.mo_contours, mo_is_front, cfg.surface_opacity, scale, cx, cy, canvas_w, canvas_h)
         )
 
+    # --- Convex hull facets (low-alpha plane behind molecule) ---
+    if cfg.show_convex_hull:
+        hull_color_hex = resolve_color(cfg.hull_color)
+        per_color: list[str] | None = None
+        per_opacity: list[float] | None = None
+        if cfg.hull_atom_indices is not None:
+            # Normalize to list of subsets: flat list -> one subset, list of lists -> multiple
+            raw = cfg.hull_atom_indices
+            if raw and isinstance(raw[0], list):
+                subsets = cast("list[list[int]]", raw)
+            else:
+                subsets = [cast("list[int]", raw)] if raw else []
+            all_facets: list[tuple[np.ndarray, float]] = []
+            subset_indices: list[int] = []
+            for idx, subset in enumerate(subsets):
+                include_mask = np.zeros(n, dtype=bool)
+                for i in subset:
+                    if 0 <= i < n:
+                        include_mask[i] = True
+                sub_facets = get_convex_hull_facets(pos, include_mask)
+                all_facets.extend(sub_facets)
+                subset_indices.extend([idx] * len(sub_facets))
+            facets = all_facets
+            if subset_indices and (cfg.hull_colors or cfg.hull_opacities):
+                # Sort by centroid_z and build per-facet color/opacity from subset index
+                with_idx = list(zip(all_facets, subset_indices, strict=True))
+                with_idx.sort(key=lambda x: x[0][1])
+                sorted_facets = [f for f, _ in with_idx]
+                indices_sorted = [si for _, si in with_idx]
+                n_subs = len(subsets)
+                if cfg.hull_colors and len(cfg.hull_colors) >= n_subs:
+                    per_color = [resolve_color(cfg.hull_colors[i]) for i in indices_sorted]
+                if cfg.hull_opacities and len(cfg.hull_opacities) >= n_subs:
+                    per_opacity = [cfg.hull_opacities[i] for i in indices_sorted]
+                facets = sorted_facets
+        else:
+            include_mask = np.array([s != "*" for s in symbols]) if n > 0 else None
+            facets = get_convex_hull_facets(pos, include_mask)
+        if facets:
+            svg.extend(
+                hull_facets_svg(
+                    facets,
+                    hull_color_hex,
+                    cfg.hull_opacity,
+                    scale,
+                    cx,
+                    cy,
+                    canvas_w,
+                    canvas_h,
+                    per_facet_color_hex=per_color,
+                    per_facet_opacity=per_opacity,
+                )
+            )
+
+        # Non-bond hull edges (1-skeleton) as thin lines for better 3D perception
+        if cfg.show_hull_edges:
+            bond_pairs = {(min(i, j), max(i, j)) for (i, j) in bonds}
+            hull_edges_with_z: list[tuple[tuple[int, int], float]] = []
+            if cfg.hull_atom_indices is not None:
+                raw = cfg.hull_atom_indices
+                subsets = (
+                    cast("list[list[int]]", raw)
+                    if raw and isinstance(raw[0], list)
+                    else ([cast("list[int]", raw)] if raw else [])
+                )
+                for subset in subsets:
+                    include_mask = np.zeros(n, dtype=bool)
+                    for i in subset:
+                        if 0 <= i < n:
+                            include_mask[i] = True
+                    for ni, nj in get_convex_hull_edges_silhouette(pos, include_mask):
+                        if (ni, nj) not in bond_pairs:
+                            mid_z = (pos[ni][2] + pos[nj][2]) / 2.0
+                            hull_edges_with_z.append(((ni, nj), mid_z))
+            else:
+                include_mask = np.array([s != "*" for s in symbols]) if n > 0 else None
+                for ni, nj in get_convex_hull_edges_silhouette(pos, include_mask):
+                    if (ni, nj) not in bond_pairs:
+                        mid_z = (pos[ni][2] + pos[nj][2]) / 2.0
+                        hull_edges_with_z.append(((ni, nj), mid_z))
+            hull_edges_with_z.sort(key=lambda x: x[1])
+            hull_edge_color = resolve_color(cfg.hull_edge_color)
+            hull_lw = max(bw * cfg.hull_edge_width_ratio, 1.0)
+            for (ni, nj), _ in hull_edges_with_z:
+                x1, y1 = _proj(pos[ni], scale, cx, cy, canvas_w, canvas_h)
+                x2, y2 = _proj(pos[nj], scale, cx, cy, canvas_w, canvas_h)
+                svg.append(
+                    f'  <line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" '
+                    f'stroke="{hull_edge_color}" stroke-width="{hull_lw:.1f}" stroke-linecap="round"/>'
+                )
+
     # --- Vector arrows: prepare for z-interleaved drawing ---
     # Vectors are drawn just before the atom at their depth in the back-to-front
     # loop below, so each shaft is covered by its own atom while still being
@@ -621,12 +718,13 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
 
         # Bonds to deeper atoms
         for aj in z_order[idx + 1 :]:
-            if aj in hidden or (ai, aj) not in bonds:
+            aj_int = int(aj)
+            if aj_int in hidden or (ai, aj_int) not in bonds:
                 continue
-            bo, style, color_ov = bonds[(ai, aj)]
+            bo, style, color_ov = bonds[(ai, aj_int)]
             # Use periodic_image_opacity if either endpoint is an image atom
-            bond_op = cfg.periodic_image_opacity if (is_image or graph.nodes[aj].get("image", False)) else 1.0
-            add_bond(ai, aj, bo, style, opacity=bond_op, color_override=color_ov)
+            bond_op = cfg.periodic_image_opacity if (is_image or graph.nodes[aj_int].get("image", False)) else 1.0
+            add_bond(ai, aj_int, bo, style, opacity=bond_op, color_override=color_ov)
 
     # NCI patches in front of all atoms (z_depth > frontmost atom)
     while nci_lobe_idx < len(nci_lobes_flat):

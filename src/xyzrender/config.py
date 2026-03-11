@@ -105,6 +105,8 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
         "dens_color",
         "nci_color",
         "overlay_color",
+        "hull_color",
+        "hull_edge_color",
     )
     for key in _color_fields:
         if key in merged:
@@ -114,6 +116,10 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
     if "axis_colors" in merged:
         raw = merged["axis_colors"]
         merged["axis_colors"] = tuple(resolve_color(c) for c in raw)
+
+    # hull_colors: list of color strings (one per subset) → resolve to hex
+    if "hull_colors" in merged and merged["hull_colors"] is not None:
+        merged["hull_colors"] = [resolve_color(c) for c in merged["hull_colors"]]
 
     return RenderConfig(**merged)
 
@@ -165,6 +171,14 @@ def build_config(
     idx_format: str = "sn",
     atom_cmap: dict[int, float] | None = None,
     cmap_range: tuple[float, float] | None = None,
+    hull: bool | None = None,
+    hull_color: str | None = None,
+    hull_opacity: float | None = None,
+    hull_colors: list[str] | None = None,
+    hull_opacities: list[float] | None = None,
+    hull_show_edges: bool | None = None,
+    hull_edge_color: str | None = None,
+    hull_edge_width_ratio: float | None = None,
 ) -> RenderConfig:
     """Build a :class:`~xyzrender.types.RenderConfig` from a preset and style kwargs.
 
@@ -222,6 +236,14 @@ def build_config(
         ("vdw_opacity", vdw_opacity),
         ("vdw_scale", vdw_scale),
         ("vdw_gradient_strength", vdw_gradient_strength),
+        ("show_convex_hull", hull),
+        ("hull_color", hull_color),
+        ("hull_opacity", hull_opacity),
+        ("hull_colors", hull_colors),
+        ("hull_opacities", hull_opacities),
+        ("show_hull_edges", hull_show_edges),
+        ("hull_edge_color", hull_edge_color),
+        ("hull_edge_width_ratio", hull_edge_width_ratio),
     ]:
         if val is not None:
             overrides[key] = val

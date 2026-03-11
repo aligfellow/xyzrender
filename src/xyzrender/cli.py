@@ -157,6 +157,14 @@ def main() -> None:
     surf_g.add_argument("--mo-blur", type=float, default=None, help="MO Gaussian blur sigma (default: 0.8)")
     surf_g.add_argument("--mo-upsample", type=int, default=None, help="MO upsample factor (default: 3)")
     surf_g.add_argument("--opacity", type=float, default=None, help="Surface opacity (default: 1.0, >1 boosts)")
+    surf_g.add_argument(
+        "--hull",
+        action="store_true",
+        default=False,
+        help="Draw convex hull of atoms as semi-transparent facets",
+    )
+    surf_g.add_argument("--hull-color", default=None, help="Convex hull fill color (hex or named, default: steelblue)")
+    surf_g.add_argument("--hull-opacity", type=float, default=None, help="Convex hull fill opacity (default: 0.2)")
 
     # --- Overlay ---
     ov_g = p.add_argument_group("overlay")
@@ -383,6 +391,9 @@ def main() -> None:
         show_indices=args.idx is not None,
         idx_format=args.idx or "sn",
         cmap_range=tuple(args.cmap_range) if args.cmap_range else None,
+        hull=args.hull,
+        hull_color=args.hull_color,
+        hull_opacity=args.hull_opacity,
     )
 
     # Output path defaults and validation
@@ -548,6 +559,9 @@ def main() -> None:
             dens_color=args.dens_color,
             nci_color=args.nci_color,
             nci_coloring=args.nci_coloring,
+            hull=args.hull,
+            hull_color=args.hull_color,
+            hull_opacity=args.hull_opacity,
             overlay=args.overlay,
             overlay_color=args.overlay_color,
             vectors=args.vectors,

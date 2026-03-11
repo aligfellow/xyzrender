@@ -437,6 +437,15 @@ def render(
     nci_color: str | None = None,
     nci_coloring: str | None = None,
     nci_cutoff: float | None = None,
+    # --- Convex hull ---
+    hull: bool | None = None,
+    hull_color: str | None = None,
+    hull_opacity: float | None = None,
+    hull_colors: list[str] | None = None,
+    hull_opacities: list[float] | None = None,
+    hull_show_edges: bool | None = None,
+    hull_edge_color: str | None = None,
+    hull_edge_width_ratio: float | None = None,
     # --- Overlay ---
     overlay: str | os.PathLike | Molecule | None = None,
     overlay_color: str | None = None,
@@ -485,6 +494,17 @@ def render(
         Path to an ESP ``.cube`` file (density iso + ESP colour map).
     nci:
         Path to an NCI reduced-density-gradient ``.cube`` file.
+    hull:
+        Draw convex hull of atoms as semi-transparent facets. Use a pre-built
+        :class:`~xyzrender.types.RenderConfig` with :attr:`~xyzrender.types.RenderConfig.hull_atom_indices`
+        set to restrict hulls to one or more subsets: a flat list of 0-based indices (one hull)
+        or a list of such lists (multiple hulls, e.g. ``[[1,2,4,6,8,10], [0,3,5]]`` for two rings).
+    hull_color, hull_opacity:
+        Default hue and opacity for all hull surfaces (hex or named color).
+    hull_colors, hull_opacities:
+        Per-subset hue and opacity when using multiple subsets; list length matches number of subsets.
+    hull_show_edges, hull_edge_color, hull_edge_width_ratio:
+        Draw hull edges that are not bonds as thin lines; default gray, width = bond_width * ratio.
 
     Returns
     -------
@@ -537,6 +557,26 @@ def render(
             cfg.cmap_range = cmap_range
         if opacity is not None:
             cfg.surface_opacity = opacity
+        if hull is not None:
+            cfg.show_convex_hull = hull
+        if hull_color is not None:
+            from xyzrender.types import resolve_color
+
+            cfg.hull_color = resolve_color(hull_color)
+        if hull_opacity is not None:
+            cfg.hull_opacity = hull_opacity
+        if hull_colors is not None:
+            cfg.hull_colors = hull_colors
+        if hull_opacities is not None:
+            cfg.hull_opacities = hull_opacities
+        if hull_show_edges is not None:
+            cfg.show_hull_edges = hull_show_edges
+        if hull_edge_color is not None:
+            from xyzrender.types import resolve_color
+
+            cfg.hull_edge_color = resolve_color(hull_edge_color)
+        if hull_edge_width_ratio is not None:
+            cfg.hull_edge_width_ratio = hull_edge_width_ratio
     else:
         # Build from preset/file
         _ts_0 = [(a - 1, b - 1) for a, b in ts_bonds] if ts_bonds else None
@@ -575,6 +615,14 @@ def render(
             idx_format=_ifmt,
             atom_cmap=_cmap_0,
             cmap_range=cmap_range,
+            hull=hull,
+            hull_color=hull_color,
+            hull_opacity=hull_opacity,
+            hull_colors=hull_colors,
+            hull_opacities=hull_opacities,
+            hull_show_edges=hull_show_edges,
+            hull_edge_color=hull_edge_color,
+            hull_edge_width_ratio=hull_edge_width_ratio,
         )
 
     # --- Never mutate mol — work on a render-time copy ---
