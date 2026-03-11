@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from functools import partial
 from io import BytesIO
 from typing import TYPE_CHECKING
 
@@ -315,8 +316,6 @@ def render_rotation_gif(
     If *dens_params* and *dens_cube* are provided, density contours are
     recomputed for each frame to match the rotation.
     """
-    from xyzrender.utils import apply_axis_angle_rotation
-
     nodes = list(graph.nodes())
 
     # PCA: apply once to initial positions so GIF matches static SVG orientation
@@ -406,50 +405,47 @@ def render_rotation_gif(
     _gif_vec_dirs = np.array([va.vector for va in rot_cfg.vectors]) if rot_cfg.vectors else np.full((0, 3), np.nan)
     _gif_vec_centroid = np.mean(list(original_positions.values()), axis=0) if rot_cfg.vectors else np.full(3, np.nan)
 
+    # Pre-populate surface caches with cube-invariant data (lobes, grid positions,
+    # bounding radius) so workers only do the per-frame Kabsch rotation.
+    import copy as _copy
+
     _mo_cache: dict = {}
     _dens_cache: dict = {}
-    pngs = []
-    for frame_idx in range(n_frames):
-        for n in nodes:
-            graph.nodes[n]["position"] = original_positions[n]
-        if original_lattice is not None:
-            graph.graph["lattice"] = original_lattice.copy()
-        if original_lattice_origin is not None:
-            graph.graph["lattice_origin"] = original_lattice_origin.copy()
+    if mo_params is not None and mo_cube is not None:
+        from xyzrender.mo import recompute_mo
 
-        total_angle = axis_sign * step * frame_idx
-        apply_axis_angle_rotation(graph, axis_vec, total_angle)
+        recompute_mo(graph, _copy.copy(rot_cfg), mo_params, mo_cube, rot_cfg.surface_opacity, _mo_cache)
+    if dens_params is not None and dens_cube is not None:
+        from xyzrender.dens import recompute_dens
 
-        frame_cfg = rot_cfg
-        if rot_cfg.vectors:
-            rot_mat = _axis_angle_matrix(axis_vec, axis_sign * step * frame_idx)
-            frame_cfg = _rotate_vectors_in_cfg(rot_cfg, rot_mat, _gif_vec_centroid, _gif_vec_origins, _gif_vec_dirs)
+        recompute_dens(graph, _copy.copy(rot_cfg), dens_params, dens_cube, rot_cfg.surface_opacity, _dens_cache)
 
-        # Keep the unit cell box co-rotating with the atoms.
-        if rot_cfg.cell_data is not None and _orig_lattice is not None:
-            assert _orig_cell_origin is not None
-            assert _atom_centroid is not None
-            theta = np.radians(total_angle)
-            k = axis_vec / np.linalg.norm(axis_vec)
-            c_r, s_r = np.cos(theta), np.sin(theta)
-            k_cross = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
-            rot_mat = c_r * np.eye(3) + s_r * k_cross + (1 - c_r) * np.outer(k, k)
-            rot_cfg.cell_data.lattice = _orig_lattice @ rot_mat.T
-            rot_cfg.cell_data.cell_origin = rot_mat @ (_orig_cell_origin - _atom_centroid) + _atom_centroid
-
-        if mo_params is not None and mo_cube is not None:
-            from xyzrender.mo import recompute_mo
-
-            recompute_mo(graph, frame_cfg, mo_params, mo_cube, frame_cfg.surface_opacity, _mo_cache)
-
-        if dens_params is not None and dens_cube is not None:
-            from xyzrender.dens import recompute_dens
-
-            recompute_dens(graph, frame_cfg, dens_params, dens_cube, frame_cfg.surface_opacity, _dens_cache)
-
-        svg = render_svg(graph, frame_cfg, _log=False)
-        pngs.append(_svg_to_png(svg, config.canvas_size))
-        _progress(frame_idx + 1, n_frames)
+    worker = partial(
+        _render_rot_frame,
+        graph=graph,
+        config=config,
+        nodes=nodes,
+        original_positions=original_positions,
+        original_lattice=original_lattice,
+        original_lattice_origin=original_lattice_origin,
+        axis_vec=axis_vec,
+        axis_sign=axis_sign,
+        step=step,
+        rot_cfg=rot_cfg,
+        _gif_vec_origins=_gif_vec_origins,
+        _gif_vec_dirs=_gif_vec_dirs,
+        _gif_vec_centroid=_gif_vec_centroid,
+        _orig_lattice=_orig_lattice,
+        _orig_cell_origin=_orig_cell_origin,
+        _atom_centroid=_atom_centroid,
+        mo_params=mo_params,
+        mo_cube=mo_cube,
+        dens_params=dens_params,
+        dens_cube=dens_cube,
+        _mo_cache=_mo_cache,
+        _dens_cache=_dens_cache,
+    )
+    pngs = _parallel_render(worker, range(n_frames), n_frames)
 
     for n in nodes:
         graph.nodes[n]["position"] = original_positions[n]
@@ -641,6 +637,135 @@ def _rotate_frames(frames: list[dict], rot: np.ndarray) -> list[dict]:
     return rotated
 
 
+def _render_rot_frame(
+    frame_idx: int,
+    graph: "nx.Graph",
+    config: "RenderConfig",
+    nodes: list,
+    original_positions: dict,
+    original_lattice: np.ndarray | None,
+    original_lattice_origin: np.ndarray | None,
+    axis_vec: np.ndarray,
+    axis_sign: float,
+    step: float,
+    rot_cfg: "RenderConfig",
+    _gif_vec_origins: np.ndarray,
+    _gif_vec_dirs: np.ndarray,
+    _gif_vec_centroid: np.ndarray,
+    _orig_lattice: np.ndarray | None,
+    _orig_cell_origin: np.ndarray | None,
+    _atom_centroid: np.ndarray | None,
+    mo_params: "MOParams | None",
+    mo_cube: "CubeData | None",
+    dens_params: "DensParams | None",
+    dens_cube: "CubeData | None",
+    _mo_cache: dict,
+    _dens_cache: dict,
+) -> tuple[int, bytes]:
+    """Worker: render one rotation GIF frame to PNG. Surfaces recomputed via Kabsch per frame."""
+    import copy
+
+    from xyzrender.utils import apply_axis_angle_rotation
+
+    for n in nodes:
+        graph.nodes[n]["position"] = original_positions[n]
+    if original_lattice is not None:
+        graph.graph["lattice"] = original_lattice.copy()
+    if original_lattice_origin is not None:
+        graph.graph["lattice_origin"] = original_lattice_origin.copy()
+
+    total_angle = axis_sign * step * frame_idx
+    apply_axis_angle_rotation(graph, axis_vec, total_angle)
+
+    # Compute rotation matrix once; reused for vectors and cell_data.
+    rot_mat = _axis_angle_matrix(axis_vec, total_angle)
+
+    frame_cfg = copy.copy(rot_cfg)
+
+    if rot_cfg.vectors:
+        frame_cfg = _rotate_vectors_in_cfg(rot_cfg, rot_mat, _gif_vec_centroid, _gif_vec_origins, _gif_vec_dirs)
+
+    if rot_cfg.cell_data is not None and _orig_lattice is not None:
+        assert _orig_cell_origin is not None
+        assert _atom_centroid is not None
+        frame_cfg.cell_data = copy.deepcopy(rot_cfg.cell_data)
+        frame_cfg.cell_data.lattice = _orig_lattice @ rot_mat.T
+        frame_cfg.cell_data.cell_origin = rot_mat @ (_orig_cell_origin - _atom_centroid) + _atom_centroid
+
+    if mo_params is not None and mo_cube is not None:
+        from xyzrender.mo import recompute_mo
+
+        recompute_mo(graph, frame_cfg, mo_params, mo_cube, frame_cfg.surface_opacity, _mo_cache)
+
+    if dens_params is not None and dens_cube is not None:
+        from xyzrender.dens import recompute_dens
+
+        recompute_dens(graph, frame_cfg, dens_params, dens_cube, frame_cfg.surface_opacity, _dens_cache)
+
+    svg = render_svg(graph, frame_cfg, _log=False)
+    return frame_idx, _svg_to_png(svg, config.canvas_size)
+
+
+def _parallel_render(worker, items, total: int) -> list[bytes]:
+    """Run *worker* over *items* in parallel; return ordered PNG list.
+
+    Workers must return ``(idx, png_bytes)`` so results can be placed in order.
+    Callers are responsible for including the ordering index in each item.
+    """
+    import multiprocessing
+
+    pngs = [b""] * total
+    with multiprocessing.Pool() as pool:
+        for i, (idx, png_data) in enumerate(pool.imap_unordered(worker, items)):
+            pngs[idx] = png_data
+            _progress(i + 1, total)
+    return pngs
+
+
+def _render_traj_frame(
+    idx_frame: tuple[int, dict],
+    graph: "nx.Graph",
+    config: "RenderConfig",
+    nci_analyzer: "NCIAnalyzer | None",
+    fixed_ncis: list | None,
+    rotation_axis: np.ndarray | None,
+    rotation_sign: float,
+    step: float,
+    rf_vec_origins: np.ndarray,
+    rf_vec_dirs: np.ndarray,
+) -> tuple[int, bytes]:
+    """Worker: render one trajectory/vibration frame to PNG."""
+    if nci_analyzer is not None or fixed_ncis is not None:
+        from xyzgraph.nci import build_nci_graph
+    if rotation_axis is not None:
+        from xyzrender.utils import apply_axis_angle_rotation
+
+    idx, frame = idx_frame
+    positions = frame["positions"]
+    for i, (x, y, z) in enumerate(positions):
+        graph.nodes[i]["position"] = (float(x), float(y), float(z))
+
+    if nci_analyzer is not None:
+        ncis = nci_analyzer.detect(np.array(positions))
+        render_graph = build_nci_graph(graph, ncis)
+    elif fixed_ncis is not None:
+        render_graph = build_nci_graph(graph, fixed_ncis)
+    else:
+        render_graph = graph
+
+    frame_config = config
+    if rotation_axis is not None:
+        _rg_nodes = list(render_graph.nodes())
+        _rg_centroid = np.mean([render_graph.nodes[n]["position"] for n in _rg_nodes], axis=0)
+        rot_mat = _axis_angle_matrix(rotation_axis, rotation_sign * step * idx)
+        apply_axis_angle_rotation(render_graph, rotation_axis, rotation_sign * step * idx)
+        if config.vectors:
+            frame_config = _rotate_vectors_in_cfg(config, rot_mat, _rg_centroid, rf_vec_origins, rf_vec_dirs)
+
+    svg = render_svg(render_graph, frame_config, _log=False)
+    return idx, _svg_to_png(svg, config.canvas_size)
+
+
 def _render_frames(
     graph: nx.Graph,
     frames: list[dict],
@@ -660,15 +785,8 @@ def _render_frames(
     If *rotation_axis* is provided, each frame is incrementally rotated
     around that axis for a full 360° over all frames.
     """
-    if nci_analyzer is not None or fixed_ncis is not None:
-        from xyzgraph.nci import build_nci_graph
-    if rotation_axis is not None:
-        from xyzrender.utils import apply_axis_angle_rotation
-
     total = len(frames)
     step = 360.0 / total if rotation_axis is not None else 0
-
-    # Save pre-rotation vector data (used only when rotation_axis is set).
     _rf_vec_origins = (
         np.array([va.origin for va in config.vectors])
         if (config.vectors and rotation_axis is not None)
@@ -679,35 +797,19 @@ def _render_frames(
         if (config.vectors and rotation_axis is not None)
         else np.full((0, 3), np.nan)
     )
-
-    pngs = []
-    for idx, frame in enumerate(frames):
-        positions = frame["positions"]
-        for i, (x, y, z) in enumerate(positions):
-            graph.nodes[i]["position"] = (float(x), float(y), float(z))
-
-        if nci_analyzer is not None:
-            ncis = nci_analyzer.detect(np.array(positions))
-            render_graph = build_nci_graph(graph, ncis)
-        elif fixed_ncis is not None:
-            render_graph = build_nci_graph(graph, fixed_ncis)
-        else:
-            render_graph = graph
-
-        frame_config = config
-        if rotation_axis is not None:
-            # Capture centroid before rotation — same value apply_axis_angle_rotation uses.
-            _rg_nodes = list(render_graph.nodes())
-            _rg_centroid = np.mean([render_graph.nodes[n]["position"] for n in _rg_nodes], axis=0)
-            rot_mat = _axis_angle_matrix(rotation_axis, rotation_sign * step * idx)
-            apply_axis_angle_rotation(render_graph, rotation_axis, rotation_sign * step * idx)
-            if config.vectors:
-                frame_config = _rotate_vectors_in_cfg(config, rot_mat, _rg_centroid, _rf_vec_origins, _rf_vec_dirs)
-
-        svg = render_svg(render_graph, frame_config, _log=False)
-        pngs.append(_svg_to_png(svg, config.canvas_size))
-        _progress(idx + 1, total)
-    return pngs
+    worker = partial(
+        _render_traj_frame,
+        graph=graph,
+        config=config,
+        nci_analyzer=nci_analyzer,
+        fixed_ncis=fixed_ncis,
+        rotation_axis=rotation_axis,
+        rotation_sign=rotation_sign,
+        step=step,
+        rf_vec_origins=_rf_vec_origins,
+        rf_vec_dirs=_rf_vec_dirs,
+    )
+    return _parallel_render(worker, enumerate(frames), total)
 
 
 def _svg_to_png(svg: str, size: int) -> bytes:
