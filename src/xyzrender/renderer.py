@@ -696,32 +696,52 @@ def _draw_arrow_svg(
     draw_shaft: bool = True,
     draw_head: bool = True,
 ) -> None:
-    """SVG arrow rendering."""
+    """SVG arrow rendering.
+
+    When the 2D projected length is shorter than the arrowhead size, a dot
+    (tip facing viewer) or 'x' (tip facing away) is drawn instead and the
+    label is suppressed.  The label reappears automatically once the arrow
+    is long enough to draw a proper arrowhead, where it is centred on the
+    arrowhead tip.
+    """
     ox, oy = _proj(tail3d, scale, cx, cy, cw, ch)
     tx, ty = _proj(tip3d, scale, cx, cy, cw, ch)
     dx, dy = tx - ox, ty - oy
     px_len = (dx * dx + dy * dy) ** 0.5
+    arr = max(lw * 3.5, 7.0)
+
+    # If the projected length is shorter than the arrowhead itself, draw a dot or
+    # 'x' and suppress the label.
+    if px_len < arr:
+        if tip3d[2] > tail3d[2]:
+            # Facing viewer: draw a dot
+            r = max(lw * 0.8, 2.0)
+            svg.append(f'  <circle cx="{ox:.1f}" cy="{oy:.1f}" r="{r:.1f}" fill="{color}"/>')
+        else:
+            # Facing away: draw an 'x'
+            r = max(lw * 0.8, 2.0)
+            svg.append(
+                f'  <line x1="{ox - r:.1f}" y1="{oy - r:.1f}" x2="{ox + r:.1f}" y2="{oy + r:.1f}" '
+                f'stroke="{color}" stroke-width="{lw:.1f}" stroke-linecap="round"/>'
+            )
+            svg.append(
+                f'  <line x1="{ox - r:.1f}" y1="{oy + r:.1f}" x2="{ox + r:.1f}" y2="{oy - r:.1f}" '
+                f'stroke="{color}" stroke-width="{lw:.1f}" stroke-linecap="round"/>'
+            )
+        return
 
     if draw_shaft:
         # Stop shaft at arrowhead base so the round linecap doesn't poke through the head
-        if px_len > 4:
-            arr = max(lw * 3.5, 7.0)
-            frac = max(0.0, 1.0 - arr / px_len)
-            sx, sy = ox + dx * frac, oy + dy * frac
-        else:
-            sx, sy = tx, ty
+        frac = max(0.0, 1.0 - arr / px_len)
+        sx, sy = ox + dx * frac, oy + dy * frac
         svg.append(
             f'  <line x1="{ox:.1f}" y1="{oy:.1f}" x2="{sx:.1f}" y2="{sy:.1f}" '
             f'stroke="{color}" stroke-width="{lw:.1f}" stroke-linecap="round"/>'
         )
 
-    if not draw_head:
-        return
-
-    if px_len > 4:
+    if draw_head:
         nvx, nvy = dx / px_len, dy / px_len
         pvx, pvy = -nvy, nvx
-        arr = max(lw * 3.5, 7.0)
         p1x = tx - nvx * arr + pvx * arr * 0.38
         p1y = ty - nvy * arr + pvy * arr * 0.38
         p2x = tx - nvx * arr - pvx * arr * 0.38
@@ -729,16 +749,14 @@ def _draw_arrow_svg(
         svg.append(
             f'  <polygon points="{tx:.1f},{ty:.1f} {p1x:.1f},{p1y:.1f} {p2x:.1f},{p2y:.1f}" fill="{color}"/>'
         )
-        lx = tx + nvx * (arr * 0.6 + fs * 0.5)
-        ly = ty + nvy * (arr * 0.6 + fs * 0.5) + fs * 0.35
-    else:
-        lx, ly = tx + 4, ty
-
-    if label:
-        svg.append(
-            f'  <text x="{lx:.1f}" y="{ly:.1f}" font-size="{fs:.1f}" fill="{color}" '
-            f'font-family="Arial,sans-serif" text-anchor="middle" font-weight="bold">{label}</text>'
-        )
+        if label:
+            sep = fs * 0.65
+            lx = tx + nvx * sep
+            ly = ty + nvy * sep + fs * 0.35
+            svg.append(
+                f'  <text x="{lx:.1f}" y="{ly:.1f}" font-size="{fs:.1f}" fill="{color}" '
+                f'font-family="Arial,sans-serif" text-anchor="middle" font-weight="bold">{label}</text>'
+            )
 
 
 def _fit_canvas(pos, radii, cfg, extra_lo=None, extra_hi=None):

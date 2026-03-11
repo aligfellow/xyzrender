@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import tempfile
 from pathlib import Path
 
@@ -227,3 +228,56 @@ def test_api_render_vectors_dict():
     data = {"vectors": [{"vector": [1.0, 0.0, 0.0], "color": "#aabbcc"}]}
     result = render(mol, vectors=data)
     assert "#aabbcc" in str(result)
+
+
+# ---------------------------------------------------------------------------
+# Short-projection rendering: dot and 'x' symbols
+# ---------------------------------------------------------------------------
+
+
+def _make_near_z_arrow(centroid, color, label, z_sign=1):
+    """VectorArrow that is nearly along Z so its 2D projected length is << arr.
+
+    z_sign=+1  → tip closer to viewer (dot rendered)
+    z_sign=-1  → tip farther from viewer (x rendered)
+    """
+    return VectorArrow(
+        vector=np.array([0.001, 0.0, z_sign * 2.0]),
+        origin=centroid.copy(),
+        color=color,
+        label=label,
+        draw_on_top=True,
+    )
+
+
+def test_arrow_dot_drawn_when_short_facing_viewer():
+    """Arrow whose 2D projection is shorter than the arrowhead threshold and whose
+    tip is closer to the viewer should render as a filled circle (dot), not a polygon."""
+    graph, _ = load_molecule(EXAMPLES / "caffeine.xyz")
+    positions = np.array([graph.nodes[i]["position"] for i in graph.nodes()])
+    centroid = positions.mean(axis=0)
+    va = _make_near_z_arrow(centroid, "#bb2200", "Z", z_sign=1)
+    svg = render_svg(graph, RenderConfig(vectors=[va]))
+    # The dot is drawn as a <circle> with the arrow colour.
+    assert re.search(r'<circle[^>]*fill="#bb2200"', svg), "expected a dot circle for viewer-facing short arrow"
+    # A polygon arrowhead must NOT appear (no other element in a plain caffeine render uses polygon).
+    assert "<polygon" not in svg, "unexpected arrowhead polygon for too-short arrow"
+    # Label is suppressed for dot/x symbols.
+    assert "Z" not in svg.split("<text", 1)[-1] if "<text" in svg else True
+
+
+def test_arrow_x_drawn_when_short_facing_away():
+    """Arrow whose 2D projection is shorter than the arrowhead threshold and whose
+    tip is farther from the viewer should render as an 'x' (two crossed lines), not a polygon."""
+    graph, _ = load_molecule(EXAMPLES / "caffeine.xyz")
+    positions = np.array([graph.nodes[i]["position"] for i in graph.nodes()])
+    centroid = positions.mean(axis=0)
+    va = _make_near_z_arrow(centroid, "#0033cc", "W", z_sign=-1)
+    svg = render_svg(graph, RenderConfig(vectors=[va]))
+    # The x is drawn as two <line> elements stroked with the arrow colour.
+    x_lines = re.findall(r'<line[^>]*stroke="#0033cc"', svg)
+    assert len(x_lines) == 2, f"expected 2 lines for the 'x' symbol, got {len(x_lines)}"
+    # No polygon arrowhead.
+    assert "<polygon" not in svg, "unexpected arrowhead polygon for too-short arrow"
+    # Label is suppressed for dot/x symbols.
+    assert "W" not in svg.split("<text", 1)[-1] if "<text" in svg else True
