@@ -34,6 +34,7 @@ xyzrender = "xyzrender.cli:main"
 crystal = ["phonopy"]
 smi     = ["rdkit"]
 cif     = ["ase"]
+v       = ["vmol"]
 all     = ["phonopy", "rdkit", "ase"]
 
 [tool.setuptools.packages.find]
@@ -52,6 +53,7 @@ dev = [
     "phonopy",  # optional dep
     "ase",      # optional dep (needed for test_formats.py pdb fixtures)
     "rdkit",    # optional dep (needed for test_formats.py mol/sdf fixtures)
+    "vmol",
 ]
 
 # ===== Ruff =====

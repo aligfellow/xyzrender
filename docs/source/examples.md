@@ -14,7 +14,7 @@ uv run bash examples/generate.sh
 - [Electron Density and ESP](examples/dens_esp.md) — electron density isosurfaces and ESP colormapping
 - [NCI Surface](examples/nci_surf.md) — NCI surface patches from NCIPLOT cube files
 - [Crystal Structures](examples/crystal.md) — unit cell rendering, VASP/QE periodic structures, and crystallographic axes
-- [Annotations](examples/annotations.md) — atom indices, SVG labels, and measurements
+- [Annotations](examples/annotations.md) — atom indices, SVG labels, measurements, and vector arrows
 - [Atom Colormap](examples/cmap.md) — per-atom scalar colormaps (charges, shifts, Fukui indices)
 
 ```{toctree}

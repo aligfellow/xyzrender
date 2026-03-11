@@ -98,6 +98,13 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--cmap FILE` | Per-atom property colormap (Viridis, 1-indexed) |
 | `--cmap-range VMIN VMAX` | Explicit colormap range (default: auto from file) |
 
+## Vector arrows
+
+| Flag | Description |
+|------|-------------|
+| `--vectors FILE` | Path to a JSON file defining 3D vector arrows for overlay |
+| `--vector-scale` | Global length multiplier for all vector arrows |
+
 ## GIF animations
 
 | Flag | Description |

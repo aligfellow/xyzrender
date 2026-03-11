@@ -263,6 +263,23 @@ def main() -> None:
         metavar=("VMIN", "VMAX"),
         help="Explicit colormap range (default: auto from file values)",
     )
+    annot_g.add_argument(
+        "--vectors",
+        default=None,
+        metavar="FILE",
+        help=(
+            "JSON file defining vector arrows to overlay on the image.  "
+            'Each entry: {"origin": "com"|<atom_index>|[x,y,z], '
+            '"vector": [vx,vy,vz], "color": "#rrggbb", "label": "μ", "scale": 1.0}'
+        ),
+    )
+    annot_g.add_argument(
+        "--vector-scale",
+        type=float,
+        default=None,
+        metavar="FACTOR",
+        help="Global length scale factor applied to all vector arrows (default: 1.0)",
+    )
 
     # --- Crystal / periodic structures ---
     crystal_g = p.add_argument_group("crystal / periodic structures")
@@ -533,6 +550,8 @@ def main() -> None:
             nci_coloring=args.nci_coloring,
             overlay=args.overlay,
             overlay_color=args.overlay_color,
+            vectors=args.vectors,
+            vector_scale=args.vector_scale,
             output=args.output,
         )
     except ValueError as e:
@@ -586,6 +605,8 @@ def main() -> None:
                 cell_color=args.cell_color,
                 cell_width=args.cell_width,
                 ghost_opacity=args.ghost_opacity,
+                vectors=args.vectors,
+                vector_scale=args.vector_scale,
             )
         except ValueError as e:
             p.error(str(e))

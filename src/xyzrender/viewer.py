@@ -7,17 +7,13 @@ coordinates so subsequent rendering uses the chosen orientation.
 
 from __future__ import annotations
 
-import os
-import shutil
-import subprocess
-import sys
-import tempfile
 from typing import TYPE_CHECKING, TypeAlias
 
 import numpy as np
 
 if TYPE_CHECKING:
     import networkx as nx
+    from vmol import Vmol
 
     from xyzrender.types import CellData
 
@@ -49,8 +45,13 @@ def rotate_with_viewer(
 
     logger = logging.getLogger(__name__)
 
-    viewer = _find_viewer()
-    logger.info("Opening viewer: %s", viewer)
+    try:
+        from vmol import vmol as viewer
+    except ImportError:
+        msg = "Interactive viewer requires vmol: `pip install xyzrender[v]` or pip install vmol"
+        raise ImportError(msg) from None
+
+    logger.info("Using viewer: %s", viewer)
     n = graph.number_of_nodes()
     atoms: _Atoms = [(graph.nodes[i]["symbol"], graph.nodes[i]["position"]) for i in range(n)]
     orig_pos = np.array([graph.nodes[i]["position"] for i in range(n)], dtype=float)
@@ -59,11 +60,12 @@ def rotate_with_viewer(
     rotated_text = _run_viewer_with_atoms(viewer, atoms, lattice=lattice)
 
     if not rotated_text.strip():
-        logger.warning("No output from viewer — press 'z' in v to output coordinates before closing.")
+        logger.warning("No output from viewer.")
         return None, None, None
 
     from xyzrender.readers import _parse_auto
 
+    # take the first frame of output
     rotated_atoms = _parse_auto(rotated_text)
     if not rotated_atoms or len(rotated_atoms) != n:
         logger.warning("Could not parse viewer output.")
@@ -195,43 +197,13 @@ def _apply_rot_to_lattice(graph: nx.Graph, rot: np.ndarray, centroid: np.ndarray
     graph.graph["lattice_origin"] = rot @ (origin - centroid) + centroid
 
 
-def _find_viewer() -> str:
-    """Locate the v molecular viewer binary."""
-    # Check PATH first (works if user has a symlink or v in PATH)
-    v = shutil.which("v")
-    if v:
-        return v
-
-    # Search common unix install paths for v.* (e.g. v.2.2) — picks highest version
-    import glob
-    from pathlib import Path
-
-    search_dirs = [Path.home() / "bin", Path.home() / ".local" / "bin", Path("/usr/local/bin"), Path("/opt/")]
-
-    candidates = []
-    for d in search_dirs:
-        candidates.extend(glob.glob(str(d / "v.[0-9]*")))
-        candidates.extend(glob.glob(str(d / "v")))
-
-    if candidates:
-        # sorting gives the latest versions
-        return sorted(candidates)[-1]
-
-    sys.exit(
-        "Error: Cannot find 'v' viewer."
-        "Add it to your $PATH environment variable or install in one of the following directories:"
-        f"{', '.join(str(d) for d in search_dirs)}"
-    )
+def _run_viewer(viewer: Vmol, mol: dict, extra_args: list[str] | None = None) -> str:
+    """Launch v on an input mol and capture stdout."""
+    return viewer.capture(mols=mol, args=(extra_args or []))
 
 
-def _run_viewer(viewer: str, xyz_path: str, extra_args: list[str] | None = None) -> str:
-    """Launch v on an XYZ file and capture stdout."""
-    result = subprocess.run([viewer, xyz_path, *(extra_args or [])], capture_output=True, text=True, check=False)
-    return result.stdout
-
-
-def _run_viewer_with_atoms(viewer: str, atoms: _Atoms, lattice: np.ndarray | None = None) -> str:
-    """Write atoms to temp XYZ, launch v, capture stdout.
+def _run_viewer_with_atoms(viewer: Vmol, atoms: _Atoms, lattice: np.ndarray | None = None) -> str:
+    """Launch v and capture stdout.
 
     If *lattice* is a diagonal (orthogonal) box, passes ``cell:b{a},{b},{c}``
     to v so the cell frame is shown in the viewer too.
@@ -239,7 +211,7 @@ def _run_viewer_with_atoms(viewer: str, atoms: _Atoms, lattice: np.ndarray | Non
     Parameters
     ----------
     viewer:
-        Path to the v binary.
+        v-viewer instance.
     atoms:
         List of ``(symbol, (x, y, z))`` tuples.
     lattice:
@@ -250,17 +222,14 @@ def _run_viewer_with_atoms(viewer: str, atoms: _Atoms, lattice: np.ndarray | Non
     str
         Captured stdout from the viewer.
     """
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".xyz", delete=False) as f:
-        f.write(f"{len(atoms)}\n\n")
-        for sym, (x, y, z) in atoms:
-            f.write(f"{sym}  {x: .6f}  {y: .6f}  {z: .6f}\n")
-        tmp = f.name
-    extra: list[str] = []
+    q, r = zip(*atoms, strict=True)
+    mol = {"q": q, "r": r, "name": "Rotate molecule with mouse / arrows and press q / Esc to confirm"}
+
+    # automatically print the coordinates before exiting
+    extra: list[str] = ["exitcom:z"]
+
     if lattice is not None:
         # v accepts the 3x3 matrix as 9 comma-separated values
         flat = lattice.flatten()
         extra.append("cell:" + ",".join(f"{v:.6f}" for v in flat))
-    try:
-        return _run_viewer(viewer, tmp, extra)
-    finally:
-        os.unlink(tmp)
+    return _run_viewer(viewer, mol, extra)

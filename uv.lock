@@ -2168,6 +2168,24 @@ wheels = [
 ]
 
 [[package]]
+name = "vmol"
+version = "3.0rc5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/42/a8/4431a08360d45728cdeeb0450142536ba59ea395b1b0f803e94f2dcfe99b/vmol-3.0rc5.tar.gz", hash = "sha256:c99d152543fc187611c9f739994a08b558494e97cde88a6705c428fd7179df04", size = 12114, upload-time = "2026-03-10T14:07:46.615Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c9/15/67af25affd6da0a64d9171d96c9b34a3ca3a3ea14ee3209c9b9e97652b92/vmol-3.0rc5-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:8e6c906c95e8cc1d1b2bec3dfe08e6f8a21ede61b6db70335caac3ef9a5b3e83", size = 203234, upload-time = "2026-03-10T14:07:39.278Z" },
+    { url = "https://files.pythonhosted.org/packages/3c/aa/e8635d613d2e9854293262a8e1856c3ccaaf90047a3acfe4794437efae70/vmol-3.0rc5-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:623de8fb4c4e2cbafb8a01c14b863f3348f43d6ef7faade8d89b89e9128271d9", size = 203235, upload-time = "2026-03-10T14:07:41.226Z" },
+    { url = "https://files.pythonhosted.org/packages/66/c9/1c6776f54d4a3be855b8350c00afbd50c954c79470a01760a6bda1026430/vmol-3.0rc5-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:574f673aad3f9fa8055f66c1533f68ae28cf4484bcf1362131e8803cce1f8039", size = 203242, upload-time = "2026-03-10T14:07:42.199Z" },
+    { url = "https://files.pythonhosted.org/packages/11/93/984ec133a484c7dbb1e514114a08be09ede16a7f1394f02cb5a6c3fada38/vmol-3.0rc5-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:cfde6bab53fa457370a0f89703a516b3180f311b97130a64662ecbea551f8ca4", size = 203243, upload-time = "2026-03-10T14:07:43.192Z" },
+    { url = "https://files.pythonhosted.org/packages/74/ba/5bcae54f37c934142b47609f31ce6f4191e274705b5fe89b05a5b52aea9f/vmol-3.0rc5-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:576386f283e00f5a66793a996c928aa5f5a52dd6d04768e0770387c917144331", size = 203245, upload-time = "2026-03-10T14:07:44.43Z" },
+    { url = "https://files.pythonhosted.org/packages/b4/64/21437624ef4371db7a305a915cdedae615a9ca9e77e4a7ad875c9a772a91/vmol-3.0rc5-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:fb917889ab4ad19295a30859fe3d950491af084671908d7758cf172fc2b468f8", size = 203247, upload-time = "2026-03-10T14:07:45.717Z" },
+]
+
+[[package]]
 name = "wcwidth"
 version = "0.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2203,7 +2221,7 @@ wheels = [
 
 [[package]]
 name = "xyzrender"
-version = "0.2.1"
+version = "0.2.2"
 source = { editable = "." }
 dependencies = [
     { name = "cairosvg" },
@@ -2231,6 +2249,9 @@ crystal = [
 smi = [
     { name = "rdkit" },
 ]
+v = [
+    { name = "vmol" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -2242,6 +2263,7 @@ dev = [
     { name = "rdkit" },
     { name = "ruff" },
     { name = "ty" },
+    { name = "vmol" },
 ]
 
 [package.metadata]
@@ -2258,9 +2280,10 @@ requires-dist = [
     { name = "pillow" },
     { name = "rdkit", marker = "extra == 'all'" },
     { name = "rdkit", marker = "extra == 'smi'" },
+    { name = "vmol", marker = "extra == 'v'" },
     { name = "xyzgraph", specifier = ">=1.6.2" },
 ]
-provides-extras = ["crystal", "smi", "cif", "all"]
+provides-extras = ["crystal", "smi", "cif", "v", "all"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -2272,4 +2295,5 @@ dev = [
     { name = "rdkit" },
     { name = "ruff", specifier = ">=0.14.14" },
     { name = "ty", specifier = ">=0.0.14" },
+    { name = "vmol" },
 ]
