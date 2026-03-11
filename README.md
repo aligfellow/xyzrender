@@ -778,6 +778,74 @@ ESP-specific flags:
 `--esp` is mutually exclusive with `--mo`, `--dens`, and `--vdw`.
 `--gif-rot` is **not available**; however, the `-I` flag allows for interactive orientation of the molecule prior to generating the image.
 
+### Vector arrows
+
+Overlay arbitrary 3D vectors as arrows on the rendered image via a JSON file. Useful for dipole moments, forces, electric fields, transition vectors, etc.
+
+| Dipole moment | Rotation |  
+|-------------|-------------|  
+| ![dip](examples/images/ethanol_dip.svg) | ![dip rot](examples/images/ethanol_dip.gif) |  
+
+
+```bash
+xyzrender ethanol.xyz --vectors ethanol_dip.json -o ethanol_dip.svg
+```
+
+Each entry in the JSON array defines one arrow:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `vector` | `[vx, vy, vz]` | *required* | Three numeric components (x,y,z). Use the same coordinate units as the input (Å). Example: `[1.2, 0.0, 0.5]`. |
+| `origin` | `"com"` / integer / `[x,y,z]` | `"com"` | Tail location: `"com"` = molecule centroid; integer = 1-based atom index from the input XYZ; list = explicit coordinates. |
+| `color` | `"#rrggbb"` / named | `"#444444"` | Arrow color. Accepts hex (`#e63030`) or CSS color names (`steelblue`). |
+| `label` | string | `""` | Text placed near the arrowhead (e.g. "μ"). |
+| `scale` | float | `1.0` | Per-arrow multiplier applied on top of `--vector-scale`. Final arrow length = `scale * --vector-scale * |vector|`. |
+
+**Example — Dipole Moment:**
+
+```json
+{
+  "anchor": "center",
+  "vectors": [
+    {
+      "origin": "com",
+      "vector": [
+        1.0320170291976951,
+        -0.042708195030485986,
+        -1.332397645862797
+      ],
+      "color": "firebrick",
+      "label": "μ"
+    }
+  ]
+}
+```
+
+**Example — forces on heavy atoms due to E field:**
+
+| Forces | Rotation |  
+|-------------|-------------|  
+| ![forces](examples/images/ethanol_forces_efield.svg) | ![forces rot](examples/images/ethanol_forces_efield.gif) |  
+
+```json
+{
+  "anchor": "center",
+  "units": "eV/Angstrom",
+  "vectors": [
+    {
+      "origin": 1,
+      "vector": [
+        -0.318122066384213,
+        -0.437907743038215,
+        0.3679005313657949
+      ],
+      "color": "firebrick"
+    },
+    ...
+  ]
+}
+```
+
 ### NCI surface
 
 Visualise non-covalent interaction (NCI) regions from two NCIPLOT cube files: a density cube (main input, containing `sign(λ₂)·ρ`) and a reduced density gradient cube (`--nci-surf`).
@@ -822,6 +890,7 @@ NCI-specific flags:
 
 - `--nci-surf` is mutually exclusive with `--mo`, `--dens`, `--esp` and `--vdw`.
 - `--gif-rot` is **not available**; however, the `-I` flag allows for interactive orientation prior to generating the image.
+
 
 ## Orientation
 
@@ -1014,6 +1083,8 @@ Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Pref
 | `--label-size PT` | Label font size (overrides preset) |
 | `--cmap FILE` | Per-atom property colormap (Viridis, 1-indexed) |
 | `--cmap-range VMIN VMAX` | Explicit colormap range (default: auto from file) |
+| `--vectors FILE` | JSON file of vector arrows to overlay (see Vector arrows section) |
+| `--vector-scale FACTOR` | Global length scale for all vector arrows (default: 1.0) |
 | **Crystal** | |
 | `--crystal [{vasp,qe}]` | Load as crystal via phonopy; format auto-detected or specify explicitly |
 | `--no-cell` | Hide the unit cell box |
@@ -1023,6 +1094,7 @@ Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Pref
 | `--cell-width` | Unit cell box line width (default: 2.0) |
 | `--ghost-opacity` | Opacity of ghost atoms/bonds (default: 0.5) |
 | `--axis HKL` | Orient looking down a crystallographic direction (e.g. `111`, `001`) |
+
 
 ## Development
 
@@ -1077,7 +1149,7 @@ Optional dependencies:
 Contributors:
 
 - [Ksenia Briling (@briling)](https://github.com/briling) — `vmol` integration and the [xyz2svg](https://github.com/briling/xyz2svg) foundation
-- [Sander Cohen-Janes (@scohenjanes5)](https://github.com/scohenjanes5) — crystal/periodic structure support (VASP, Quantum ESPRESSO, ghost atoms, crystallographic axes)
+- [Sander Cohen-Janes (@scohenjanes5)](https://github.com/scohenjanes5) — crystal/periodic structure support (VASP, Quantum ESPRESSO, ghost atoms, crystallographic axes) and vector annotations
 - [Vinicius Port (@caprilesport)](https://github.com/caprilesport) — `v` binary path discovery
 - [Lucas Attia (@lucasattia)](https://github.com/lucasattia) — `--transparent` background flag
 

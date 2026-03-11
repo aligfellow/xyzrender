@@ -139,6 +139,41 @@ def resolve_color(color: str) -> str:
 
 
 @dataclass
+class VectorArrow:
+    """A 3D vector to be drawn as an arrow in the rendered image.
+
+    Parameters
+    ----------
+    vector:
+        3-component array giving the direction and magnitude of the arrow (Å or
+        any consistent unit — the length on screen scales with the molecule).
+    origin:
+        3D origin point of the arrow tail in the same coordinate frame as atom
+        positions.  Set this after resolving ``"com"`` or atom-index origins.
+    color:
+        CSS hex color string (default ``'#444444'``).
+    label:
+        Optional text placed near the arrowhead.
+    scale:
+        Additional per-arrow length scale factor applied on top of any global
+        ``vector_scale`` setting (default 1.0).
+    host_atom:
+        0-based index of the atom this arrow is centred on, or ``None`` when
+        the origin was specified as ``"com"`` or explicit coordinates.  Used
+        by the renderer to determine whether the arrowhead protrudes in front
+        of the host atom without an expensive nearest-neighbour search.
+    """
+
+    vector: np.ndarray  # shape (3,)
+    origin: np.ndarray  # shape (3,) — resolved Cartesian position
+    color: str = "#444444"
+    label: str = ""
+    scale: float = 1.0
+    anchor: str = "tail"  # "tail" (origin = arrow tail) or "center" (origin = arrow midpoint)
+    host_atom: int | None = None  # 0-based atom index, or None for com/explicit origins
+
+
+@dataclass
 class CellData:
     """Periodic lattice data for crystal structure rendering.
 
@@ -314,7 +349,7 @@ class RenderConfig:
     # Atom property colormap (--cmap)
     atom_cmap: dict[int, float] | None = None
     cmap_range: tuple[float, float] | None = None
-    cmap_unlabeled: str = "white"  # fill for atoms absent from cmap file
+    cmap_unlabeled: str = "#ffffff"  # fill for atoms absent from cmap file
     # Surface parameter defaults (populated from preset by build_config)
     mo_isovalue: float = _DEFAULT_MO_ISOVALUE
     mo_pos_color: str = _DEFAULT_MO_POS_COLOR
@@ -327,7 +362,7 @@ class RenderConfig:
     nci_color: str = _DEFAULT_NCI_COLOR
     nci_color_mode: str = _DEFAULT_NCI_COLOR_MODE
     # Overlay
-    overlay_color: str = "mediumorchic"
+    overlay_color: str = "mediumorchid"
     # Crystal / periodic structure
     cell_data: CellData | None = None
     show_cell: bool = True
@@ -341,3 +376,7 @@ class RenderConfig:
         "royalblue",
     )  # firebrick, forestgreen, royalblue
     axis_width_scale: float = 3.0  # multiplier on cell_line_width for axis stroke width
+    # Arbitrary vector arrows (--vectors)
+    vectors: list[VectorArrow] = field(default_factory=list)
+    vector_scale: float = 1.0  # global length multiplier applied to all vectors
+    vector_color: str = "firebrick"  # default arrow color (firebrick) when not specified per-arrow

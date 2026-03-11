@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     import networkx as nx
 
     from xyzrender.cube import CubeData
-    from xyzrender.types import CellData, RenderConfig
+    from xyzrender.types import CellData, RenderConfig, VectorArrow
 
 logger = logging.getLogger(__name__)
 
@@ -416,6 +416,10 @@ def render(
     # --- Annotations ---
     labels: list[str] | None = None,
     label_file: str | None = None,
+    # --- Vector arrows ---
+    vectors: str | Path | dict | list[VectorArrow] | None = None,
+    vector_scale: float | None = None,
+    vector_color: str | None = None,
     # --- Surface opacity ---
     opacity: float | None = None,
     # --- Surfaces ---
@@ -612,6 +616,22 @@ def render(
         inline = [s.split() for s in labels] if labels else None
         cfg.annotations = parse_annotations(inline_specs=inline, file_path=label_file, graph=rmol.graph)
 
+    # --- Vector arrows ---
+    if vector_scale is not None:
+        cfg.vector_scale = vector_scale
+    if vector_color is not None:
+        from xyzrender.types import resolve_color
+
+        cfg.vector_color = resolve_color(vector_color)
+    if vectors is not None:
+        if isinstance(vectors, list):
+            cfg.vectors = vectors
+        else:
+            from xyzrender.annotations import load_vectors
+
+            _vec_src = vectors if isinstance(vectors, dict) else Path(vectors)
+            cfg.vectors = load_vectors(_vec_src, rmol.graph, default_color=cfg.vector_color)
+
     # --- Early overlay validation (before ghost atoms are added to g1) ---
     if overlay is not None and mol.cell_data is not None:
         msg = "overlay= is mutually exclusive with crystal/cell display"
@@ -787,6 +807,10 @@ def render_gif(
     reference_graph=None,
     # --- NCI detection (gif_ts / gif_trj / gif_rot) ---
     detect_nci: bool = False,
+    # --- Vector arrows (gif_rot only) ---
+    vectors: str | Path | dict | list[VectorArrow] | None = None,
+    vector_scale: float | None = None,
+    vector_color: str | None = None,
     # --- Surfaces (gif_rot only) ---
     mo: bool = False,
     dens: bool = False,
@@ -1012,6 +1036,22 @@ def render_gif(
             g2 = copy.deepcopy(overlay_mol.graph)
             aligned2 = align(ref_graph, g2)
             ref_graph = merge_graphs(ref_graph, g2, aligned2, overlay_color=cfg.overlay_color)
+
+        # --- Vector arrows (gif_rot only; needs ref_graph for COM) ---
+        if vector_scale is not None:
+            cfg.vector_scale = vector_scale
+        if vector_color is not None:
+            from xyzrender.types import resolve_color
+
+            cfg.vector_color = resolve_color(vector_color)
+        if vectors is not None:
+            if isinstance(vectors, list):
+                cfg.vectors = vectors
+            else:
+                from xyzrender.annotations import load_vectors
+
+                _vec_src = vectors if isinstance(vectors, dict) else Path(vectors)
+                cfg.vectors = load_vectors(_vec_src, ref_graph, default_color=cfg.vector_color)
 
         cube_data = molecule.cube_data if isinstance(molecule, Molecule) else None
 

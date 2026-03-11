@@ -38,6 +38,10 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
     pos = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
     a_nums = [DATA.s2n.get(s, 0) for s in symbols]  # 0 for NCI centroid nodes ("*")
 
+    # Pre-compute local vector origins/directions so we can rotate them with auto_orient
+    _vec_origins = np.array([va.origin for va in cfg.vectors], dtype=float) if cfg.vectors else np.full((0, 3), np.nan)
+    _vec_dirs = np.array([va.vector for va in cfg.vectors], dtype=float) if cfg.vectors else np.full((0, 3), np.nan)
+
     if cfg.auto_orient and n > 1:
         # Collect TS bond pairs to prioritize in orientation
         ts_pairs = list(cfg.ts_bonds) if cfg.ts_bonds else []
@@ -49,13 +53,26 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
         fit_mask = atom_mask if not atom_mask.all() else None
         from xyzrender.utils import pca_orient
 
-        if cfg.cell_data is not None:
+        if _vec_origins is not None:
+            # Capture rotation matrix so vector origins/directions transform with the molecule
+            _fit = pos[fit_mask] if fit_mask is not None else pos
+            _centroid = _fit.mean(axis=0)
+            pos, _orient_rot = pca_orient(pos, ts_pairs or None, fit_mask=fit_mask, return_matrix=True)
+            _vec_origins = (_vec_origins - _centroid) @ _orient_rot.T
+            _vec_dirs = _vec_dirs @ _orient_rot.T
+            logger.debug("render_svg PCA centroid: %s", _centroid)
+            for _vi, _vo in enumerate(_vec_origins):
+                logger.debug("  vector[%d] origin after PCA: %s (should be ~0 for COM origins)", _vi, _vo)
+            if cfg.cell_data is not None:
+                cfg.cell_data.lattice = (_orient_rot @ cfg.cell_data.lattice.T).T
+                cfg.cell_data.cell_origin = _orient_rot @ (cfg.cell_data.cell_origin - _centroid)
+        elif cfg.cell_data is not None:
             pre_centroid = pos.mean(axis=0)
             pos, _rot_mat = pca_orient(pos, ts_pairs, fit_mask=fit_mask, return_matrix=True)
             cfg.cell_data.lattice = (_rot_mat @ cfg.cell_data.lattice.T).T
             cfg.cell_data.cell_origin = _rot_mat @ (cfg.cell_data.cell_origin - pre_centroid)
         else:
-            pos = pca_orient(pos, ts_pairs, fit_mask=fit_mask)
+            pos = pca_orient(pos, ts_pairs or None, fit_mask=fit_mask)
 
     raw_vdw = np.array(
         [_CENTROID_VDW if s == "*" else DATA.vdw.get(s, 1.5) * (_H_ATOM_SCALE if s == "H" else 1.0) for s in symbols]
@@ -102,6 +119,29 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
         box_hi = box_verts[:, :2].max(axis=0)
         extra_lo = np.minimum(extra_lo, box_lo) if extra_lo is not None else box_lo
         extra_hi = np.maximum(extra_hi, box_hi) if extra_hi is not None else box_hi
+    # Expand canvas to encompass vector arrow tips, tails, and labels
+    if cfg.vectors:
+        _ref_px_per_ang = (_REF_CANVAS - 2 * cfg.padding) / _REF_SPAN
+        _vec_tips = []
+        for vi, va in enumerate(cfg.vectors):
+            scaled_vec = _vec_dirs[vi] * va.scale * cfg.vector_scale
+            tail3d = _vec_origins[vi] - scaled_vec / 2 if va.anchor == "center" else _vec_origins[vi]
+            tip3d = tail3d + scaled_vec
+            _vec_tips.append(tip3d)
+            for pt in (tail3d, tip3d):
+                pt2d = pt[:2]
+                extra_lo = np.minimum(extra_lo, pt2d) if extra_lo is not None else pt2d.copy()
+                extra_hi = np.maximum(extra_hi, pt2d) if extra_hi is not None else pt2d.copy()
+        for vi, va in enumerate(cfg.vectors):
+            if not va.label:
+                continue
+            tip2d = _vec_tips[vi][:2]
+            label_half_w = len(va.label) * cfg.label_font_size * 1.2 * 0.35 / _ref_px_per_ang
+            label_h = cfg.label_font_size * 1.2 / _ref_px_per_ang
+            lo = tip2d - np.array([label_half_w, label_h])
+            hi = tip2d + np.array([label_half_w, label_h])
+            extra_lo = np.minimum(extra_lo, lo) if extra_lo is not None else lo
+            extra_hi = np.maximum(extra_hi, hi) if extra_hi is not None else hi
     scale, cx, cy, canvas_w, canvas_h = _fit_canvas(pos, fit_radii, cfg, extra_lo=extra_lo, extra_hi=extra_hi)
 
     # scale_ratio: encodes both molecule complexity AND canvas size so that
@@ -296,6 +336,111 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
             mo_back_lobes_svg(cfg.mo_contours, mo_is_front, cfg.surface_opacity, scale, cx, cy, canvas_w, canvas_h)
         )
 
+    # --- Vector arrows: prepare for z-interleaved drawing ---
+    # Vectors are drawn just before the atom at their depth in the back-to-front
+    # loop below, so each shaft is covered by its own atom while still being
+    # occluded by any atoms closer to the viewer.
+    # However, when an arrow points toward the viewer the tip or
+    # tail may protrude in front of the host atom. To keep
+    # those elements visible they are placed in ``_vec_front_heads`` / ``_vec_front_tails``
+    # and redrawn on top of relevant atoms in a second pass below.
+    _vec_lw = max(bw * 0.6, 1.5) if cfg.vectors else 0.0
+    _fs_vec = fs_label * 1.2 if cfg.vectors else 0.0
+    # Back-to-front order (ascending z, matching z_order convention)
+    _pending_vecs = sorted(range(len(cfg.vectors)), key=lambda vi: _vec_origins[vi][2]) if cfg.vectors else []
+    _pv_pos = 0  # pointer into _pending_vecs
+
+    # Calculate whether a vector tip/tail protrudes beyond the atom sphere.
+    _atom_r3d = raw_vdw * cfg.atom_scale * _RADIUS_SCALE  # shape (n,)
+
+    # A vector endpoint "protrudes in front" when its z exceeds the z of the
+    # nearest atom plus that atom's 3D radius.
+    _vec_tip3d: list = []
+    _vec_tail3d: list = []
+    _vec_head_front: list[bool] = []
+    _vec_tail_front: list[bool] = []
+    if cfg.vectors:
+        for vi in range(len(cfg.vectors)):
+            va = cfg.vectors[vi]
+            scaled_vec = _vec_dirs[vi] * va.scale * cfg.vector_scale
+            if va.anchor == "center":
+                tail3d = _vec_origins[vi] - scaled_vec / 2
+            else:
+                tail3d = _vec_origins[vi]
+            tip3d = tail3d + scaled_vec
+            _vec_tip3d.append(tip3d)
+            _vec_tail3d.append(tail3d)
+            # Resolve host atom: use the prescribed index when available (atom-index
+            # origin from JSON), otherwise fall back to a nearest-neighbour search.
+            if va.host_atom is not None:
+                host_ai = va.host_atom
+            else:
+                host_ai = int(np.argmin(np.linalg.norm(pos - _vec_origins[vi], axis=1)))
+            host_z = pos[host_ai][2]
+            host_r = _atom_r3d[host_ai]
+            # Tip protrudes in front when tip_z > host_z + host_r
+            _vec_head_front.append(bool(tip3d[2] > host_z + host_r))
+            # Tail protrudes in front when tail_z > host_z + host_r (rare but symmetric)
+            _vec_tail_front.append(bool(tail3d[2] > host_z + host_r))
+
+    def _draw_vector_shaft(vi: int) -> None:
+        """Draw only the line shaft of vector vi (called before the host atom)."""
+        tail3d = _vec_tail3d[vi]
+        tip3d = _vec_tip3d[vi]
+        ox, oy = _proj(tail3d, scale, cx, cy, canvas_w, canvas_h)
+        tx, ty = _proj(tip3d, scale, cx, cy, canvas_w, canvas_h)
+        color = cfg.vectors[vi].color
+        dx, dy = tx - ox, ty - oy
+        px_len = (dx * dx + dy * dy) ** 0.5
+        # Stop shaft at arrowhead base so the round linecap doesn't poke through the head
+        if px_len > 4:
+            arr = max(_vec_lw * 3.5, 7.0)
+            frac = max(0.0, 1.0 - arr / px_len)
+            sx, sy = ox + dx * frac, oy + dy * frac
+        else:
+            sx, sy = tx, ty
+        svg.append(
+            f'  <line x1="{ox:.1f}" y1="{oy:.1f}" x2="{sx:.1f}" y2="{sy:.1f}" '
+            f'stroke="{color}" stroke-width="{_vec_lw:.1f}" stroke-linecap="round"/>'
+        )
+
+    def _draw_vector_head(vi: int) -> None:
+        """Draw the arrowhead polygon and label of vector vi."""
+        tail3d = _vec_tail3d[vi]
+        tip3d = _vec_tip3d[vi]
+        ox, oy = _proj(tail3d, scale, cx, cy, canvas_w, canvas_h)
+        tx, ty = _proj(tip3d, scale, cx, cy, canvas_w, canvas_h)
+        color = cfg.vectors[vi].color
+        dx, dy = tx - ox, ty - oy
+        px_len = (dx * dx + dy * dy) ** 0.5
+        if px_len > 4:
+            nvx, nvy = dx / px_len, dy / px_len
+            pvx, pvy = -nvy, nvx
+            arr = max(_vec_lw * 3.5, 7.0)
+            p1x = tx - nvx * arr + pvx * arr * 0.38
+            p1y = ty - nvy * arr + pvy * arr * 0.38
+            p2x = tx - nvx * arr - pvx * arr * 0.38
+            p2y = ty - nvy * arr - pvy * arr * 0.38
+            svg.append(
+                f'  <polygon points="{tx:.1f},{ty:.1f} {p1x:.1f},{p1y:.1f} {p2x:.1f},{p2y:.1f}" fill="{color}"/>'
+            )
+            lx = tx + nvx * (arr * 0.6 + _fs_vec * 0.5)
+            ly = ty + nvy * (arr * 0.6 + _fs_vec * 0.5) + _fs_vec * 0.35
+        else:
+            lx, ly = tx + 4, ty
+        va = cfg.vectors[vi]
+        if va.label:
+            svg.append(
+                f'  <text x="{lx:.1f}" y="{ly:.1f}" font-size="{_fs_vec:.1f}" fill="{color}" '
+                f'font-family="Arial,sans-serif" text-anchor="middle" font-weight="bold">{va.label}</text>'
+            )
+
+    def _draw_vector_arrow(vi: int) -> None:
+        """Draw shaft + (if not front-protruding) head for vector vi."""
+        _draw_vector_shaft(vi)
+        if not _vec_head_front[vi]:
+            _draw_vector_head(vi)
+
     # --- Unit cell box (12 edges, drawn before atoms so bonds/atoms render on top) ---
     if cfg.cell_data is not None and cfg.show_cell:
         lat = cfg.cell_data.lattice
@@ -428,6 +573,13 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
                 )
 
     for idx, ai in enumerate(z_order):
+        # Flush all vectors whose origin depth <= this atom's depth.  The hidden
+        # check is intentionally after the flush so hidden atoms still act as
+        # depth markers, keeping vector z-ordering correct.
+        while _pv_pos < len(_pending_vecs) and _vec_origins[_pending_vecs[_pv_pos]][2] <= pos[ai][2]:
+            _draw_vector_arrow(_pending_vecs[_pv_pos])
+            _pv_pos += 1
+
         if ai in hidden:
             continue
 
@@ -480,6 +632,19 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
     while nci_lobe_idx < len(nci_lobes_flat):
         svg.extend(nci_lobes_flat[nci_lobe_idx][1])
         nci_lobe_idx += 1
+
+    # Flush any vectors whose origin is in front of all atoms
+    while _pv_pos < len(_pending_vecs):
+        _draw_vector_arrow(_pending_vecs[_pv_pos])
+        _pv_pos += 1
+
+    # --- Second pass: redraw arrowheads that protrude in front of their host atom ---
+    # These were skipped in the first pass (_draw_vector_arrow) so that the shaft
+    # is still painter-sorted correctly, but the head must appear on top of the atom.
+    if cfg.vectors:
+        for vi in range(len(cfg.vectors)):
+            if _vec_head_front[vi]:
+                _draw_vector_head(vi)
 
     # --- Front MO orbital lobes (on top of molecule) ---
     if cfg.mo_contours is not None:
