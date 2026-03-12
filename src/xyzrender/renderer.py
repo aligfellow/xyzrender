@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import itertools
 import logging
-from typing import cast
 
 import numpy as np
 from xyzgraph import DATA
@@ -15,6 +14,7 @@ from xyzrender.hull import (
     get_convex_hull_edges_silhouette,
     get_convex_hull_facets,
     hull_facets_svg,
+    normalize_hull_subsets,
 )
 from xyzrender.mo import (
     classify_mo_lobes,
@@ -344,16 +344,14 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
 
     # --- Convex hull facets (low-alpha plane behind molecule) ---
     if cfg.show_convex_hull:
-        hull_color_hex = resolve_color(cfg.hull_color)
+        palette = [resolve_color(c) for c in cfg.hull_colors]
+        hull_color_hex = palette[0]
         per_color: list[str] | None = None
-        per_opacity: list[float] | None = None
-        if cfg.hull_atom_indices is not None:
-            # Normalize to list of subsets: flat list -> one subset, list of lists -> multiple
-            raw = cfg.hull_atom_indices
-            if raw and isinstance(raw[0], list):
-                subsets = cast("list[list[int]]", raw)
-            else:
-                subsets = [cast("list[int]", raw)] if raw else []
+
+        _raw_idx = cfg.hull_atom_indices
+        subsets = normalize_hull_subsets(_raw_idx) if _raw_idx is not None else None
+
+        if subsets:
             all_facets: list[tuple[np.ndarray, float]] = []
             subset_indices: list[int] = []
             for idx, subset in enumerate(subsets):
@@ -365,21 +363,22 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
                 all_facets.extend(sub_facets)
                 subset_indices.extend([idx] * len(sub_facets))
             facets = all_facets
-            if subset_indices and (cfg.hull_colors or cfg.hull_opacities):
-                # Sort by centroid_z and build per-facet color/opacity from subset index
+            # Per-subset colors (cycling palette)
+            if subset_indices:
                 with_idx = list(zip(all_facets, subset_indices, strict=True))
                 with_idx.sort(key=lambda x: x[0][1])
                 sorted_facets = [f for f, _ in with_idx]
                 indices_sorted = [si for _, si in with_idx]
-                n_subs = len(subsets)
-                if cfg.hull_colors and len(cfg.hull_colors) >= n_subs:
-                    per_color = [resolve_color(cfg.hull_colors[i]) for i in indices_sorted]
-                if cfg.hull_opacities and len(cfg.hull_opacities) >= n_subs:
-                    per_opacity = [cfg.hull_opacities[i] for i in indices_sorted]
+                per_color = [palette[i % len(palette)] for i in indices_sorted]
                 facets = sorted_facets
-        else:
-            include_mask = np.array([s != "*" for s in symbols]) if n > 0 else None
+        elif subsets is None:
+            # No indices specified — use all heavy (non-H, non-dummy) atoms
+            include_mask = np.array([s not in ("*", "H") for s in symbols]) if n > 0 else None
             facets = get_convex_hull_facets(pos, include_mask)
+        else:
+            # Empty indices list — no hull
+            facets = []
+
         if facets:
             svg.extend(
                 hull_facets_svg(
@@ -392,22 +391,17 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
                     canvas_w,
                     canvas_h,
                     per_facet_color_hex=per_color,
-                    per_facet_opacity=per_opacity,
                 )
             )
 
-        # Non-bond hull edges (1-skeleton) as thin lines for better 3D perception
+        # Non-bond hull edges (1-skeleton) — per-subset color matches the fill
         if cfg.show_hull_edges:
             bond_pairs = {(min(i, j), max(i, j)) for (i, j) in bonds}
-            hull_edges_with_z: list[tuple[tuple[int, int], float]] = []
-            if cfg.hull_atom_indices is not None:
-                raw = cfg.hull_atom_indices
-                subsets = (
-                    cast("list[list[int]]", raw)
-                    if raw and isinstance(raw[0], list)
-                    else ([cast("list[int]", raw)] if raw else [])
-                )
-                for subset in subsets:
+            # Each entry: ((ni, nj), mid_z, edge_color)
+            hull_edges_with_z: list[tuple[tuple[int, int], float, str]] = []
+            if subsets:
+                for sidx, subset in enumerate(subsets):
+                    sub_color = palette[sidx % len(palette)]
                     include_mask = np.zeros(n, dtype=bool)
                     for i in subset:
                         if 0 <= i < n:
@@ -415,22 +409,21 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
                     for ni, nj in get_convex_hull_edges_silhouette(pos, include_mask):
                         if (ni, nj) not in bond_pairs:
                             mid_z = (pos[ni][2] + pos[nj][2]) / 2.0
-                            hull_edges_with_z.append(((ni, nj), mid_z))
-            else:
-                include_mask = np.array([s != "*" for s in symbols]) if n > 0 else None
+                            hull_edges_with_z.append(((ni, nj), mid_z, sub_color))
+            elif subsets is None:
+                include_mask = np.array([s not in ("*", "H") for s in symbols]) if n > 0 else None
                 for ni, nj in get_convex_hull_edges_silhouette(pos, include_mask):
                     if (ni, nj) not in bond_pairs:
                         mid_z = (pos[ni][2] + pos[nj][2]) / 2.0
-                        hull_edges_with_z.append(((ni, nj), mid_z))
+                        hull_edges_with_z.append(((ni, nj), mid_z, hull_color_hex))
             hull_edges_with_z.sort(key=lambda x: x[1])
-            hull_edge_color = resolve_color(cfg.hull_edge_color)
             hull_lw = max(bw * cfg.hull_edge_width_ratio, 1.0)
-            for (ni, nj), _ in hull_edges_with_z:
+            for (ni, nj), _, edge_color in hull_edges_with_z:
                 x1, y1 = _proj(pos[ni], scale, cx, cy, canvas_w, canvas_h)
                 x2, y2 = _proj(pos[nj], scale, cx, cy, canvas_w, canvas_h)
                 svg.append(
                     f'  <line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" '
-                    f'stroke="{hull_edge_color}" stroke-width="{hull_lw:.1f}" stroke-linecap="round"/>'
+                    f'stroke="{edge_color}" stroke-width="{hull_lw:.1f}" stroke-linecap="round"/>'
                 )
 
     # --- Vector arrows: prepare for z-interleaved drawing ---

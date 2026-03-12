@@ -94,6 +94,12 @@ echo "=== Overlays ==="
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 --hy -o "$IMG/isothio_overlay.svg" --gif-rot -go "$IMG/isothio_overlay.gif"
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 -o "$IMG/isothio_overlay_custom.svg" --no-orient --overlay-color green -a 2
 
+echo "=== Convex hull ==="
+xyzrender "$DIR/benzene.xyz" --hy --hull 1-6 -o "$IMG/benzene_ring_hull.svg" 
+xyzrender "$DIR/anthracene.xyz" --hull -o "$IMG/anthracene_hull_one.svg" 
+xyzrender "$DIR/anthracene.xyz" --hull 1-6 4,6-10 8,10-14 -o "$IMG/anthracene_hull.svg" --gif-rot -go "$IMG/anthracene_hull.gif"
+xyzrender "$DIR/CoCl6.xyz" --hull --hull-color teal --hull-opacity 0.5 -o "$IMG/CoCl6_octahedron_hull.svg" --gif-rot -go "$IMG/CoCl6_octahedron_hull.gif"
+
 echo "=== NCI surfaces ==="
 xyzrender "$DIR/base-pair-dens.cube" --nci-surf "$DIR/base-pair-grad.cube" -o "$IMG/base-pair-nci_surf.svg"
 xyzrender "$DIR/phenol_di-dens.cube" --nci-surf "$DIR/phenol_di-grad.cube" -o "$IMG/phenol_di-nci_surf.svg"

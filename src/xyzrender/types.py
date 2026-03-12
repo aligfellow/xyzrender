@@ -384,16 +384,21 @@ class RenderConfig:
     vector_color: str = "firebrick"  # default arrow color (firebrick) when not specified per-arrow
     # Convex hull facets (low-alpha plane behind molecule)
     show_convex_hull: bool = False
-    hull_color: str = "steelblue"
     hull_opacity: float = 0.2
-    hull_colors: list[str] | None = None
-    hull_opacities: list[float] | None = None
-    # Per-subset hue/opacity when using multiple subsets: hull_colors[i] and hull_opacities[i]
-    # apply to subset i; if shorter than the number of subsets, fall back to hull_color/hull_opacity.
+    hull_colors: list[str] = field(
+        default_factory=lambda: [
+            "steelblue",
+            "firebrick",
+            "mediumseagreen",
+            "mediumpurple",
+            "darkgoldenrod",
+            "cadetblue",
+        ]
+    )
     hull_atom_indices: list[int] | list[list[int]] | None = None
     # If None, hull uses all non-dummy atoms. If a flat list of ints, one subset (e.g. ring carbons).
     # If a list of lists, multiple subsets: each inner list is 0-based atom indices for one hull.
     # Non-bond hull edges (1-skeleton) drawn as thin lines for better 3D perception.
+    # Edge color is auto-derived as a darkened shade of the hull fill color.
     show_hull_edges: bool = True
-    hull_edge_color: str = "#808080"
     hull_edge_width_ratio: float = 0.4  # stroke width = bond_width * this

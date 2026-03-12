@@ -2239,12 +2239,18 @@ all = [
     { name = "ase" },
     { name = "phonopy" },
     { name = "rdkit" },
+    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "scipy", version = "1.17.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
 cif = [
     { name = "ase" },
 ]
 crystal = [
     { name = "phonopy" },
+]
+hull = [
+    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "scipy", version = "1.17.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
 smi = [
     { name = "rdkit" },
@@ -2262,6 +2268,8 @@ dev = [
     { name = "pytest-cov" },
     { name = "rdkit" },
     { name = "ruff" },
+    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "scipy", version = "1.17.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "ty" },
     { name = "vmol" },
 ]
@@ -2280,10 +2288,12 @@ requires-dist = [
     { name = "pillow" },
     { name = "rdkit", marker = "extra == 'all'" },
     { name = "rdkit", marker = "extra == 'smi'" },
+    { name = "scipy", marker = "extra == 'all'", specifier = ">=1.10" },
+    { name = "scipy", marker = "extra == 'hull'", specifier = ">=1.10" },
     { name = "vmol", marker = "extra == 'v'" },
     { name = "xyzgraph", specifier = ">=1.6.2" },
 ]
-provides-extras = ["crystal", "smi", "cif", "v", "all"]
+provides-extras = ["hull", "crystal", "smi", "cif", "v", "all"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -2294,6 +2304,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=5.0.0" },
     { name = "rdkit" },
     { name = "ruff", specifier = ">=0.14.14" },
+    { name = "scipy" },
     { name = "ty", specifier = ">=0.0.14" },
     { name = "vmol" },
 ]

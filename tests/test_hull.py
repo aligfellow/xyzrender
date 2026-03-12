@@ -1,8 +1,10 @@
 """Tests for convex hull facet computation and rendering."""
 
+from __future__ import annotations
+
 import numpy as np
 
-from xyzrender.hull import get_convex_hull_edges, get_convex_hull_facets, hull_facets_svg
+from xyzrender.hull import get_convex_hull_edges, get_convex_hull_facets, hull_facets_svg, normalize_hull_subsets
 from xyzrender.renderer import render_svg
 from xyzrender.types import RenderConfig
 
@@ -141,7 +143,7 @@ def test_render_svg_with_convex_hull():
         for j in range(i + 1, 4):
             g.add_edge(i, j)
 
-    cfg = RenderConfig(show_convex_hull=True, hull_color="steelblue", hull_opacity=0.2)
+    cfg = RenderConfig(show_convex_hull=True, hull_colors=["steelblue"], hull_opacity=0.2)
     svg = render_svg(g, cfg)
     assert "<polygon" in svg
     assert "fill-opacity" in svg
@@ -170,7 +172,7 @@ def test_render_svg_with_single_subset_indices():
     cfg = RenderConfig(
         show_convex_hull=True,
         hull_atom_indices=[0, 1, 2, 3],
-        hull_color="steelblue",
+        hull_colors=["steelblue"],
         hull_opacity=0.2,
     )
     svg = render_svg(g, cfg)
@@ -199,7 +201,7 @@ def test_render_svg_with_multiple_subsets():
     cfg = RenderConfig(
         show_convex_hull=True,
         hull_atom_indices=[[0, 1, 2, 3], [4, 5, 6, 7]],
-        hull_color="#4682b4",
+        hull_colors=["#4682b4"],
         hull_opacity=0.3,
     )
     svg = render_svg(g, cfg)
@@ -209,8 +211,8 @@ def test_render_svg_with_multiple_subsets():
     assert svg.count("fill-opacity") == 8
 
 
-def test_render_svg_with_per_subset_color_and_opacity():
-    """Per-subset hull_colors and hull_opacities apply correct hue and opacity per hull."""
+def test_render_svg_with_per_subset_colors():
+    """Per-subset hull_colors apply correct hue per hull."""
     import networkx as nx
 
     g = nx.Graph()
@@ -230,16 +232,13 @@ def test_render_svg_with_per_subset_color_and_opacity():
         show_convex_hull=True,
         hull_atom_indices=[[0, 1, 2, 3], [4, 5, 6, 7]],
         hull_colors=["red", "blue"],
-        hull_opacities=[0.2, 0.5],
-        hull_color="steelblue",
         hull_opacity=0.3,
     )
     svg = render_svg(g, cfg)
     assert "<polygon" in svg
     assert "fill-opacity" in svg
-    # Per-subset opacities 0.2 and 0.5 must both appear
-    assert "0.20" in svg or "0.2" in svg
-    assert "0.50" in svg or "0.5" in svg
+    # Single opacity applied to all facets
+    assert "0.30" in svg
     # Per-subset colors (resolved to hex): red -> #ff0000, blue -> #0000ff
     assert "#ff0000" in svg
     assert "#0000ff" in svg
@@ -257,7 +256,7 @@ def test_render_svg_with_empty_subset_list():
     cfg = RenderConfig(
         show_convex_hull=True,
         hull_atom_indices=[],
-        hull_color="steelblue",
+        hull_colors=["steelblue"],
         hull_opacity=0.2,
     )
     svg = render_svg(g, cfg)
@@ -287,15 +286,17 @@ def test_render_svg_hull_edges_not_drawn_when_all_bonds():
         show_convex_hull=True,
         show_hull_edges=True,
         hull_atom_indices=[0, 1, 2, 3],
-        hull_color="steelblue",
+        hull_colors=["steelblue"],
         hull_opacity=0.2,
-        hull_edge_color="#808080",
     )
     svg = render_svg(g, cfg)
-    # All 6 hull edges are bonds, so no extra stroke="#808080" lines for hull edges
-    # (bonds use bond_color, not hull_edge_color). Count lines with hull edge color.
-    lines_hull_edge = [line for line in svg.split("<line") if "#808080" in line and "stroke=" in line]
-    assert len(lines_hull_edge) == 0
+    # All 6 hull edges are bonds → no extra hull-edge <line> elements beyond bonds.
+    # Bonds use bond_color (black by default); hull edges use fill color (#4682b4).
+    # Count <line> elements with the hull fill color as stroke.
+    import re
+
+    hull_edge_lines = re.findall(r'<line [^>]*stroke="#4682b4"', svg)
+    assert len(hull_edge_lines) == 0
 
 
 def test_render_svg_hull_edges_drawn_for_non_bond():
@@ -324,10 +325,19 @@ def test_render_svg_hull_edges_drawn_for_non_bond():
         show_convex_hull=True,
         show_hull_edges=True,
         hull_atom_indices=[0, 1, 2, 3],
-        hull_color="steelblue",
+        hull_colors=["steelblue"],
         hull_opacity=0.2,
-        hull_edge_color="#808080",
     )
     svg = render_svg(g, cfg)
-    lines_hull_edge = [line for line in svg.split("<line") if "#808080" in line and "stroke=" in line]
-    assert len(lines_hull_edge) >= 1
+    # Edge color = fill color (#4682b4); at least one non-bond edge drawn
+    import re
+
+    hull_edge_lines = re.findall(r'<line [^>]*stroke="#4682b4"', svg)
+    assert len(hull_edge_lines) >= 1
+
+
+def test_normalize_hull_subsets():
+    """normalize_hull_subsets converts flat lists and nested lists correctly."""
+    assert normalize_hull_subsets([]) == []
+    assert normalize_hull_subsets([0, 1, 2]) == [[0, 1, 2]]
+    assert normalize_hull_subsets([[0, 1], [2, 3]]) == [[0, 1], [2, 3]]

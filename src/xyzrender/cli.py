@@ -159,12 +159,27 @@ def main() -> None:
     surf_g.add_argument("--opacity", type=float, default=None, help="Surface opacity (default: 1.0, >1 boosts)")
     surf_g.add_argument(
         "--hull",
-        action="store_true",
-        default=False,
-        help="Draw convex hull of atoms as semi-transparent facets",
+        nargs="*",
+        default=None,
+        metavar="INDICES",
+        help='Convex hull (no args = all heavy atoms; or 1-indexed subsets e.g. "1-6" or "1-6 7-12")',
     )
-    surf_g.add_argument("--hull-color", default=None, help="Convex hull fill color (hex or named, default: steelblue)")
-    surf_g.add_argument("--hull-opacity", type=float, default=None, help="Convex hull fill opacity (default: 0.2)")
+    surf_g.add_argument(
+        "--hull-color", nargs="+", default=None, help="Hull fill color(s) (hex or named, one per subset)"
+    )
+    surf_g.add_argument("--hull-opacity", type=float, default=None, help="Hull fill opacity (0-1)")
+    surf_g.add_argument(
+        "--hull-edge",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Draw/hide non-bond hull edges (default: on)",
+    )
+    surf_g.add_argument(
+        "--hull-edge-width-ratio",
+        type=float,
+        default=None,
+        help="Hull edge stroke width as fraction of bond width (default: 0.4)",
+    )
 
     # --- Overlay ---
     ov_g = p.add_argument_group("overlay")
@@ -391,9 +406,12 @@ def main() -> None:
         show_indices=args.idx is not None,
         idx_format=args.idx or "sn",
         cmap_range=tuple(args.cmap_range) if args.cmap_range else None,
-        hull=args.hull,
-        hull_color=args.hull_color,
+        hull=True if args.hull is not None else None,
+        hull_idx=([_parse_indices(g) for g in args.hull] if args.hull else None),
+        hull_colors=args.hull_color,
         hull_opacity=args.hull_opacity,
+        hull_edge=args.hull_edge,
+        hull_edge_width_ratio=args.hull_edge_width_ratio,
     )
 
     # Output path defaults and validation
@@ -559,9 +577,6 @@ def main() -> None:
             dens_color=args.dens_color,
             nci_color=args.nci_color,
             nci_coloring=args.nci_coloring,
-            hull=args.hull,
-            hull_color=args.hull_color,
-            hull_opacity=args.hull_opacity,
             overlay=args.overlay,
             overlay_color=args.overlay_color,
             vectors=args.vectors,

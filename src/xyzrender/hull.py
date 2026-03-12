@@ -1,24 +1,67 @@
 """Convex hull facet computation and SVG rendering for molecular visualization.
 
-When using :attr:`~xyzrender.types.RenderConfig.hull_atom_indices`, you can pass either:
+In ``render()`` pass ``hull=True`` (all heavy atoms), a flat list of 1-indexed
+atom indices (one hull, e.g. ``[1, 2, 3, 4, 5, 6]``), or a list of lists
+(multiple hulls, e.g. ``[[1, 2, 3], [4, 5, 6]]``).  Per-subset colours are
+set via ``hull_color``.  Facets from all subsets are depth-sorted together
+for correct occlusion.
 
-- A single subset: ``[0, 1, 2, 3, 4, 5]`` (0-based atom indices for one hull, e.g. ring carbons).
-- Multiple subsets: ``[[0, 1, 2], [3, 4, 5]]`` — each inner list defines a separate hull,
-  drawn with :attr:`~xyzrender.types.RenderConfig.hull_color` and
-  :attr:`~xyzrender.types.RenderConfig.hull_opacity` by default. For per-subset hue and opacity,
-  set :attr:`~xyzrender.types.RenderConfig.hull_colors` and/or
-  :attr:`~xyzrender.types.RenderConfig.hull_opacities` (lists, one entry per subset).
-  Facets from all subsets are depth-sorted together for correct occlusion.
+Hull edges (the 1-skeleton of the convex hull) that do not coincide with a
+molecular bond can be drawn as thin lines; toggle with ``hull_edge=False``.
 
-Hull edges (the 1-skeleton of the convex hull) that do not coincide with a molecular
-bond can be drawn as thin lines (e.g. gray) via :attr:`~xyzrender.types.RenderConfig.show_hull_edges`
-and :attr:`~xyzrender.types.RenderConfig.hull_edge_color` for better 3D perception.
+Requires ``scipy``: ``pip install scipy`` or ``pip install 'xyzrender[hull]'``.
 """
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, cast
+
 import numpy as np
-from scipy.spatial import ConvexHull
+
+if TYPE_CHECKING:
+    from scipy.spatial import ConvexHull
+
+
+def _convex_hull(points: np.ndarray, *, qhull_options: str | None = None) -> ConvexHull:
+    """Lazy-import scipy and build a ConvexHull, raising a clear error if missing."""
+    try:
+        from scipy.spatial import ConvexHull
+    except ImportError:
+        msg = "scipy is required for convex hull rendering — pip install scipy  or  pip install 'xyzrender[hull]'"
+        raise ImportError(msg) from None
+    if qhull_options is not None:
+        return ConvexHull(points, qhull_options=qhull_options)
+    return ConvexHull(points)
+
+
+def hull_indices_to_0indexed(
+    hull: list[int] | list[list[int]],
+) -> list[int] | list[list[int]]:
+    """Convert 1-indexed hull indices to 0-indexed (internal).
+
+    Handles both flat ``[1, 2, 3]`` → ``[0, 1, 2]`` and nested
+    ``[[1, 2], [3, 4]]`` → ``[[0, 1], [2, 3]]``.
+    """
+    if hull and isinstance(hull[0], list):
+        subs = cast("list[list[int]]", hull)
+        return [[i - 1 for i in sub] for sub in subs]
+    flat = cast("list[int]", hull)
+    return [i - 1 for i in flat]
+
+
+def normalize_hull_subsets(
+    raw: list[int] | list[list[int]],
+) -> list[list[int]]:
+    """Normalize hull_atom_indices to a list of subsets.
+
+    A flat ``[0, 1, 2]`` becomes ``[[0, 1, 2]]``; a nested ``[[0, 1], [2, 3]]``
+    passes through unchanged. Empty list returns ``[]``.
+    """
+    if not raw:
+        return []
+    if isinstance(raw[0], list):
+        return cast("list[list[int]]", raw)
+    return [cast("list[int]", raw)]
 
 
 def get_convex_hull_facets(
@@ -51,11 +94,11 @@ def get_convex_hull_facets(
         return []
 
     try:
-        hull = ConvexHull(points)
+        hull = _convex_hull(points)
     except Exception:
         # Coplanar or degenerate points (e.g. ring atoms); try QJ to joggle into 3D
         try:
-            hull = ConvexHull(points, qhull_options="QJ")
+            hull = _convex_hull(points, qhull_options="QJ")
         except Exception:
             return []
 
@@ -104,10 +147,10 @@ def get_convex_hull_edges(
         return []
 
     try:
-        hull = ConvexHull(points)
+        hull = _convex_hull(points)
     except Exception:
         try:
-            hull = ConvexHull(points, qhull_options="QJ")
+            hull = _convex_hull(points, qhull_options="QJ")
         except Exception:
             return []
 
@@ -127,70 +170,6 @@ def get_convex_hull_edges(
             if ni > nj:
                 ni, nj = nj, ni
             out.append((ni, nj))
-    return out
-
-
-def get_convex_hull_edges_visible(
-    pos_3d: np.ndarray,
-    include_mask: np.ndarray | None = None,
-    view_dir: tuple[float, float, float] = (0.0, 0.0, 1.0),
-) -> list[tuple[int, int]]:
-    """Return only hull edges on the visible (front-facing) side of the hull.
-
-    Edges that belong to at least one facet facing the viewer are returned;
-    edges entirely on the back of the hull are omitted so only outermost
-    (silhouette) edges are drawn, never internal-looking lines.
-
-    Parameters
-    ----------
-    pos_3d :
-        Shape (N, 3) array of 3D positions.
-    include_mask :
-        Optional boolean array of length N; same as :func:`get_convex_hull_edges`.
-    view_dir :
-        View direction vector (default +z). A facet is front-facing if its
-        outward normal has positive dot product with view_dir.
-
-    Returns
-    -------
-    list of (node_i, node_j)
-        Subset of hull edges with node_i < node_j, in graph index space.
-    """
-    if include_mask is not None:
-        points = pos_3d[np.asarray(include_mask, dtype=bool)]
-        graph_indices = np.flatnonzero(include_mask)
-    else:
-        points = np.asarray(pos_3d, dtype=float)
-        graph_indices = np.arange(pos_3d.shape[0], dtype=np.intp)
-
-    if points.shape[0] < 4:
-        return []
-
-    try:
-        hull = ConvexHull(points)
-    except Exception:
-        try:
-            hull = ConvexHull(points, qhull_options="QJ")
-        except Exception:
-            return []
-
-    v = np.asarray(view_dir, dtype=float)
-    v = v / (np.linalg.norm(v) + 1e-12)
-    visible_edges: set[tuple[int, int]] = set()
-    for simplex in hull.simplices:
-        i, j, k = simplex[0], simplex[1], simplex[2]
-        pi, pj, pk = points[i], points[j], points[k]
-        normal = np.cross(pj - pi, pk - pi)
-        if np.dot(normal, v) > 0:
-            for a, b in ((i, j), (j, k), (k, i)):
-                lo, hi = (a, b) if a <= b else (b, a)
-                visible_edges.add((lo, hi))
-    out: list[tuple[int, int]] = []
-    for a, b in visible_edges:
-        ni, nj = int(graph_indices[a]), int(graph_indices[b])
-        if ni > nj:
-            ni, nj = nj, ni
-        out.append((ni, nj))
     return out
 
 
@@ -229,7 +208,7 @@ def get_convex_hull_edges_silhouette(
 
     points_2d = points[:, :2]
     try:
-        hull_2d = ConvexHull(points_2d)
+        hull_2d = _convex_hull(points_2d)
     except Exception:
         return []
 
@@ -256,7 +235,6 @@ def hull_facets_svg(
     canvas_h: int,
     *,
     per_facet_color_hex: list[str] | None = None,
-    per_facet_opacity: list[float] | None = None,
 ) -> list[str]:
     """Produce SVG polygon elements for hull facets.
 
@@ -267,14 +245,12 @@ def hull_facets_svg(
     color_hex :
         Default fill color as CSS hex (e.g. '#4682b4').
     opacity :
-        Default fill opacity in [0, 1].
+        Fill opacity in [0, 1].
     scale, cx, cy, canvas_w, canvas_h :
         Same convention as renderer _proj: x_svg = canvas_w/2 + scale*(x - cx),
         y_svg = canvas_h/2 - scale*(y - cy).
     per_facet_color_hex :
         Optional list of hex colors, one per facet (after sort). Overrides color_hex when given.
-    per_facet_opacity :
-        Optional list of opacities, one per facet (after sort). Overrides opacity when given.
 
     Returns
     -------
@@ -284,15 +260,12 @@ def hull_facets_svg(
     sorted_facets = sorted(facets, key=lambda item: item[1])  # ascending centroid_z
     n_facets = len(sorted_facets)
     use_per_color = per_facet_color_hex is not None and len(per_facet_color_hex) >= n_facets
-    use_per_opacity = per_facet_opacity is not None and len(per_facet_opacity) >= n_facets
     colors = (per_facet_color_hex or []) if use_per_color else []
-    opacities = (per_facet_opacity or []) if use_per_opacity else []
     svg: list[str] = []
     for k, (face_vertices_3d, _) in enumerate(sorted_facets):
         c = colors[k] if use_per_color and k < len(colors) else color_hex
-        o = opacities[k] if use_per_opacity and k < len(opacities) else opacity
         xs = canvas_w / 2 + scale * (face_vertices_3d[:, 0] - cx)
         ys = canvas_h / 2 - scale * (face_vertices_3d[:, 1] - cy)
         points_str = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys, strict=True))
-        svg.append(f'  <polygon points="{points_str}" fill="{c}" fill-opacity="{o:.2f}" stroke="none"/>')
+        svg.append(f'  <polygon points="{points_str}" fill="{c}" fill-opacity="{opacity:.2f}" stroke="none"/>')
     return svg
