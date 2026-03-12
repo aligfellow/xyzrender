@@ -704,13 +704,17 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
         # Atom graphics / labels
         if cfg.chemdraw_style:
             # No atom circles; label non-carbon atoms with their element symbol.
-            # Use CPK base colour with optional fog so labels match normal styles.
+            # Use CPK base colour with optional fog so labels match normal styles,
+            # but force H labels to black so they remain visible.
             if not is_image:
                 sym = symbols[ai]
                 if sym != "C":
-                    fill = colors[ai].hex
-                    if cfg.fog:
-                        fill = blend_fog(fill, fog_rgb, fog_f[ai])
+                    if sym == "H":
+                        fill = "#000000"
+                    else:
+                        fill = colors[ai].hex
+                        if cfg.fog:
+                            fill = blend_fog(fill, fog_rgb, fog_f[ai])
                     svg.append(
                         f'  <text x="{xi:.1f}" y="{yi:.1f}" '
                         f'font-family="Helvetica,Arial,sans-serif" '
