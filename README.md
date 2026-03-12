@@ -339,9 +339,9 @@ Draw the convex hull of selected atoms as semi-transparent facets — useful for
 |--------------|------------------|------------------|
 | ![benzene hull](examples/images/benzene_ring_hull.svg) | ![anthracene hull](examples/images/anthracene_hull.svg) | ![CoCl6 hull](examples/images/CoCl6_octahedron_hull.svg) |
 
-| Anthracene ring | Anthracene rot |
-|--------------|------------------|
-| ![anthracene hull](examples/images/anthracene_hull_one.svg) | ![anthracene hull](examples/images/anthracene_hull.gif) |
+| Anthracene ring | Anthracene rot | Auto rings (`hull="rings"`) |
+|--------------|------------------|----------------------------|
+| ![anthracene hull](examples/images/anthracene_hull_one.svg) | ![anthracene hull](examples/images/anthracene_hull.gif) | ![mnh hull rings](examples/images/mnh_hull_rings.svg) |
 
 ```bash
 # Single subset (1-indexed atom range):
@@ -350,8 +350,11 @@ xyzrender benzene.xyz --hull 1-6 -o benzene_ring_hull.svg
 # All heavy atoms:
 xyzrender anthracene.xyz --hull -o anthracene_hull_one.svg
 
-# Multiple subsets with per-hull colors: 
+# Multiple subsets with per-hull colors:
 xyzrender anthracene.xyz --hull 1-6 4,6-10 8,10-14 -o anthracene_hull.svg
+
+# Auto-detect aromatic rings (one hull per ring, colours cycle unless a single hull-color passed):
+xyzrender mn-h2.log --ts --hull rings --hull-color teal -o mnh_hull_rings.svg
 ```
 
 ```python
@@ -363,13 +366,16 @@ render(mol, hull=[1, 2, 3, 4, 5, 6],
 render(mol, hull=[[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]],
        hull_color=["steelblue", "coral"], hull_opacity=0.35,
        output="anthracene_hull.svg")
+
+# Auto-detect aromatic rings — each ring gets its own hull:
+render(mol, hull="rings", hull_color="teal")
 ```
 
 **Options (passed to `render()`):**
 
 | Option | Description |
 |--------|-------------|
-| `hull` | `True` = all heavy atoms; flat list = one subset; list of lists = multiple hulls |
+| `hull` | `True` = all heavy atoms; `"rings"` = auto-detect aromatic rings (one hull per ring); flat list = one subset; list of lists = multiple hulls |
 | `hull_color` | Single string or list of strings for per-subset colours (default palette cycles automatically) |
 | `hull_opacity` | Fill opacity for all hull surfaces |
 | `hull_edge` | Draw non-bond hull edges as thin lines (default: `True`) |
@@ -1131,7 +1137,7 @@ Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Pref
 | `--nci-surf CUBE` | NCI gradient (RDG) cube — render NCI surface lobes |
 | `--nci-coloring MODE` | NCI coloring: `avg` (default), `pixel`, `uniform` |
 | `--nci-color COLOR` | NCI lobe color for `uniform` mode (default: `forestgreen`) |
-| `--hull [INDICES ...]` | Convex hull (no args = all heavy atoms; or 1-indexed subsets e.g. `1-6 7-12`) |
+| `--hull [INDICES ...]` | Convex hull (no args = all heavy atoms; `rings` = auto-detect aromatic rings; or 1-indexed subsets e.g. `1-6 7-12`) |
 | `--hull-color COLOR [...]` | Hull fill color(s) (hex or named, one per subset) |
 | `--hull-opacity` | Hull fill opacity (default: 0.2) |
 | `--hull-edge` / `--no-hull-edge` | Draw/hide non-bond hull edges (default: on) |
