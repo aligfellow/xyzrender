@@ -28,6 +28,7 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Electron density surfaces** — depth-graded translucent isosurfaces from density cube files
 - **Electrostatic potential (ESP)** — ESP colormapped onto the density surface from paired cube files
 - **vdW surface overlays** — van der Waals spheres on all or selected atoms
+- **Convex hull** — semi-transparent facets over selected atoms (e.g. aromatic ring carbons, coordination spheres); optional hull-edge lines
 - **Depth fog and gradients** — 3D depth cues without needing a 3D viewer
 - **Cheminformatics formats** — mol, SDF, MOL2, PDB (with CRYST1 unit cell), SMILES (3D embedding via rdkit), and CIF (via ase) — bond connectivity read directly from file
 - **Crystal / periodic structures** — render periodic structures with unit cell box, ghost atoms, and crystallographic axis arrows (a/b/c); extXYZ `Lattice=` auto-detected; VASP/QE via [`phonopy`](https://github.com/phonopy/phonopy)
@@ -176,6 +177,10 @@ dens_cube = load("caffeine_dens.cube")
 render(dens_cube, dens=True)                       # density isosurface
 render(dens_cube, esp="caffeine_esp.cube")         # ESP mapped onto density
 render(dens_cube, nci="caffeine_grad.cube")        # NCI surface
+
+# Convex hull (1-indexed atom indices for subsets, e.g. ring carbons)
+render(mol, hull=[1, 2, 3, 4, 5, 6],
+       hull_color="steelblue", hull_opacity=0.35)
 ```
 
 ### Reusing a style config
@@ -325,6 +330,50 @@ xyzrender asparagine.xyz --hy --vdw -o asparagine_vdw.svg  # vdW spheres on all 
 xyzrender asparagine.xyz --hy --vdw "1-6" -o asparagine_vdw_partial.svg  # vdW spheres on some atoms
 xyzrender asparagine.xyz --hy --vdw --config paton -o asparagine_vdw_paton.svg  # vdW spheres on all atoms
 ```
+
+### Convex hull
+
+Draw the convex hull of selected atoms as semi-transparent facets — useful for aromatic rings, coordination spheres, or any subset of atoms. Facets are depth-sorted for correct occlusion. Hull edges that do not coincide with bonds are drawn as thin lines for better 3D perception; disable with `--no-hull-edge`.
+
+| Benzene ring | Anthracene rings | CoCl₆ octahedron |
+|--------------|------------------|------------------|
+| ![benzene hull](examples/images/benzene_ring_hull.svg) | ![anthracene hull](examples/images/anthracene_hull.svg) | ![CoCl6 hull](examples/images/CoCl6_octahedron_hull.svg) |
+
+| Anthracene ring | Anthracene rot |
+|--------------|------------------|
+| ![anthracene hull](examples/images/anthracene_hull_one.svg) | ![anthracene hull](examples/images/anthracene_hull.gif) |
+
+```bash
+# Single subset (1-indexed atom range):
+xyzrender benzene.xyz --hull 1-6 -o benzene_ring_hull.svg
+
+# All heavy atoms:
+xyzrender anthracene.xyz --hull -o anthracene_hull_one.svg
+
+# Multiple subsets with per-hull colors: 
+xyzrender anthracene.xyz --hull 1-6 4,6-10 8,10-14 -o anthracene_hull.svg
+```
+
+```python
+# Single subset (1-indexed):
+render(mol, hull=[1, 2, 3, 4, 5, 6],
+       hull_color="steelblue", hull_opacity=0.35, output="benzene_ring_hull.svg")
+
+# Multiple subsets with per-subset colors (1-indexed):
+render(mol, hull=[[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]],
+       hull_color=["steelblue", "coral"], hull_opacity=0.35,
+       output="anthracene_hull.svg")
+```
+
+**Options (passed to `render()`):**
+
+| Option | Description |
+|--------|-------------|
+| `hull` | `True` = all heavy atoms; flat list = one subset; list of lists = multiple hulls |
+| `hull_color` | Single string or list of strings for per-subset colours (default palette cycles automatically) |
+| `hull_opacity` | Fill opacity for all hull surfaces |
+| `hull_edge` | Draw non-bond hull edges as thin lines (default: `True`) |
+| `hull_edge_width_ratio` | Edge stroke width as fraction of bond width |
 
 ### Structural overlay
 
@@ -778,6 +827,83 @@ ESP-specific flags:
 `--esp` is mutually exclusive with `--mo`, `--dens`, and `--vdw`.
 `--gif-rot` is **not available**; however, the `-I` flag allows for interactive orientation of the molecule prior to generating the image.
 
+### Vector arrows
+
+Overlay arbitrary 3D vectors as arrows on the rendered image via a JSON file. Useful for dipole moments, forces, electric fields, transition vectors, etc.
+
+| Dipole moment | Rotation |  
+|-------------|-------------|  
+| ![dip](examples/images/ethanol_dip.svg) | ![dip rot](examples/images/ethanol_dip.gif) |  
+
+
+```bash
+xyzrender ethanol.xyz --vectors ethanol_dip.json -o ethanol_dip.svg
+```
+
+Each entry in the JSON array defines one arrow:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `vector` | `[vx, vy, vz]` | *required* | Three numeric components (x,y,z). Use the same coordinate units as the input (Å). Example: `[1.2, 0.0, 0.5]`. |
+| `origin` | `"com"` / integer / `[x,y,z]` | `"com"` | Tail location: `"com"` = molecule centroid; integer = 1-based atom index from the input XYZ; list = explicit coordinates. |
+| `color` | `"#rrggbb"` / named | `"#444444"` | Arrow color. Accepts hex (`#e63030`) or CSS color names (`steelblue`). |
+| `label` | string | `""` | Text placed near the arrowhead (e.g. "μ"). Suppressed when a dot or × symbol is rendered (see below). |
+| `scale` | float | `1.0` | Per-arrow multiplier applied on top of `--vector-scale`. Final arrow length = `scale * --vector-scale * |vector|`. |
+
+**Near-Z rendering (dot and × symbols)**
+
+When an arrow points nearly along the viewing axis its 2D projected length becomes shorter than the arrowhead size.  In that case a compact symbol is drawn at the arrow origin instead:
+
+- **•** (filled dot) — the tip is closer to the viewer (arrow coming out of the screen).
+- **×** (two crossed lines) — the tip is farther from the viewer (arrow going into the screen).
+
+The label is suppressed for these compact symbols.  Once the viewing angle changes enough for the projected shaft to exceed the arrowhead size, the full arrow and label are restored automatically.  This behaviour is particularly visible in GIF rotations: as a lattice axis arrow passes through the viewing direction it transitions smoothly between dot, ×, and full-arrow rendering.
+
+**Example — Dipole Moment:**
+
+```json
+{
+  "anchor": "center",
+  "vectors": [
+    {
+      "origin": "com",
+      "vector": [
+        1.0320170291976951,
+        -0.042708195030485986,
+        -1.332397645862797
+      ],
+      "color": "firebrick",
+      "label": "μ"
+    }
+  ]
+}
+```
+
+**Example — forces on heavy atoms due to E field:**
+
+| Forces | Rotation |  
+|-------------|-------------|  
+| ![forces](examples/images/ethanol_forces_efield.svg) | ![forces rot](examples/images/ethanol_forces_efield.gif) |  
+
+```json
+{
+  "anchor": "center",
+  "units": "eV/Angstrom",
+  "vectors": [
+    {
+      "origin": 1,
+      "vector": [
+        -0.318122066384213,
+        -0.437907743038215,
+        0.3679005313657949
+      ],
+      "color": "firebrick"
+    },
+    ...
+  ]
+}
+```
+
 ### NCI surface
 
 Visualise non-covalent interaction (NCI) regions from two NCIPLOT cube files: a density cube (main input, containing `sign(λ₂)·ρ`) and a reduced density gradient cube (`--nci-surf`).
@@ -823,6 +949,7 @@ NCI-specific flags:
 - `--nci-surf` is mutually exclusive with `--mo`, `--dens`, `--esp` and `--vdw`.
 - `--gif-rot` is **not available**; however, the `-I` flag allows for interactive orientation prior to generating the image.
 
+
 ## Orientation
 
 Auto-orientation is on by default (largest variance along x-axis). Disabled automatically for stdin and interactive mode.
@@ -830,27 +957,30 @@ Auto-orientation is on by default (largest variance along x-axis). Disabled auto
 ```bash
 xyzrender molecule.xyz                         # auto-oriented
 xyzrender molecule.xyz --no-orient             # raw coordinates
-xyzrender molecule.xyz -I                      # interactive rotation via v viewer
+xyzrender molecule.xyz -I                      # interactive rotation via vmol
 ```
 
 ### Interactive rotation (`-I`)
 
 The `-I` flag opens the molecule in the [**v** molecular viewer](https://github.com/briling/v) by [Ksenia Briling **@briling**](https://github.com/briling)
-for interactive rotation. Rotate the molecule to the desired orientation, press
-`z` to output coordinates, then close the window with `q`. `xyzrender` captures the rotated
-coordinates and renders from those.
+for interactive rotation. Rotate the molecule to the desired orientation
+and close the window with `q` or `esc`.  
+`xyzrender` captures the rotated coordinates and renders from those.
 
-We can also pipe from `v` directly when working with `.xyz` files: 
+We can also pipe from `v` (or `vmol`) directly when working with `.xyz` files:
 
 ```bash
 v molecule.xyz | xyzrender
 ```
 
-Orient the molecule, press `z` to output reoriented coordinates, then `q` to close.
+Orient the molecule, press `z` to output reoriented coordinates, then `q` or `esc` to close.
 
-This must be installed separately if this option is to be used. The executable should be anywhere in `$PATH` or in `~/bin/` for discovery. 
-
-*TODO: Look into cleaning up this integration.*
+This is an *optional* dependency (Linux only) and should be installed by using either:
+```bash
+pip install xyzrender[v]
+# or directly with
+pip install vmol 
+```
 
 ## Styling
 
@@ -1001,6 +1131,11 @@ Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Pref
 | `--nci-surf CUBE` | NCI gradient (RDG) cube — render NCI surface lobes |
 | `--nci-coloring MODE` | NCI coloring: `avg` (default), `pixel`, `uniform` |
 | `--nci-color COLOR` | NCI lobe color for `uniform` mode (default: `forestgreen`) |
+| `--hull [INDICES ...]` | Convex hull (no args = all heavy atoms; or 1-indexed subsets e.g. `1-6 7-12`) |
+| `--hull-color COLOR [...]` | Hull fill color(s) (hex or named, one per subset) |
+| `--hull-opacity` | Hull fill opacity (default: 0.2) |
+| `--hull-edge` / `--no-hull-edge` | Draw/hide non-bond hull edges (default: on) |
+| `--hull-edge-width-ratio` | Hull edge stroke width as fraction of bond width (default: 0.4) |
 | `--iso` | Isosurface threshold (MO default: 0.05, density/ESP default: 0.001, NCI default: 0.3) |
 | `--opacity` | Surface opacity multiplier (default: 1.0) |
 | **Annotations** | |
@@ -1011,6 +1146,8 @@ Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Pref
 | `--label-size PT` | Label font size (overrides preset) |
 | `--cmap FILE` | Per-atom property colormap (Viridis, 1-indexed) |
 | `--cmap-range VMIN VMAX` | Explicit colormap range (default: auto from file) |
+| `--vectors FILE` | JSON file of vector arrows to overlay (see Vector arrows section) |
+| `--vector-scale FACTOR` | Global length scale for all vector arrows (default: 1.0) |
 | **Crystal** | |
 | `--crystal [{vasp,qe}]` | Load as crystal via phonopy; format auto-detected or specify explicitly |
 | `--no-cell` | Hide the unit cell box |
@@ -1020,6 +1157,7 @@ Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Pref
 | `--cell-width` | Unit cell box line width (default: 2.0) |
 | `--ghost-opacity` | Opacity of ghost atoms/bonds (default: 0.5) |
 | `--axis HKL` | Orient looking down a crystallographic direction (e.g. `111`, `001`) |
+
 
 ## Development
 
@@ -1069,11 +1207,13 @@ Optional dependencies:
 - [**phonopy**](https://github.com/phonopy/phonopy) — crystal structure loading (`pip install 'xyzrender[crystal]'`)
 - [**rdkit**](https://www.rdkit.org/) — SMILES 3D embedding (`pip install 'xyzrender[smiles]'`)
 - [**ase**](https://wiki.fysik.dtu.dk/ase/) — CIF parsing (`pip install 'xyzrender[cif]'`)
-- [**v**](https://github.com/briling/v) — interactive molecule orientation
+- [**v**](https://github.com/briling/v) — interactive molecule orientation (`pip install xyzrender[v]`, Linux only, not included into `[all]`)
 
 Contributors:
 
-- [Sander Cohen-Janes (@scohenjanes5)](https://github.com/scohenjanes5) — crystal/periodic structure support (VASP, Quantum ESPRESSO, ghost atoms, crystallographic axes)
+- [Ksenia Briling (@briling)](https://github.com/briling) — `vmol` integration and the [xyz2svg](https://github.com/briling/xyz2svg) foundation
+- [Sander Cohen-Janes (@scohenjanes5)](https://github.com/scohenjanes5) — crystal/periodic structure support (VASP, Quantum ESPRESSO, ghost atoms, crystallographic axes), vector annotations and gif parallelisation
+- [Rubén Laplaza (@rlaplaza)](https://github.com/rlaplaza) — convex hull facets
 - [Vinicius Port (@caprilesport)](https://github.com/caprilesport) — `v` binary path discovery
 - [Lucas Attia (@lucasattia)](https://github.com/lucasattia) — `--transparent` background flag
 

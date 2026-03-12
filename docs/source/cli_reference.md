@@ -98,6 +98,13 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--cmap FILE` | Per-atom property colormap (Viridis, 1-indexed) |
 | `--cmap-range VMIN VMAX` | Explicit colormap range (default: auto from file) |
 
+## Vector arrows
+
+| Flag | Description |
+|------|-------------|
+| `--vectors FILE` | Path to a JSON file defining 3D vector arrows for overlay |
+| `--vector-scale` | Global length multiplier for all vector arrows |
+
 ## GIF animations
 
 | Flag | Description |
@@ -110,6 +117,16 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--rot-frames` | Rotation frame count (default: 120) |
 
 Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Prefix `-` to reverse (e.g. `-xy`). For crystal inputs, a 3-digit Miller index string is also accepted (e.g. `111`, `001`).
+
+## Convex hull
+
+| Flag | Description |
+|------|-------------|
+| `--hull [INDICES ...]` | Draw convex hull (no args = all heavy atoms; or 1-indexed subsets e.g. `1-6` or `1-6 7-12`) |
+| `--hull-color COLOR [...]` | Hull fill color(s) (hex or named, one per subset) |
+| `--hull-opacity FLOAT` | Hull fill opacity (0-1) |
+| `--hull-edge` / `--no-hull-edge` | Draw/hide non-bond hull edges (default: on) |
+| `--hull-edge-width-ratio FLOAT` | Hull edge stroke width as fraction of bond width (default: 0.4) |
 
 ## Crystal / unit cell
 

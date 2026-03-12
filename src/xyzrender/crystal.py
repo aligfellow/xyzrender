@@ -110,6 +110,8 @@ def load_crystal(
         graph.number_of_edges(),
         lattice.diagonal().round(3),
     )
+    graph.graph["lattice"] = lattice
+    graph.graph["lattice_origin"] = np.zeros(3)
     return graph, CellData(lattice=lattice)
 
 

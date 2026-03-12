@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 799 478" width="799" height="478">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <defs>
+    <g id="x0a0"><radialGradient id="x0g0" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="27.5" fill="url(#x0g0)" stroke="#000000" stroke-width="4.8"/></g>
+    <g id="x0a1"><radialGradient id="x0g1" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="27.5" fill="url(#x0g1)" stroke="#000000" stroke-width="4.8"/></g>
+    <g id="x0a2"><radialGradient id="x0g2" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="27.5" fill="url(#x0g2)" stroke="#000000" stroke-width="4.8"/></g>
+    <g id="x0a3"><radialGradient id="x0g3" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="27.5" fill="url(#x0g3)" stroke="#000000" stroke-width="4.8"/></g>
+    <g id="x0a4"><radialGradient id="x0g4" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="27.5" fill="url(#x0g4)" stroke="#000000" stroke-width="4.8"/></g>
+    <g id="x0a5"><radialGradient id="x0g5" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="27.5" fill="url(#x0g5)" stroke="#000000" stroke-width="4.8"/></g>
+    <g id="x0a6"><radialGradient id="x0g6" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="27.5" fill="url(#x0g6)" stroke="#000000" stroke-width="4.8"/></g>
+    <g id="x0a7"><radialGradient id="x0g7" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="27.5" fill="url(#x0g7)" stroke="#000000" stroke-width="4.8"/></g>
+    <g id="x0a8"><radialGradient id="x0g8" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="27.5" fill="url(#x0g8)" stroke="#000000" stroke-width="4.8"/></g>
+    <g id="x0a9"><radialGradient id="x0g9" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="27.5" fill="url(#x0g9)" stroke="#000000" stroke-width="4.8"/></g>
+    <g id="x0a10"><radialGradient id="x0g10" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="27.5" fill="url(#x0g10)" stroke="#000000" stroke-width="4.8"/></g>
+    <g id="x0a11"><radialGradient id="x0g11" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="27.5" fill="url(#x0g11)" stroke="#000000" stroke-width="4.8"/></g>
+    <g id="x0a12"><radialGradient id="x0g12" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="27.5" fill="url(#x0g12)" stroke="#000000" stroke-width="4.8"/></g>
+    <g id="x0a13"><radialGradient id="x0g13" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="27.5" fill="url(#x0g13)" stroke="#000000" stroke-width="4.8"/></g>
+  </defs>
+  <polygon points="210.4,346.6 306.5,293.5 120.6,293.6" fill="#4682b4" fill-opacity="0.20" stroke="none"/>
+  <polygon points="210.4,346.6 210.4,131.4 306.5,293.5" fill="#4682b4" fill-opacity="0.20" stroke="none"/>
+  <polygon points="120.6,184.4 210.4,131.4 120.6,293.6" fill="#4682b4" fill-opacity="0.20" stroke="none"/>
+  <polygon points="120.6,184.4 210.4,346.6 120.6,293.6" fill="#4682b4" fill-opacity="0.20" stroke="none"/>
+  <polygon points="120.6,184.4 210.4,346.6 210.4,131.4" fill="#4682b4" fill-opacity="0.20" stroke="none"/>
+  <polygon points="306.5,184.5 306.5,293.5 120.6,293.6" fill="#4682b4" fill-opacity="0.20" stroke="none"/>
+  <polygon points="306.5,184.5 210.4,131.4 120.6,293.6" fill="#4682b4" fill-opacity="0.20" stroke="none"/>
+  <polygon points="306.5,184.5 210.4,131.4 306.5,293.5" fill="#4682b4" fill-opacity="0.20" stroke="none"/>
+  <polygon points="399.5,131.4 399.5,346.6 492.5,293.5" fill="#b22222" fill-opacity="0.20" stroke="none"/>
+  <polygon points="492.5,184.5 399.5,131.4 306.5,184.5" fill="#b22222" fill-opacity="0.20" stroke="none"/>
+  <polygon points="492.5,184.5 399.5,131.4 492.5,293.5" fill="#b22222" fill-opacity="0.20" stroke="none"/>
+  <polygon points="306.5,293.5 399.5,346.6 492.5,293.5" fill="#b22222" fill-opacity="0.20" stroke="none"/>
+  <polygon points="306.5,293.5 492.5,184.5 306.5,184.5" fill="#b22222" fill-opacity="0.20" stroke="none"/>
+  <polygon points="306.5,293.5 492.5,184.5 492.5,293.5" fill="#b22222" fill-opacity="0.20" stroke="none"/>
+  <polygon points="306.5,293.5 399.5,131.4 306.5,184.5" fill="#b22222" fill-opacity="0.20" stroke="none"/>
+  <polygon points="306.5,293.5 399.5,131.4 399.5,346.6" fill="#b22222" fill-opacity="0.20" stroke="none"/>
+  <polygon points="588.6,131.4 678.4,184.4 492.5,184.5" fill="#3cb371" fill-opacity="0.20" stroke="none"/>
+  <polygon points="678.4,293.6 678.4,184.4 492.5,184.5" fill="#3cb371" fill-opacity="0.20" stroke="none"/>
+  <polygon points="678.4,293.6 588.6,131.4 678.4,184.4" fill="#3cb371" fill-opacity="0.20" stroke="none"/>
+  <polygon points="678.4,293.6 588.6,131.4 588.6,346.6" fill="#3cb371" fill-opacity="0.20" stroke="none"/>
+  <polygon points="492.5,293.5 678.4,293.6 492.5,184.5" fill="#3cb371" fill-opacity="0.20" stroke="none"/>
+  <polygon points="492.5,293.5 678.4,293.6 588.6,346.6" fill="#3cb371" fill-opacity="0.20" stroke="none"/>
+  <polygon points="492.5,293.5 588.6,131.4 492.5,184.5" fill="#3cb371" fill-opacity="0.20" stroke="none"/>
+  <polygon points="492.5,293.5 588.6,131.4 588.6,346.6" fill="#3cb371" fill-opacity="0.20" stroke="none"/>
+  <use x="120.6" y="184.4" xlink:href="#x0a0"/>
+  <line x1="127.9" y1="209.1" x2="127.9" y2="268.9" stroke="#000000" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="8.5,16.9"/>
+  <line x1="113.4" y1="209.1" x2="113.4" y2="268.9" stroke="#000000" stroke-width="8.5" stroke-linecap="round"/>
+  <line x1="138.2" y1="165.6" x2="185.4" y2="137.7" stroke="#000000" stroke-width="8.5" stroke-linecap="round"/>
+  <line x1="145.6" y1="178.1" x2="192.8" y2="150.2" stroke="#000000" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="8.5,16.9"/>
+  <use x="120.6" y="293.6" xlink:href="#x0a1"/>
+  <line x1="145.6" y1="299.9" x2="192.8" y2="327.8" stroke="#000000" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="8.5,16.9"/>
+  <line x1="138.2" y1="312.4" x2="185.4" y2="340.3" stroke="#000000" stroke-width="8.5" stroke-linecap="round"/>
+  <use x="210.4" y="346.6" xlink:href="#x0a2"/>
+  <line x1="228.5" y1="328.3" x2="281.4" y2="299.1" stroke="#000000" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="8.5,16.9"/>
+  <line x1="235.5" y1="341.0" x2="288.4" y2="311.8" stroke="#000000" stroke-width="8.5" stroke-linecap="round"/>
+  <use x="306.5" y="293.5" xlink:href="#x0a3"/>
+  <line x1="299.3" y1="268.8" x2="299.3" y2="209.2" stroke="#000000" stroke-width="8.5" stroke-linecap="round"/>
+  <line x1="313.8" y1="268.8" x2="313.8" y2="209.2" stroke="#000000" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="8.5,16.9"/>
+  <line x1="331.6" y1="299.4" x2="381.6" y2="328.1" stroke="#000000" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="8.5,16.9"/>
+  <line x1="324.4" y1="312.1" x2="374.4" y2="340.7" stroke="#000000" stroke-width="8.5" stroke-linecap="round"/>
+  <use x="210.4" y="131.4" xlink:href="#x0a4"/>
+  <line x1="235.5" y1="137.0" x2="288.4" y2="166.2" stroke="#000000" stroke-width="8.5" stroke-linecap="round"/>
+  <line x1="228.5" y1="149.7" x2="281.4" y2="178.9" stroke="#000000" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="8.5,16.9"/>
+  <use x="306.5" y="184.5" xlink:href="#x0a5"/>
+  <line x1="324.4" y1="165.9" x2="374.4" y2="137.3" stroke="#000000" stroke-width="8.5" stroke-linecap="round"/>
+  <line x1="331.6" y1="178.6" x2="381.7" y2="149.9" stroke="#000000" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="8.5,16.9"/>
+  <use x="399.5" y="346.6" xlink:href="#x0a6"/>
+  <line x1="417.3" y1="328.1" x2="467.4" y2="299.4" stroke="#000000" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="8.5,16.9"/>
+  <line x1="424.5" y1="340.7" x2="474.6" y2="312.0" stroke="#000000" stroke-width="8.5" stroke-linecap="round"/>
+  <use x="492.5" y="293.5" xlink:href="#x0a7"/>
+  <line x1="485.2" y1="268.8" x2="485.2" y2="209.2" stroke="#000000" stroke-width="8.5" stroke-linecap="round"/>
+  <line x1="499.7" y1="268.8" x2="499.7" y2="209.2" stroke="#000000" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="8.5,16.9"/>
+  <line x1="517.6" y1="299.1" x2="570.5" y2="328.3" stroke="#000000" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="8.5,16.9"/>
+  <line x1="510.6" y1="311.8" x2="563.5" y2="341.0" stroke="#000000" stroke-width="8.5" stroke-linecap="round"/>
+  <use x="399.5" y="131.4" xlink:href="#x0a8"/>
+  <line x1="424.5" y1="137.3" x2="474.6" y2="166.0" stroke="#000000" stroke-width="8.5" stroke-linecap="round"/>
+  <line x1="417.3" y1="149.9" x2="467.4" y2="178.6" stroke="#000000" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="8.5,16.9"/>
+  <use x="492.5" y="184.5" xlink:href="#x0a9"/>
+  <line x1="510.6" y1="166.2" x2="563.5" y2="137.0" stroke="#000000" stroke-width="8.5" stroke-linecap="round"/>
+  <line x1="517.6" y1="178.9" x2="570.5" y2="149.7" stroke="#000000" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="8.5,16.9"/>
+  <use x="588.6" y="346.6" xlink:href="#x0a10"/>
+  <line x1="606.2" y1="327.8" x2="653.4" y2="299.9" stroke="#000000" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="8.5,16.9"/>
+  <line x1="613.6" y1="340.3" x2="660.8" y2="312.4" stroke="#000000" stroke-width="8.5" stroke-linecap="round"/>
+  <use x="678.4" y="293.6" xlink:href="#x0a11"/>
+  <line x1="671.1" y1="268.9" x2="671.1" y2="209.1" stroke="#000000" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="8.5,16.9"/>
+  <line x1="685.6" y1="268.9" x2="685.6" y2="209.1" stroke="#000000" stroke-width="8.5" stroke-linecap="round"/>
+  <use x="678.4" y="184.4" xlink:href="#x0a12"/>
+  <line x1="653.4" y1="178.1" x2="606.2" y2="150.2" stroke="#000000" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="8.5,16.9"/>
+  <line x1="660.8" y1="165.6" x2="613.6" y2="137.7" stroke="#000000" stroke-width="8.5" stroke-linecap="round"/>
+  <use x="588.6" y="131.4" xlink:href="#x0a13"/>
+</svg>

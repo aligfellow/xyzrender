@@ -10,13 +10,19 @@ from xyzgraph import DATA
 
 from xyzrender.colors import _FOG_NEAR, WHITE, blend_fog, cmap_viridis, get_color, get_gradient_colors
 from xyzrender.dens import dens_layers_svg
+from xyzrender.hull import (
+    get_convex_hull_edges_silhouette,
+    get_convex_hull_facets,
+    hull_facets_svg,
+    normalize_hull_subsets,
+)
 from xyzrender.mo import (
     classify_mo_lobes,
     mo_back_lobes_svg,
     mo_front_lobes_svg,
     mo_gradient_defs_svg,
 )
-from xyzrender.types import BondStyle, Color, RenderConfig
+from xyzrender.types import BondStyle, Color, RenderConfig, resolve_color
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +44,10 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
     pos = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
     a_nums = [DATA.s2n.get(s, 0) for s in symbols]  # 0 for NCI centroid nodes ("*")
 
+    # Pre-compute local vector origins/directions so we can rotate them with auto_orient
+    _vec_origins = np.array([va.origin for va in cfg.vectors], dtype=float) if cfg.vectors else np.full((0, 3), np.nan)
+    _vec_dirs = np.array([va.vector for va in cfg.vectors], dtype=float) if cfg.vectors else np.full((0, 3), np.nan)
+
     if cfg.auto_orient and n > 1:
         # Collect TS bond pairs to prioritize in orientation
         ts_pairs = list(cfg.ts_bonds) if cfg.ts_bonds else []
@@ -49,13 +59,26 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
         fit_mask = atom_mask if not atom_mask.all() else None
         from xyzrender.utils import pca_orient
 
-        if cfg.cell_data is not None:
+        if _vec_origins is not None:
+            # Capture rotation matrix so vector origins/directions transform with the molecule
+            _fit = pos[fit_mask] if fit_mask is not None else pos
+            _centroid = _fit.mean(axis=0)
+            pos, _orient_rot = pca_orient(pos, ts_pairs or None, fit_mask=fit_mask, return_matrix=True)
+            _vec_origins = (_vec_origins - _centroid) @ _orient_rot.T
+            _vec_dirs = _vec_dirs @ _orient_rot.T
+            logger.debug("render_svg PCA centroid: %s", _centroid)
+            for _vi, _vo in enumerate(_vec_origins):
+                logger.debug("  vector[%d] origin after PCA: %s (should be ~0 for COM origins)", _vi, _vo)
+            if cfg.cell_data is not None:
+                cfg.cell_data.lattice = (_orient_rot @ cfg.cell_data.lattice.T).T
+                cfg.cell_data.cell_origin = _orient_rot @ (cfg.cell_data.cell_origin - _centroid)
+        elif cfg.cell_data is not None:
             pre_centroid = pos.mean(axis=0)
             pos, _rot_mat = pca_orient(pos, ts_pairs, fit_mask=fit_mask, return_matrix=True)
             cfg.cell_data.lattice = (_rot_mat @ cfg.cell_data.lattice.T).T
             cfg.cell_data.cell_origin = _rot_mat @ (cfg.cell_data.cell_origin - pre_centroid)
         else:
-            pos = pca_orient(pos, ts_pairs, fit_mask=fit_mask)
+            pos = pca_orient(pos, ts_pairs or None, fit_mask=fit_mask)
 
     raw_vdw = np.array(
         [_CENTROID_VDW if s == "*" else DATA.vdw.get(s, 1.5) * (_H_ATOM_SCALE if s == "H" else 1.0) for s in symbols]
@@ -102,6 +125,29 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
         box_hi = box_verts[:, :2].max(axis=0)
         extra_lo = np.minimum(extra_lo, box_lo) if extra_lo is not None else box_lo
         extra_hi = np.maximum(extra_hi, box_hi) if extra_hi is not None else box_hi
+    # Expand canvas to encompass vector arrow tips, tails, and labels
+    if cfg.vectors:
+        _ref_px_per_ang = (_REF_CANVAS - 2 * cfg.padding) / _REF_SPAN
+        _vec_tips = []
+        for vi, va in enumerate(cfg.vectors):
+            scaled_vec = _vec_dirs[vi] * va.scale * cfg.vector_scale
+            tail3d = _vec_origins[vi] - scaled_vec / 2 if va.anchor == "center" else _vec_origins[vi]
+            tip3d = tail3d + scaled_vec
+            _vec_tips.append(tip3d)
+            for pt in (tail3d, tip3d):
+                pt2d = pt[:2]
+                extra_lo = np.minimum(extra_lo, pt2d) if extra_lo is not None else pt2d.copy()
+                extra_hi = np.maximum(extra_hi, pt2d) if extra_hi is not None else pt2d.copy()
+        for vi, va in enumerate(cfg.vectors):
+            if not va.label:
+                continue
+            tip2d = _vec_tips[vi][:2]
+            label_half_w = len(va.label) * cfg.label_font_size * 1.2 * 0.35 / _ref_px_per_ang
+            label_h = cfg.label_font_size * 1.2 / _ref_px_per_ang
+            lo = tip2d - np.array([label_half_w, label_h])
+            hi = tip2d + np.array([label_half_w, label_h])
+            extra_lo = np.minimum(extra_lo, lo) if extra_lo is not None else lo
+            extra_hi = np.maximum(extra_hi, hi) if extra_hi is not None else hi
     scale, cx, cy, canvas_w, canvas_h = _fit_canvas(pos, fit_radii, cfg, extra_lo=extra_lo, extra_hi=extra_hi)
 
     # scale_ratio: encodes both molecule complexity AND canvas size so that
@@ -296,6 +342,137 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
             mo_back_lobes_svg(cfg.mo_contours, mo_is_front, cfg.surface_opacity, scale, cx, cy, canvas_w, canvas_h)
         )
 
+    # --- Convex hull facets (low-alpha plane behind molecule) ---
+    if cfg.show_convex_hull:
+        palette = [resolve_color(c) for c in cfg.hull_colors]
+        hull_color_hex = palette[0]
+        per_color: list[str] | None = None
+
+        _raw_idx = cfg.hull_atom_indices
+        subsets = normalize_hull_subsets(_raw_idx) if _raw_idx is not None else None
+
+        if subsets:
+            all_facets: list[tuple[np.ndarray, float]] = []
+            subset_indices: list[int] = []
+            for idx, subset in enumerate(subsets):
+                include_mask = np.zeros(n, dtype=bool)
+                for i in subset:
+                    if 0 <= i < n:
+                        include_mask[i] = True
+                sub_facets = get_convex_hull_facets(pos, include_mask)
+                all_facets.extend(sub_facets)
+                subset_indices.extend([idx] * len(sub_facets))
+            facets = all_facets
+            # Per-subset colors (cycling palette)
+            if subset_indices:
+                with_idx = list(zip(all_facets, subset_indices, strict=True))
+                with_idx.sort(key=lambda x: x[0][1])
+                sorted_facets = [f for f, _ in with_idx]
+                indices_sorted = [si for _, si in with_idx]
+                per_color = [palette[i % len(palette)] for i in indices_sorted]
+                facets = sorted_facets
+        elif subsets is None:
+            # No indices specified — use all heavy (non-H, non-dummy) atoms
+            include_mask = np.array([s not in ("*", "H") for s in symbols]) if n > 0 else None
+            facets = get_convex_hull_facets(pos, include_mask)
+        else:
+            # Empty indices list — no hull
+            facets = []
+
+        if facets:
+            svg.extend(
+                hull_facets_svg(
+                    facets,
+                    hull_color_hex,
+                    cfg.hull_opacity,
+                    scale,
+                    cx,
+                    cy,
+                    canvas_w,
+                    canvas_h,
+                    per_facet_color_hex=per_color,
+                )
+            )
+
+        # Non-bond hull edges (1-skeleton) — per-subset color matches the fill
+        if cfg.show_hull_edges:
+            bond_pairs = {(min(i, j), max(i, j)) for (i, j) in bonds}
+            # Each entry: ((ni, nj), mid_z, edge_color)
+            hull_edges_with_z: list[tuple[tuple[int, int], float, str]] = []
+            if subsets:
+                for sidx, subset in enumerate(subsets):
+                    sub_color = palette[sidx % len(palette)]
+                    include_mask = np.zeros(n, dtype=bool)
+                    for i in subset:
+                        if 0 <= i < n:
+                            include_mask[i] = True
+                    for ni, nj in get_convex_hull_edges_silhouette(pos, include_mask):
+                        if (ni, nj) not in bond_pairs:
+                            mid_z = (pos[ni][2] + pos[nj][2]) / 2.0
+                            hull_edges_with_z.append(((ni, nj), mid_z, sub_color))
+            elif subsets is None:
+                include_mask = np.array([s not in ("*", "H") for s in symbols]) if n > 0 else None
+                for ni, nj in get_convex_hull_edges_silhouette(pos, include_mask):
+                    if (ni, nj) not in bond_pairs:
+                        mid_z = (pos[ni][2] + pos[nj][2]) / 2.0
+                        hull_edges_with_z.append(((ni, nj), mid_z, hull_color_hex))
+            hull_edges_with_z.sort(key=lambda x: x[1])
+            hull_lw = max(bw * cfg.hull_edge_width_ratio, 1.0)
+            for (ni, nj), _, edge_color in hull_edges_with_z:
+                x1, y1 = _proj(pos[ni], scale, cx, cy, canvas_w, canvas_h)
+                x2, y2 = _proj(pos[nj], scale, cx, cy, canvas_w, canvas_h)
+                svg.append(
+                    f'  <line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" '
+                    f'stroke="{edge_color}" stroke-width="{hull_lw:.1f}" stroke-linecap="round"/>'
+                )
+
+    # --- Vector arrows: prepare for z-interleaved drawing ---
+    # Vectors are drawn just before the atom at their depth in the back-to-front
+    # loop below, so each shaft is covered by its own atom while still being
+    # occluded by any atoms closer to the viewer.
+    # However, when an arrow points toward the viewer the tip or
+    # tail may protrude in front of the host atom. To keep
+    # those elements visible they are placed in ``_vec_front_heads`` / ``_vec_front_tails``
+    # and redrawn on top of relevant atoms in a second pass below.
+    _vec_lw = max(bw * 0.6, 1.5) if cfg.vectors else 0.0
+    _fs_vec = fs_label * 1.2 if cfg.vectors else 0.0
+    # Back-to-front order (ascending z, matching z_order convention)
+    _pending_vecs = sorted(range(len(cfg.vectors)), key=lambda vi: _vec_origins[vi][2]) if cfg.vectors else []
+    _pv_pos = 0  # pointer into _pending_vecs
+
+    # Calculate whether a vector tip/tail protrudes beyond the atom sphere.
+    _atom_r3d = raw_vdw * cfg.atom_scale * _RADIUS_SCALE  # shape (n,)
+
+    # A vector endpoint "protrudes in front" when its z exceeds the z of the
+    # nearest atom plus that atom's 3D radius.
+    _vec_tip3d: list = []
+    _vec_tail3d: list = []
+    _vec_head_front: list[bool] = []
+    _vec_tail_front: list[bool] = []
+    if cfg.vectors:
+        for vi in range(len(cfg.vectors)):
+            va = cfg.vectors[vi]
+            scaled_vec = _vec_dirs[vi] * va.scale * cfg.vector_scale
+            if va.anchor == "center":
+                tail3d = _vec_origins[vi] - scaled_vec / 2
+            else:
+                tail3d = _vec_origins[vi]
+            tip3d = tail3d + scaled_vec
+            _vec_tip3d.append(tip3d)
+            _vec_tail3d.append(tail3d)
+            # Resolve host atom: use the prescribed index when available (atom-index
+            # origin from JSON), otherwise fall back to a nearest-neighbour search.
+            if va.host_atom is not None:
+                host_ai = va.host_atom
+            else:
+                host_ai = int(np.argmin(np.linalg.norm(pos - _vec_origins[vi], axis=1)))
+            host_z = pos[host_ai][2]
+            host_r = _atom_r3d[host_ai]
+            # Tip protrudes in front when tip_z > host_z + host_r
+            _vec_head_front.append(bool(tip3d[2] > host_z + host_r))
+            # Tail protrudes in front when tail_z > host_z + host_r (rare but symmetric)
+            _vec_tail_front.append(bool(tail3d[2] > host_z + host_r))
+
     # --- Unit cell box (12 edges, drawn before atoms so bonds/atoms render on top) ---
     if cfg.cell_data is not None and cfg.show_cell:
         lat = cfg.cell_data.lattice
@@ -428,6 +605,33 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
                 )
 
     for idx, ai in enumerate(z_order):
+        # Flush all vectors whose origin depth <= this atom's depth.  The hidden
+        # check is intentionally after the flush so hidden atoms still act as
+        # depth markers, keeping vector z-ordering correct.
+        while _pv_pos < len(_pending_vecs) and _vec_origins[_pending_vecs[_pv_pos]][2] <= pos[ai][2]:
+            vi = _pending_vecs[_pv_pos]
+            va = cfg.vectors[vi]
+            if not va.draw_on_top:
+                # Interleaved: draw shaft now, head later if front-protruding
+                _fs = (va.font_size * scale_ratio) if va.font_size is not None else _fs_vec
+                _lw = (va.width * scale_ratio) if va.width is not None else _vec_lw
+                _draw_arrow_svg(
+                    svg,
+                    _vec_tail3d[vi],
+                    _vec_tip3d[vi],
+                    va.color,
+                    va.label,
+                    _lw,
+                    _fs,
+                    scale,
+                    cx,
+                    cy,
+                    canvas_w,
+                    canvas_h,
+                    draw_head=not _vec_head_front[vi],
+                )
+            _pv_pos += 1
+
         if ai in hidden:
             continue
 
@@ -469,17 +673,55 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
 
         # Bonds to deeper atoms
         for aj in z_order[idx + 1 :]:
-            if aj in hidden or (ai, aj) not in bonds:
+            aj_int = int(aj)
+            if aj_int in hidden or (ai, aj_int) not in bonds:
                 continue
-            bo, style, color_ov = bonds[(ai, aj)]
+            bo, style, color_ov = bonds[(ai, aj_int)]
             # Use periodic_image_opacity if either endpoint is an image atom
-            bond_op = cfg.periodic_image_opacity if (is_image or graph.nodes[aj].get("image", False)) else 1.0
-            add_bond(ai, aj, bo, style, opacity=bond_op, color_override=color_ov)
+            bond_op = cfg.periodic_image_opacity if (is_image or graph.nodes[aj_int].get("image", False)) else 1.0
+            add_bond(ai, aj_int, bo, style, opacity=bond_op, color_override=color_ov)
 
     # NCI patches in front of all atoms (z_depth > frontmost atom)
     while nci_lobe_idx < len(nci_lobes_flat):
         svg.extend(nci_lobes_flat[nci_lobe_idx][1])
         nci_lobe_idx += 1
+
+    # Flush any vectors whose origin is in front of all atoms
+    while _pv_pos < len(_pending_vecs):
+        vi = _pending_vecs[_pv_pos]
+        va = cfg.vectors[vi]
+        if not va.draw_on_top:
+            _fs = (va.font_size * scale_ratio) if va.font_size is not None else _fs_vec
+            _lw = (va.width * scale_ratio) if va.width is not None else _vec_lw
+            _draw_arrow_svg(
+                svg, _vec_tail3d[vi], _vec_tip3d[vi], va.color, va.label, _lw, _fs, scale, cx, cy, canvas_w, canvas_h
+            )
+        _pv_pos += 1
+
+    # --- Second pass: redraw arrowheads that protrude in front of their host atom ---
+    # These were skipped in the first pass (_draw_vector_arrow) so that the shaft
+    # is still painter-sorted correctly, but the head must appear on top of the atom.
+    if cfg.vectors:
+        for vi in range(len(cfg.vectors)):
+            va = cfg.vectors[vi]
+            if not va.draw_on_top and _vec_head_front[vi]:
+                _fs = (va.font_size * scale_ratio) if va.font_size is not None else _fs_vec
+                _lw = (va.width * scale_ratio) if va.width is not None else _vec_lw
+                _draw_arrow_svg(
+                    svg,
+                    _vec_tail3d[vi],
+                    _vec_tip3d[vi],
+                    va.color,
+                    va.label,
+                    _lw,
+                    _fs,
+                    scale,
+                    cx,
+                    cy,
+                    canvas_w,
+                    canvas_h,
+                    draw_shaft=False,
+                )
 
     # --- Front MO orbital lobes (on top of molecule) ---
     if cfg.mo_contours is not None:
@@ -517,50 +759,26 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
             )
         )
 
-    # --- Crystallographic axis arrows (a=red, b=green, c=blue) ---
-    # Drawn last so they are always on top of atoms, bonds, and image atoms.
-    if cfg.cell_data is not None and cfg.show_crystal_axes:
-        lat = cfg.cell_data.lattice
-        orig3d = cfg.cell_data.cell_origin
-        axis_lw = cfg.cell_line_width * scale_ratio * cfg.axis_width_scale
-        fs_axis = fs_label * 1.6  # larger than atom index labels
-        _axis_labels = ("a", "b", "c")
-        svg.append("  <!-- crystal axes -->")
-        for vec, color, label in zip(lat, cfg.axis_colors, _axis_labels, strict=True):
-            length = float(np.linalg.norm(vec))
-            if length < 1e-6:
-                continue
-            # Arrow spans 25% of the cell edge (max 2 Å) from the origin corner
-            frac = min(0.25, 2.0 / length)
-            tip3d = orig3d + frac * vec
-            ox, oy = _proj(orig3d, scale, cx, cy, canvas_w, canvas_h)
-            tx, ty = _proj(tip3d, scale, cx, cy, canvas_w, canvas_h)
-            # Shaft
-            svg.append(
-                f'  <line x1="{ox:.1f}" y1="{oy:.1f}" x2="{tx:.1f}" y2="{ty:.1f}" '
-                f'stroke="{color}" stroke-width="{axis_lw:.1f}" stroke-linecap="round"/>'
-            )
-            dx, dy = tx - ox, ty - oy
-            px_len = (dx * dx + dy * dy) ** 0.5
-            if px_len > 4:
-                nvx, nvy = dx / px_len, dy / px_len  # shaft direction (unit)
-                pvx, pvy = -nvy, nvx  # perpendicular
-                arr = max(axis_lw * 3.5, 8.0)  # arrowhead size (px)
-                p1x = tx - nvx * arr + pvx * arr * 0.38
-                p1y = ty - nvy * arr + pvy * arr * 0.38
-                p2x = tx - nvx * arr - pvx * arr * 0.38
-                p2y = ty - nvy * arr - pvy * arr * 0.38
-                svg.append(
-                    f'  <polygon points="{tx:.1f},{ty:.1f} {p1x:.1f},{p1y:.1f} {p2x:.1f},{p2y:.1f}" fill="{color}"/>'
+    # --- Final pass: Vectors with draw_on_top=True ---
+    if cfg.vectors:
+        for vi, va in enumerate(cfg.vectors):
+            if va.draw_on_top:
+                _fs = (va.font_size * scale_ratio) if va.font_size is not None else _fs_vec
+                _lw = (va.width * scale_ratio) if va.width is not None else _vec_lw
+                _draw_arrow_svg(
+                    svg,
+                    _vec_tail3d[vi],
+                    _vec_tip3d[vi],
+                    va.color,
+                    va.label,
+                    _lw,
+                    _fs,
+                    scale,
+                    cx,
+                    cy,
+                    canvas_w,
+                    canvas_h,
                 )
-                lx = tx + nvx * (arr * 0.6 + fs_axis * 0.5)
-                ly = ty + nvy * (arr * 0.6 + fs_axis * 0.5) + fs_axis * 0.35
-            else:
-                lx, ly = tx + 4, ty
-            svg.append(
-                f'  <text x="{lx:.1f}" y="{ly:.1f}" font-size="{fs_axis:.1f}" fill="{color}" '
-                f'font-family="Arial,sans-serif" text-anchor="middle" font-weight="bold">{label}</text>'
-            )
 
     svg.append("</svg>")
     raw = "\n".join(svg)
@@ -578,6 +796,83 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _draw_arrow_svg(
+    svg: list[str],
+    tail3d: np.ndarray,
+    tip3d: np.ndarray,
+    color: str,
+    label: str,
+    lw: float,
+    fs: float,
+    scale: float,
+    cx: float,
+    cy: float,
+    cw: float,
+    ch: float,
+    draw_shaft: bool = True,
+    draw_head: bool = True,
+) -> None:
+    """SVG arrow rendering.
+
+    When the 2D projected length is shorter than the arrowhead size, a dot
+    (tip facing viewer) or 'x' (tip facing away) is drawn instead and the
+    label is suppressed.  The label reappears automatically once the arrow
+    is long enough to draw a proper arrowhead, where it is centred on the
+    arrowhead tip.
+    """
+    ox, oy = _proj(tail3d, scale, cx, cy, cw, ch)
+    tx, ty = _proj(tip3d, scale, cx, cy, cw, ch)
+    dx, dy = tx - ox, ty - oy
+    px_len = (dx * dx + dy * dy) ** 0.5
+    arr = max(lw * 3.5, 7.0)
+
+    # If the projected length is shorter than the arrowhead itself, draw a dot or
+    # 'x' and suppress the label.
+    if px_len < arr:
+        if tip3d[2] > tail3d[2]:
+            # Facing viewer: draw a dot
+            r = max(lw * 0.8, 2.0)
+            svg.append(f'  <circle cx="{ox:.1f}" cy="{oy:.1f}" r="{r:.1f}" fill="{color}"/>')
+        else:
+            # Facing away: draw an 'x'
+            r = max(lw * 0.8, 2.0)
+            svg.append(
+                f'  <line x1="{ox - r:.1f}" y1="{oy - r:.1f}" x2="{ox + r:.1f}" y2="{oy + r:.1f}" '
+                f'stroke="{color}" stroke-width="{lw:.1f}" stroke-linecap="round"/>'
+            )
+            svg.append(
+                f'  <line x1="{ox - r:.1f}" y1="{oy + r:.1f}" x2="{ox + r:.1f}" y2="{oy - r:.1f}" '
+                f'stroke="{color}" stroke-width="{lw:.1f}" stroke-linecap="round"/>'
+            )
+        return
+
+    if draw_shaft:
+        # Stop shaft at arrowhead base so the round linecap doesn't poke through the head
+        frac = max(0.0, 1.0 - arr / px_len)
+        sx, sy = ox + dx * frac, oy + dy * frac
+        svg.append(
+            f'  <line x1="{ox:.1f}" y1="{oy:.1f}" x2="{sx:.1f}" y2="{sy:.1f}" '
+            f'stroke="{color}" stroke-width="{lw:.1f}" stroke-linecap="round"/>'
+        )
+
+    if draw_head:
+        nvx, nvy = dx / px_len, dy / px_len
+        pvx, pvy = -nvy, nvx
+        p1x = tx - nvx * arr + pvx * arr * 0.38
+        p1y = ty - nvy * arr + pvy * arr * 0.38
+        p2x = tx - nvx * arr - pvx * arr * 0.38
+        p2y = ty - nvy * arr - pvy * arr * 0.38
+        svg.append(f'  <polygon points="{tx:.1f},{ty:.1f} {p1x:.1f},{p1y:.1f} {p2x:.1f},{p2y:.1f}" fill="{color}"/>')
+        if label:
+            sep = fs * 0.65
+            lx = tx + nvx * sep
+            ly = ty + nvy * sep + fs * 0.35
+            svg.append(
+                f'  <text x="{lx:.1f}" y="{ly:.1f}" font-size="{fs:.1f}" fill="{color}" '
+                f'font-family="Arial,sans-serif" text-anchor="middle" font-weight="bold">{label}</text>'
+            )
 
 
 def _fit_canvas(pos, radii, cfg, extra_lo=None, extra_hi=None):

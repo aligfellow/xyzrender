@@ -9,6 +9,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
+
 from xyzrender.measure import _pos
 
 
@@ -299,3 +301,185 @@ def load_cmap(file_path: str, graph) -> dict[int, float]:
             result[idx] = val
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Vector arrows
+# ---------------------------------------------------------------------------
+
+
+def load_vectors(
+    path: str | Path | dict | list,
+    graph,
+    default_color: str = "firebrick",
+) -> list:
+    """Load vector arrows from a JSON file and resolve their origins.
+
+    Each entry in the JSON array may have:
+
+    ``anchor``
+        Controls how ``origin`` is interpreted.  Can be set at the top level
+        (applies to all arrows in the file) or per-entry (overrides the
+        file-level value for that arrow):
+
+        * ``"tail"`` (default) — ``origin`` is the arrow tail (start point)
+        * ``"center"`` — ``origin`` is the midpoint; the arrow is drawn from
+          ``origin - scaled_vec/2`` to ``origin + scaled_vec/2``
+
+        Useful for force/dipole vectors where you want the atom coordinate to
+        sit at the center of the arrow rather than the base.
+
+    ``origin``
+        How to place the arrow tail:
+
+        * ``"com"`` — centroid (mean position) of all atoms in *graph*
+        * Integer (1-based atom index) — position of that atom
+        * ``[x, y, z]`` — explicit Cartesian coordinates (Å)
+
+        Defaults to ``"com"`` when omitted.
+
+    ``vector``
+        3-component list giving direction and magnitude (Å or any consistent
+        unit).  **Required.**
+
+    ``color``
+        CSS hex (``"#ff0000"``) or named color (``"red"``).  Default
+        ``"#444444"``.
+
+    ``label``
+        Optional text placed near the arrowhead.  Default ``""`` (no label).
+
+    ``scale``
+        Per-arrow length scale factor multiplied on top of the global
+        ``--vector-scale``.  Default ``1.0``.
+
+    Returns a list of :class:`~xyzrender.types.VectorArrow` objects.
+
+    Example JSON
+    ------------
+    ::
+
+        [
+            {"origin": "com", "vector": [1.2, 0.0, 0.5], "color": "#e63030", "label": "μ"},
+            {"origin": 3, "vector": [0.0, 0.8, 0.0], "color": "steelblue"},
+            {"origin": [0, 0, 0], "vector": [0.5, 0.5, 0.5]},
+        ]
+    """
+    import json
+    import logging
+
+    from xyzrender.types import VectorArrow, resolve_color
+
+    _log = logging.getLogger(__name__)
+
+    if isinstance(path, (dict, list)):
+        raw = path
+    else:
+        with Path(path).open() as fh:
+            raw = json.load(fh)
+
+    # Accept either a bare array or an object with optional top-level "anchor" key.
+    anchor = "tail"
+    if isinstance(raw, dict):
+        anchor_raw = raw.get("anchor", "tail")
+        if anchor_raw not in ("tail", "center"):
+            msg = f"Vector file {path!r}: 'anchor' must be 'tail' or 'center', got {anchor_raw!r}"
+            raise ValueError(msg)
+        anchor = anchor_raw
+        raw = raw.get("vectors", [])
+        if not isinstance(raw, list):
+            msg = f"Vector file {path!r}: 'vectors' must be a JSON array"
+            raise ValueError(msg)
+    elif not isinstance(raw, list):
+        msg = f"Vector file {path!r}: expected a JSON array or an object with a 'vectors' key at the top level"
+        raise ValueError(msg)
+
+    node_ids = list(graph.nodes())
+    real_ids = [i for i in node_ids if graph.nodes[i].get("symbol", graph.nodes[i].get("element", "")) != "*"]
+    if not real_ids:
+        real_ids = node_ids
+    positions = np.array([graph.nodes[i]["position"] for i in real_ids], dtype=float)
+    centroid = positions.mean(axis=0)
+    _log.debug("load_vectors COM: %s (from %d real atoms)", centroid, len(real_ids))
+
+    arrows: list[VectorArrow] = []
+    for idx, entry in enumerate(raw):
+        if not isinstance(entry, dict):
+            msg = f"Vector file {path!r}: entry {idx} must be a JSON object"
+            raise ValueError(msg)
+
+        # --- vector (required) ---
+        if "vector" not in entry:
+            msg = f"Vector file {path!r}: entry {idx} is missing required key 'vector'"
+            raise ValueError(msg)
+        vec_raw = entry["vector"]
+        if not (isinstance(vec_raw, list) and len(vec_raw) == 3):
+            msg = f"Vector file {path!r}: entry {idx} 'vector' must be a list of 3 numbers"
+            raise ValueError(msg)
+        try:
+            vec = np.array([float(v) for v in vec_raw])
+        except (TypeError, ValueError) as exc:
+            msg = f"Vector file {path!r}: entry {idx} 'vector' contains non-numeric value"
+            raise ValueError(msg) from exc
+
+        # --- origin (optional, default "com") ---
+        origin_raw = entry.get("origin", "com")
+        atom_idx: int | None = None
+        if origin_raw == "com":
+            origin = centroid.copy()
+        elif isinstance(origin_raw, int):
+            atom_idx = origin_raw - 1  # 1-based → 0-based
+            if atom_idx < 0 or atom_idx >= len(node_ids):
+                msg = (
+                    f"Vector file {path!r}: entry {idx} 'origin' atom index {origin_raw} "
+                    f"is out of range (molecule has {len(node_ids)} atoms)"
+                )
+                raise ValueError(msg)
+            origin = np.array(graph.nodes[node_ids[atom_idx]]["position"], dtype=float)
+        elif isinstance(origin_raw, list) and len(origin_raw) == 3:
+            try:
+                origin = np.array([float(v) for v in origin_raw])
+            except (TypeError, ValueError) as exc:
+                msg = f"Vector file {path!r}: entry {idx} 'origin' contains non-numeric value"
+                raise ValueError(msg) from exc
+        else:
+            msg = (
+                f"Vector file {path!r}: entry {idx} 'origin' must be 'com', a 1-based atom "
+                f"index (integer), or a list of 3 coordinates"
+            )
+            raise ValueError(msg)
+
+        # --- optional fields ---
+        try:
+            color = resolve_color(entry.get("color", default_color))
+        except ValueError as exc:
+            msg = f"Vector file {path!r}: entry {idx} invalid color: {exc}"
+            raise ValueError(msg) from exc
+
+        label = str(entry.get("label", ""))
+        try:
+            per_scale = float(entry.get("scale", 1.0))
+        except (TypeError, ValueError) as exc:
+            msg = f"Vector file {path!r}: entry {idx} 'scale' must be a number"
+            raise ValueError(msg) from exc
+
+        # Per-entry anchor overrides the file-level default
+        entry_anchor = entry.get("anchor", anchor)
+        if entry_anchor not in ("tail", "center"):
+            msg = f"Vector file {path!r}: entry {idx} 'anchor' must be 'tail' or 'center', got {entry_anchor!r}"
+            raise ValueError(msg)
+
+        arrows.append(
+            VectorArrow(
+                vector=vec,
+                origin=origin,
+                color=color,
+                label=label,
+                scale=per_scale,
+                anchor=entry_anchor,
+                host_atom=atom_idx,
+            )
+        )
+
+    _log.info("Loaded %d vector arrows from %s", len(arrows), path)
+    return arrows

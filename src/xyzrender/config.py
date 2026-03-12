@@ -115,6 +115,10 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
         raw = merged["axis_colors"]
         merged["axis_colors"] = tuple(resolve_color(c) for c in raw)
 
+    # hull_colors: list of color strings (one per subset) → resolve to hex
+    if "hull_colors" in merged and merged["hull_colors"] is not None:
+        merged["hull_colors"] = [resolve_color(c) for c in merged["hull_colors"]]
+
     return RenderConfig(**merged)
 
 
@@ -167,6 +171,12 @@ def build_config(
     idx_format: str = "sn",
     atom_cmap: dict[int, float] | None = None,
     cmap_range: tuple[float, float] | None = None,
+    hull: bool | None = None,
+    hull_opacity: float | None = None,
+    hull_colors: list[str] | None = None,
+    hull_idx: list[int] | list[list[int]] | None = None,
+    hull_edge: bool | None = None,
+    hull_edge_width_ratio: float | None = None,
 ) -> RenderConfig:
     """Build a :class:`~xyzrender.types.RenderConfig` from a preset and style kwargs.
 
@@ -226,6 +236,11 @@ def build_config(
         ("vdw_opacity", vdw_opacity),
         ("vdw_scale", vdw_scale),
         ("vdw_gradient_strength", vdw_gradient_strength),
+        ("show_convex_hull", hull),
+        ("hull_opacity", hull_opacity),
+        ("hull_colors", hull_colors),
+        ("show_hull_edges", hull_edge),
+        ("hull_edge_width_ratio", hull_edge_width_ratio),
     ]:
         if val is not None:
             overrides[key] = val
@@ -244,6 +259,8 @@ def build_config(
         cfg.nci_bonds = list(nci_bonds)
     if vdw_indices is not None:
         cfg.vdw_indices = vdw_indices
+    if hull_idx is not None:
+        cfg.hull_atom_indices = hull_idx
     if show_indices:
         cfg.show_indices = True
         cfg.idx_format = idx_format

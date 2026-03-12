@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-OUT=$(realpath ${BASH_SOURCE[0]%/*})
+OUT=$(dirname $(realpath ${BASH_SOURCE[0]}))
 DIR=$OUT/structures
 IMG=$OUT/images
 mkdir -p "$IMG"
@@ -36,7 +36,7 @@ xyzrender --smi "C1CCCCC1" --hy -o "$IMG/cyclohexane_smi.svg"
 
 echo "=== TS and NCI options ==="
 xyzrender "$DIR/sn2.out" --ts-bond "1-2" -o "$IMG/sn2_ts_man.svg"
-xyzrender "$DIR/sn2.out" --ts --hy -o "$IMG/sn2_ts.svg" 
+xyzrender "$DIR/sn2.out" --ts --hy -o "$IMG/sn2_ts.svg"
 xyzrender "$DIR/bimp.out" --nci -o "$IMG/bimp_nci.svg"
 xyzrender "$DIR/Hbond.xyz" --hy --nci-bond "8-9" -o "$IMG/nci_man.svg"  # specific NCI bond only
 xyzrender "$DIR/Hbond.xyz" --hy --nci -o "$IMG/nci.svg"  # specific NCI bond only
@@ -73,6 +73,10 @@ xyzrender "$DIR/mn-h2.log" -o "$IMG/mn-h2_gif.svg" --gif-ts -go "$IMG/mn-h2.gif"
 xyzrender "$DIR/bimp.out" -o "$IMG/bimp_ts_nci.svg" --ts --gif-trj --vdw 84-169 --nci -go "$IMG/bimp_nci_trj.gif"
 xyzrender "$DIR/bimp.out" -o "$IMG/bimp_ts_nci.svg" --gif-ts --gif-rot --vdw 84-169 --nci -go "$IMG/bimp_nci_ts.gif"
 
+echo "=== Vector arrows ==="
+xyzrender "$DIR/ethanol.xyz" --vectors "$DIR/ethanol_dip.json" -o "$IMG/ethanol_dip.svg" --gif-rot -go "$IMG/ethanol_dip.gif"           # dipole at center of mass, with rotation
+xyzrender "$DIR/ethanol.xyz" --hy --vectors "$DIR/ethanol_forces_efield.json" --vector-scale 1.5 -o "$IMG/ethanol_forces_efield.svg" -go "$IMG/ethanol_forces_efield.gif" --gif-rot  # per-atom forces, with rotation
+
 echo "=== Crystal / unit cell ==="
 xyzrender "$DIR/caffeine_cell.xyz" --cell -o "$IMG/caffeine_cell.svg" --no-orient --gif-rot -go "$IMG/caffeine_cell.gif" 
 xyzrender "$DIR/caffeine_cell.xyz" --cell-color maroon -o "$IMG/caffeine_cell_custom.svg" # custom edge color
@@ -89,6 +93,12 @@ xyzrender "$DIR/NV63_cell.xyz" --axis 111 --gif-rot 111 -o "$IMG/NV63_111.svg" -
 echo "=== Overlays ==="
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 --hy -o "$IMG/isothio_overlay.svg" --gif-rot -go "$IMG/isothio_overlay.gif"
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 -o "$IMG/isothio_overlay_custom.svg" --no-orient --overlay-color green -a 2
+
+echo "=== Convex hull ==="
+xyzrender "$DIR/benzene.xyz" --hy --hull 1-6 -o "$IMG/benzene_ring_hull.svg" 
+xyzrender "$DIR/anthracene.xyz" --hull -o "$IMG/anthracene_hull_one.svg" 
+xyzrender "$DIR/anthracene.xyz" --hull 1-6 4,6-10 8,10-14 -o "$IMG/anthracene_hull.svg" --gif-rot -go "$IMG/anthracene_hull.gif"
+xyzrender "$DIR/CoCl6.xyz" --hull --hull-color teal --hull-opacity 0.5 -o "$IMG/CoCl6_octahedron_hull.svg" --gif-rot -go "$IMG/CoCl6_octahedron_hull.gif"
 
 echo "=== NCI surfaces ==="
 xyzrender "$DIR/base-pair-dens.cube" --nci-surf "$DIR/base-pair-grad.cube" -o "$IMG/base-pair-nci_surf.svg"
