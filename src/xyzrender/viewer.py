@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     import networkx as nx
     from vmol import Vmol
 
+    from xyzrender.config import RenderConfig
     from xyzrender.types import CellData
 
 _Atoms: TypeAlias = list[tuple[str, tuple[float, float, float]]]
@@ -123,7 +124,7 @@ def apply_rotation(graph: nx.Graph, rx: float, ry: float, rz: float) -> None:
     _apply_rot_to_lattice(graph, rot, centroid)
 
 
-def orient_hkl_to_view(graph: nx.Graph, cell_data: "CellData", axis_str: str) -> None:
+def orient_hkl_to_view(graph: nx.Graph, cell_data: "CellData", axis_str: str, cfg: "RenderConfig") -> None:
     """Rotate *graph* and *cell_data* so that the [hkl] direction points along +z.
 
     Parameters
@@ -134,6 +135,8 @@ def orient_hkl_to_view(graph: nx.Graph, cell_data: "CellData", axis_str: str) ->
         Crystal cell data whose lattice and origin are updated in-place.
     axis_str:
         3-digit Miller index string, optionally prefixed with ``-`` (e.g. ``'111'``, ``'-110'``).
+    cfg:
+        Render configuration object.
 
     Raises
     ------
@@ -171,6 +174,10 @@ def orient_hkl_to_view(graph: nx.Graph, cell_data: "CellData", axis_str: str) ->
         graph.nodes[nid]["position"] = tuple(pos_rot[idx].tolist())
     cell_data.lattice = (rot_view @ cell_data.lattice.T).T
     cell_data.cell_origin = rot_view @ (cell_data.cell_origin - centroid) + centroid
+    if hasattr(cfg, "vectors"):
+        for vec in cfg.vectors:
+            vec.vector = (rot_view @ np.array(vec.vector, dtype=float).T).T.tolist()
+            vec.origin = (rot_view @ (np.array(vec.origin, dtype=float) - centroid) + centroid).tolist()
 
 
 def _apply_rot_to_lattice(graph: nx.Graph, rot: np.ndarray, centroid: np.ndarray) -> None:
