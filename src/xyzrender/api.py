@@ -440,7 +440,7 @@ def render(
     nci_coloring: str | None = None,
     nci_cutoff: float | None = None,
     # --- Convex hull ---
-    hull: bool | list[int] | list[list[int]] | None = None,
+    hull: bool | str | list[int] | list[list[int]] | None = None,
     hull_color: str | list[str] | None = None,
     hull_opacity: float | None = None,
     hull_edge: bool | None = None,
@@ -504,9 +504,11 @@ def render(
     nci:
         Path to an NCI reduced-density-gradient ``.cube`` file.
     hull:
-        ``True`` = hull over all heavy atoms; a flat list of 1-indexed atom
-        indices (one hull, e.g. ``[1,2,3,4,5,6]``); a list of lists (multiple
-        hulls, e.g. ``[[1,2,3,4,5,6], [7,8,9]]``).  ``None`` (default) = off.
+        ``True`` = hull over all heavy atoms; ``"rings"`` = one hull per
+        aromatic ring (auto-detected from the molecular graph); a flat list
+        of 1-indexed atom indices (one hull, e.g. ``[1,2,3,4,5,6]``); a list
+        of lists (multiple hulls, e.g. ``[[1,2,3,4,5,6], [7,8,9]]``).
+        ``None`` (default) = off.
     hull_color:
         A single color string for all hulls, or a list of colors for per-subset
         colouring (one per subset).  Hex or named color.
@@ -567,13 +569,18 @@ def render(
         if opacity is not None:
             cfg.surface_opacity = opacity
         if hull is not None:
-            if isinstance(hull, list):
+            if hull == "rings":
+                ring_indices = _resolve_hull_rings(mol.graph)
+                if ring_indices:
+                    cfg.show_convex_hull = True
+                    cfg.hull_atom_indices = ring_indices
+            elif isinstance(hull, list):
                 cfg.show_convex_hull = True
                 # 1-indexed user input → 0-indexed internal
                 from xyzrender.hull import hull_indices_to_0indexed
 
                 cfg.hull_atom_indices = hull_indices_to_0indexed(hull)
-            else:
+            elif isinstance(hull, bool):
                 cfg.show_convex_hull = hull
         if hull_color is not None:
             if isinstance(hull_color, list):
@@ -594,13 +601,16 @@ def render(
         _show = bool(idx)
         _ifmt = idx if isinstance(idx, str) else "sn"
         _cmap_0 = _resolve_cmap(cmap, mol.graph) if cmap is not None else None
-        _hull_flag: bool | None = True if isinstance(hull, list) else hull
-        # 1-indexed user input → 0-indexed for build_config
-        if isinstance(hull, list):
+        if hull == "rings":
+            _hull_flag: bool | None = True
+            _hull_idx: list[int] | list[list[int]] | None = _resolve_hull_rings(mol.graph) or None
+        elif isinstance(hull, list):
+            _hull_flag = True
             from xyzrender.hull import hull_indices_to_0indexed
 
-            _hull_idx: list[int] | list[list[int]] | None = hull_indices_to_0indexed(hull)
+            _hull_idx = hull_indices_to_0indexed(hull)
         else:
+            _hull_flag = hull if isinstance(hull, bool) else None
             _hull_idx = None
 
         cfg = build_config(
@@ -893,7 +903,7 @@ def render_gif(
     flat_mo: bool = False,
     dens_color: str | None = None,
     # --- Convex hull (gif_rot only) ---
-    hull: bool | list[int] | list[list[int]] | None = None,
+    hull: bool | str | list[int] | list[list[int]] | None = None,
     hull_color: str | list[str] | None = None,
     hull_opacity: float | None = None,
     hull_edge: bool | None = None,
@@ -988,13 +998,19 @@ def render_gif(
         cfg = copy.copy(config)
         # Apply hull overrides to pre-built config
         if hull is not None:
-            if isinstance(hull, list):
+            if hull == "rings":
+                _gif_graph = molecule.graph if isinstance(molecule, Molecule) else load(molecule).graph
+                ring_indices = _resolve_hull_rings(_gif_graph)
+                if ring_indices:
+                    cfg.show_convex_hull = True
+                    cfg.hull_atom_indices = ring_indices
+            elif isinstance(hull, list):
                 cfg.show_convex_hull = True
                 # 1-indexed user input → 0-indexed internal
                 from xyzrender.hull import hull_indices_to_0indexed
 
                 cfg.hull_atom_indices = hull_indices_to_0indexed(hull)
-            else:
+            elif isinstance(hull, bool):
                 cfg.show_convex_hull = hull
         if hull_color is not None:
             if isinstance(hull_color, list):
@@ -1008,13 +1024,17 @@ def render_gif(
         if hull_edge_width_ratio is not None:
             cfg.hull_edge_width_ratio = hull_edge_width_ratio
     else:
-        _hull_flag: bool | None = True if isinstance(hull, list) else hull
-        # 1-indexed user input → 0-indexed for build_config
-        if isinstance(hull, list):
+        if hull == "rings":
+            _gif_graph2 = molecule.graph if isinstance(molecule, Molecule) else load(molecule).graph
+            _hull_flag: bool | None = True
+            _hull_idx: list[int] | list[list[int]] | None = _resolve_hull_rings(_gif_graph2) or None
+        elif isinstance(hull, list):
+            _hull_flag = True
             from xyzrender.hull import hull_indices_to_0indexed
 
-            _hull_idx: list[int] | list[list[int]] | None = hull_indices_to_0indexed(hull)
+            _hull_idx = hull_indices_to_0indexed(hull)
         else:
+            _hull_flag = hull if isinstance(hull, bool) else None
             _hull_idx = None
         cfg = build_config(
             config,
@@ -1237,6 +1257,32 @@ def render_gif(
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+
+def _resolve_hull_rings(graph: nx.Graph) -> list[list[int]]:
+    """Return aromatic ring atom indices from the molecular graph.
+
+    Reads ``graph.graph["aromatic_rings"]`` if present (set by xyzgraph).
+    Otherwise runs ``xyzgraph.build_graph`` on demand for Hückel detection
+    from 3D geometry — this avoids the cost of a full rebuild at load time
+    for molecules that never use ``hull="rings"``.
+
+    Each ring is a list of 0-indexed atom indices.  If no aromatic rings are
+    found, logs a warning and returns an empty list.
+    """
+    rings = graph.graph.get("aromatic_rings", [])
+    if not rings and "aromatic_rings" not in graph.graph:
+        from xyzgraph import build_graph
+
+        atoms = [(graph.nodes[i]["symbol"], tuple(graph.nodes[i]["position"])) for i in graph.nodes()]
+        charge = graph.graph.get("total_charge", 0)
+        mult = graph.graph.get("multiplicity")
+        tmp = build_graph(atoms, charge=charge, multiplicity=mult)
+        rings = tmp.graph.get("aromatic_rings", [])
+    if not rings:
+        logger.warning("hull='rings' requested but no aromatic rings detected in the molecular graph")
+        return []
+    return [list(r) for r in rings]
 
 
 def _resolve_cmap(
