@@ -137,12 +137,100 @@ def merge_graphs(
         data["position"] = (float(x), float(y), float(z) + _Z_NUDGE)
         merged.add_node(id_map[old_id], **data)
 
-    bond_color = Color.from_str(overlay_color).darken(0.30).hex
+    # Darken overlay bond colour relative to overlay atom colour.
+    bond_color = Color.from_str(overlay_color).darken(0.0, 0.30, 0.0).hex
     for i, j, d in mol2_graph.edges(data=True):
         merged.add_edge(id_map[i], id_map[j], **dict(d), molecule_index=1, bond_color_override=bond_color)
 
     # Keep aromatic rings from mol1 only (mol2 ring node IDs are offset)
     if "aromatic_rings" in mol1_graph.graph:
         merged.graph["aromatic_rings"] = [set(r) for r in mol1_graph.graph["aromatic_rings"]]
+
+    return merged
+
+
+def build_ensemble_graph(
+    base_graph: nx.Graph,
+    aligned_positions: list[np.ndarray],
+    overlay_color: str = "mediumorchid",
+) -> nx.Graph:
+    """Build a merged NetworkX graph containing an ensemble of conformers.
+
+    The *base_graph* provides topology and atom metadata for the reference
+    conformer (index 0).  Each entry in *aligned_positions* is a ``(n, 3)``
+    array of aligned coordinates for an additional conformer, matched to
+    the node order of *base_graph* via :func:`_node_list`.
+
+    Node attributes:
+    - ``molecule_index``: 0 for the reference, 1..N for ensemble members.
+    - ``overlay``: ``True`` for ensemble atoms (index >= 1).
+
+    Edge attributes:
+    - ``molecule_index``: 0..N as above.
+    - ``bond_color_override``: hex colour for ensemble bonds
+      (30% darker than ``overlay_color``).
+
+    Ensemble atom z-positions are nudged back by small multiples of
+    ``_Z_NUDGE`` so the reference conformer renders on top when projected
+    depths coincide.
+    """
+    import networkx as nx
+
+    if not aligned_positions:
+        return base_graph
+
+    nodes = _node_list(base_graph)
+    n_atoms = len(nodes)
+    if n_atoms == 0:
+        return base_graph
+
+    merged = nx.Graph()
+    merged.graph.update(base_graph.graph)
+
+    # Reference conformer (index 0)
+    for nid in nodes:
+        data = dict(base_graph.nodes[nid])
+        data["molecule_index"] = 0
+        merged.add_node(nid, **data)
+
+    for i, j, d in base_graph.edges(data=True):
+        merged.add_edge(i, j, **dict(d), molecule_index=0)
+
+    bond_color = Color.from_str(overlay_color).darken(0.0, 0.30, 0.0).hex
+
+    next_id = n_atoms
+    for conf_index, pos in enumerate(aligned_positions, start=1):
+        pos = np.asarray(pos, dtype=float)
+        if pos.shape != (n_atoms, 3):
+            msg = (
+                "ensemble: all conformers must have the same number of atoms "
+                f"as the reference ({n_atoms}); got shape {pos.shape!r} for conformer {conf_index}"
+            )
+            raise ValueError(msg)
+
+        id_map = {old: next_id + k for k, old in enumerate(nodes)}
+
+        for k, old_id in enumerate(nodes):
+            data = dict(base_graph.nodes[old_id])
+            data["molecule_index"] = conf_index
+            data["overlay"] = True
+            x, y, z = pos[k]
+            # Push successive conformers slightly further back in z
+            data["position"] = (float(x), float(y), float(z) + conf_index * _Z_NUDGE)
+            merged.add_node(id_map[old_id], **data)
+
+        for i, j, d in base_graph.edges(data=True):
+            merged.add_edge(
+                id_map[i],
+                id_map[j],
+                **dict(d),
+                molecule_index=conf_index,
+                bond_color_override=bond_color,
+            )
+
+        next_id += n_atoms
+
+    if "aromatic_rings" in base_graph.graph:
+        merged.graph["aromatic_rings"] = [set(r) for r in base_graph.graph["aromatic_rings"]]
 
     return merged

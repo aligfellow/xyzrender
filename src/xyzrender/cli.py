@@ -7,7 +7,7 @@ import logging
 import sys
 from pathlib import Path
 
-from xyzrender.api import Molecule, load, orient, render, render_gif
+from xyzrender.api import Molecule, ensemble, load, orient, render, render_gif
 from xyzrender.config import build_config
 from xyzrender.readers import load_stdin
 
@@ -167,6 +167,12 @@ def main() -> None:
         default=None,
         metavar="FILE",
         help="Overlay molecule file — aligned onto the main input and drawn in magenta",
+    )
+    ov_g.add_argument(
+        "--ensemble",
+        action="store_true",
+        default=False,
+        help="Overlay all frames from a multi-frame XYZ into a single aligned image (keeps standard CPK colours)",
     )
     ov_g.add_argument(
         "--overlay-color",
@@ -401,6 +407,10 @@ def main() -> None:
         logger.warning("--mol-frame has no effect on non-SDF input")
     if args.rebuild and args.smi:
         logger.warning("--rebuild has no effect on SMILES input (rdkit bonds are always used)")
+    if args.ensemble and args.overlay:
+        p.error("--ensemble cannot be combined with --overlay")
+    if args.ensemble and from_stdin:
+        p.error("--ensemble requires an input file (stdin is not supported)")
 
     # --crystal: interface_mode is non-None iff phonopy crystal loading is requested.
     # Auto-detection (stem/extension) is handled inside load() → _resolve_crystal_interface().
@@ -512,33 +522,50 @@ def main() -> None:
 
     # --- Render static SVG ---
     try:
-        render(
-            mol,
-            config=cfg,
-            no_cell=args.no_cell,
-            axes=args.axes,
-            axis=args.axis,
-            ghosts=_show_ghosts,
-            cell_color=args.cell_color,
-            cell_width=args.cell_width,
-            ghost_opacity=args.ghost_opacity,
-            mo=args.mo,
-            dens=args.dens,
-            esp=args.esp,
-            nci=args.nci_surf,
-            iso=args.iso,
-            mo_pos_color=args.mo_colors[0] if args.mo_colors else None,
-            mo_neg_color=args.mo_colors[1] if args.mo_colors else None,
-            mo_blur=args.mo_blur,
-            mo_upsample=args.mo_upsample,
-            flat_mo=args.flat_mo,
-            dens_color=args.dens_color,
-            nci_color=args.nci_color,
-            nci_coloring=args.nci_coloring,
-            overlay=args.overlay,
-            overlay_color=args.overlay_color,
-            output=args.output,
-        )
+        if args.ensemble:
+            ensemble(
+                args.input,
+                config=cfg,
+                charge=args.charge,
+                multiplicity=args.multiplicity,
+                kekule=args.kekule,
+                rebuild=args.rebuild,
+                ts_detect=needs_ts,
+                ts_frame=args.ts_frame,
+                nci_detect=args.nci_detect,
+                crystal=interface_mode or False,
+                cell=args.cell,
+                quick=args.bo is False,
+                output=args.output,
+            )
+        else:
+            render(
+                mol,
+                config=cfg,
+                no_cell=args.no_cell,
+                axes=args.axes,
+                axis=args.axis,
+                ghosts=_show_ghosts,
+                cell_color=args.cell_color,
+                cell_width=args.cell_width,
+                ghost_opacity=args.ghost_opacity,
+                mo=args.mo,
+                dens=args.dens,
+                esp=args.esp,
+                nci=args.nci_surf,
+                iso=args.iso,
+                mo_pos_color=args.mo_colors[0] if args.mo_colors else None,
+                mo_neg_color=args.mo_colors[1] if args.mo_colors else None,
+                mo_blur=args.mo_blur,
+                mo_upsample=args.mo_upsample,
+                flat_mo=args.flat_mo,
+                dens_color=args.dens_color,
+                nci_color=args.nci_color,
+                nci_coloring=args.nci_coloring,
+                overlay=args.overlay,
+                overlay_color=args.overlay_color,
+                output=args.output,
+            )
     except ValueError as e:
         p.error(str(e))
 

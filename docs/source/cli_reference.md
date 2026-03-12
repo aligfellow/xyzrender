@@ -49,6 +49,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | Flag | Description |
 |------|-------------|
 | `--overlay FILE` | Second structure to overlay (RMSD-aligned onto the primary) |
+| `--ensemble` | Overlay all frames from a multi-frame XYZ into a single aligned image (keeps standard CPK colours) |
 | `--overlay-color COLOR` | Color for the overlay structure (hex or named) |
 
 ## Orientation

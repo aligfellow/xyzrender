@@ -339,6 +339,22 @@ xyzrender isothio_xtb.xyz --overlay isothio_uma.xyz -c 1 --hy -o isothio_overlay
 xyzrender isothio_xtb.xyz --overlay isothio_uma.xyz -c 1 --overlay-color green -a 2 --no-orient -o isothio_overlay_custom.svg
 ```
 
+### Ensemble overlay (multi-frame XYZ)
+
+Overlay all frames from a multi-frame XYZ (e.g. conformer ensemble or trajectory) into a single image. All frames are RMSD-aligned onto the first frame using index-based atom pairing. Unlike `--overlay`, ensemble rendering keeps the standard CPK palette.
+
+```bash
+xyzrender conformers.xyz --ensemble -o conformers_ensemble.svg
+```
+
+From Python:
+
+```python
+from xyzrender import ensemble
+
+ensemble("conformers.xyz")  # returns an SVGResult, displays inline in Jupyter
+```
+
 ### Transition states and NCI
 
 xyzrender uses [xyzgraph](https://github.com/aligfellow/xyzgraph) for molecular graph construction from Cartesian coordinates — determining bond connectivity, bond orders, detecting aromatic rings, and non-covalent interactions. It also provides element data (van der Waals radii, atomic numbers) used throughout rendering.
