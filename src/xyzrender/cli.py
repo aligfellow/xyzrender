@@ -166,7 +166,8 @@ def main() -> None:
         nargs="*",
         default=None,
         metavar="INDICES",
-        help='Convex hull (no args = all heavy atoms; or 1-indexed subsets e.g. "1-6" or "1-6 7-12")',
+        help='Convex hull (no args = all heavy atoms; "rings" = per aromatic ring;'
+        ' or 1-indexed subsets e.g. "1-6" or "1-6 7-12")',
     )
     surf_g.add_argument(
         "--hull-color", nargs="+", default=None, help="Hull fill color(s) (hex or named, one per subset)"
@@ -412,8 +413,8 @@ def main() -> None:
         show_indices=args.idx is not None,
         idx_format=args.idx or "sn",
         cmap_range=tuple(args.cmap_range) if args.cmap_range else None,
-        hull=True if args.hull is not None else None,
-        hull_idx=([_parse_indices(g) for g in args.hull] if args.hull else None),
+        hull=True if args.hull is not None and args.hull != ["rings"] else None,
+        hull_idx=([_parse_indices(g) for g in args.hull] if args.hull and args.hull != ["rings"] else None),
         hull_colors=args.hull_color,
         hull_opacity=args.hull_opacity,
         hull_edge=args.hull_edge,
@@ -508,6 +509,15 @@ def main() -> None:
             )
         except ValueError as e:
             p.error(str(e))
+
+    # Resolve hull="rings" now that mol is loaded
+    if args.hull == ["rings"]:
+        from xyzrender.api import _resolve_hull_rings
+
+        ring_indices = _resolve_hull_rings(mol.graph)
+        if ring_indices:
+            cfg.show_convex_hull = True
+            cfg.hull_atom_indices = ring_indices
 
     # Pre-load overlay once so render() + render_gif() don't each load it from disk.
     if args.overlay and isinstance(args.overlay, str):

@@ -99,6 +99,7 @@ xyzrender "$DIR/benzene.xyz" --hy --hull 1-6 -o "$IMG/benzene_ring_hull.svg"
 xyzrender "$DIR/anthracene.xyz" --hull -o "$IMG/anthracene_hull_one.svg" 
 xyzrender "$DIR/anthracene.xyz" --hull 1-6 4,6-10 8,10-14 -o "$IMG/anthracene_hull.svg" --gif-rot -go "$IMG/anthracene_hull.gif"
 xyzrender "$DIR/CoCl6.xyz" --hull --hull-color teal --hull-opacity 0.5 -o "$IMG/CoCl6_octahedron_hull.svg" --gif-rot -go "$IMG/CoCl6_octahedron_hull.gif"
+xyzrender "$DIR/mn-h2.log" --ts --hull rings --hull-color teal -o "$IMG/mnh_hull_rings.svg"
 
 echo "=== NCI surfaces ==="
 xyzrender "$DIR/base-pair-dens.cube" --nci-surf "$DIR/base-pair-grad.cube" -o "$IMG/base-pair-nci_surf.svg"
