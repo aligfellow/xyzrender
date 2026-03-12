@@ -139,36 +139,14 @@ def orient_hkl_to_view(graph: nx.Graph, cell_data: "CellData", axis_str: str, cf
     pos_rot = (rot_view @ (pos - centroid).T).T + centroid
     for idx, nid in enumerate(node_ids):
         graph.nodes[nid]["position"] = tuple(pos_rot[idx].tolist())
-    cell_data.lattice = (rot_view @ cell_data.lattice.T).T
-    cell_data.cell_origin = rot_view @ (cell_data.cell_origin - centroid) + centroid
+    from xyzrender.utils import _apply_rot_to_vecs
+
+    cell_data.lattice, cell_data.cell_origin = _apply_rot_to_vecs(
+        rot_view, cell_data.lattice, cell_data.cell_origin, centroid
+    )
     if hasattr(cfg, "vectors"):
         for vec in cfg.vectors:
-            vec.vector = (rot_view @ np.array(vec.vector, dtype=float).T).T.tolist()
-            vec.origin = (rot_view @ (np.array(vec.origin, dtype=float) - centroid) + centroid).tolist()
-
-
-def _apply_rot_to_lattice(graph: nx.Graph, rot: np.ndarray, centroid: np.ndarray) -> None:
-    """Rotate the lattice vectors and cell origin stored on *graph* by *rot*.
-
-    Both the lattice vectors and the cell origin are always updated so that
-    the cell box stays aligned with the atoms after any rotation.  The origin
-    defaults to (0, 0, 0) when not explicitly present in the graph.
-
-    Parameters
-    ----------
-    graph:
-        Molecular graph (lattice stored in ``graph.graph``).
-    rot:
-        3x3 rotation matrix.
-    centroid:
-        Centroid position to rotate around.
-    """
-    if "lattice" not in graph.graph:
-        return
-    lat = np.array(graph.graph["lattice"], dtype=float)
-    graph.graph["lattice"] = (rot @ lat.T).T
-    origin = np.array(graph.graph.get("lattice_origin", np.zeros(3)), dtype=float)
-    graph.graph["lattice_origin"] = rot @ (origin - centroid) + centroid
+            vec.vector, vec.origin = _apply_rot_to_vecs(rot_view, vec.vector, vec.origin, centroid)
 
 
 def _run_viewer(viewer: Vmol, mol: dict, extra_args: list[str] | None = None) -> str:

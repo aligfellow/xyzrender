@@ -353,7 +353,7 @@ def render_rotation_gif(
             for i, nid in enumerate(nodes):
                 graph.nodes[nid]["position"] = tuple(_tilted[i].tolist())
 
-    # Set up the cell origin (0,0,0) so _apply_rot_to_lattice rotates it around
+    # Set up the cell origin (0,0,0) so it rotates it around
     # the molecular centre of mass, not around the origin.
     # _orient_graph already does this for the PCA path; this covers --no-orient.
     if "lattice" in graph.graph and "lattice_origin" not in graph.graph:
