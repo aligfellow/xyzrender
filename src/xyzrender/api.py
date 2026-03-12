@@ -546,6 +546,7 @@ def render(
     if not isinstance(config, str):
         # Pre-built RenderConfig — shallow copy so we don't mutate the caller's object
         cfg = copy.copy(config)
+        cfg.vectors = list(cfg.vectors)
         if _orient is not None:
             cfg.auto_orient = _orient
         elif mol.oriented:
@@ -688,14 +689,6 @@ def render(
         from xyzrender.types import resolve_color
 
         cfg.vector_color = resolve_color(vector_color)
-    if vectors is not None:
-        if isinstance(vectors, list):
-            cfg.vectors = vectors
-        else:
-            from xyzrender.annotations import load_vectors
-
-            _vec_src = vectors if isinstance(vectors, dict) else Path(vectors)
-            cfg.vectors = load_vectors(_vec_src, rmol.graph, default_color=cfg.vector_color)
 
     # --- Early overlay validation (before ghost atoms are added to g1) ---
     if overlay is not None and mol.cell_data is not None:
@@ -822,6 +815,15 @@ def render(
 
         nci_cube = parse_cube(str(nci))
         compute_nci_surface(rmol.graph, cube_data, nci_cube, cfg, nci_params)
+
+    if vectors is not None:
+        from xyzrender.annotations import load_vectors
+
+        if not isinstance(vectors, list):
+            _vec_src = vectors if isinstance(vectors, dict) else Path(vectors)
+            vectors = load_vectors(_vec_src, rmol.graph, default_color=cfg.vector_color)
+
+        cfg.vectors.extend(vectors)
 
     # --- Render ---
     svg = render_svg(rmol.graph, cfg)
@@ -986,6 +988,7 @@ def render_gif(
     # Resolve config
     if not isinstance(config, str):
         cfg = copy.copy(config)
+        cfg.vectors = list(cfg.vectors)
         # Apply hull overrides to pre-built config
         if hull is not None:
             if isinstance(hull, list):

@@ -281,3 +281,65 @@ def test_arrow_x_drawn_when_short_facing_away():
     assert "<polygon" not in svg, "unexpected arrowhead polygon for too-short arrow"
     # Label is suppressed for dot/x symbols.
     assert "W" not in svg.split("<text", 1)[-1] if "<text" in svg else True
+
+# ---------------------------------------------------------------------------
+# API render() — vectors appear when combined with crystal axes
+# ---------------------------------------------------------------------------
+
+def test_render_user_vector_appears_plain_mol():
+    """render() draws both the shaft/head and label for a vector on a plain molecule."""
+    from xyzrender.api import load as api_load
+    from xyzrender.api import render
+
+    mol = api_load(EXAMPLES / "caffeine.xyz")
+    jf = _write_json([{"origin": "com", "vector": [2.0, 0.0, 0.0], "color": "#ab1234", "label": "testvec"}])
+    svg = str(render(mol, vectors=str(jf)))
+    assert "#ab1234" in svg, "user vector color must appear in SVG"
+    assert "testvec" in svg, "user vector label must appear in SVG"
+    # A filled arrowhead polygon should be present.
+    assert re.search(r'<polygon[^>]*fill="#ab1234"', svg), "arrowhead polygon with user color must appear in SVG"
+
+
+def test_render_user_vector_appears_with_crystal_axes():
+    """render() with cell_data + axes=True must include BOTH axis colors AND the
+    user-supplied vector color in the SVG output.  This is the main regression
+    guard for the bug where cfg.vectors was overwritten instead of extended."""
+    from xyzrender.api import load as api_load
+    from xyzrender.api import render
+
+    mol = api_load(EXAMPLES / "caffeine_cell.xyz", cell=True)
+    # Use a color that differs from all three axis colors (firebrick/forestgreen/royalblue)
+    user_color = "#cd5c5c"  # indianred — resolves to a distinct hex from axis colors
+    jf = _write_json([{"origin": "com", "vector": [2.0, 0.0, 0.0], "color": user_color, "label": "dipole"}])
+    svg = str(render(mol, vectors=str(jf), axes=True))
+    # Axis colors must be present (firebrick → #b22222, forestgreen → #228b22, royalblue → #4169e1)
+    from xyzrender.types import resolve_color
+
+    assert resolve_color("firebrick") in svg, "a-axis (firebrick) must appear"
+    assert resolve_color("forestgreen") in svg, "b-axis (forestgreen) must appear"
+    assert resolve_color("royalblue") in svg, "c-axis (royalblue) must appear"
+    # User vector must also be present
+    assert user_color in svg, "user vector color must appear in SVG alongside axis arrows"
+    assert "dipole" in svg, "user vector label must appear in SVG"
+
+
+def test_render_user_vector_appears_with_crystal_axes_no_double_loading():
+    """Calling render() twice with the same pre-built config must NOT accumulate
+    vectors across calls (shallow-copy list aliasing regression)."""
+    from xyzrender.api import load as api_load
+    from xyzrender.api import render
+    from xyzrender.config import build_config
+
+    mol = api_load(EXAMPLES / "caffeine_cell.xyz", cell=True)
+    user_color = "#cd5c5c"
+    jf = _write_json([{"origin": "com", "vector": [2.0, 0.0, 0.0], "color": user_color, "label": "dipole"}])
+
+    cfg = build_config("default")
+    svg1 = str(render(mol, config=cfg, vectors=str(jf), axes=True))
+    svg2 = str(render(mol, config=cfg, vectors=str(jf), axes=True))
+
+    # Count polygon arrowheads with user color in each SVG — should be exactly 1 each
+    count1 = len(re.findall(rf'<polygon[^>]*fill="{re.escape(user_color)}"', svg1))
+    count2 = len(re.findall(rf'<polygon[^>]*fill="{re.escape(user_color)}"', svg2))
+    assert count1 == 1, f"first render: expected 1 user-vector arrowhead, got {count1}"
+    assert count2 == 1, f"second render: expected 1 user-vector arrowhead, got {count2}"
