@@ -615,7 +615,7 @@ def render(
             gradient=gradient,
             hue_shift_factor=hue_shift_factor,
             light_shift_factor=light_shift_factor,
-            saturation_shift_factor=hue_shift_factor,
+            saturation_shift_factor=saturation_shift_factor,
             fog=fog,
             fog_strength=fog_strength,
             label_font_size=label_font_size,

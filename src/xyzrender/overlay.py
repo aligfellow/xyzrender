@@ -137,7 +137,7 @@ def merge_graphs(
         data["position"] = (float(x), float(y), float(z) + _Z_NUDGE)
         merged.add_node(id_map[old_id], **data)
 
-    bond_color = Color.from_str(overlay_color).darken(0.30).hex
+    bond_color = Color.from_str(overlay_color).darken(strength=0.30).hex
     for i, j, d in mol2_graph.edges(data=True):
         merged.add_edge(id_map[i], id_map[j], **dict(d), molecule_index=1, bond_color_override=bond_color)
 

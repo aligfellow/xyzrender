@@ -48,10 +48,24 @@ def get_color(atomic_number: int, overrides: dict[str, str] | None = None) -> Co
     return Color.from_int(_DEFAULT_COLOR)
 
 
-def get_gradient_colors(color: Color, hue_shift_factor:float, light_shift_factor:float, saturation_shift_factor:float, config: RenderConfig | None = None,) -> tuple[Color, Color]:
-    """Compute gradient pair from a base color: (lighter center, darker edge)."""
+def get_gradient_colors(color: Color, config: RenderConfig | None = None) -> tuple[Color, Color, Color]:
+    """Compute gradient triplet from a base color: (lighter center, base, darker edge)."""
     cfg = config or RenderConfig()
-    return color.lighten(cfg.hue_shift_factor, cfg.light_shift_factor, cfg.saturation_shift_factor), color, color.darken(cfg.hue_shift_factor, cfg.light_shift_factor, cfg.saturation_shift_factor)
+    return (
+        color.lighten(
+            strength=1.0,
+            hue_shift_factor=cfg.hue_shift_factor,
+            light_shift_factor=cfg.light_shift_factor,
+            saturation_shift_factor=cfg.saturation_shift_factor,
+        ),
+        color,
+        color.darken(
+            strength=1.0,
+            hue_shift_factor=cfg.hue_shift_factor,
+            light_shift_factor=cfg.light_shift_factor,
+            saturation_shift_factor=cfg.saturation_shift_factor,
+        ),
+    )
 
 
 _FOG_NEAR = 1.0  # Å of depth before fog kicks in

@@ -1034,7 +1034,7 @@ Create a JSON file with any combination of settings. Include keys you wish to ov
   "background": "#ffffff",
   "vdw_opacity": 0.25,
   "vdw_scale": 1.0,
-  "vdw_gradient_strength": 1.0,
+  "vdw_gradient_strength": 1.6,
   "surface_opacity": 1.0,
   "mo_pos_color": "steelblue",
   "mo_neg_color": "maroon",
@@ -1214,6 +1214,7 @@ Contributors:
 - [Ksenia Briling (@briling)](https://github.com/briling) — `vmol` integration and the [xyz2svg](https://github.com/briling/xyz2svg) foundation
 - [Sander Cohen-Janes (@scohenjanes5)](https://github.com/scohenjanes5) — crystal/periodic structure support (VASP, Quantum ESPRESSO, ghost atoms, crystallographic axes), vector annotations and gif parallelisation
 - [Rubén Laplaza (@rlaplaza)](https://github.com/rlaplaza) — convex hull facets
+- [Iñigo Iribarren Aguirre (@iribirii)](https://github.com/iribirii) — radial gradients respecting colour space (pseudo-3D)
 - [Vinicius Port (@caprilesport)](https://github.com/caprilesport) — `v` binary path discovery
 - [Lucas Attia (@lucasattia)](https://github.com/lucasattia) — `--transparent` background flag
 

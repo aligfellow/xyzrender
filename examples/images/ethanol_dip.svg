@@ -1,17 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 451" width="800" height="451">
   <rect width="100%" height="100%" fill="#ffffff"/>
   <defs>
-    <g id="x0a0"><radialGradient id="x0g0" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="59.0" fill="url(#x0g0)" stroke="#000000" stroke-width="10.4"/></g>
-    <g id="x0a1"><radialGradient id="x0g1" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#888888"/></radialGradient><circle cx="0" cy="0" r="59.0" fill="url(#x0g1)" stroke="#000000" stroke-width="10.4"/></g>
-    <g id="x0a2"><radialGradient id="x0g2" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ff5555"/><stop offset="100%" stop-color="#cc0a0a"/></radialGradient><circle cx="0" cy="0" r="52.9" fill="url(#x0g2)" stroke="#000000" stroke-width="10.4"/></g>
-    <g id="x0a8"><radialGradient id="x0g8" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#cccccc"/></radialGradient><circle cx="0" cy="0" r="31.0" fill="url(#x0g8)" stroke="#000000" stroke-width="10.4"/></g>
+    <g id="x0a0"><radialGradient id="x0g0" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient><circle cx="0" cy="0" r="59.0" fill="url(#x0g0)" stroke="#000000" stroke-width="10.4"/></g>
+    <g id="x0a1"><radialGradient id="x0g1" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient><circle cx="0" cy="0" r="59.0" fill="url(#x0g1)" stroke="#000000" stroke-width="10.4"/></g>
+    <g id="x0a2"><radialGradient id="x0g2" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ef5240"/><stop offset="40%" stop-color="#ff0d0d"/><stop offset="100%" stop-color="#93001d"/></radialGradient><circle cx="0" cy="0" r="52.9" fill="url(#x0g2)" stroke="#000000" stroke-width="10.4"/></g>
+    <g id="x0a8"><radialGradient id="x0g8" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9d7b81"/></radialGradient><circle cx="0" cy="0" r="31.0" fill="url(#x0g8)" stroke="#000000" stroke-width="10.4"/></g>
   </defs>
   <use x="573.1" y="368.2" xlink:href="#x0a2"/>
   <line x1="617.7" y1="351.4" x2="694.9" y2="322.3" stroke="#000000" stroke-width="26.0" stroke-linecap="round"/>
   <line x1="543.7" y1="330.7" x2="462.4" y2="226.9" stroke="#000000" stroke-width="26.0" stroke-linecap="round"/>
   <line x1="318.8" y1="370.1" x2="384.4" y2="157.1" stroke="#b22222" stroke-width="15.6" stroke-linecap="round"/>
   <polygon points="400.5,104.9 404.2,163.2 364.6,151.0" fill="#b22222"/>
-  <text x="419.3" y="65.6" font-size="62.4" fill="#b22222" font-family="Arial,sans-serif" text-anchor="middle" font-weight="bold">μ</text>
+  <text x="412.4" y="88.0" font-size="62.4" fill="#b22222" font-family="Arial,sans-serif" text-anchor="middle" font-weight="bold">μ</text>
   <use x="721.0" y="312.5" xlink:href="#x0a8"/>
   <use x="429.7" y="185.1" xlink:href="#x0a1"/>
   <line x1="379.3" y1="201.8" x2="245.9" y2="245.9" stroke="#000000" stroke-width="26.0" stroke-linecap="round"/>

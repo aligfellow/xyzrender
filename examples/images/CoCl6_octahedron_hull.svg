@@ -1,22 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 800" width="800" height="800">
   <rect width="100%" height="100%" fill="#ffffff"/>
   <defs>
-    <g id="x0a0"><radialGradient id="x0g0" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#f4b7c1"/><stop offset="100%" stop-color="#c57f8a"/></radialGradient><circle cx="0" cy="0" r="59.9" fill="url(#x0g0)" stroke="#1f1f1f" stroke-width="8.4"/></g>
-    <g id="x0a1"><radialGradient id="x0g1" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#6ff46f"/><stop offset="100%" stop-color="#2bc52b"/></radialGradient><circle cx="0" cy="0" r="49.6" fill="url(#x0g1)" stroke="#1f1f1f" stroke-width="8.4"/></g>
-    <g id="x0a2"><radialGradient id="x0g2" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#6ff46f"/><stop offset="100%" stop-color="#2bc52b"/></radialGradient><circle cx="0" cy="0" r="49.6" fill="url(#x0g2)" stroke="#1f1f1f" stroke-width="8.4"/></g>
-    <g id="x0a3"><radialGradient id="x0g3" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#6ff46f"/><stop offset="100%" stop-color="#2bc52b"/></radialGradient><circle cx="0" cy="0" r="49.6" fill="url(#x0g3)" stroke="#1f1f1f" stroke-width="8.4"/></g>
-    <g id="x0a4"><radialGradient id="x0g4" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#6ff46f"/><stop offset="100%" stop-color="#2bc52b"/></radialGradient><circle cx="0" cy="0" r="49.6" fill="url(#x0g4)" stroke="#1f1f1f" stroke-width="8.4"/></g>
-    <g id="x0a5"><radialGradient id="x0g5" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#62f462"/><stop offset="100%" stop-color="#18c018"/></radialGradient><circle cx="0" cy="0" r="49.6" fill="url(#x0g5)" stroke="#000000" stroke-width="8.4"/></g>
-    <g id="x0a6"><radialGradient id="x0g6" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c5fac5"/><stop offset="100%" stop-color="#a9e7a9"/></radialGradient><circle cx="0" cy="0" r="49.6" fill="url(#x0g6)" stroke="#b2b2b2" stroke-width="8.4"/></g>
+    <g id="x0a0"><radialGradient id="x0g0" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#edadb1"/><stop offset="40%" stop-color="#f199a8"/><stop offset="100%" stop-color="#c2295f"/></radialGradient><circle cx="0" cy="0" r="59.9" fill="url(#x0g0)" stroke="#1f1f1f" stroke-width="8.4"/></g>
+    <g id="x0a1"><radialGradient id="x0g1" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#6ae65c"/><stop offset="40%" stop-color="#32f132"/><stop offset="100%" stop-color="#1c9634"/></radialGradient><circle cx="0" cy="0" r="49.6" fill="url(#x0g1)" stroke="#1f1f1f" stroke-width="8.4"/></g>
+    <g id="x0a2"><radialGradient id="x0g2" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#6ae65c"/><stop offset="40%" stop-color="#32f132"/><stop offset="100%" stop-color="#1c9634"/></radialGradient><circle cx="0" cy="0" r="49.6" fill="url(#x0g2)" stroke="#1f1f1f" stroke-width="8.4"/></g>
+    <g id="x0a3"><radialGradient id="x0g3" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#6ae65c"/><stop offset="40%" stop-color="#32f132"/><stop offset="100%" stop-color="#1c9634"/></radialGradient><circle cx="0" cy="0" r="49.6" fill="url(#x0g3)" stroke="#1f1f1f" stroke-width="8.4"/></g>
+    <g id="x0a4"><radialGradient id="x0g4" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#6ae65c"/><stop offset="40%" stop-color="#32f132"/><stop offset="100%" stop-color="#1c9634"/></radialGradient><circle cx="0" cy="0" r="49.6" fill="url(#x0g4)" stroke="#1f1f1f" stroke-width="8.4"/></g>
+    <g id="x0a5"><radialGradient id="x0g5" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#5de44d"/><stop offset="40%" stop-color="#1ff01f"/><stop offset="100%" stop-color="#078d22"/></radialGradient><circle cx="0" cy="0" r="49.6" fill="url(#x0g5)" stroke="#000000" stroke-width="8.4"/></g>
+    <g id="x0a6"><radialGradient id="x0g6" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3f5bd"/><stop offset="40%" stop-color="#acf9ac"/><stop offset="100%" stop-color="#a3d5ad"/></radialGradient><circle cx="0" cy="0" r="49.6" fill="url(#x0g6)" stroke="#b2b2b2" stroke-width="8.4"/></g>
   </defs>
-  <polygon points="400.0,400.0 400.0,720.1 79.9,400.0" fill="#008080" fill-opacity="0.20" stroke="none"/>
-  <polygon points="400.0,400.0 400.0,720.1 720.1,400.0" fill="#008080" fill-opacity="0.20" stroke="none"/>
-  <polygon points="400.0,79.9 400.0,400.0 720.1,400.0" fill="#008080" fill-opacity="0.20" stroke="none"/>
-  <polygon points="400.0,79.9 400.0,400.0 79.9,400.0" fill="#008080" fill-opacity="0.20" stroke="none"/>
-  <polygon points="400.0,400.0 400.0,720.1 79.9,400.0" fill="#008080" fill-opacity="0.20" stroke="none"/>
-  <polygon points="400.0,400.0 400.0,720.1 720.1,400.0" fill="#008080" fill-opacity="0.20" stroke="none"/>
-  <polygon points="400.0,79.9 400.0,400.0 720.1,400.0" fill="#008080" fill-opacity="0.20" stroke="none"/>
-  <polygon points="400.0,79.9 400.0,400.0 79.9,400.0" fill="#008080" fill-opacity="0.20" stroke="none"/>
+  <polygon points="400.0,400.0 400.0,720.1 79.9,400.0" fill="#008080" fill-opacity="0.50" stroke="none"/>
+  <polygon points="400.0,400.0 400.0,720.1 720.1,400.0" fill="#008080" fill-opacity="0.50" stroke="none"/>
+  <polygon points="400.0,79.9 400.0,400.0 720.1,400.0" fill="#008080" fill-opacity="0.50" stroke="none"/>
+  <polygon points="400.0,79.9 400.0,400.0 79.9,400.0" fill="#008080" fill-opacity="0.50" stroke="none"/>
+  <polygon points="400.0,400.0 400.0,720.1 79.9,400.0" fill="#008080" fill-opacity="0.50" stroke="none"/>
+  <polygon points="400.0,400.0 400.0,720.1 720.1,400.0" fill="#008080" fill-opacity="0.50" stroke="none"/>
+  <polygon points="400.0,79.9 400.0,400.0 720.1,400.0" fill="#008080" fill-opacity="0.50" stroke="none"/>
+  <polygon points="400.0,79.9 400.0,400.0 79.9,400.0" fill="#008080" fill-opacity="0.50" stroke="none"/>
   <line x1="79.9" y1="400.0" x2="400.0" y2="720.1" stroke="#008080" stroke-width="10.5" stroke-linecap="round"/>
   <line x1="720.1" y1="400.0" x2="400.0" y2="720.1" stroke="#008080" stroke-width="10.5" stroke-linecap="round"/>
   <line x1="720.1" y1="400.0" x2="400.0" y2="79.9" stroke="#008080" stroke-width="10.5" stroke-linecap="round"/>

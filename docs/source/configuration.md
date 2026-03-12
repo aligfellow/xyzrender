@@ -47,7 +47,7 @@ All available keys:
   "background": "#ffffff",
   "vdw_opacity": 0.25,
   "vdw_scale": 1.0,
-  "vdw_gradient_strength": 1.0,
+  "vdw_gradient_strength": 0.845,
   "surface_opacity": 1.0,
   "mo_pos_color": "steelblue",
   "mo_neg_color": "maroon",

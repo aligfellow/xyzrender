@@ -93,7 +93,9 @@ def main() -> None:
     style_g.add_argument("-t", "--transparent", action="store_true", help="Transparent background")
     style_g.add_argument("-Hls", "--hue-shift-factor", type=float, default=None, help="Hue gradient contrast")
     style_g.add_argument("-hLs", "--light-shift-factor", type=float, default=None, help="Lightness gradient contrast")
-    style_g.add_argument("-hlS", "--saturation-shift-factor", type=float, default=None, help="Saturation gradient contrast")
+    style_g.add_argument(
+        "-hlS", "--saturation-shift-factor", type=float, default=None, help="Saturation gradient contrast"
+    )
     style_g.add_argument("--grad", action=argparse.BooleanOptionalAction, default=None, help="Radial gradients")
     style_g.add_argument("-F", "--fog-strength", type=float, default=None, help="Fog strength")
     style_g.add_argument("--vdw-opacity", type=float, default=None, help="VdW sphere opacity")
