@@ -343,6 +343,8 @@ xyzrender isothio_xtb.xyz --overlay isothio_uma.xyz -c 1 --overlay-color green -
 
 Overlay all frames from a multi-frame XYZ (e.g. conformer ensemble or trajectory) into a single image. All frames are RMSD-aligned onto the first frame using index-based atom pairing. Unlike `--overlay`, ensemble rendering keeps the standard CPK palette.
 
+![ensemble](examples/images/ensemble_ensemble.svg)
+
 ```bash
 xyzrender conformers.xyz --ensemble -o conformers_ensemble.svg
 ```

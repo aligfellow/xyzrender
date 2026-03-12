@@ -751,45 +751,13 @@ def render(
 # ---------------------------------------------------------------------------
 # Ensemble overlay (multi-frame XYZ)
 # ---------------------------------------------------------------------------
-def ensemble(
+
+
+def _build_ensemble_molecule(
     trajectory: str | os.PathLike,
     *,
-    config: str | RenderConfig = "default",
-    # --- Style (only when config is a preset name or file path) ---
-    canvas_size: int | None = None,
-    atom_scale: float | None = None,
-    bond_width: float | None = None,
-    atom_stroke_width: float | None = None,
-    bond_color: str | None = None,
-    background: str | None = None,
-    transparent: bool = False,
-    gradient: bool | None = None,
-    hue_shift_factor: float | None = None,
-    light_shift_factor: float | None = None,
-    saturation_shift_factor: float | None = None,
-    fog: bool | None = None,
-    fog_strength: float | None = None,
-    label_font_size: float | None = None,
-    vdw_opacity: float | None = None,
-    vdw_scale: float | None = None,
-    vdw_gradient_strength: float | None = None,
-    # --- Display ---
-    hy: bool | list[int] | None = None,
-    no_hy: bool = False,
-    bo: bool | None = None,
-    orient: bool | None = None,
-    idx: bool | str = False,
-    cmap: str | os.PathLike | dict[int, float] | None = None,
-    cmap_range: tuple[float, float] | None = None,
-    # --- Annotations ---
-    labels: list[str] | None = None,
-    label_file: str | None = None,
-    # --- Surface opacity ---
-    opacity: float | None = None,
-    # --- Ensemble ---
     reference_frame: int = 0,
     max_frames: int | None = None,
-    # --- Loading options (used for reference graph) ---
     charge: int = 0,
     multiplicity: int | None = None,
     kekule: bool = False,
@@ -800,13 +768,11 @@ def ensemble(
     crystal: bool | str = False,
     cell: bool = False,
     quick: bool = False,
-    # --- Output ---
-    output: str | os.PathLike | None = None,
-) -> SVGResult:
-    """Render all frames from a multi-frame XYZ in a single aligned image.
+) -> Molecule:
+    """Return a Molecule whose graph is the aligned ensemble of all frames.
 
     Frames are aligned onto *reference_frame* using index-based Kabsch
-    alignment. Rendering uses the standard CPK palette (no overlay colors).
+    alignment. The resulting graph keeps the standard CPK palette.
     """
     from xyzrender.readers import load_trajectory_frames
 
@@ -885,7 +851,77 @@ def ensemble(
         aligned_list.append(_align(g_ref, g_i))
 
     ensemble_graph = _merge(g_ref, aligned_list)
-    ensemble_mol = Molecule(graph=ensemble_graph, cube_data=None, cell_data=None, oriented=False)
+    return Molecule(graph=ensemble_graph, cube_data=None, cell_data=None, oriented=False)
+
+
+def ensemble(
+    trajectory: str | os.PathLike,
+    *,
+    config: str | RenderConfig = "default",
+    # --- Style (only when config is a preset name or file path) ---
+    canvas_size: int | None = None,
+    atom_scale: float | None = None,
+    bond_width: float | None = None,
+    atom_stroke_width: float | None = None,
+    bond_color: str | None = None,
+    background: str | None = None,
+    transparent: bool = False,
+    gradient: bool | None = None,
+    hue_shift_factor: float | None = None,
+    light_shift_factor: float | None = None,
+    saturation_shift_factor: float | None = None,
+    fog: bool | None = None,
+    fog_strength: float | None = None,
+    label_font_size: float | None = None,
+    vdw_opacity: float | None = None,
+    vdw_scale: float | None = None,
+    vdw_gradient_strength: float | None = None,
+    # --- Display ---
+    hy: bool | list[int] | None = None,
+    no_hy: bool = False,
+    bo: bool | None = None,
+    orient: bool | None = None,
+    idx: bool | str = False,
+    cmap: str | os.PathLike | dict[int, float] | None = None,
+    cmap_range: tuple[float, float] | None = None,
+    # --- Annotations ---
+    labels: list[str] | None = None,
+    label_file: str | None = None,
+    # --- Surface opacity ---
+    opacity: float | None = None,
+    # --- Ensemble ---
+    reference_frame: int = 0,
+    max_frames: int | None = None,
+    # --- Loading options (used for reference graph) ---
+    charge: int = 0,
+    multiplicity: int | None = None,
+    kekule: bool = False,
+    rebuild: bool = False,
+    ts_detect: bool = False,
+    ts_frame: int = 0,
+    nci_detect: bool = False,
+    crystal: bool | str = False,
+    cell: bool = False,
+    quick: bool = False,
+    # --- Output ---
+    output: str | os.PathLike | None = None,
+) -> SVGResult:
+    """Render all frames from a multi-frame XYZ in a single aligned image."""
+    ensemble_mol = _build_ensemble_molecule(
+        trajectory,
+        reference_frame=reference_frame,
+        max_frames=max_frames,
+        charge=charge,
+        multiplicity=multiplicity,
+        kekule=kekule,
+        rebuild=rebuild,
+        ts_detect=ts_detect,
+        ts_frame=ts_frame,
+        nci_detect=nci_detect,
+        crystal=crystal,
+        cell=cell,
+        quick=quick,
+    )
 
     return render(
         ensemble_mol,

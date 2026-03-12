@@ -582,10 +582,31 @@ def main() -> None:
                         f"(valid: {', '.join(ROTATION_AXES)}, or 3-digit hkl for crystal inputs)"
                     )
 
-        mol_or_path: str | Molecule = args.input if (args.gif_ts or args.gif_trj) else mol
         # For gif_ts/gif_trj the trajectory is read from disk (mol_or_path is a path),
         # but pass mol.graph as reference_graph so -I orientation and TS/NCI bonds are respected.
-        _ref_graph = mol.graph if (args.gif_ts or args.gif_trj) else None
+        if args.ensemble:
+            if args.gif_ts or args.gif_trj:
+                p.error("--ensemble cannot be combined with --gif-ts/--gif-trj")
+            from xyzrender.api import _build_ensemble_molecule
+
+            mol_or_path = _build_ensemble_molecule(
+                args.input,
+                reference_frame=0,
+                charge=args.charge,
+                multiplicity=args.multiplicity,
+                kekule=args.kekule,
+                rebuild=args.rebuild,
+                ts_detect=needs_ts,
+                ts_frame=args.ts_frame,
+                nci_detect=args.nci_detect,
+                crystal=interface_mode or False,
+                cell=args.cell,
+                quick=args.bo is False,
+            )
+            _ref_graph = mol_or_path.graph
+        else:
+            mol_or_path = args.input if (args.gif_ts or args.gif_trj) else mol
+            _ref_graph = mol.graph if (args.gif_ts or args.gif_trj) else None
         try:
             render_gif(
                 mol_or_path,
