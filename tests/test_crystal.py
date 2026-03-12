@@ -201,133 +201,97 @@ def test_extxyz_cell_box_renders(extxyz_graph):
     assert len(cell_lines) == 12
 
 
-def test_cell_corotates_with_atoms(extxyz_graph):
+def test_orient_hkl_cell_corotates_with_atoms(vasp_crystal):
+    """orient_hkl_to_view keeps lattice and atom positions mutually consistent."""
     import copy
 
-    from xyzrender.types import CellData, RenderConfig
-    from xyzrender.viewer import apply_rotation
-
-    graph = copy.deepcopy(extxyz_graph)
-    lat_before = np.array(graph.graph["lattice"], dtype=float)
-    cell_data = CellData(
-        lattice=lat_before.copy(), cell_origin=np.array(graph.graph.get("lattice_origin", [0.0, 0.0, 0.0]), dtype=float)
-    )
-    cfg = RenderConfig(cell_data=cell_data, show_cell=True)
-    assert cfg.cell_data is not None
-    apply_rotation(graph, rx=30.0, ry=45.0, rz=15.0)
-    lat_graph = np.array(graph.graph["lattice"], dtype=float)
-    assert not np.allclose(lat_graph, lat_before, atol=1e-6)
-    assert np.allclose(cfg.cell_data.lattice, lat_before, atol=1e-6)
-    cfg.cell_data.lattice = lat_graph.copy()
-    cfg.cell_data.cell_origin = np.array(graph.graph.get("lattice_origin", [0.0, 0.0, 0.0]), dtype=float)
-    np.testing.assert_allclose(cfg.cell_data.lattice, lat_graph, atol=1e-9)
-    node_ids = list(graph.nodes())
-    positions = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
-    centroid = positions.mean(axis=0)
-    cell_norm = np.linalg.norm(cfg.cell_data.lattice, axis=1).max()
-    origin_dist = np.linalg.norm(cfg.cell_data.cell_origin - centroid)
-    assert origin_dist < 2 * cell_norm
     from xyzrender.renderer import render_svg
+    from xyzrender.types import RenderConfig
+    from xyzrender.viewer import orient_hkl_to_view
 
+    graph, cell_data = copy.deepcopy(vasp_crystal)
+    lat_before = cell_data.lattice.copy()
+    cfg = RenderConfig(cell_data=cell_data, show_cell=True)
+    orient_hkl_to_view(graph, cell_data, "100", cfg)
+
+    # Lattice must have been rotated
+    assert not np.allclose(cell_data.lattice, lat_before, atol=1e-6)
+    # Render must still produce exactly 12 cell edges
     svg = render_svg(graph, cfg)
-    q = chr(34)
-    cell_lines = [ln for ln in svg.splitlines() if "class=" + q + "cell-edge" + q in ln]
+    cell_lines = [ln for ln in svg.splitlines() if 'class="cell-edge"' in ln]
     assert len(cell_lines) == 12
 
 
-def test_apply_rotation_sets_lattice_origin_when_absent(extxyz_graph):
-    """apply_rotation must write graph.graph['lattice_origin'] even when the
-    file had no explicit origin — the origin is (0,0,0) implicitly but must
-    be updated to the rotated value so the cell box stays aligned."""
+def test_orient_hkl_cell_origin_updated_from_zero(vasp_crystal):
+    """orient_hkl_to_view updates cell_origin from its zero default value."""
     import copy
 
-    from xyzrender.viewer import apply_rotation
+    from xyzrender.types import RenderConfig
+    from xyzrender.viewer import orient_hkl_to_view
 
-    graph = copy.deepcopy(extxyz_graph)
-    # Confirm the fixture has no explicit origin (caffeine_cell.xyz has none)
-    assert "lattice_origin" not in graph.graph
+    graph, cell_data = copy.deepcopy(vasp_crystal)
+    assert np.allclose(cell_data.cell_origin, np.zeros(3))
 
-    apply_rotation(graph, rx=45.0, ry=0.0, rz=0.0)
+    cfg = RenderConfig()
+    orient_hkl_to_view(graph, cell_data, "100", cfg)
 
-    # After rotation the key must exist and must NOT be zeros
-    assert "lattice_origin" in graph.graph, "apply_rotation must write lattice_origin"
-    origin = np.array(graph.graph["lattice_origin"], dtype=float)
-    assert not np.allclose(origin, np.zeros(3), atol=1e-6), (
-        f"lattice_origin should be non-zero after a 45° rotation (got {origin})"
+    # cell_origin is rotated around the atom centroid; since the centroid is
+    # not at the origin the rotated zero-origin is non-zero
+    assert not np.allclose(cell_data.cell_origin, np.zeros(3), atol=1e-6), (
+        f"cell_origin should be non-zero after HKL rotation (got {cell_data.cell_origin})"
     )
 
 
-def test_fractional_coords_preserved_after_rotation(extxyz_graph):
-    """Fractional coordinates of all atoms must be unchanged after a consistent
-    rotation of both atoms and cell (lattice + origin)."""
+def test_orient_hkl_fractional_coords_preserved(vasp_crystal):
+    """orient_hkl_to_view preserves the fractional coordinates of all atoms."""
     import copy
 
-    from xyzrender.viewer import apply_rotation
+    from xyzrender.types import RenderConfig
+    from xyzrender.viewer import orient_hkl_to_view
 
-    graph = copy.deepcopy(extxyz_graph)
-    lat0 = np.array(graph.graph["lattice"], dtype=float)
-    orig0 = np.array(graph.graph.get("lattice_origin", np.zeros(3)), dtype=float)
+    graph, cell_data = copy.deepcopy(vasp_crystal)
     node_ids = list(graph.nodes())
     pos0 = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
-    # Fractional coords before: solve lat.T @ f = (pos - origin) for each atom
-    frac_before = np.linalg.solve(lat0.T, (pos0 - orig0).T).T  # shape (n, 3)
+    frac_before = np.linalg.solve(cell_data.lattice.T, (pos0 - cell_data.cell_origin).T).T
 
-    apply_rotation(graph, rx=30.0, ry=20.0, rz=50.0)
+    cfg = RenderConfig()
+    orient_hkl_to_view(graph, cell_data, "111", cfg)
 
-    lat1 = np.array(graph.graph["lattice"], dtype=float)
-    orig1 = np.array(graph.graph["lattice_origin"], dtype=float)
     pos1 = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
-    frac_after = np.linalg.solve(lat1.T, (pos1 - orig1).T).T
+    frac_after = np.linalg.solve(cell_data.lattice.T, (pos1 - cell_data.cell_origin).T).T
 
     np.testing.assert_allclose(
         frac_after,
         frac_before,
         atol=1e-9,
-        err_msg="Fractional coordinates must be preserved after rotation",
+        err_msg="Fractional coordinates must be preserved after orient_hkl_to_view",
     )
 
 
-def test_cell_corotates_with_ghost_atoms(extxyz_graph):
-    """Full --cell -I pipeline: add ghost atoms, rotate, re-sync cell_data,
-    render — cell box must still have exactly 12 edges and be consistent."""
+def test_orient_hkl_cell_corotates_with_ghost_atoms(vasp_crystal):
+    """orient_hkl_to_view rotates all ghost atoms and keeps 12 cell edges."""
     import copy
 
     from xyzrender.crystal import add_crystal_images
     from xyzrender.renderer import render_svg
-    from xyzrender.types import CellData, RenderConfig
-    from xyzrender.viewer import apply_rotation
+    from xyzrender.types import RenderConfig
+    from xyzrender.viewer import orient_hkl_to_view
 
-    graph = copy.deepcopy(extxyz_graph)
-    lat0 = np.array(graph.graph["lattice"], dtype=float)
-    cell_data = CellData(lattice=lat0.copy())
+    graph, cell_data = copy.deepcopy(vasp_crystal)
+    n_real = graph.number_of_nodes()
     add_crystal_images(graph, cell_data)
-    n_after_ghosts = graph.number_of_nodes()
-    assert n_after_ghosts > extxyz_graph.number_of_nodes(), "Ghost atoms must have been added"
+    assert graph.number_of_nodes() > n_real, "Ghost atoms must have been added"
 
-    # Simulate what rotate_with_viewer / --cell -I does: rotate (all nodes
-    # including ghosts), then re-sync cell_data from updated graph.graph.
-    apply_rotation(graph, rx=0.0, ry=90.0, rz=0.0)
+    cfg = RenderConfig(cell_data=cell_data, show_cell=True, auto_orient=False)
+    orient_hkl_to_view(graph, cell_data, "110", cfg)
 
-    cell_data.lattice = np.array(graph.graph["lattice"], dtype=float)
-    cell_data.cell_origin = np.array(graph.graph["lattice_origin"], dtype=float)
-
-    cfg = RenderConfig(
-        cell_data=cell_data,
-        show_cell=True,
-        auto_orient=False,
-    )
     svg = render_svg(graph, cfg)
     cell_lines = [ln for ln in svg.splitlines() if 'class="cell-edge"' in ln]
     assert len(cell_lines) == 12
 
-    # COM of real atoms must be within a reasonable distance of the cell box
-    real_ids = [i for i in graph.nodes() if not graph.nodes[i].get("image", False)]
-    real_pos = np.array([graph.nodes[i]["position"] for i in real_ids], dtype=float)
+    # COM of real atoms must be inside the cell (fractional coords in [0, 1])
+    real_pos = np.array([graph.nodes[i]["position"] for i in range(n_real)], dtype=float)
     com = real_pos.mean(axis=0)
-    lat = cell_data.lattice
-    orig = cell_data.cell_origin
-    frac = np.linalg.solve(lat.T, com - orig)
-    # All fractional coordinates of the COM should be roughly in [0, 1]
-    # (within one cell width, allowing for atoms at the boundary)
+    frac = np.linalg.solve(cell_data.lattice.T, com - cell_data.cell_origin)
     assert np.all(frac > -0.5), f"COM fractional coords {frac} are far outside the cell after rotation"
     assert np.all(frac < 1.5), f"COM fractional coords {frac} are far outside the cell after rotation"
