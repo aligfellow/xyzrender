@@ -236,7 +236,7 @@ def graph_from_moldata(
 
     # Fall back to xyzgraph distance-based detection
     c = charge if charge != 0 else data.charge
-    graph = build_graph(data.atoms, charge=c, multiplicity=multiplicity, kekule=kekule, quick=quick)
+    graph = build_graph(data.atoms, charge=c, multiplicity=multiplicity)
     logger.info(
         "Graph rebuilt via xyzgraph: %d atoms, %d bonds",
         graph.number_of_nodes(),

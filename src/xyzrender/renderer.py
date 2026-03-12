@@ -20,19 +20,18 @@ from xyzrender.mo import (
     classify_mo_lobes,
     mo_back_lobes_svg,
     mo_front_lobes_svg,
-    mo_gradient_defs_svg,
 )
 from xyzrender.types import BondStyle, Color, RenderConfig, resolve_color
 
 logger = logging.getLogger(__name__)
 
 _render_counter = itertools.count()  # unique ID prefix per render call (SVG ids are global in Jupyter HTML)
-_RADIUS_SCALE = 0.075  # VdW → display radius
+_RADIUS_SCALE = 0.075  # VdW → atoms display radius
 _REF_SPAN = 6.0  # reference molecular span (Å) for proportional bond/stroke scaling
 _REF_CANVAS = 800  # reference canvas size (px) — bond/label widths are defined at this size
 _CENTROID_VDW = 0.5  # VdW radius (Å) for NCI pi-system centroid dummy nodes
 _H_ATOM_SCALE = 0.6  # display-radius shrink factor for H atoms (ball-and-stick)
-_H_VDW_SCALE = 0.8  # VdW-sphere shrink factor for H atoms
+_H_VDW_SCALE = 0.65  # VdW-sphere shrink factor for H atoms
 
 
 def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) -> str:
@@ -270,19 +269,23 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
             for ai in range(n):
                 if ai in hidden:
                     continue
-                hi, lo = get_gradient_colors(colors[ai], cfg.gradient_strength)
+                hi, me, lo = get_gradient_colors(colors[ai], cfg)
                 if cfg.fog:
                     t = min(fog_f[ai] ** 2 * 0.7, 0.70)
-                    hi, lo = hi.blend(WHITE, t), lo.blend(WHITE, t)
+                    hi, me, lo = hi.blend(WHITE, t), me.blend(WHITE, t), lo.blend(WHITE, t)
                     fs = blend_fog(cfg.atom_stroke_color, fog_rgb, fog_f[ai])
                 else:
                     fs = cfg.atom_stroke_color
                 r = radii[ai] * scale
                 sa = f' stroke="{fs}" stroke-width="{sw:.1f}"'
                 svg.append(
-                    f'    <g id="a{ai}"><radialGradient id="g{ai}" cx=".5" cy=".5" fx=".33" fy=".33" r=".66">'
-                    f'<stop offset="0%" stop-color="{hi.hex}"/><stop offset="100%" stop-color="{lo.hex}"/>'
-                    f'</radialGradient><circle cx="0" cy="0" r="{r:.1f}" fill="url(#g{ai})"{sa}/></g>'
+                    f'    <g id="a{ai}">'
+                    f'<radialGradient id="g{ai}" cx=".5" cy=".5" fx=".33" fy=".33" r=".66">'
+                    f'<stop offset="0%" stop-color="{hi.hex}"/>'
+                    f'<stop offset="40%" stop-color="{me.hex}"/>'
+                    f'<stop offset="100%" stop-color="{lo.hex}"/>'
+                    f"</radialGradient>"
+                    f'<circle cx="0" cy="0" r="{r:.1f}" fill="url(#g{ai})"{sa}/></g>'
                 )
         else:
             # Shared gradient defs keyed by atomic number (no fog, no cmap)
@@ -292,13 +295,17 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
                 if an in seen or ai in hidden:
                     continue
                 seen.add(an)
-                hi, lo = get_gradient_colors(colors[ai], cfg.gradient_strength)
+                hi, me, lo = get_gradient_colors(colors[ai], cfg)
                 r = radii[ai] * scale
                 sa = f' stroke="{cfg.atom_stroke_color}" stroke-width="{sw:.1f}"'
                 svg.append(
-                    f'    <g id="a{an}"><radialGradient id="g{an}" cx=".5" cy=".5" fx=".33" fy=".33" r=".66">'
-                    f'<stop offset="0%" stop-color="{hi.hex}"/><stop offset="100%" stop-color="{lo.hex}"/>'
-                    f'</radialGradient><circle cx="0" cy="0" r="{r:.1f}" fill="url(#g{an})"{sa}/></g>'
+                    f'    <g id="a{an}">'
+                    f'<radialGradient id="g{an}" cx=".5" cy=".5" fx=".33" fy=".33" r=".66">'
+                    f'<stop offset="0%" stop-color="{hi.hex}"/>'
+                    f'<stop offset="40%" stop-color="{me.hex}"/>'
+                    f'<stop offset="100%" stop-color="{lo.hex}"/>'
+                    f"</radialGradient>"
+                    f'<circle cx="0" cy="0" r="{r:.1f}" fill="url(#g{an})"{sa}/></g>'
                 )
         svg.append("  </defs>")
 
@@ -315,7 +322,12 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
             if an not in seen_vdw:
                 seen_vdw.add(an)
                 hi = colors[ai]  # true atom color at center
-                lo = colors[ai].darken(0.845 * cfg.vdw_gradient_strength)
+                lo = colors[ai].darken(
+                    strength=cfg.vdw_gradient_strength,
+                    hue_shift_factor=cfg.hue_shift_factor,
+                    light_shift_factor=cfg.light_shift_factor,
+                    saturation_shift_factor=cfg.saturation_shift_factor,
+                )
                 svg.append(
                     f'    <radialGradient id="vg{an}" cx=".5" cy=".5" fx=".33" fy=".33" r=".66">'
                     f'<stop offset="0%" stop-color="{hi.hex}"/><stop offset="100%" stop-color="{lo.hex}"/>'
@@ -323,7 +335,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
                 )
         svg.append("  </defs>")
 
-    # MO lobe gradient defs + front/back classification
+    # MO lobe front/back classification
     mo_is_front = None
     if cfg.mo_contours is not None:
         mo = cfg.mo_contours
@@ -331,9 +343,6 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
             mo_is_front = [True] * len(mo.lobes)
         else:
             mo_is_front = classify_mo_lobes(mo.lobes, float(pos[:, 2].mean()))
-        svg.append("  <defs>")
-        svg.extend(mo_gradient_defs_svg(mo))
-        svg.append("  </defs>")
 
     # --- Back MO orbital lobes (behind molecule) — flat faded fill ---
     if cfg.mo_contours is not None:

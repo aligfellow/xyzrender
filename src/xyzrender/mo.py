@@ -811,25 +811,8 @@ def _mo_combined_path_d(
     return " ".join(parts) if parts else None
 
 
-def mo_gradient_defs_svg(mo: SurfaceContours) -> list[str]:
-    """Return SVG radialGradient defs for MO lobe front fills."""
-    from xyzrender.types import Color
-
-    lines: list[str] = []
-    for phase, color_hex in [("pos", mo.pos_color), ("neg", mo.neg_color)]:
-        c = Color.from_hex(color_hex)
-        hi_f = c.lighten(0.25)
-        lo_f = c.darken(0.40)
-        lines.append(
-            f'    <radialGradient id="mo_{phase}_front" cx=".5" cy=".5" fx=".33" fy=".33" r=".66">'
-            f'<stop offset="0%" stop-color="{hi_f.hex}"/>'
-            f'<stop offset="100%" stop-color="{lo_f.hex}"/>'
-            f"</radialGradient>"
-        )
-    return lines
-
-
-_MO_BASE_OPACITY = 0.7  # base opacity for MO lobes (scaled by surface_opacity)
+_MO_BASE_OPACITY = 0.6  # base opacity for MO lobes (scaled by surface_opacity)
+_MO_BACK_FADE = 0.9  # back lobes rendered at this fraction of front opacity
 
 
 def mo_back_lobes_svg(
@@ -842,20 +825,17 @@ def mo_back_lobes_svg(
     canvas_w: int,
     canvas_h: int,
 ) -> list[str]:
-    """Return SVG lines for back MO lobes (flat faded fill, behind molecule)."""
-    from xyzrender.types import Color
-
-    opacity = _MO_BASE_OPACITY * surface_opacity
+    """Return SVG lines for back MO lobes (faded flat fill, behind molecule)."""
+    opacity = _MO_BASE_OPACITY * _MO_BACK_FADE * surface_opacity
     lines: list[str] = []
     for idx_l, lobe in enumerate(mo.lobes):
         if mo_is_front[idx_l]:
             continue
         color_hex = mo.pos_color if lobe.phase == "pos" else mo.neg_color
-        flat_color = Color.from_hex(color_hex).lighten(0.25).hex
         d_all = _mo_combined_path_d(lobe.loops, mo, scale, cx, cy, canvas_w, canvas_h)
         if d_all:
             lines.append(f'  <g opacity="{opacity:.2f}">')
-            lines.append(f'    <path d="{d_all}" fill="{flat_color}" fill-rule="evenodd" stroke="none"/>')
+            lines.append(f'    <path d="{d_all}" fill="{color_hex}" fill-rule="evenodd" stroke="none"/>')
             lines.append("  </g>")
     return lines
 
@@ -870,17 +850,17 @@ def mo_front_lobes_svg(
     canvas_w: int,
     canvas_h: int,
 ) -> list[str]:
-    """Return SVG lines for front MO lobes (gradient fill, on top of molecule)."""
+    """Return SVG lines for front MO lobes (flat fill, on top of molecule)."""
     opacity = _MO_BASE_OPACITY * surface_opacity
     lines: list[str] = []
     for idx_l, lobe in enumerate(mo.lobes):
         if not mo_is_front[idx_l]:
             continue
-        grad_id = f"mo_{lobe.phase}_front"
+        color_hex = mo.pos_color if lobe.phase == "pos" else mo.neg_color
         d_all = _mo_combined_path_d(lobe.loops, mo, scale, cx, cy, canvas_w, canvas_h)
         if d_all:
             lines.append(f'  <g opacity="{opacity:.2f}">')
-            lines.append(f'    <path d="{d_all}" fill="url(#{grad_id})" fill-rule="evenodd" stroke="none"/>')
+            lines.append(f'    <path d="{d_all}" fill="{color_hex}" fill-rule="evenodd" stroke="none"/>')
             lines.append("  </g>")
     return lines
 

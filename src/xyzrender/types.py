@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import colorsys
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -39,6 +40,20 @@ class Color:
     g: int
     b: int
 
+    # ---------- conversions ----------
+
+    def to_hls(self) -> tuple[float, float, float]:
+        """Convert to (hue 0-360, lightness 0-1, saturation 0-1)."""
+        r, g, b = self.r / 255, self.g / 255, self.b / 255
+        h_val, l_val, s_val = colorsys.rgb_to_hls(r, g, b)
+        return h_val * 360, l_val, s_val
+
+    @staticmethod
+    def from_hls(h_val: float, l_val: float, s_val: float) -> "Color":
+        """Create from (hue 0-360, lightness 0-1, saturation 0-1)."""
+        r, g, b = colorsys.hls_to_rgb((h_val % 360) / 360, l_val, s_val)
+        return Color(int(r * 255), int(g * 255), int(b * 255))
+
     @property
     def hex(self) -> str:
         """CSS hex string."""
@@ -52,14 +67,53 @@ class Color:
             min(255, max(0, int(self.b + t * (other.b - self.b)))),
         )
 
-    def darken(self, factor: float) -> Color:
-        """Multiply by (1-factor), clamped."""
-        m = max(0.0, 1.0 - factor)
-        return Color(int(self.r * m), int(self.g * m), int(self.b * m))
+    def darken(
+        self,
+        strength: float = 1.0,
+        hue_shift_factor: float = 0.2,
+        light_shift_factor: float = 0.2,
+        saturation_shift_factor: float = 0.2,
+    ) -> "Color":
+        """Darken toward blue, scaled by *strength*."""
+        h_val, l_val, s_val = self.to_hls()
 
-    def lighten(self, factor: float) -> Color:
-        """Blend toward white."""
-        return self.blend(Color(255, 255, 255), factor)
+        # decrease lightness
+        new_l = l_val * (1 - light_shift_factor * strength * 3)
+        new_l = max(0.0, min(1.0, new_l))
+
+        # hue shift toward blue (240°)
+        d = ((240 - h_val + 180) % 360) - 180
+        new_h = (h_val + d * hue_shift_factor * strength) % 360
+
+        # increase saturation
+        new_s = s_val + (1 - s_val) * saturation_shift_factor * strength
+        new_s = max(0.0, min(1.0, new_s))
+
+        return Color.from_hls(new_h, new_l, new_s)
+
+    def lighten(
+        self,
+        strength: float = 1.0,
+        hue_shift_factor: float = 0.2,
+        light_shift_factor: float = 0.2,
+        saturation_shift_factor: float = 0.2,
+    ) -> "Color":
+        """Lighten toward yellow, scaled by *strength*."""
+        h_val, l_val, s_val = self.to_hls()
+
+        # increase lightness
+        new_l = l_val + light_shift_factor * strength * (1 - l_val)
+        new_l = max(0.0, min(1.0, new_l))
+
+        # hue shift toward yellow (60°)
+        d = ((60 - h_val + 180) % 360) - 180  # shortest direction
+        new_h = (h_val + d * hue_shift_factor * strength) % 360
+
+        # decrease saturation
+        new_s = s_val * (1 - saturation_shift_factor * strength)
+        new_s = max(0.0, min(1.0, new_s))
+
+        return Color.from_hls(new_h, new_l, new_s)
 
     @classmethod
     def from_hex(cls, hex_str: str) -> Color:
@@ -316,7 +370,9 @@ class RenderConfig:
     bond_color: str = "#333333"
     bond_gap: float = 0.6  # multi-bond spacing as fraction of bond_width
     gradient: bool = False
-    gradient_strength: float = 1.4  # scales lighten/darken of gradient stops
+    hue_shift_factor: float = 0.2
+    light_shift_factor: float = 0.2
+    saturation_shift_factor: float = 0.2
     fog: bool = False
     fog_strength: float = 0.8
     hide_h: bool = False
@@ -327,7 +383,7 @@ class RenderConfig:
     vdw_indices: list[int] | None = None
     vdw_opacity: float = 0.5
     vdw_scale: float = 1.0
-    vdw_gradient_strength: float = 1.0  # scales lighten/darken of VdW sphere gradient
+    vdw_gradient_strength: float = 1.6  # strength for VdW sphere gradient darken
     auto_orient: bool = False
     background: str = "#ffffff"
     transparent: bool = False
