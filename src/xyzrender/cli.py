@@ -295,7 +295,7 @@ def main() -> None:
         help="Explicit colormap range (default: auto from file values)",
     )
     annot_g.add_argument(
-        "--vectors",
+        "--vector",
         default=None,
         metavar="FILE",
         help=(
@@ -601,7 +601,7 @@ def main() -> None:
             nci_coloring=args.nci_coloring,
             overlay=args.overlay,
             overlay_color=args.overlay_color,
-            vectors=args.vectors,
+            vector=args.vector,
             vector_scale=args.vector_scale,
             output=args.output,
         )
@@ -656,7 +656,7 @@ def main() -> None:
                 cell_color=args.cell_color,
                 cell_width=args.cell_width,
                 ghost_opacity=args.ghost_opacity,
-                vectors=args.vectors,
+                vector=args.vector,
                 vector_scale=args.vector_scale,
             )
         except ValueError as e:

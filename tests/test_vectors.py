@@ -202,30 +202,30 @@ def test_load_vectors_dict_input():
 
 
 # ---------------------------------------------------------------------------
-# API — vectors= kwarg
+# API — vector= kwarg
 # ---------------------------------------------------------------------------
 
 
 def test_api_render_vectors_path(tmp_path):
-    """render() vectors= accepts a file path."""
+    """render() vector= accepts a file path."""
     from xyzrender.api import load as api_load
     from xyzrender.api import render
 
     mol = api_load(EXAMPLES / "ethanol.xyz")
     jf = _write_json([{"vector": [1.0, 0.0, 0.0], "color": "#cc0000", "label": "F"}])
-    result = render(mol, vectors=jf)
+    result = render(mol, vector=jf)
     assert "#cc0000" in str(result)
     assert "F" in str(result)
 
 
 def test_api_render_vectors_dict():
-    """render() vectors= accepts an inline dict."""
+    """render() vector= accepts an inline dict."""
     from xyzrender.api import load as api_load
     from xyzrender.api import render
 
     mol = api_load(EXAMPLES / "ethanol.xyz")
     data = {"vectors": [{"vector": [1.0, 0.0, 0.0], "color": "#aabbcc"}]}
-    result = render(mol, vectors=data)
+    result = render(mol, vector=data)
     assert "#aabbcc" in str(result)
 
 
@@ -294,7 +294,7 @@ def test_render_user_vector_appears_plain_mol():
 
     mol = api_load(EXAMPLES / "caffeine.xyz")
     jf = _write_json([{"origin": "com", "vector": [2.0, 0.0, 0.0], "color": "#ab1234", "label": "testvec"}])
-    svg = str(render(mol, vectors=str(jf)))
+    svg = str(render(mol, vector=str(jf)))
     assert "#ab1234" in svg, "user vector color must appear in SVG"
     assert "testvec" in svg, "user vector label must appear in SVG"
     # A filled arrowhead polygon should be present.
@@ -312,7 +312,7 @@ def test_render_user_vector_appears_with_crystal_axes():
     # Use a color that differs from all three axis colors (firebrick/forestgreen/royalblue)
     user_color = "#cd5c5c"  # indianred — resolves to a distinct hex from axis colors
     jf = _write_json([{"origin": "com", "vector": [2.0, 0.0, 0.0], "color": user_color, "label": "dipole"}])
-    svg = str(render(mol, vectors=str(jf), axes=True))
+    svg = str(render(mol, vector=str(jf), axes=True))
     # Axis colors must be present (firebrick → #b22222, forestgreen → #228b22, royalblue → #4169e1)
     from xyzrender.types import resolve_color
 
@@ -336,8 +336,8 @@ def test_render_user_vector_appears_with_crystal_axes_no_double_loading():
     jf = _write_json([{"origin": "com", "vector": [2.0, 0.0, 0.0], "color": user_color, "label": "dipole"}])
 
     cfg = build_config("default")
-    svg1 = str(render(mol, config=cfg, vectors=str(jf), axes=True))
-    svg2 = str(render(mol, config=cfg, vectors=str(jf), axes=True))
+    svg1 = str(render(mol, config=cfg, vector=str(jf), axes=True))
+    svg2 = str(render(mol, config=cfg, vector=str(jf), axes=True))
 
     # Count polygon arrowheads with user color in each SVG — should be exactly 1 each
     count1 = len(re.findall(rf'<polygon[^>]*fill="{re.escape(user_color)}"', svg1))
@@ -464,7 +464,7 @@ def test_render_crystal_axis_vector_projects_as_dot_when_parallel_to_view():
 
     # View along [100]: the user vector is now parallel to the viewing axis →
     # projected length ≈ 0 → _draw_arrow_svg renders it as a filled circle, not a polygon.
-    svg = str(render(mol, vectors=[va], axes=False, ghosts=False, axis="100"))
+    svg = str(render(mol, vector=[va], axes=False, ghosts=False, axis="100"))
 
     assert f'fill="{user_color}"' in svg, "user vector must appear in the rotated SVG"
     # In the short-projection code path the arrow renders as a circle, not a polygon arrowhead.

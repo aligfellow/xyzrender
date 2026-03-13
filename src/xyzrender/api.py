@@ -419,7 +419,7 @@ def render(
     labels: list[str] | None = None,
     label_file: str | None = None,
     # --- Vector arrows ---
-    vectors: str | Path | dict | list[VectorArrow] | None = None,
+    vector: str | Path | dict | list[VectorArrow] | None = None,
     vector_scale: float | None = None,
     vector_color: str | None = None,
     # --- Surface opacity ---
@@ -670,7 +670,7 @@ def render(
     _combine_vector_sources(
         cfg,
         rmol.graph,
-        vectors=vectors,
+        vector=vector,
         vector_scale=vector_scale,
         vector_color=vector_color,
         cell_data=rmol.cell_data,
@@ -893,7 +893,7 @@ def render_gif(
     # --- NCI detection (gif_ts / gif_trj / gif_rot) ---
     detect_nci: bool = False,
     # --- Vector arrows (gif_rot only) ---
-    vectors: str | Path | dict | list[VectorArrow] | None = None,
+    vector: str | Path | dict | list[VectorArrow] | None = None,
     vector_scale: float | None = None,
     vector_color: str | None = None,
     # --- Surfaces (gif_rot only) ---
@@ -1194,7 +1194,7 @@ def render_gif(
         _combine_vector_sources(
             cfg,
             ref_graph,
-            vectors=vectors,
+            vector=vector,
             vector_scale=vector_scale,
             vector_color=vector_color,
             cell_data=_cell_data_for_vecs,
@@ -1317,7 +1317,7 @@ def _combine_vector_sources(
     cfg: "RenderConfig",
     graph: "nx.Graph",
     *,
-    vectors=None,
+    vector=None,
     vector_scale: "float | None" = None,
     vector_color: "str | None" = None,
     cell_data: "CellData | None" = None,
@@ -1335,13 +1335,13 @@ def _combine_vector_sources(
         from xyzrender.types import resolve_color
 
         cfg.vector_color = resolve_color(vector_color)
-    if vectors is not None:
-        if not isinstance(vectors, list):
+    if vector is not None:
+        if not isinstance(vector, list):
             from xyzrender.annotations import load_vectors
 
-            _vec_src = vectors if isinstance(vectors, dict) else Path(vectors)
-            vectors = load_vectors(_vec_src, graph, default_color=cfg.vector_color)
-        cfg.vectors.extend(vectors)
+            _vec_src = vector if isinstance(vector, dict) else Path(vector)
+            vector = load_vectors(_vec_src, graph, default_color=cfg.vector_color)
+        cfg.vectors.extend(vector)
     if cell_data is not None and axes:
         from xyzrender.types import VectorArrow
 
@@ -1360,6 +1360,7 @@ def _combine_vector_sources(
                     label=label,
                     scale=1.0,
                     draw_on_top=True,
+                    is_axis=True,
                     font_size=cfg.label_font_size * 1.8,
                     width=cfg.bond_width * 1.1,
                 )

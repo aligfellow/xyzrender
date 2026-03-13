@@ -844,7 +844,7 @@ Overlay arbitrary 3D vectors as arrows on the rendered image via a JSON file. Us
 
 
 ```bash
-xyzrender ethanol.xyz --vectors ethanol_dip.json -o ethanol_dip.svg
+xyzrender ethanol.xyz --vector ethanol_dip.json -o ethanol_dip.svg
 ```
 
 Each entry in the JSON array defines one arrow:
@@ -1153,7 +1153,7 @@ Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Pref
 | `--label-size PT` | Label font size (overrides preset) |
 | `--cmap FILE` | Per-atom property colormap (Viridis, 1-indexed) |
 | `--cmap-range VMIN VMAX` | Explicit colormap range (default: auto from file) |
-| `--vectors FILE` | JSON file of vector arrows to overlay (see Vector arrows section) |
+| `--vector FILE` | JSON file of vector arrows to overlay (see Vector arrows section) |
 | `--vector-scale FACTOR` | Global length scale for all vector arrows (default: 1.0) |
 | **Crystal** | |
 | `--crystal [{vasp,qe}]` | Load as crystal via phonopy; format auto-detected or specify explicitly |

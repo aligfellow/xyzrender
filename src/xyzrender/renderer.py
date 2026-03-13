@@ -129,7 +129,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
         _ref_px_per_ang = (_REF_CANVAS - 2 * cfg.padding) / _REF_SPAN
         _vec_tips = []
         for vi, va in enumerate(cfg.vectors):
-            scaled_vec = _vec_dirs[vi] * va.scale * cfg.vector_scale
+            _vec_scale = 1.0 if va.is_axis else cfg.vector_scale
+            scaled_vec = _vec_dirs[vi] * va.scale * _vec_scale
             tail3d = _vec_origins[vi] - scaled_vec / 2 if va.anchor == "center" else _vec_origins[vi]
             tip3d = tail3d + scaled_vec
             _vec_tips.append(tip3d)
@@ -463,7 +464,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
     if cfg.vectors:
         for vi in range(len(cfg.vectors)):
             va = cfg.vectors[vi]
-            scaled_vec = _vec_dirs[vi] * va.scale * cfg.vector_scale
+            _global = 1.0 if va.is_axis else cfg.vector_scale
+            scaled_vec = _vec_dirs[vi] * va.scale * _global
             if va.anchor == "center":
                 tail3d = _vec_origins[vi] - scaled_vec / 2
             else:

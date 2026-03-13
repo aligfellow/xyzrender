@@ -102,7 +102,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 
 | Flag | Description |
 |------|-------------|
-| `--vectors FILE` | Path to a JSON file defining 3D vector arrows for overlay |
+| `--vector FILE` | Path to a JSON file defining 3D vector arrows for overlay |
 | `--vector-scale` | Global length multiplier for all vector arrows |
 
 ## GIF animations
