@@ -5,6 +5,7 @@ from __future__ import annotations
 import itertools
 import logging
 
+import networkx as nx
 import numpy as np
 from xyzgraph import DATA
 
@@ -22,6 +23,7 @@ from xyzrender.mo import (
     mo_front_lobes_svg,
 )
 from xyzrender.types import BondStyle, Color, RenderConfig, resolve_color
+from xyzrender.utils import pca_orient
 
 logger = logging.getLogger(__name__)
 
@@ -56,9 +58,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
         # Exclude NCI centroid dummy nodes from PCA fitting
         atom_mask = np.array([s != "*" for s in symbols])
         fit_mask = atom_mask if not atom_mask.all() else None
-        from xyzrender.utils import pca_orient
-
-        if _vec_origins is not None:
+        if cfg.vectors:
             # Capture rotation matrix so vector origins/directions transform with the molecule
             _fit = pos[fit_mask] if fit_mask is not None else pos
             _centroid = _fit.mean(axis=0)
@@ -216,30 +216,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
                 if neighbours and all(symbols[nb] == "C" for nb in neighbours):
                     hidden.add(ai)
 
-    aromatic_rings = [set(r) for r in graph.graph.get("aromatic_rings", [])]
-
-    # Ensure all aromatic bonds are covered by ring data — auto-detect missing rings
-    aromatic_ring_edges = set()
-    for ring in aromatic_rings:
-        rl = list(ring)
-        for ii in range(len(rl)):
-            for jj in range(ii + 1, len(rl)):
-                if (rl[ii], rl[jj]) in bonds or (rl[jj], rl[ii]) in bonds:
-                    aromatic_ring_edges.add((min(rl[ii], rl[jj]), max(rl[ii], rl[jj])))
-    missing = False
-    for (i, j), (bo, _style, _col) in bonds.items():
-        if i < j and 1.3 < bo < 1.7 and (i, j) not in aromatic_ring_edges:
-            missing = True
-            break
-    if missing:
-        import networkx as nx
-
-        arom_g = nx.Graph()
-        for (i, j), (bo, _style, _col) in bonds.items():
-            if i < j and 1.3 < bo < 1.7:
-                arom_g.add_edge(i, j)
-        if arom_g.number_of_edges() > 0:
-            aromatic_rings = [set(c) for c in nx.minimum_cycle_basis(arom_g)]
+    aromatic_rings = _compute_aromatic_rings(graph, bonds)
 
     # Fog factors — normalized across depth range, with a dead-zone near the front
     fog_f = np.zeros(n)
@@ -805,6 +782,38 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _compute_aromatic_rings(
+    graph,
+    bonds: dict[tuple[int, int], tuple[float, BondStyle, str | None]],
+) -> list[set[int]]:
+    """Return list of aromatic ring atom index sets, with fallback when graph has no ring data.
+
+    If the graph has ``aromatic_rings``, use it. If any bond with order in (1.3, 1.7)
+    is not covered by those rings, build an aromatic subgraph and use minimum_cycle_basis.
+    """
+    aromatic_rings = [set(r) for r in graph.graph.get("aromatic_rings", [])]
+    aromatic_ring_edges = set()
+    for ring in aromatic_rings:
+        rl = list(ring)
+        for ii in range(len(rl)):
+            for jj in range(ii + 1, len(rl)):
+                if (rl[ii], rl[jj]) in bonds or (rl[jj], rl[ii]) in bonds:
+                    aromatic_ring_edges.add((min(rl[ii], rl[jj]), max(rl[ii], rl[jj])))
+    missing = False
+    for (i, j), (bo, _style, _col) in bonds.items():
+        if i < j and 1.3 < bo < 1.7 and (i, j) not in aromatic_ring_edges:
+            missing = True
+            break
+    if missing:
+        arom_g = nx.Graph()
+        for (i, j), (bo, _style, _col) in bonds.items():
+            if i < j and 1.3 < bo < 1.7:
+                arom_g.add_edge(i, j)
+        if arom_g.number_of_edges() > 0:
+            aromatic_rings = [set(c) for c in nx.minimum_cycle_basis(arom_g)]
+    return aromatic_rings
 
 
 def _draw_arrow_svg(

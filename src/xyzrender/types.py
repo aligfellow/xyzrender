@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import colorsys
+import json
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -157,9 +159,6 @@ def _load_named_colors() -> dict[str, str]:
     """Load CSS4 named colors from bundled JSON (cached on first call)."""
     global _NAMED_COLORS  # noqa: PLW0603
     if _NAMED_COLORS is None:
-        import json
-        from pathlib import Path
-
         path = Path(__file__).parent / "presets" / "named_colors.json"
         with path.open() as f:
             _NAMED_COLORS = json.load(f)

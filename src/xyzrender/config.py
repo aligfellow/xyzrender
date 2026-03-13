@@ -18,11 +18,16 @@ from xyzrender.types import (
 logger = logging.getLogger(__name__)
 
 _PRESET_DIR = Path(__file__).parent / "presets"
+_DEFAULT_CONFIG: dict | None = None
 
 
 def _load_default() -> dict:
     """Return the built-in default preset."""
-    return json.loads((_PRESET_DIR / "default.json").read_text())
+    global _DEFAULT_CONFIG  # noqa: PLW0603
+    if _DEFAULT_CONFIG is None:
+        _DEFAULT_CONFIG = json.loads((_PRESET_DIR / "default.json").read_text())
+    # Always return a fresh copy so callers can mutate safely.
+    return dict(_DEFAULT_CONFIG)
 
 
 def _merge_onto_default(overrides: dict) -> dict:

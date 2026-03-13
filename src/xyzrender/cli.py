@@ -7,7 +7,14 @@ import logging
 import sys
 from pathlib import Path
 
-from xyzrender.api import Molecule, load, orient, render, render_gif
+from xyzrender.api import (
+    Molecule,
+    _apply_hull_to_config,
+    load,
+    orient,
+    render,
+    render_gif,
+)
 from xyzrender.config import build_config
 from xyzrender.readers import load_stdin
 
@@ -29,8 +36,17 @@ def _parse_pairs(s: str) -> list[tuple[int, int]]:
         return []
     pairs = []
     for part in s.split(","):
-        a, b = part.split("-")
-        pairs.append((int(a) - 1, int(b) - 1))
+        segment = part.strip()
+        if not segment:
+            continue
+        tokens = segment.split("-")
+        if len(tokens) != 2:
+            raise ValueError(f"Invalid pair {segment!r}: expected exactly one '-' per segment (e.g. 1-6,3-4)")
+        try:
+            a, b = int(tokens[0].strip()), int(tokens[1].strip())
+        except ValueError as e:
+            raise ValueError(f"Invalid pair {segment!r}: atom indices must be integers (e.g. 1-6,3-4)") from e
+        pairs.append((a - 1, b - 1))
     return pairs
 
 
@@ -510,14 +526,17 @@ def main() -> None:
         except ValueError as e:
             p.error(str(e))
 
-    # Resolve hull="rings" now that mol is loaded
+    # Resolve hull="rings" now that mol is loaded, reusing API helper semantics
     if args.hull == ["rings"]:
-        from xyzrender.api import _resolve_hull_rings
-
-        ring_indices = _resolve_hull_rings(mol.graph)
-        if ring_indices:
-            cfg.show_convex_hull = True
-            cfg.hull_atom_indices = ring_indices
+        _apply_hull_to_config(
+            cfg,
+            "rings",
+            hull_color=args.hull_color,
+            hull_opacity=args.hull_opacity,
+            hull_edge=args.hull_edge,
+            hull_edge_width_ratio=args.hull_edge_width_ratio,
+            graph=mol.graph,
+        )
 
     # Pre-load overlay once so render() + render_gif() don't each load it from disk.
     if args.overlay and isinstance(args.overlay, str):

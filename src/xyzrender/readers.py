@@ -7,6 +7,7 @@ Dispatches to :mod:`xyzrender.parsers` (format-specific parsers) and
 from __future__ import annotations
 
 import logging
+import re
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeAlias
@@ -21,6 +22,8 @@ if TYPE_CHECKING:
 
     from xyzrender.cube import CubeData
     from xyzrender.types import CellData
+
+from xyzrender.types import CellData
 
 _Atoms: TypeAlias = list[tuple[str, tuple[float, float, float]]]
 
@@ -75,7 +78,6 @@ def load_molecule(
         Periodic lattice data for crystal structures, or ``None``.
     """
     import xyzrender.parsers as fmt
-    from xyzrender.types import CellData
 
     p = str(path)
     logger.info("Loading %s", p)
@@ -236,7 +238,13 @@ def graph_from_moldata(
 
     # Fall back to xyzgraph distance-based detection
     c = charge if charge != 0 else data.charge
-    graph = build_graph(data.atoms, charge=c, multiplicity=multiplicity)
+    graph = build_graph(
+        data.atoms,
+        charge=c,
+        multiplicity=multiplicity,
+        kekule=kekule,
+        quick=quick,
+    )
     logger.info(
         "Graph rebuilt via xyzgraph: %d atoms, %d bonds",
         graph.number_of_nodes(),
@@ -510,8 +518,6 @@ def _parse_extxyz_lattice(comment: str) -> np.ndarray | None:
     numpy.ndarray or None
         Shape ``(3, 3)`` float array (row vectors a, b, c) or ``None``.
     """
-    import re
-
     m = re.search(r'Lattice\s*=\s*"([^"]+)"', comment, re.IGNORECASE)
     if m:
         vals_str = m.group(1)
@@ -552,8 +558,6 @@ def _parse_extxyz_origin(comment: str) -> np.ndarray | None:
     numpy.ndarray or None
         Shape ``(3,)`` float array or ``None``.
     """
-    import re
-
     m = re.search(r'Origin\s*=\s*"([^"]+)"', comment, re.IGNORECASE)
     if not m:
         return None

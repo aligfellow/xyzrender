@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from xyzrender.types import Color, RenderConfig
+from xyzrender.types import Color, RenderConfig, resolve_color
 
 WHITE = Color(255, 255, 255)
 
@@ -93,8 +93,6 @@ def cmap_viridis(t: float) -> Color:
 
 def blend_fog(hex_color: str, fog_rgb: np.ndarray, strength: float) -> str:
     """Blend color toward fog using strength**2, capped so atoms stay visible."""
-    from xyzrender.types import resolve_color
-
     s = min(strength**2, _MAX_FOG)
     hex_color = resolve_color(hex_color)
     rgb = np.array([int(hex_color[i : i + 2], 16) for i in (1, 3, 5)])

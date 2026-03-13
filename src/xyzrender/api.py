@@ -28,8 +28,10 @@ For GIFs use :func:`render_gif`::
 
 from __future__ import annotations
 
+import base64
 import copy
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -43,6 +45,8 @@ if TYPE_CHECKING:
 
     from xyzrender.cube import CubeData
     from xyzrender.types import CellData, RenderConfig, VectorArrow
+
+from xyzrender.types import resolve_color
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +68,6 @@ class SVGResult:
 
     def _repr_svg_(self) -> str:
         """Return the SVG string for Jupyter inline display, scaled to max 500 px wide."""
-        import re
-
         return re.sub(
             r'(<svg\b[^>]*?)\s+width="[^"]*"\s+height="[^"]*"',
             r'\1 width="500" height="auto"',
@@ -83,6 +85,7 @@ class GIFResult:
 
     def __init__(self, path: Path) -> None:
         self._path = path
+        self._bytes: bytes | None = None
 
     @property
     def path(self) -> Path:
@@ -95,17 +98,18 @@ class GIFResult:
 
     def __bytes__(self) -> bytes:
         """Return the raw GIF bytes."""
-        return self._path.read_bytes()
+        if self._bytes is None:
+            self._bytes = self._path.read_bytes()
+        return self._bytes
 
     def save(self, path: str | os.PathLike) -> None:
         """Write the GIF to *path*."""
-        Path(path).write_bytes(self._path.read_bytes())
+        data = bytes(self)
+        Path(path).write_bytes(data)
 
     def _repr_html_(self) -> str:
         """Embed the GIF inline in Jupyter, capped to 500 px wide."""
-        import base64
-
-        data = base64.b64encode(self._path.read_bytes()).decode("ascii")
+        data = base64.b64encode(bytes(self)).decode("ascii")
         return f'<img src="data:image/gif;base64,{data}" width="500" style="height:auto"/>'
 
 
@@ -568,31 +572,7 @@ def render(
             cfg.cmap_range = cmap_range
         if opacity is not None:
             cfg.surface_opacity = opacity
-        if hull is not None:
-            if hull == "rings":
-                ring_indices = _resolve_hull_rings(mol.graph)
-                if ring_indices:
-                    cfg.show_convex_hull = True
-                    cfg.hull_atom_indices = ring_indices
-            elif isinstance(hull, list):
-                cfg.show_convex_hull = True
-                # 1-indexed user input → 0-indexed internal
-                from xyzrender.hull import hull_indices_to_0indexed
-
-                cfg.hull_atom_indices = hull_indices_to_0indexed(hull)
-            elif isinstance(hull, bool):
-                cfg.show_convex_hull = hull
-        if hull_color is not None:
-            if isinstance(hull_color, list):
-                cfg.hull_colors = hull_color
-            else:
-                cfg.hull_colors = [hull_color]
-        if hull_opacity is not None:
-            cfg.hull_opacity = hull_opacity
-        if hull_edge is not None:
-            cfg.show_hull_edges = hull_edge
-        if hull_edge_width_ratio is not None:
-            cfg.hull_edge_width_ratio = hull_edge_width_ratio
+        _apply_hull_to_config(cfg, hull, hull_color, hull_opacity, hull_edge, hull_edge_width_ratio, mol.graph)
     else:
         # Build from preset/file
         _ts_0 = [(a - 1, b - 1) for a, b in ts_bonds] if ts_bonds else None
@@ -601,17 +581,7 @@ def render(
         _show = bool(idx)
         _ifmt = idx if isinstance(idx, str) else "sn"
         _cmap_0 = _resolve_cmap(cmap, mol.graph) if cmap is not None else None
-        if hull == "rings":
-            _hull_flag: bool | None = True
-            _hull_idx: list[int] | list[list[int]] | None = _resolve_hull_rings(mol.graph) or None
-        elif isinstance(hull, list):
-            _hull_flag = True
-            from xyzrender.hull import hull_indices_to_0indexed
-
-            _hull_idx = hull_indices_to_0indexed(hull)
-        else:
-            _hull_flag = hull if isinstance(hull, bool) else None
-            _hull_idx = None
+        _hull_flag, _hull_idx = _resolve_hull_flag_and_indices(hull, mol.graph)
 
         cfg = build_config(
             config,
@@ -646,7 +616,7 @@ def render(
             cmap_range=cmap_range,
             hull=_hull_flag,
             hull_opacity=hull_opacity,
-            hull_colors=[hull_color] if isinstance(hull_color, str) else hull_color,
+            hull_colors=_normalize_hull_colors(hull_color),
             hull_idx=_hull_idx,
             hull_edge=hull_edge,
             hull_edge_width_ratio=hull_edge_width_ratio,
@@ -695,8 +665,6 @@ def render(
     if vector_scale is not None:
         cfg.vector_scale = vector_scale
     if vector_color is not None:
-        from xyzrender.types import resolve_color
-
         cfg.vector_color = resolve_color(vector_color)
     if vectors is not None:
         if isinstance(vectors, list):
@@ -743,8 +711,6 @@ def render(
         cfg.auto_orient = False
 
         if overlay_color is not None:
-            from xyzrender.types import resolve_color
-
             cfg.overlay_color = resolve_color(overlay_color)
         aligned2 = align(g1, g2)
         rmol = Molecule(
@@ -996,46 +962,11 @@ def render_gif(
     # Resolve config
     if not isinstance(config, str):
         cfg = copy.copy(config)
-        # Apply hull overrides to pre-built config
-        if hull is not None:
-            if hull == "rings":
-                _gif_graph = molecule.graph if isinstance(molecule, Molecule) else load(molecule).graph
-                ring_indices = _resolve_hull_rings(_gif_graph)
-                if ring_indices:
-                    cfg.show_convex_hull = True
-                    cfg.hull_atom_indices = ring_indices
-            elif isinstance(hull, list):
-                cfg.show_convex_hull = True
-                # 1-indexed user input → 0-indexed internal
-                from xyzrender.hull import hull_indices_to_0indexed
-
-                cfg.hull_atom_indices = hull_indices_to_0indexed(hull)
-            elif isinstance(hull, bool):
-                cfg.show_convex_hull = hull
-        if hull_color is not None:
-            if isinstance(hull_color, list):
-                cfg.hull_colors = hull_color
-            else:
-                cfg.hull_colors = [hull_color]
-        if hull_opacity is not None:
-            cfg.hull_opacity = hull_opacity
-        if hull_edge is not None:
-            cfg.show_hull_edges = hull_edge
-        if hull_edge_width_ratio is not None:
-            cfg.hull_edge_width_ratio = hull_edge_width_ratio
+        _gif_graph = molecule.graph if isinstance(molecule, Molecule) else load(molecule).graph
+        _apply_hull_to_config(cfg, hull, hull_color, hull_opacity, hull_edge, hull_edge_width_ratio, _gif_graph)
     else:
-        if hull == "rings":
-            _gif_graph2 = molecule.graph if isinstance(molecule, Molecule) else load(molecule).graph
-            _hull_flag: bool | None = True
-            _hull_idx: list[int] | list[list[int]] | None = _resolve_hull_rings(_gif_graph2) or None
-        elif isinstance(hull, list):
-            _hull_flag = True
-            from xyzrender.hull import hull_indices_to_0indexed
-
-            _hull_idx = hull_indices_to_0indexed(hull)
-        else:
-            _hull_flag = hull if isinstance(hull, bool) else None
-            _hull_idx = None
+        _gif_graph = molecule.graph if isinstance(molecule, Molecule) else load(molecule).graph
+        _hull_flag, _hull_idx = _resolve_hull_flag_and_indices(hull, _gif_graph)
         cfg = build_config(
             config,
             canvas_size=canvas_size,
@@ -1061,7 +992,7 @@ def render_gif(
             orient=orient,
             hull=_hull_flag,
             hull_opacity=hull_opacity,
-            hull_colors=[hull_color] if isinstance(hull_color, str) else hull_color,
+            hull_colors=_normalize_hull_colors(hull_color),
             hull_idx=_hull_idx,
             hull_edge=hull_edge,
             hull_edge_width_ratio=hull_edge_width_ratio,
@@ -1168,10 +1099,8 @@ def render_gif(
                 _ov_charge = ref_graph.graph.get("total_charge", 0)
                 _ov_mult = ref_graph.graph.get("multiplicity")
                 overlay_mol = load(overlay, charge=_ov_charge, multiplicity=_ov_mult)
-            if overlay_color is not None:
-                from xyzrender.types import resolve_color
-
-                cfg.overlay_color = resolve_color(overlay_color)
+        if overlay_color is not None:
+            cfg.overlay_color = resolve_color(overlay_color)
             g2 = copy.deepcopy(overlay_mol.graph)
             aligned2 = align(ref_graph, g2)
             ref_graph = merge_graphs(ref_graph, g2, aligned2, overlay_color=cfg.overlay_color)
@@ -1180,8 +1109,6 @@ def render_gif(
         if vector_scale is not None:
             cfg.vector_scale = vector_scale
         if vector_color is not None:
-            from xyzrender.types import resolve_color
-
             cfg.vector_color = resolve_color(vector_color)
         if vectors is not None:
             if isinstance(vectors, list):
@@ -1283,6 +1210,68 @@ def _resolve_hull_rings(graph: nx.Graph) -> list[list[int]]:
         logger.warning("hull='rings' requested but no aromatic rings detected in the molecular graph")
         return []
     return [list(r) for r in rings]
+
+
+def _resolve_hull_flag_and_indices(
+    hull: bool | str | list[int] | list[list[int]] | None,
+    graph: nx.Graph | None,
+) -> tuple[bool | None, list[int] | list[list[int]] | None]:
+    r"""Resolve hull option to (show_convex_hull, hull_atom_indices) for config.
+
+    Returns (None, None) when hull is None or when hull="rings" but graph has
+    no aromatic rings. Used by both render() and render_gif() to avoid duplicating
+    hull resolution logic.
+    """
+    if hull is None:
+        return None, None
+    if hull == "rings":
+        if graph is None:
+            return None, None
+        ring_indices = _resolve_hull_rings(graph)
+        if not ring_indices:
+            return None, None
+        return True, ring_indices
+    if isinstance(hull, list):
+        from xyzrender.hull import hull_indices_to_0indexed
+
+        return True, hull_indices_to_0indexed(hull)
+    if isinstance(hull, bool):
+        return hull, None
+    return None, None
+
+
+def _normalize_hull_colors(hull_color: str | list[str] | None) -> list[str] | None:
+    """Normalize hull_color to a list or None."""
+    if hull_color is None:
+        return None
+    if isinstance(hull_color, str):
+        return [hull_color]
+    return hull_color
+
+
+def _apply_hull_to_config(
+    cfg: RenderConfig,
+    hull: bool | str | list[int] | list[list[int]] | None,
+    hull_color: str | list[str] | None,
+    hull_opacity: float | None,
+    hull_edge: bool | None,
+    hull_edge_width_ratio: float | None,
+    graph: nx.Graph | None,
+) -> None:
+    """Apply hull-related options to *cfg*. Single place for hull semantics."""
+    show_hull, hull_idx = _resolve_hull_flag_and_indices(hull, graph)
+    if show_hull is not None:
+        cfg.show_convex_hull = show_hull
+    if hull_idx is not None:
+        cfg.hull_atom_indices = hull_idx
+    if hull_color is not None:
+        cfg.hull_colors = [hull_color] if isinstance(hull_color, str) else hull_color
+    if hull_opacity is not None:
+        cfg.hull_opacity = hull_opacity
+    if hull_edge is not None:
+        cfg.show_hull_edges = hull_edge
+    if hull_edge_width_ratio is not None:
+        cfg.hull_edge_width_ratio = hull_edge_width_ratio
 
 
 def _resolve_cmap(
