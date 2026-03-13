@@ -289,14 +289,15 @@ uv run bash examples/generate.sh
 
 ### Presets
 
-| Default | Flat | Paton (pymol-like) |
-|---------|------|-------|
-| ![default](examples/images/caffeine_default.svg) | ![flat](examples/images/caffeine_flat.svg) | ![paton](examples/images/caffeine_paton.svg) |
+| Default | Flat | Paton (pymol-like) | Skeletal |
+|---------|------|--------------------|----------|
+| ![default](examples/images/caffeine_default.svg) | ![flat](examples/images/caffeine_flat.svg) | ![paton](examples/images/caffeine_paton.svg) | ![skeletal](examples/images/caffeine_skeletal.svg) |
 
 ```bash
 xyzrender caffeine.xyz -o caffeine_default.svg              # default preset
 xyzrender caffeine.xyz --config flat -o caffeine_flat.svg   # flat: no gradient
 xyzrender caffeine.xyz --config paton -o caffeine_paton.svg # paton: PyMOL-style
+xyzrender caffeine.xyz --config skeletal -o caffeine_skeletal.svg # skeletal formula diagram
 ```
 
 The `paton` style is inspired by the clean styling used by [Rob Paton](https://github.com/patonlab) through PyMOL (see [gist](https://gist.github.com/bobbypaton/1cdc4784f3fc8374467bae5eb410edef))
@@ -1220,7 +1221,7 @@ Contributors:
 - [Ksenia Briling (@briling)](https://github.com/briling) — `vmol` integration and the [xyz2svg](https://github.com/briling/xyz2svg) foundation
 - [Sander Cohen-Janes (@scohenjanes5)](https://github.com/scohenjanes5) — crystal/periodic structure support (VASP, Quantum ESPRESSO, ghost atoms, crystallographic axes), vector annotations and gif parallelisation
 - [Rubén Laplaza (@rlaplaza)](https://github.com/rlaplaza) — convex hull facets
-- [Iñigo Iribarren Aguirre (@iribirii)](https://github.com/iribirii) — radial gradients respecting colour space (pseudo-3D)
+- [Iñigo Iribarren Aguirre (@iribirii)](https://github.com/iribirii) — radial gradients respecting colour space (pseudo-3D), skeletal rendering
 - [Vinicius Port (@caprilesport)](https://github.com/caprilesport) — `v` binary path discovery
 - [Lucas Attia (@lucasattia)](https://github.com/lucasattia) — `--transparent` background flag
 

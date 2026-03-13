@@ -259,7 +259,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
     if not cfg.transparent:
         svg.append(f'  <rect width="100%" height="100%" fill="{cfg.background}"/>')
 
-    use_grad = cfg.gradient
+    use_grad = cfg.gradient and not cfg.skeletal_style
+    if cfg.skeletal_style:
+        from xyzrender.skeletal import skeletal_atom_svg, skeletal_bond_svg
     # Cmap/fog/overlay all require per-atom gradient defs (each atom may have a distinct colour)
     use_per_atom_grad = cfg.fog or cfg.atom_cmap is not None or has_overlay
     if use_grad:
@@ -546,14 +548,45 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
 
     def add_bond(ai, aj, bo, style, opacity: float = 1.0, color_override: str | None = None):
         """Render bond — closure captures shared rendering state."""
+        if cfg.skeletal_style:
+            skeletal_bond_svg(
+                svg,
+                ai,
+                aj,
+                bo,
+                style,
+                opacity,
+                pos=pos,
+                symbols=symbols,
+                radii=radii,
+                bw=bw,
+                gap=gap,
+                fs_label=fs_label,
+                scale=scale,
+                cx=cx,
+                cy=cy,
+                canvas_w=canvas_w,
+                canvas_h=canvas_h,
+                fog_f=fog_f,
+                fog_rgb=fog_rgb,
+                fog_enabled=cfg.fog,
+                bond_color=cfg.bond_color,
+                color_override=color_override,
+                aromatic_rings=aromatic_rings,
+            )
+            return
+
         rij = pos[aj] - pos[ai]
         dist = np.linalg.norm(rij)
         if dist < 1e-6:
             return
         d = rij / dist
 
-        start = pos[ai] + d * radii[ai] * 0.9
-        end = pos[aj] - d * radii[aj] * 0.9
+        ri = radii[ai]
+        rj = radii[aj]
+
+        start = pos[ai] + d * ri * 0.9
+        end = pos[aj] - d * rj * 0.9
         if np.dot(end - start, d) <= 0:
             return
 
@@ -653,32 +686,49 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
         atom_op = cfg.periodic_image_opacity if is_image else 1.0
         op_attr_atom = f' opacity="{atom_op:.2f}"' if atom_op < 1.0 else ""
 
-        # Atom
-        if use_grad:
-            ref = f"#a{ai}" if use_per_atom_grad else f"#a{a_nums[ai]}"
-            svg.append(f'  <use x="{xi:.1f}" y="{yi:.1f}" xlink:href="{ref}"{op_attr_atom}/>')
+        # Atom graphics / labels
+        if cfg.skeletal_style:
+            if not is_image:
+                skeletal_atom_svg(
+                    svg,
+                    ai,
+                    xi,
+                    yi,
+                    symbols=symbols,
+                    colors=colors,
+                    fs_label=fs_label,
+                    fog_enabled=cfg.fog,
+                    fog_rgb=fog_rgb,
+                    fog_f=fog_f,
+                    label_color_override=cfg.skeletal_label_color,
+                )
         else:
-            fill, stroke = colors[ai].hex, cfg.atom_stroke_color
-            if cfg.fog:
-                fill = blend_fog(fill, fog_rgb, fog_f[ai])
-                stroke = blend_fog(stroke, fog_rgb, fog_f[ai])
-            svg.append(
-                f'  <circle cx="{xi:.1f}" cy="{yi:.1f}" r="{radii[ai] * scale:.1f}" '
-                f'fill="{fill}" stroke="{stroke}" stroke-width="{sw:.1f}"{op_attr_atom}/>'
-            )
+            # Atom circle (gradient or flat fill)
+            if use_grad:
+                ref = f"#a{ai}" if use_per_atom_grad else f"#a{a_nums[ai]}"
+                svg.append(f'  <use x="{xi:.1f}" y="{yi:.1f}" xlink:href="{ref}"{op_attr_atom}/>')
+            else:
+                fill, stroke = colors[ai].hex, cfg.atom_stroke_color
+                if cfg.fog:
+                    fill = blend_fog(fill, fog_rgb, fog_f[ai])
+                    stroke = blend_fog(stroke, fog_rgb, fog_f[ai])
+                svg.append(
+                    f'  <circle cx="{xi:.1f}" cy="{yi:.1f}" r="{radii[ai] * scale:.1f}" '
+                    f'fill="{fill}" stroke="{stroke}" stroke-width="{sw:.1f}"{op_attr_atom}/>'
+                )
 
-        # Atom index label — depth-sorted with atom so nearer atoms occlude it
-        # (skip for image atoms — labels would be confusing)
-        if cfg.show_indices and not is_image:
-            fmt = cfg.idx_format
-            sym = symbols[ai]
-            if fmt == "sn":
-                idx_text = f"{sym}{ai + 1}"
-            elif fmt == "s":
-                idx_text = sym
-            else:  # "n"
-                idx_text = str(ai + 1)
-            svg.append(_text_svg(xi, yi, idx_text, fs_label, cfg.label_color, halo=False))
+            # Atom index label — depth-sorted with atom so nearer atoms occlude it
+            # (skip for image atoms — labels would be confusing)
+            if cfg.show_indices and not is_image:
+                fmt = cfg.idx_format
+                sym = symbols[ai]
+                if fmt == "sn":
+                    idx_text = f"{sym}{ai + 1}"
+                elif fmt == "s":
+                    idx_text = sym
+                else:  # "n"
+                    idx_text = str(ai + 1)
+                svg.append(_text_svg(xi, yi, idx_text, fs_label, cfg.label_color, halo=False))
 
         # Bonds to deeper atoms
         for aj in z_order[idx + 1 :]:

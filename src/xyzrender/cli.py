@@ -111,6 +111,9 @@ def main() -> None:
         "-k", "--kekule", action="store_true", default=False, help="Use Kekule bond orders (no aromatic 1.5)"
     )
     disp_g.add_argument("--fog", action=argparse.BooleanOptionalAction, default=None, help="Depth fog")
+    disp_g.add_argument(
+        "--skeletal-label-color", default=None, help="Override all element label colors in skeletal mode (hex or named)"
+    )
     disp_g.add_argument("--vdw", nargs="?", const="", default=None, help='VdW spheres (no args=all, or "1-20,25")')
 
     # --- Surfaces (MO / density / ESP) ---
@@ -420,6 +423,9 @@ def main() -> None:
         hull_edge=args.hull_edge,
         hull_edge_width_ratio=args.hull_edge_width_ratio,
     )
+
+    if args.skeletal_label_color is not None:
+        cfg.skeletal_label_color = args.skeletal_label_color
 
     # Output path defaults and validation
     base = _basename(args.input, from_stdin)
