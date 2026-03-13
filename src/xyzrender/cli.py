@@ -127,6 +127,9 @@ def main() -> None:
         "-k", "--kekule", action="store_true", default=False, help="Use Kekule bond orders (no aromatic 1.5)"
     )
     disp_g.add_argument("--fog", action=argparse.BooleanOptionalAction, default=None, help="Depth fog")
+    disp_g.add_argument(
+        "--skeletal-label-color", default=None, help="Override all element label colors in skeletal mode (hex or named)"
+    )
     disp_g.add_argument("--vdw", nargs="?", const="", default=None, help='VdW spheres (no args=all, or "1-20,25")')
 
     # --- Surfaces (MO / density / ESP) ---
@@ -308,7 +311,7 @@ def main() -> None:
         help="Explicit colormap range (default: auto from file values)",
     )
     annot_g.add_argument(
-        "--vectors",
+        "--vector",
         default=None,
         metavar="FILE",
         help=(
@@ -436,6 +439,9 @@ def main() -> None:
         hull_edge=args.hull_edge,
         hull_edge_width_ratio=args.hull_edge_width_ratio,
     )
+
+    if args.skeletal_label_color is not None:
+        cfg.skeletal_label_color = args.skeletal_label_color
 
     # Output path defaults and validation
     base = _basename(args.input, from_stdin)
@@ -614,7 +620,7 @@ def main() -> None:
             nci_coloring=args.nci_coloring,
             overlay=args.overlay,
             overlay_color=args.overlay_color,
-            vectors=args.vectors,
+            vector=args.vector,
             vector_scale=args.vector_scale,
             output=args.output,
         )
@@ -669,7 +675,7 @@ def main() -> None:
                 cell_color=args.cell_color,
                 cell_width=args.cell_width,
                 ghost_opacity=args.ghost_opacity,
-                vectors=args.vectors,
+                vector=args.vector,
                 vector_scale=args.vector_scale,
             )
         except ValueError as e:

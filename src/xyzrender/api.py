@@ -423,7 +423,7 @@ def render(
     labels: list[str] | None = None,
     label_file: str | None = None,
     # --- Vector arrows ---
-    vectors: str | Path | dict | list[VectorArrow] | None = None,
+    vector: str | Path | dict | list[VectorArrow] | None = None,
     vector_scale: float | None = None,
     vector_color: str | None = None,
     # --- Surface opacity ---
@@ -552,6 +552,7 @@ def render(
     if not isinstance(config, str):
         # Pre-built RenderConfig — shallow copy so we don't mutate the caller's object
         cfg = copy.copy(config)
+        cfg.vectors = list(cfg.vectors)
         if _orient is not None:
             cfg.auto_orient = _orient
         elif mol.oriented:
@@ -635,13 +636,23 @@ def render(
         oriented=mol.oriented,
     )
 
+    # --- Vectors (user-supplied + crystal axes) ---
+    _combine_vector_sources(
+        cfg,
+        rmol.graph,
+        vector=vector,
+        vector_scale=vector_scale,
+        vector_color=vector_color,
+        cell_data=rmol.cell_data,
+        axes=axes,
+    )
+
     # --- Cell / crystal config ---
     if rmol.cell_data is not None:
         _apply_cell_config(
             rmol,
             cfg,
             no_cell=no_cell,
-            axes=axes,
             axis=axis,
             ghosts=ghosts,
             cell_color=cell_color,
@@ -660,20 +671,6 @@ def render(
 
         inline = [s.split() for s in labels] if labels else None
         cfg.annotations = parse_annotations(inline_specs=inline, file_path=label_file, graph=rmol.graph)
-
-    # --- Vector arrows ---
-    if vector_scale is not None:
-        cfg.vector_scale = vector_scale
-    if vector_color is not None:
-        cfg.vector_color = resolve_color(vector_color)
-    if vectors is not None:
-        if isinstance(vectors, list):
-            cfg.vectors = vectors
-        else:
-            from xyzrender.annotations import load_vectors
-
-            _vec_src = vectors if isinstance(vectors, dict) else Path(vectors)
-            cfg.vectors = load_vectors(_vec_src, rmol.graph, default_color=cfg.vector_color)
 
     # --- Early overlay validation (before ghost atoms are added to g1) ---
     if overlay is not None and mol.cell_data is not None:
@@ -719,6 +716,15 @@ def render(
             cell_data=None,
             oriented=True,
         )
+
+    # --- Skeletal-style validation ---
+    if cfg.skeletal_style:
+        if mo or dens or esp is not None:
+            msg = "skeletal_style is mutually exclusive with surface rendering (mo/dens/esp)"
+            raise ValueError(msg)
+        if vdw is not None:
+            msg = "skeletal_style is mutually exclusive with vdw spheres"
+            raise ValueError(msg)
 
     # --- Surface validation ---
     cube_data = rmol.cube_data
@@ -855,7 +861,7 @@ def render_gif(
     # --- NCI detection (gif_ts / gif_trj / gif_rot) ---
     detect_nci: bool = False,
     # --- Vector arrows (gif_rot only) ---
-    vectors: str | Path | dict | list[VectorArrow] | None = None,
+    vector: str | Path | dict | list[VectorArrow] | None = None,
     vector_scale: float | None = None,
     vector_color: str | None = None,
     # --- Surfaces (gif_rot only) ---
@@ -950,6 +956,14 @@ def render_gif(
         msg = "render_gif: overlay= is mutually exclusive with surface rendering (mo/dens)"
         raise ValueError(msg)
 
+    # skeletal_style is a 2D line diagram — GIF rotation/animation is not meaningful
+    _cd_flag = (isinstance(config, str) and config == "skeletal") or (
+        not isinstance(config, str) and config.skeletal_style
+    )
+    if _cd_flag:
+        msg = "render_gif: skeletal_style is not supported with GIF rendering"
+        raise ValueError(msg)
+
     if gif_rot and gif_rot not in ROTATION_AXES:
         test = gif_rot.lstrip("-")
         if not (test.isdigit() and len(test) >= 3):
@@ -962,6 +976,7 @@ def render_gif(
     # Resolve config
     if not isinstance(config, str):
         cfg = copy.copy(config)
+        cfg.vectors = list(cfg.vectors)
         _gif_graph = molecule.graph if isinstance(molecule, Molecule) else load(molecule).graph
         _apply_hull_to_config(cfg, hull, hull_color, hull_opacity, hull_edge, hull_edge_width_ratio, _gif_graph)
     else:
@@ -1105,19 +1120,17 @@ def render_gif(
             aligned2 = align(ref_graph, g2)
             ref_graph = merge_graphs(ref_graph, g2, aligned2, overlay_color=cfg.overlay_color)
 
-        # --- Vector arrows (gif_rot only; needs ref_graph for COM) ---
-        if vector_scale is not None:
-            cfg.vector_scale = vector_scale
-        if vector_color is not None:
-            cfg.vector_color = resolve_color(vector_color)
-        if vectors is not None:
-            if isinstance(vectors, list):
-                cfg.vectors = vectors
-            else:
-                from xyzrender.annotations import load_vectors
-
-                _vec_src = vectors if isinstance(vectors, dict) else Path(vectors)
-                cfg.vectors = load_vectors(_vec_src, ref_graph, default_color=cfg.vector_color)
+        # --- Vectors (user-supplied + crystal axes; gif_rot only) ---
+        _cell_data_for_vecs = molecule.cell_data if isinstance(molecule, Molecule) else None
+        _combine_vector_sources(
+            cfg,
+            ref_graph,
+            vector=vector,
+            vector_scale=vector_scale,
+            vector_color=vector_color,
+            cell_data=_cell_data_for_vecs,
+            axes=axes,
+        )
 
         cube_data = molecule.cube_data if isinstance(molecule, Molecule) else None
 
@@ -1133,7 +1146,6 @@ def render_gif(
                 _gif_mol,
                 cfg,
                 no_cell=no_cell,
-                axes=axes,
                 axis=axis,
                 ghosts=ghosts,
                 cell_color=cell_color,
@@ -1294,12 +1306,65 @@ def _resolve_cmap(
     return load_cmap(str(cmap), graph)
 
 
+def _combine_vector_sources(
+    cfg: "RenderConfig",
+    graph: "nx.Graph",
+    *,
+    vector=None,
+    vector_scale: "float | None" = None,
+    vector_color: "str | None" = None,
+    cell_data: "CellData | None" = None,
+    axes: bool = True,
+) -> None:
+    """Populate ``cfg.vectors`` from user-supplied vectors and crystal axis arrows.
+
+    Must be called *before* :func:`_apply_cell_config` so that all vectors are
+    already in ``cfg.vectors`` when :func:`orient_hkl_to_view` applies the HKL
+    rotation to the whole list in one pass.
+    """
+    if vector_scale is not None:
+        cfg.vector_scale = vector_scale
+    if vector_color is not None:
+        from xyzrender.types import resolve_color
+
+        cfg.vector_color = resolve_color(vector_color)
+    if vector is not None:
+        if not isinstance(vector, list):
+            from xyzrender.annotations import load_vectors
+
+            _vec_src = vector if isinstance(vector, dict) else Path(vector)
+            vector = load_vectors(_vec_src, graph, default_color=cfg.vector_color)
+        cfg.vectors.extend(vector)
+    if cell_data is not None and axes:
+        from xyzrender.types import VectorArrow
+
+        lat = cell_data.lattice
+        orig3d = cell_data.cell_origin
+        for vec, color, label in zip(lat, cfg.axis_colors, ("a", "b", "c"), strict=True):
+            length = float(np.linalg.norm(vec))
+            if length < 1e-6:
+                continue
+            frac = min(0.25, 2.0 / length)
+            cfg.vectors.append(
+                VectorArrow(
+                    vector=vec * frac,
+                    origin=orig3d,
+                    color=color,
+                    label=label,
+                    scale=1.0,
+                    draw_on_top=True,
+                    is_axis=True,
+                    font_size=cfg.label_font_size * 1.8,
+                    width=cfg.bond_width * 1.1,
+                )
+            )
+
+
 def _apply_cell_config(
     mol: Molecule,
     cfg: RenderConfig,
     *,
     no_cell: bool,
-    axes: bool,
     axis: str | None,
     ghosts: bool | None,
     cell_color: str | None,
@@ -1329,7 +1394,7 @@ def _apply_cell_config(
     if axis is not None:
         from xyzrender.viewer import orient_hkl_to_view
 
-        orient_hkl_to_view(mol.graph, cell_data, axis)
+        orient_hkl_to_view(mol.graph, cell_data, axis, cfg)
         cfg.auto_orient = False
 
     # Ghost (periodic image) atoms — default: on when cell_data is present
@@ -1338,31 +1403,6 @@ def _apply_cell_config(
         from xyzrender.crystal import add_crystal_images
 
         add_crystal_images(mol.graph, cell_data)
-
-    # Crystal axes a/b/c as annotation vectors at the cell origin
-    if axes:
-        from xyzrender.types import VectorArrow
-
-        lat = cell_data.lattice
-        orig3d = cell_data.cell_origin
-        for vec, color, label in zip(lat, cfg.axis_colors, ("a", "b", "c"), strict=True):
-            length = float(np.linalg.norm(vec))
-            if length < 1e-6:
-                continue
-            # Arrow spans 25% of the cell edge (max 2 Å) from the origin corner
-            frac = min(0.25, 2.0 / length)
-            cfg.vectors.append(
-                VectorArrow(
-                    vector=vec * frac,
-                    origin=orig3d,
-                    color=color,
-                    label=label,
-                    scale=1.0,
-                    draw_on_top=True,
-                    font_size=cfg.label_font_size * 1.8,
-                    width=cfg.bond_width * 1.1,
-                )
-            )
 
     # Default no-bo for periodic structures (bond orders are not PBC-aware)
     if bo_explicit is None:

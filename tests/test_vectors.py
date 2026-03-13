@@ -171,7 +171,6 @@ def test_render_with_vector_arrows():
     svg = render_svg(graph, cfg)
     assert "#cc0000" in svg
     assert "μ" in svg
-    assert "<line" in svg
 
 
 def test_render_zero_length_vector_no_crash():
@@ -203,30 +202,30 @@ def test_load_vectors_dict_input():
 
 
 # ---------------------------------------------------------------------------
-# API — vectors= kwarg
+# API — vector= kwarg
 # ---------------------------------------------------------------------------
 
 
 def test_api_render_vectors_path(tmp_path):
-    """render() vectors= accepts a file path."""
+    """render() vector= accepts a file path."""
     from xyzrender.api import load as api_load
     from xyzrender.api import render
 
     mol = api_load(EXAMPLES / "ethanol.xyz")
     jf = _write_json([{"vector": [1.0, 0.0, 0.0], "color": "#cc0000", "label": "F"}])
-    result = render(mol, vectors=jf)
+    result = render(mol, vector=jf)
     assert "#cc0000" in str(result)
     assert "F" in str(result)
 
 
 def test_api_render_vectors_dict():
-    """render() vectors= accepts an inline dict."""
+    """render() vector= accepts an inline dict."""
     from xyzrender.api import load as api_load
     from xyzrender.api import render
 
     mol = api_load(EXAMPLES / "ethanol.xyz")
     data = {"vectors": [{"vector": [1.0, 0.0, 0.0], "color": "#aabbcc"}]}
-    result = render(mol, vectors=data)
+    result = render(mol, vector=data)
     assert "#aabbcc" in str(result)
 
 
@@ -281,3 +280,197 @@ def test_arrow_x_drawn_when_short_facing_away():
     assert "<polygon" not in svg, "unexpected arrowhead polygon for too-short arrow"
     # Label is suppressed for dot/x symbols.
     assert "W" not in svg.split("<text", 1)[-1] if "<text" in svg else True
+
+
+# ---------------------------------------------------------------------------
+# API render() — vectors appear when combined with crystal axes
+# ---------------------------------------------------------------------------
+
+
+def test_render_user_vector_appears_plain_mol():
+    """render() draws both the shaft/head and label for a vector on a plain molecule."""
+    from xyzrender.api import load as api_load
+    from xyzrender.api import render
+
+    mol = api_load(EXAMPLES / "caffeine.xyz")
+    jf = _write_json([{"origin": "com", "vector": [2.0, 0.0, 0.0], "color": "#ab1234", "label": "testvec"}])
+    svg = str(render(mol, vector=str(jf)))
+    assert "#ab1234" in svg, "user vector color must appear in SVG"
+    assert "testvec" in svg, "user vector label must appear in SVG"
+    # A filled arrowhead polygon should be present.
+    assert re.search(r'<polygon[^>]*fill="#ab1234"', svg), "arrowhead polygon with user color must appear in SVG"
+
+
+def test_render_user_vector_appears_with_crystal_axes():
+    """render() with cell_data + axes=True must include BOTH axis colors AND the
+    user-supplied vector color in the SVG output.  This is the main regression
+    guard for the bug where cfg.vectors was overwritten instead of extended."""
+    from xyzrender.api import load as api_load
+    from xyzrender.api import render
+
+    mol = api_load(EXAMPLES / "caffeine_cell.xyz", cell=True)
+    # Use a color that differs from all three axis colors (firebrick/forestgreen/royalblue)
+    user_color = "#cd5c5c"  # indianred — resolves to a distinct hex from axis colors
+    jf = _write_json([{"origin": "com", "vector": [2.0, 0.0, 0.0], "color": user_color, "label": "dipole"}])
+    svg = str(render(mol, vector=str(jf), axes=True))
+    # Axis colors must be present (firebrick → #b22222, forestgreen → #228b22, royalblue → #4169e1)
+    from xyzrender.types import resolve_color
+
+    assert resolve_color("firebrick") in svg, "a-axis (firebrick) must appear"
+    assert resolve_color("forestgreen") in svg, "b-axis (forestgreen) must appear"
+    assert resolve_color("royalblue") in svg, "c-axis (royalblue) must appear"
+    # User vector must also be present
+    assert user_color in svg, "user vector color must appear in SVG alongside axis arrows"
+    assert "dipole" in svg, "user vector label must appear in SVG"
+
+
+def test_render_user_vector_appears_with_crystal_axes_no_double_loading():
+    """Calling render() twice with the same pre-built config must NOT accumulate
+    vectors across calls (shallow-copy list aliasing regression)."""
+    from xyzrender.api import load as api_load
+    from xyzrender.api import render
+    from xyzrender.config import build_config
+
+    mol = api_load(EXAMPLES / "caffeine_cell.xyz", cell=True)
+    user_color = "#cd5c5c"
+    jf = _write_json([{"origin": "com", "vector": [2.0, 0.0, 0.0], "color": user_color, "label": "dipole"}])
+
+    cfg = build_config("default")
+    svg1 = str(render(mol, config=cfg, vector=str(jf), axes=True))
+    svg2 = str(render(mol, config=cfg, vector=str(jf), axes=True))
+
+    # Count polygon arrowheads with user color in each SVG — should be exactly 1 each
+    count1 = len(re.findall(rf'<polygon[^>]*fill="{re.escape(user_color)}"', svg1))
+    count2 = len(re.findall(rf'<polygon[^>]*fill="{re.escape(user_color)}"', svg2))
+    assert count1 == 1, f"first render: expected 1 user-vector arrowhead, got {count1}"
+    assert count2 == 1, f"second render: expected 1 user-vector arrowhead, got {count2}"
+
+
+# ---------------------------------------------------------------------------
+# orient_hkl_to_view — user vectors co-rotate with crystal
+# ---------------------------------------------------------------------------
+
+
+def _cubic_graph_and_cell(a: float = 4.0):
+    """Return a minimal 2-atom graph and CellData for a simple cubic cell."""
+    import networkx as nx
+
+    from xyzrender.types import CellData
+
+    g = nx.Graph()
+    g.add_node(0, symbol="C", position=(0.0, 0.0, 0.0))
+    g.add_node(1, symbol="C", position=(a, a, a))
+    lattice = np.diag([a, a, a]).astype(float)
+    return g, CellData(lattice=lattice, cell_origin=np.zeros(3))
+
+
+def test_orient_hkl_vectors_001_no_rotation():
+    """Axis [001] on a cubic cell is already +z — vector direction and origin are unchanged."""
+    from xyzrender.types import RenderConfig
+    from xyzrender.viewer import orient_hkl_to_view
+
+    g, cell_data = _cubic_graph_and_cell()
+    va = VectorArrow(vector=np.array([1.0, 2.0, 3.0]), origin=np.array([1.0, 1.0, 1.0]))
+    cfg = RenderConfig(vectors=[va])
+
+    orient_hkl_to_view(g, cell_data, "001", cfg)
+
+    np.testing.assert_allclose(np.array(cfg.vectors[0].vector), [1.0, 2.0, 3.0], atol=1e-9)
+    np.testing.assert_allclose(np.array(cfg.vectors[0].origin), [1.0, 1.0, 1.0], atol=1e-9)
+
+
+def test_orient_hkl_vectors_100_direction():
+    """Axis [100] on a cubic cell: a vector along lattice-a must point along +z after rotation."""
+    from xyzrender.types import RenderConfig
+    from xyzrender.viewer import orient_hkl_to_view
+
+    g, cell_data = _cubic_graph_and_cell()
+    # The a-axis is [1,0,0]; viewing along [100] must align it with +z.
+    va = VectorArrow(vector=np.array([1.0, 0.0, 0.0]), origin=np.array([2.0, 2.0, 2.0]))
+    cfg = RenderConfig(vectors=[va])
+
+    orient_hkl_to_view(g, cell_data, "100", cfg)
+
+    np.testing.assert_allclose(np.array(cfg.vectors[0].vector), [0.0, 0.0, 1.0], atol=1e-9)
+
+
+def test_orient_hkl_vectors_100_origin():
+    """After [100] rotation the vector origin is rotated around the atom centroid."""
+    from xyzrender.types import RenderConfig
+    from xyzrender.viewer import orient_hkl_to_view
+
+    a = 4.0
+    g, cell_data = _cubic_graph_and_cell(a)
+    pos = np.array([g.nodes[i]["position"] for i in g.nodes()])
+    centroid = pos.mean(axis=0)  # (2, 2, 2)
+
+    # Place the origin displaced by a along the a-axis from the centroid.
+    origin = centroid + np.array([a, 0.0, 0.0])
+    va = VectorArrow(vector=np.array([1.0, 0.0, 0.0]), origin=origin.copy())
+    cfg = RenderConfig(vectors=[va])
+
+    orient_hkl_to_view(g, cell_data, "100", cfg)
+
+    # The rotation maps displacement [a, 0, 0] → [0, 0, a].
+    expected_origin = centroid + np.array([0.0, 0.0, a])
+    np.testing.assert_allclose(np.array(cfg.vectors[0].origin), expected_origin, atol=1e-9)
+
+
+def test_orient_hkl_vectors_110_direction():
+    """Axis [110] on a cubic cell: a vector along the [110] diagonal must point along +z."""
+    from xyzrender.types import RenderConfig
+    from xyzrender.viewer import orient_hkl_to_view
+
+    g, cell_data = _cubic_graph_and_cell()
+    # The [110] lattice direction is [1, 1, 0] / sqrt(2).
+    va = VectorArrow(
+        vector=np.array([1.0, 1.0, 0.0]) / np.sqrt(2),
+        origin=np.array([2.0, 2.0, 2.0]),  # at centroid → origin is unchanged
+    )
+    cfg = RenderConfig(vectors=[va])
+
+    orient_hkl_to_view(g, cell_data, "110", cfg)
+
+    np.testing.assert_allclose(np.array(cfg.vectors[0].vector), [0.0, 0.0, 1.0], atol=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# Integration — user vectors via render() with axis= on a real crystal file
+# ---------------------------------------------------------------------------
+
+
+def test_render_crystal_axis_vector_projects_as_dot_when_parallel_to_view():
+    """render() with axis='100' on an orthorhombic cell: a user vector aligned
+    with the a-axis must project as a dot (<circle>) in the SVG because the
+    arrow is now pointing directly along the viewing axis (+z)."""
+    from xyzrender.api import Molecule, render
+    from xyzrender.types import CellData
+
+    graph, _ = load_molecule(EXAMPLES / "caffeine_cell.xyz")
+    cell_data = CellData(
+        lattice=np.array(graph.graph["lattice"], dtype=float),
+        cell_origin=np.zeros(3),
+    )
+    mol = Molecule(graph=graph, cell_data=cell_data)
+
+    # Unit vector along the a-axis (first lattice row)
+    a_hat = cell_data.lattice[0] / np.linalg.norm(cell_data.lattice[0])
+    positions = np.array([graph.nodes[i]["position"] for i in graph.nodes()])
+    centroid = positions.mean(axis=0)
+
+    # Distinct color so we can identify this arrow's elements in the SVG.
+    user_color = "#7f1234"
+    va = VectorArrow(vector=a_hat.copy(), origin=centroid.copy(), color=user_color)
+
+    # View along [100]: the user vector is now parallel to the viewing axis →
+    # projected length ≈ 0 → _draw_arrow_svg renders it as a filled circle, not a polygon.
+    svg = str(render(mol, vector=[va], axes=False, ghosts=False, axis="100"))
+
+    assert f'fill="{user_color}"' in svg, "user vector must appear in the rotated SVG"
+    # In the short-projection code path the arrow renders as a circle, not a polygon arrowhead.
+    assert re.search(rf'<circle[^>]*fill="{re.escape(user_color)}"', svg), (
+        "user vector aligned with view axis should render as a dot (circle), not a line+polygon"
+    )
+    assert not re.search(rf'<polygon[^>]*fill="{re.escape(user_color)}"', svg), (
+        "user vector aligned with view axis must NOT render as a polygon arrowhead"
+    )

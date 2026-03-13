@@ -92,7 +92,7 @@ Overlay arbitrary 3D vectors as arrows on the rendered image via a JSON file. Us
 
 
 ```bash
-xyzrender ethanol.xyz --vectors ethanol_dip.json -o ethanol_dip.svg
+xyzrender ethanol.xyz --vector ethanol_dip.json -o ethanol_dip.svg
 ```
 
 Each entry in the JSON array defines one arrow:

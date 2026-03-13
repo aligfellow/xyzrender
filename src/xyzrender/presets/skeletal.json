@@ -1,0 +1,17 @@
+{
+  "canvas_size": 800,
+  "atom_scale": 2.5,
+  "bond_width": 14,
+  "bond_color": "black",
+  "atom_stroke_width": 0,
+  "gradient": false,
+  "fog": true,
+  "bond_orders": true,
+  "background": "white",
+  "label_font_size": 50,
+  "label_color": "#222222",
+  "label_offset": 0.0,
+  "skeletal_style": true,
+  "skeletal_label_color": null
+}
+

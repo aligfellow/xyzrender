@@ -174,9 +174,9 @@ def resolve_orientation(
 
         # Co-rotate crystal lattice and cell origin by the same matrix
         if cfg.cell_data is not None:
-            lat = cfg.cell_data.lattice
-            cfg.cell_data.lattice = (rot @ lat.T).T
-            cfg.cell_data.cell_origin = rot @ (cfg.cell_data.cell_origin - centroid_before) + curr_centroid
+            cfg.cell_data.lattice, cfg.cell_data.cell_origin = _apply_rot_to_vecs(
+                rot, cfg.cell_data.lattice, cfg.cell_data.cell_origin, centroid_before
+            )
 
         cfg.auto_orient = False  # already applied; renderer must not re-apply
 
@@ -200,6 +200,20 @@ def resolve_orientation(
     return rot, atom_centroid, curr_centroid
 
 
+def _apply_rot_to_vecs(
+    rot: np.ndarray,
+    directions: np.ndarray,
+    origins: np.ndarray,
+    centroid: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Rotate direction vectors and translate origins around *centroid* by *rot*.
+
+    Works for shape ``(3,)`` (single vector) or ``(N, 3)`` (row-vectors).
+    Returns ``(rotated_directions, rotated_origins)``.
+    """
+    return (rot @ directions.T).T, (rot @ (origins - centroid).T).T + centroid
+
+
 def apply_axis_angle_rotation(graph: nx.Graph, axis: np.ndarray, angle: float) -> None:
     """Rotate all atom positions in-place around an arbitrary axis (degrees).
 
@@ -215,8 +229,6 @@ def apply_axis_angle_rotation(graph: nx.Graph, axis: np.ndarray, angle: float) -
     angle:
         Rotation angle in degrees.
     """
-    from xyzrender.viewer import _apply_rot_to_lattice
-
     nodes = list(graph.nodes())
     theta = np.radians(angle)
     k = axis / np.linalg.norm(axis)
@@ -229,7 +241,11 @@ def apply_axis_angle_rotation(graph: nx.Graph, axis: np.ndarray, angle: float) -
     rotated = (rot @ (positions - centroid).T).T + centroid
     for i, nid in enumerate(nodes):
         graph.nodes[nid]["position"] = tuple(rotated[i].tolist())
-    _apply_rot_to_lattice(graph, rot, centroid)
+    if "lattice" in graph.graph:
+        origin = np.asarray(graph.graph.get("lattice_origin", np.zeros(3)), dtype=float)
+        graph.graph["lattice"], graph.graph["lattice_origin"] = _apply_rot_to_vecs(
+            rot, graph.graph["lattice"], origin, centroid
+        )
 
 
 def kabsch_rotation(original: np.ndarray, target: np.ndarray) -> np.ndarray:

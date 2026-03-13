@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     import networkx as nx
     from vmol import Vmol
 
+    from xyzrender.config import RenderConfig
     from xyzrender.types import CellData
 
 _Atoms: TypeAlias = list[tuple[str, tuple[float, float, float]]]
@@ -90,40 +91,7 @@ def rotate_with_viewer(
     return rot, c1, c2
 
 
-def apply_rotation(graph: nx.Graph, rx: float, ry: float, rz: float) -> None:
-    """Rotate all atom positions in-place by Euler angles (degrees).
-
-    Rotation is around the molecular centroid so the molecule stays centered.
-
-    Parameters
-    ----------
-    graph:
-        Molecular graph whose node positions are updated in-place.
-    rx, ry, rz:
-        Rotation angles around x, y, z axes in degrees.
-    """
-    nodes = list(graph.nodes())
-    rx, ry, rz = np.radians(rx), np.radians(ry), np.radians(rz)
-    cx, sx = np.cos(rx), np.sin(rx)
-    cy, sy = np.cos(ry), np.sin(ry)
-    cz, sz = np.cos(rz), np.sin(rz)
-    # Rz @ Ry @ Rx
-    rot = np.array(
-        [
-            [cy * cz, sx * sy * cz - cx * sz, cx * sy * cz + sx * sz],
-            [cy * sz, sx * sy * sz + cx * cz, cx * sy * sz - sx * cz],
-            [-sy, sx * cy, cx * cy],
-        ]
-    )
-    positions = np.array([graph.nodes[n]["position"] for n in nodes])
-    centroid = positions.mean(axis=0)
-    rotated = (rot @ (positions - centroid).T).T + centroid
-    for i, nid in enumerate(nodes):
-        graph.nodes[nid]["position"] = tuple(rotated[i].tolist())
-    _apply_rot_to_lattice(graph, rot, centroid)
-
-
-def orient_hkl_to_view(graph: nx.Graph, cell_data: "CellData", axis_str: str) -> None:
+def orient_hkl_to_view(graph: nx.Graph, cell_data: "CellData", axis_str: str, cfg: "RenderConfig") -> None:
     """Rotate *graph* and *cell_data* so that the [hkl] direction points along +z.
 
     Parameters
@@ -134,6 +102,8 @@ def orient_hkl_to_view(graph: nx.Graph, cell_data: "CellData", axis_str: str) ->
         Crystal cell data whose lattice and origin are updated in-place.
     axis_str:
         3-digit Miller index string, optionally prefixed with ``-`` (e.g. ``'111'``, ``'-110'``).
+    cfg:
+        Render configuration object.
 
     Raises
     ------
@@ -169,32 +139,14 @@ def orient_hkl_to_view(graph: nx.Graph, cell_data: "CellData", axis_str: str) ->
     pos_rot = (rot_view @ (pos - centroid).T).T + centroid
     for idx, nid in enumerate(node_ids):
         graph.nodes[nid]["position"] = tuple(pos_rot[idx].tolist())
-    cell_data.lattice = (rot_view @ cell_data.lattice.T).T
-    cell_data.cell_origin = rot_view @ (cell_data.cell_origin - centroid) + centroid
+    from xyzrender.utils import _apply_rot_to_vecs
 
-
-def _apply_rot_to_lattice(graph: nx.Graph, rot: np.ndarray, centroid: np.ndarray) -> None:
-    """Rotate the lattice vectors and cell origin stored on *graph* by *rot*.
-
-    Both the lattice vectors and the cell origin are always updated so that
-    the cell box stays aligned with the atoms after any rotation.  The origin
-    defaults to (0, 0, 0) when not explicitly present in the graph.
-
-    Parameters
-    ----------
-    graph:
-        Molecular graph (lattice stored in ``graph.graph``).
-    rot:
-        3x3 rotation matrix.
-    centroid:
-        Centroid position to rotate around.
-    """
-    if "lattice" not in graph.graph:
-        return
-    lat = np.array(graph.graph["lattice"], dtype=float)
-    graph.graph["lattice"] = (rot @ lat.T).T
-    origin = np.array(graph.graph.get("lattice_origin", np.zeros(3)), dtype=float)
-    graph.graph["lattice_origin"] = rot @ (origin - centroid) + centroid
+    cell_data.lattice, cell_data.cell_origin = _apply_rot_to_vecs(
+        rot_view, cell_data.lattice, cell_data.cell_origin, centroid
+    )
+    if hasattr(cfg, "vectors"):
+        for vec in cfg.vectors:
+            vec.vector, vec.origin = _apply_rot_to_vecs(rot_view, vec.vector, vec.origin, centroid)
 
 
 def _run_viewer(viewer: Vmol, mol: dict, extra_args: list[str] | None = None) -> str:
