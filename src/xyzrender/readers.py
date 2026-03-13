@@ -15,15 +15,14 @@ from typing import TYPE_CHECKING, TypeAlias
 import numpy as np
 from xyzgraph import DATA, build_graph, read_xyz_file
 
+from xyzrender.types import CellData
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     import networkx as nx
 
     from xyzrender.cube import CubeData
-    from xyzrender.types import CellData
-
-from xyzrender.types import CellData
 
 _Atoms: TypeAlias = list[tuple[str, tuple[float, float, float]]]
 

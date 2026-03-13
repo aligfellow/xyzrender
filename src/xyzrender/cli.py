@@ -9,13 +9,13 @@ from pathlib import Path
 
 from xyzrender.api import (
     Molecule,
-    _apply_hull_to_config,
     load,
     orient,
     render,
     render_gif,
 )
 from xyzrender.config import build_config
+from xyzrender.hull import apply_hull_to_config
 from xyzrender.readers import load_stdin
 
 logger = logging.getLogger(__name__)
@@ -432,12 +432,6 @@ def main() -> None:
         show_indices=args.idx is not None,
         idx_format=args.idx or "sn",
         cmap_range=tuple(args.cmap_range) if args.cmap_range else None,
-        hull=True if args.hull is not None and args.hull != ["rings"] else None,
-        hull_idx=([_parse_indices(g) for g in args.hull] if args.hull and args.hull != ["rings"] else None),
-        hull_colors=args.hull_color,
-        hull_opacity=args.hull_opacity,
-        hull_edge=args.hull_edge,
-        hull_edge_width_ratio=args.hull_edge_width_ratio,
     )
 
     if args.skeletal_label_color is not None:
@@ -532,11 +526,18 @@ def main() -> None:
         except ValueError as e:
             p.error(str(e))
 
-    # Resolve hull="rings" now that mol is loaded, reusing API helper semantics
-    if args.hull == ["rings"]:
-        _apply_hull_to_config(
+    # Resolve hull now that mol is loaded (needs graph for ring detection / index conversion)
+    if args.hull is not None:
+        if args.hull == ["rings"]:
+            _hull_arg: bool | str | list[int] | list[list[int]] = "rings"
+        elif not args.hull:
+            # --hull with no args → all heavy atoms
+            _hull_arg = True
+        else:
+            _hull_arg = [_parse_indices(g) for g in args.hull]
+        apply_hull_to_config(
             cfg,
-            "rings",
+            _hull_arg,
             hull_color=args.hull_color,
             hull_opacity=args.hull_opacity,
             hull_edge=args.hull_edge,

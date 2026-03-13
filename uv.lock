@@ -2241,6 +2241,7 @@ all = [
     { name = "rdkit" },
     { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "scipy", version = "1.17.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "vmol" },
 ]
 cif = [
     { name = "ase" },
@@ -2290,6 +2291,7 @@ requires-dist = [
     { name = "rdkit", marker = "extra == 'smi'" },
     { name = "scipy", marker = "extra == 'all'", specifier = ">=1.10" },
     { name = "scipy", marker = "extra == 'hull'", specifier = ">=1.10" },
+    { name = "vmol", marker = "extra == 'all'" },
     { name = "vmol", marker = "extra == 'v'" },
     { name = "xyzgraph", specifier = ">=1.6.2" },
 ]

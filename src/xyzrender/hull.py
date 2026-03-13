@@ -14,12 +14,18 @@ Requires ``scipy``: ``pip install scipy`` or ``pip install 'xyzrender[hull]'``.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
 if TYPE_CHECKING:
+    import networkx as nx
     from scipy.spatial import ConvexHull
+
+    from xyzrender.types import RenderConfig
+
+logger = logging.getLogger(__name__)
 
 
 def _convex_hull(points: np.ndarray, *, qhull_options: str | None = None) -> ConvexHull:
@@ -269,3 +275,85 @@ def hull_facets_svg(
         points_str = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys, strict=True))
         svg.append(f'  <polygon points="{points_str}" fill="{c}" fill-opacity="{opacity:.2f}" stroke="none"/>')
     return svg
+
+
+# ---------------------------------------------------------------------------
+# Hull resolution helpers (moved from api.py)
+# ---------------------------------------------------------------------------
+
+
+def resolve_hull_rings(graph: nx.Graph) -> list[list[int]]:
+    """Return aromatic ring atom indices from the molecular graph.
+
+    Reads ``graph.graph["aromatic_rings"]`` if present (set by xyzgraph).
+    Otherwise runs ``xyzgraph.build_graph`` on demand for Hückel detection
+    from 3D geometry — this avoids the cost of a full rebuild at load time
+    for molecules that never use ``hull="rings"``.
+
+    Each ring is a list of 0-indexed atom indices.  If no aromatic rings are
+    found, logs a warning and returns an empty list.
+    """
+    rings = graph.graph.get("aromatic_rings", [])
+    if not rings and "aromatic_rings" not in graph.graph:
+        from xyzgraph import build_graph
+
+        atoms = [(graph.nodes[i]["symbol"], tuple(graph.nodes[i]["position"])) for i in graph.nodes()]
+        charge = graph.graph.get("total_charge", 0)
+        mult = graph.graph.get("multiplicity")
+        tmp = build_graph(atoms, charge=charge, multiplicity=mult)
+        rings = tmp.graph.get("aromatic_rings", [])
+    if not rings:
+        logger.warning("hull='rings' requested but no aromatic rings detected in the molecular graph")
+        return []
+    return [list(r) for r in rings]
+
+
+def resolve_hull_flag_and_indices(
+    hull: bool | str | list[int] | list[list[int]] | None,
+    graph: nx.Graph | None,
+) -> tuple[bool | None, list[int] | list[list[int]] | None]:
+    r"""Resolve hull option to (show_convex_hull, hull_atom_indices) for config.
+
+    Returns (None, None) when hull is None or when hull="rings" but graph has
+    no aromatic rings. Used by both render() and render_gif() to avoid duplicating
+    hull resolution logic.
+    """
+    if hull is None:
+        return None, None
+    if hull == "rings":
+        if graph is None:
+            return None, None
+        ring_indices = resolve_hull_rings(graph)
+        if not ring_indices:
+            return None, None
+        return True, ring_indices
+    if isinstance(hull, list):
+        return True, hull_indices_to_0indexed(hull)
+    if isinstance(hull, bool):
+        return hull, None
+    return None, None
+
+
+def apply_hull_to_config(
+    cfg: RenderConfig,
+    hull: bool | str | list[int] | list[list[int]] | None,
+    hull_color: str | list[str] | None,
+    hull_opacity: float | None,
+    hull_edge: bool | None,
+    hull_edge_width_ratio: float | None,
+    graph: nx.Graph | None,
+) -> None:
+    """Apply hull-related options to *cfg*. Single place for hull semantics."""
+    show_hull, hull_idx = resolve_hull_flag_and_indices(hull, graph)
+    if show_hull is not None:
+        cfg.show_convex_hull = show_hull
+    if hull_idx is not None:
+        cfg.hull_atom_indices = hull_idx
+    if hull_color is not None:
+        cfg.hull_colors = [hull_color] if isinstance(hull_color, str) else hull_color
+    if hull_opacity is not None:
+        cfg.hull_opacity = hull_opacity
+    if hull_edge is not None:
+        cfg.show_hull_edges = hull_edge
+    if hull_edge_width_ratio is not None:
+        cfg.hull_edge_width_ratio = hull_edge_width_ratio
