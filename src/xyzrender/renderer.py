@@ -259,7 +259,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
     if not cfg.transparent:
         svg.append(f'  <rect width="100%" height="100%" fill="{cfg.background}"/>')
 
-    use_grad = cfg.gradient and not cfg.chemdraw_style
+    use_grad = cfg.gradient and not cfg.skeletal_style
+    if cfg.skeletal_style:
+        from xyzrender.skeletal import skeletal_atom_svg, skeletal_bond_svg
     # Cmap/fog/overlay all require per-atom gradient defs (each atom may have a distinct colour)
     use_per_atom_grad = cfg.fog or cfg.atom_cmap is not None or has_overlay
     if use_grad:
@@ -546,30 +548,42 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
 
     def add_bond(ai, aj, bo, style, opacity: float = 1.0, color_override: str | None = None):
         """Render bond — closure captures shared rendering state."""
+        if cfg.skeletal_style:
+            skeletal_bond_svg(
+                svg,
+                ai,
+                aj,
+                bo,
+                style,
+                opacity,
+                pos=pos,
+                symbols=symbols,
+                radii=radii,
+                bw=bw,
+                gap=gap,
+                fs_label=fs_label,
+                scale=scale,
+                cx=cx,
+                cy=cy,
+                canvas_w=canvas_w,
+                canvas_h=canvas_h,
+                fog_f=fog_f,
+                fog_rgb=fog_rgb,
+                fog_enabled=cfg.fog,
+                bond_color=cfg.bond_color,
+                color_override=color_override,
+                aromatic_rings=aromatic_rings,
+            )
+            return
+
         rij = pos[aj] - pos[ai]
         dist = np.linalg.norm(rij)
         if dist < 1e-6:
             return
         d = rij / dist
 
-        # Effective radii for bond endpoints:
-        # - Normal modes: use display radii for both atoms.
-        # - Chemdraw style: keep bonds touching carbon centres (radius=0 for C)
-        #   but offset from non-carbon atoms by an amount that grows with
-        #   label font size so bonds do not overlap the element text.
-        if cfg.chemdraw_style:
-            sym_i = symbols[ai]
-            sym_j = symbols[aj]
-            # Convert a pixel margin based on label font size back into the 3D
-            # coordinate scale used for radii.  This keeps the visual clearance
-            # between bond endpoint and text roughly proportional to font size.
-            # The 0.5 factor is empirical and tuned for legibility.
-            margin_3d = (fs_label * 0.7) / max(scale, 1e-6)
-            ri = 0.0 if sym_i == "C" else max(radii[ai], margin_3d)
-            rj = 0.0 if sym_j == "C" else max(radii[aj], margin_3d)
-        else:
-            ri = radii[ai]
-            rj = radii[aj]
+        ri = radii[ai]
+        rj = radii[aj]
 
         start = pos[ai] + d * ri * 0.9
         end = pos[aj] - d * rj * 0.9
@@ -612,48 +626,19 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
 
         is_aromatic = 1.3 < bo < 1.7
         if is_aromatic:
+            # Solid + dashed parallel lines, dashed toward ring center
             side = _ring_side(pos, ai, aj, aromatic_rings, x1, y1, x2, y2, px, py, scale, cx, cy, canvas_w, canvas_h)
-            if cfg.chemdraw_style:
-                # Chemdraw-style aromatic bond:
-                # - One solid line centred on the bond (no perpendicular offset)
-                # - One dashed line offset further toward the ring centre and
-                #   shortened at both ends to reduce overlap.
-                w = bw * 0.6
-                # Solid component: centre line
+            w = bw * 0.7
+            for ib in [-1, 1]:
+                ox, oy = px * ib * gap, py * ib * gap
+                dash = f' stroke-dasharray="{w * 1.0:.1f},{w * 2.0:.1f}"' if ib == side else ""
                 svg.append(
-                    f'  <line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" '
-                    f'stroke="{color}" stroke-width="{w:.1f}" stroke-linecap="round"{op_attr}/>'
+                    f'  <line x1="{x1 + ox:.1f}" y1="{y1 + oy:.1f}" x2="{x2 + ox:.1f}" y2="{y2 + oy:.1f}" '
+                    f'stroke="{color}" stroke-width="{w:.1f}" stroke-linecap="round"{dash}{op_attr}/>'
                 )
-                # Dashed component
-                vx, vy = dx / ln, dy / ln
-                trim = min(ln * 0.2, w * 2.5)
-                dx_d, dy_d = vx * trim, vy * trim
-                x1d, y1d = x1 + dx_d, y1 + dy_d
-                x2d, y2d = x2 - dx_d, y2 - dy_d
-                ox, oy = px * 2 * gap * side, py * 2 * gap * side
-                d_dash, g_dash = w * 1.0, w * 2.0
-                svg.append(
-                    f'  <line x1="{x1d + ox:.1f}" y1="{y1d + oy:.1f}" x2="{x2d + ox:.1f}" y2="{y2d + oy:.1f}" '
-                    f'stroke="{color}" stroke-width="{w:.1f}" stroke-linecap="round" '
-                    f'stroke-dasharray="{d_dash:.1f},{g_dash:.1f}"{op_attr}/>'
-                )
-            else:
-                # Default aromatic: solid + dashed parallel lines, dashed toward ring center
-                w = bw * 0.7
-                for ib in [-1, 1]:
-                    ox, oy = px * ib * gap, py * ib * gap
-                    dash = f' stroke-dasharray="{w * 1.0:.1f},{w * 2.0:.1f}"' if ib == side else ""
-                    svg.append(
-                        f'  <line x1="{x1 + ox:.1f}" y1="{y1 + oy:.1f}" x2="{x2 + ox:.1f}" y2="{y2 + oy:.1f}" '
-                        f'stroke="{color}" stroke-width="{w:.1f}" stroke-linecap="round"{dash}{op_attr}/>'
-                    )
         else:
             nb = max(1, round(bo))
-            # In Chemdraw mode, use a uniform, thinner stroke width regardless of bond order
-            if cfg.chemdraw_style:
-                w = bw * 0.6
-            else:
-                w = bw if nb == 1 else bw * 0.7
+            w = bw if nb == 1 else bw * 0.7
             for ib in range(-nb + 1, nb, 2):
                 ox, oy = px * ib * gap, py * ib * gap
                 svg.append(
@@ -702,26 +687,21 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
         op_attr_atom = f' opacity="{atom_op:.2f}"' if atom_op < 1.0 else ""
 
         # Atom graphics / labels
-        if cfg.chemdraw_style:
-            # No atom circles; label non-carbon atoms with their element symbol.
-            # Use CPK base colour with optional fog so labels match normal styles,
-            # but force H labels to black so they remain visible.
+        if cfg.skeletal_style:
             if not is_image:
-                sym = symbols[ai]
-                if sym != "C":
-                    if sym == "H":
-                        fill = "#000000"
-                    else:
-                        fill = colors[ai].hex
-                        if cfg.fog:
-                            fill = blend_fog(fill, fog_rgb, fog_f[ai])
-                    svg.append(
-                        f'  <text x="{xi:.1f}" y="{yi:.1f}" '
-                        f'font-family="Helvetica,Arial,sans-serif" '
-                        f'font-size="{fs_label:.1f}px" font-weight="bold" '
-                        f'text-anchor="middle" dominant-baseline="central" '
-                        f'fill="{fill}">{sym}</text>'
-                    )
+                skeletal_atom_svg(
+                    svg,
+                    ai,
+                    xi,
+                    yi,
+                    symbols=symbols,
+                    colors=colors,
+                    fs_label=fs_label,
+                    fog_enabled=cfg.fog,
+                    fog_rgb=fog_rgb,
+                    fog_f=fog_f,
+                    label_color_override=cfg.skeletal_label_color,
+                )
         else:
             # Atom circle (gradient or flat fill)
             if use_grad:

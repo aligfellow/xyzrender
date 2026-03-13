@@ -754,6 +754,15 @@ def render(
             oriented=True,
         )
 
+    # --- Skeletal-style validation ---
+    if cfg.skeletal_style:
+        if mo or dens or esp is not None:
+            msg = "skeletal_style is mutually exclusive with surface rendering (mo/dens/esp)"
+            raise ValueError(msg)
+        if vdw is not None:
+            msg = "skeletal_style is mutually exclusive with vdw spheres"
+            raise ValueError(msg)
+
     # --- Surface validation ---
     cube_data = rmol.cube_data
     _hull_active = cfg.show_convex_hull
@@ -982,6 +991,14 @@ def render_gif(
 
     if overlay is not None and (mo or dens):
         msg = "render_gif: overlay= is mutually exclusive with surface rendering (mo/dens)"
+        raise ValueError(msg)
+
+    # skeletal_style is a 2D line diagram — GIF rotation/animation is not meaningful
+    _cd_flag = (isinstance(config, str) and config == "skeletal") or (
+        not isinstance(config, str) and config.skeletal_style
+    )
+    if _cd_flag:
+        msg = "render_gif: skeletal_style is not supported with GIF rendering"
         raise ValueError(msg)
 
     if gif_rot and gif_rot not in ROTATION_AXES:
