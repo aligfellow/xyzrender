@@ -141,7 +141,10 @@ class Molecule:
         title:
             Comment line written as the second line of the file.
         """
-        if path and not str(path).lower().endswith(".xyz"):
+        if not path or not str(path).strip():
+            msg = "to_xyz: output path cannot be empty"
+            raise ValueError(msg)
+        if not str(path).lower().endswith(".xyz"):
             logger.warning("to_xyz: output path does not end with .xyz: %s", path)
         nodes = [(i, self.graph.nodes[i]) for i in self.graph.nodes() if self.graph.nodes[i].get("symbol", "") != "*"]
 
@@ -557,31 +560,7 @@ def render(
             cfg.auto_orient = _orient
         elif mol.oriented:
             cfg.auto_orient = False
-        # Apply render()-specific overlays on top of pre-built config
-        if ts_bonds is not None:
-            cfg.ts_bonds = [(a - 1, b - 1) for a, b in ts_bonds]
-        if nci_bonds is not None:
-            cfg.nci_bonds = [(a - 1, b - 1) for a, b in nci_bonds]
-        if vdw is not None:
-            cfg.vdw_indices = [i - 1 for i in vdw] if isinstance(vdw, list) else []
-        if idx:
-            cfg.show_indices = True
-            cfg.idx_format = idx if isinstance(idx, str) else "sn"
-        if cmap is not None:
-            cfg.atom_cmap = _resolve_cmap(cmap, mol.graph)
-        if cmap_range is not None:
-            cfg.cmap_range = cmap_range
-        if opacity is not None:
-            cfg.surface_opacity = opacity
     else:
-        # Build from preset/file
-        _ts_0 = [(a - 1, b - 1) for a, b in ts_bonds] if ts_bonds else None
-        _nci_0 = [(a - 1, b - 1) for a, b in nci_bonds] if nci_bonds else None
-        _vdw_0 = [] if vdw is True else ([i - 1 for i in vdw] if vdw else None)
-        _show = bool(idx)
-        _ifmt = idx if isinstance(idx, str) else "sn"
-        _cmap_0 = _resolve_cmap(cmap, mol.graph) if cmap is not None else None
-
         cfg = build_config(
             config,
             canvas_size=canvas_size,
@@ -605,15 +584,19 @@ def render(
             hy=hy,
             no_hy=no_hy,
             orient=_orient,
-            opacity=opacity,
-            ts_bonds=_ts_0,
-            nci_bonds=_nci_0,
-            vdw_indices=_vdw_0,
-            show_indices=_show,  # RenderConfig field keeps its name
-            idx_format=_ifmt,
-            atom_cmap=_cmap_0,
-            cmap_range=cmap_range,
         )
+
+    _apply_render_overlays(
+        cfg,
+        mol.graph,
+        ts_bonds=ts_bonds,
+        nci_bonds=nci_bonds,
+        vdw=vdw,
+        idx=idx,
+        cmap=cmap,
+        cmap_range=cmap_range,
+        opacity=opacity,
+    )
 
     # --- Convex hull (both config paths) ---
     from xyzrender.hull import apply_hull_to_config
@@ -777,6 +760,7 @@ def render(
         has_nci=has_nci,
     )
 
+    from xyzrender.cube import parse_cube
     from xyzrender.surfaces import (
         compute_dens_surface,
         compute_esp_surface,
@@ -791,14 +775,10 @@ def render(
         compute_dens_surface(rmol.graph, cube_data, cfg, dens_params)
 
     if esp_params is not None and esp is not None and cube_data is not None:
-        from xyzrender.cube import parse_cube
-
         esp_cube = parse_cube(str(esp))
         compute_esp_surface(rmol.graph, cube_data, esp_cube, cfg, esp_params)
 
     if nci_params is not None and nci is not None and cube_data is not None:
-        from xyzrender.cube import parse_cube
-
         nci_cube = parse_cube(str(nci))
         compute_nci_surface(rmol.graph, cube_data, nci_cube, cfg, nci_params)
 
@@ -854,7 +834,7 @@ def render_gif(
     overlay: str | os.PathLike | Molecule | None = None,
     overlay_color: str | None = None,
     # --- Orientation reference (gif_ts / gif_trj: graph after orient()) ---
-    reference_graph=None,
+    reference_graph: "nx.Graph | None" = None,
     # --- NCI detection (gif_ts / gif_trj / gif_rot) ---
     detect_nci: bool = False,
     # --- Vector arrows (gif_rot only) ---
@@ -919,8 +899,8 @@ def render_gif(
 
     Returns
     -------
-    Path
-        Path to the written GIF file.
+    GIFResult
+        Wrapper with path to the written GIF file.
     """
     from xyzrender.config import build_config
     from xyzrender.gif import (
@@ -1107,8 +1087,8 @@ def render_gif(
                 _ov_charge = ref_graph.graph.get("total_charge", 0)
                 _ov_mult = ref_graph.graph.get("multiplicity")
                 overlay_mol = load(overlay, charge=_ov_charge, multiplicity=_ov_mult)
-        if overlay_color is not None:
-            cfg.overlay_color = resolve_color(overlay_color)
+            if overlay_color is not None:
+                cfg.overlay_color = resolve_color(overlay_color)
             g2 = copy.deepcopy(overlay_mol.graph)
             aligned2 = align(ref_graph, g2)
             ref_graph = merge_graphs(ref_graph, g2, aligned2, overlay_color=cfg.overlay_color)
@@ -1191,6 +1171,39 @@ def render_gif(
 # ---------------------------------------------------------------------------
 
 
+def _apply_render_overlays(
+    cfg: "RenderConfig",
+    graph: "nx.Graph",
+    *,
+    ts_bonds: list[tuple[int, int]] | None = None,
+    nci_bonds: list[tuple[int, int]] | None = None,
+    vdw: bool | list[int] | None = None,
+    idx: bool | str = False,
+    cmap: str | os.PathLike | dict[int, float] | None = None,
+    cmap_range: tuple[float, float] | None = None,
+    opacity: float | None = None,
+) -> None:
+    """Apply render()-specific overlays to cfg (mutates in place).
+
+    All atom indices in ts_bonds, nci_bonds, vdw are 1-indexed (user-facing).
+    """
+    if ts_bonds is not None:
+        cfg.ts_bonds = [(a - 1, b - 1) for a, b in ts_bonds]
+    if nci_bonds is not None:
+        cfg.nci_bonds = [(a - 1, b - 1) for a, b in nci_bonds]
+    if vdw is not None:
+        cfg.vdw_indices = [i - 1 for i in vdw] if isinstance(vdw, list) else []
+    if idx:
+        cfg.show_indices = True
+        cfg.idx_format = idx if isinstance(idx, str) else "sn"
+    if cmap is not None:
+        cfg.atom_cmap = _resolve_cmap(cmap, graph)
+    if cmap_range is not None:
+        cfg.cmap_range = cmap_range
+    if opacity is not None:
+        cfg.surface_opacity = opacity
+
+
 def _resolve_cmap(
     cmap: str | os.PathLike | dict[int, float],
     graph: nx.Graph | None,
@@ -1230,8 +1243,6 @@ def _combine_vector_sources(
     if vector_scale is not None:
         cfg.vector_scale = vector_scale
     if vector_color is not None:
-        from xyzrender.types import resolve_color
-
         cfg.vector_color = resolve_color(vector_color)
     if vector is not None:
         if not isinstance(vector, list):

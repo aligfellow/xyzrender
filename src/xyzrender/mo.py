@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections import deque
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, cast, runtime_checkable
 
 import numpy as np
 
@@ -746,7 +746,7 @@ def classify_mo_lobes(lobes: list[LobeContour2D], mol_z: float) -> list[bool]:
         if is_front[i] is None:
             is_front[i] = lobes[i].z_depth >= mol_z
 
-    return is_front  # type: ignore[return-value]
+    return cast("list[bool]", is_front)
 
 
 # ---------------------------------------------------------------------------

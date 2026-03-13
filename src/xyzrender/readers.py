@@ -93,7 +93,7 @@ def load_molecule(
             _lattice = _parse_extxyz_lattice(_comment)
             if _lattice is not None:
                 graph.graph["lattice"] = _lattice
-                logger.debug(f"extXYZ Lattice parsed:\n{_lattice}")
+                logger.debug("extXYZ Lattice parsed:\n%s", _lattice)
                 _origin = _parse_extxyz_origin(_comment)
                 if _origin is not None:
                     graph.graph["lattice_origin"] = _origin
@@ -465,9 +465,8 @@ def _parse_qm_output(path: str) -> tuple[_Atoms, int, int | None]:
     parser = cclib.io.ccopen(path, loglevel=logging.CRITICAL)
     try:
         data = parser.parse()
-    except Exception:
-        # cclib may crash mid-parse but still have extracted coordinates
-        logger.debug("cclib raised an error; using partial data")
+    except Exception as e:
+        logger.debug("cclib raised during parse; attempting to use partial data: %s", e)
         data = parser
 
     if not hasattr(data, "atomcoords") or not hasattr(data, "atomnos") or len(data.atomcoords) == 0:
@@ -581,8 +580,8 @@ def _load_qm_frames(path: str) -> list[dict]:
     parser = cclib.io.ccopen(path, loglevel=logging.CRITICAL)
     try:
         data = parser.parse()
-    except Exception:
-        logger.debug("cclib raised an error; using partial data")
+    except Exception as e:
+        logger.debug("cclib raised during parse; attempting to use partial data: %s", e)
         data = parser
     symbols = [DATA.n2s[int(z)] for z in data.atomnos]
     coords = np.array(data.atomcoords)

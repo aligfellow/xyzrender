@@ -96,6 +96,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
     else:
         fit_radii = radii
 
+    ref_scale = (_REF_CANVAS - 2 * cfg.padding) / _REF_SPAN
     # Expand canvas for surface bounds (MO / density / ESP are mutually exclusive)
     extra_lo = extra_hi = None
     if cfg.mo_contours is not None:
@@ -126,7 +127,6 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
         extra_hi = np.maximum(extra_hi, box_hi) if extra_hi is not None else box_hi
     # Expand canvas to encompass vector arrow tips, tails, and labels
     if cfg.vectors:
-        _ref_px_per_ang = (_REF_CANVAS - 2 * cfg.padding) / _REF_SPAN
         _vec_tips = []
         for vi, va in enumerate(cfg.vectors):
             _vec_scale = 1.0 if va.is_axis else cfg.vector_scale
@@ -142,8 +142,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
             if not va.label:
                 continue
             tip2d = _vec_tips[vi][:2]
-            label_half_w = len(va.label) * cfg.label_font_size * 1.2 * 0.35 / _ref_px_per_ang
-            label_h = cfg.label_font_size * 1.2 / _ref_px_per_ang
+            label_half_w = len(va.label) * cfg.label_font_size * 1.2 * 0.35 / ref_scale
+            label_h = cfg.label_font_size * 1.2 / ref_scale
             lo = tip2d - np.array([label_half_w, label_h])
             hi = tip2d + np.array([label_half_w, label_h])
             extra_lo = np.minimum(extra_lo, lo) if extra_lo is not None else lo
@@ -152,7 +152,6 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
 
     # scale_ratio: encodes both molecule complexity AND canvas size so that
     # bond/label widths defined at _REF_CANVAS grow proportionally on larger canvases.
-    ref_scale = (_REF_CANVAS - 2 * cfg.padding) / _REF_SPAN
     scale_ratio = scale / ref_scale
     bw = cfg.bond_width * scale_ratio
     sw = cfg.atom_stroke_width * scale_ratio
