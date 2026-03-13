@@ -95,8 +95,10 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `-l TOKEN...` | Inline SVG annotation (repeatable); 1-based indices |
 | `--label FILE` | Bulk annotation file (same syntax as `-l`) |
 | `--label-size PT` | Label font size (overrides preset) |
-| `--cmap FILE` | Per-atom property colormap (Viridis, 1-indexed) |
+| `--cmap FILE` | Per-atom property colormap (1-indexed atom index, value) |
 | `--cmap-range VMIN VMAX` | Explicit colormap range (default: auto from file) |
+| `--cmap-palette NAME` | Colormap palette (default: `viridis`) |
+| `--cmap-colorbar` | Add a vertical colorbar on the right showing the data range |
 
 ## Vector arrows
 

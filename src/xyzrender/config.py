@@ -176,6 +176,8 @@ def build_config(
     idx_format: str = "sn",
     atom_cmap: dict[int, float] | None = None,
     cmap_range: tuple[float, float] | None = None,
+    cmap_palette: str = "viridis",
+    cmap_colorbar: bool = False,
 ) -> RenderConfig:
     """Build a :class:`~xyzrender.types.RenderConfig` from a preset and style kwargs.
 
@@ -260,6 +262,9 @@ def build_config(
         cfg.atom_cmap = atom_cmap
     if cmap_range is not None:
         cfg.cmap_range = cmap_range
+    cfg.cmap_palette = cmap_palette
+    if cmap_colorbar:
+        cfg.cmap_colorbar = True
 
     return cfg
 

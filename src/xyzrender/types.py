@@ -409,6 +409,8 @@ class RenderConfig:
     atom_cmap: dict[int, float] | None = None
     cmap_range: tuple[float, float] | None = None
     cmap_unlabeled: str = "#ffffff"  # fill for atoms absent from cmap file
+    cmap_palette: str = "viridis"
+    cmap_colorbar: bool = False  # show a vertical colorbar on the right
     # Surface parameter defaults (populated from preset by build_config)
     mo_isovalue: float = _DEFAULT_MO_ISOVALUE
     mo_pos_color: str = _DEFAULT_MO_POS_COLOR

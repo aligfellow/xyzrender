@@ -71,24 +71,21 @@ def get_gradient_colors(color: Color, config: RenderConfig | None = None) -> tup
 _FOG_NEAR = 1.0  # Å of depth before fog kicks in
 _MAX_FOG = 0.70  # deepest atoms retain at least 30% of their color
 
+# ---------------------------------------------------------------------------
+# Colormap palettes
+# ---------------------------------------------------------------------------
 
-# Viridis-like colormap anchors — never passes through white
-_VIRIDIS_STOPS: list[Color] = [
-    Color(68, 1, 84),  # 0.00 — #440154 dark purple
-    Color(49, 104, 142),  # 0.25 — #31688E blue
-    Color(53, 183, 121),  # 0.50 — #35B779 green
-    Color(144, 215, 67),  # 0.75 — #90D743 yellow-green
-    Color(253, 231, 37),  # 1.00 — #FDE725 bright yellow
-]
+CMAP_PALETTES: dict[str, list[Color]] = {
+    "viridis": [
+        Color(68, 1, 84),  # 0.00 — #440154 dark purple
+        Color(49, 104, 142),  # 0.25 — #31688E blue
+        Color(53, 183, 121),  # 0.50 — #35B779 green
+        Color(144, 215, 67),  # 0.75 — #90D743 yellow-green
+        Color(253, 231, 37),  # 1.00 — #FDE725 bright yellow
+    ],
+}
 
-
-def cmap_viridis(t: float) -> Color:
-    """Map t ∈ [0, 1] to a Viridis-like color (never white)."""
-    t = max(0.0, min(1.0, float(t)))
-    n_segs = len(_VIRIDIS_STOPS) - 1
-    seg = min(int(t * n_segs), n_segs - 1)
-    local_t = t * n_segs - seg
-    return _VIRIDIS_STOPS[seg].blend(_VIRIDIS_STOPS[seg + 1], local_t)
+CMAP_PALETTE_NAMES: list[str] = list(CMAP_PALETTES)
 
 
 def blend_fog(hex_color: str, fog_rgb: np.ndarray, strength: float) -> str:
