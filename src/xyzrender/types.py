@@ -375,6 +375,7 @@ class RenderConfig:
     saturation_shift_factor: float = 0.2
     fog: bool = False
     fog_strength: float = 0.8
+    hide_bonds: bool = False
     hide_h: bool = False
     show_h_indices: list[int] = field(default_factory=list)
     bond_orders: bool = True

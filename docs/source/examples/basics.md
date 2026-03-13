@@ -2,14 +2,15 @@
 
 ## Presets
 
-| Default | Flat | Paton (PyMOL-like) |
-|---------|------|-------------------|
-| ![Default](../../../examples/images/caffeine_default.svg) | ![Flat](../../../examples/images/caffeine_flat.svg) | ![Paton (PyMOL-like)](../../../examples/images/caffeine_paton.svg) |
+| Default | Flat | Paton (PyMOL-like) | Bubble |
+|---------|------|-------------------|--------|
+| ![Default](../../../examples/images/caffeine_default.svg) | ![Flat](../../../examples/images/caffeine_flat.svg) | ![Paton (PyMOL-like)](../../../examples/images/caffeine_paton.svg) | ![Bubble](../../../examples/images/caffeine_bubble.svg) |
 
 ```bash
 xyzrender caffeine.xyz                        # default
 xyzrender caffeine.xyz --config flat          # flat: no gradient
 xyzrender caffeine.xyz --config paton         # paton: PyMOL-style
+xyzrender caffeine.xyz --config bubble --hy   # space-filling (CPK)
 ```
 
 The `paton` style is inspired by the clean styling used by [Rob Paton](https://github.com/patonlab) through PyMOL.

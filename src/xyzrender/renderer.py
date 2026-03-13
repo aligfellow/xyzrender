@@ -188,24 +188,25 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
 
     # Bond lookup: (bond_order, style, color_override)
     bonds: dict[tuple[int, int], tuple[float, BondStyle, str | None]] = {}
-    for i, j, d in graph.edges(data=True):
-        bo = d.get("bond_order", 1.0) if cfg.bond_orders else 1.0
-        bt = d.get("bond_type", "")
-        if bt == "TS" or d.get("TS", False):
-            style = BondStyle.DASHED
-        elif bt == "NCI" or d.get("NCI", False):
-            style = BondStyle.DOTTED
-        else:
-            style = BondStyle.SOLID
-        color_ov: str | None = d.get("bond_color_override")
-        bonds[(i, j)] = bonds[(j, i)] = (bo, style, color_ov)
-    # Manual overrides (add or restyle)
-    for i, j in cfg.ts_bonds:
-        existing = bonds.get((i, j), (1.0, BondStyle.SOLID, None))
-        bonds[(i, j)] = bonds[(j, i)] = (existing[0], BondStyle.DASHED, existing[2])
-    for i, j in cfg.nci_bonds:
-        existing = bonds.get((i, j), (1.0, BondStyle.SOLID, None))
-        bonds[(i, j)] = bonds[(j, i)] = (existing[0], BondStyle.DOTTED, existing[2])
+    if not cfg.hide_bonds:
+        for i, j, d in graph.edges(data=True):
+            bo = d.get("bond_order", 1.0) if cfg.bond_orders else 1.0
+            bt = d.get("bond_type", "")
+            if bt == "TS" or d.get("TS", False):
+                style = BondStyle.DASHED
+            elif bt == "NCI" or d.get("NCI", False):
+                style = BondStyle.DOTTED
+            else:
+                style = BondStyle.SOLID
+            color_ov: str | None = d.get("bond_color_override")
+            bonds[(i, j)] = bonds[(j, i)] = (bo, style, color_ov)
+        # Manual overrides (add or restyle)
+        for i, j in cfg.ts_bonds:
+            existing = bonds.get((i, j), (1.0, BondStyle.SOLID, None))
+            bonds[(i, j)] = bonds[(j, i)] = (existing[0], BondStyle.DASHED, existing[2])
+        for i, j in cfg.nci_bonds:
+            existing = bonds.get((i, j), (1.0, BondStyle.SOLID, None))
+            bonds[(i, j)] = bonds[(j, i)] = (existing[0], BondStyle.DOTTED, existing[2])
 
     # Only hide C-H hydrogens (not O-H, N-H, free H, etc.)
     hidden = set()
@@ -217,7 +218,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
                 if neighbours and all(symbols[nb] == "C" for nb in neighbours):
                     hidden.add(ai)
 
-    aromatic_rings = _compute_aromatic_rings(graph, bonds)
+    aromatic_rings = [] if cfg.hide_bonds else _compute_aromatic_rings(graph, bonds)
 
     # Fog factors — normalized across depth range, with a dead-zone near the front
     fog_f = np.zeros(n)
@@ -710,14 +711,15 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
                 svg.append(_text_svg(xi, yi, idx_text, fs_label, cfg.label_color, halo=False))
 
         # Bonds to deeper atoms
-        for aj in z_order[idx + 1 :]:
-            aj_int = int(aj)
-            if aj_int in hidden or (ai, aj_int) not in bonds:
-                continue
-            bo, style, color_ov = bonds[(ai, aj_int)]
-            # Use periodic_image_opacity if either endpoint is an image atom
-            bond_op = cfg.periodic_image_opacity if (is_image or graph.nodes[aj_int].get("image", False)) else 1.0
-            add_bond(ai, aj_int, bo, style, opacity=bond_op, color_override=color_ov)
+        if not cfg.hide_bonds and bw > 0:
+            for aj in z_order[idx + 1 :]:
+                aj_int = int(aj)
+                if aj_int in hidden or (ai, aj_int) not in bonds:
+                    continue
+                bo, style, color_ov = bonds[(ai, aj_int)]
+                # Use periodic_image_opacity if either endpoint is an image atom
+                bond_op = cfg.periodic_image_opacity if (is_image or graph.nodes[aj_int].get("image", False)) else 1.0
+                add_bond(ai, aj_int, bo, style, opacity=bond_op, color_override=color_ov)
 
     # NCI patches in front of all atoms (z_depth > frontmost atom)
     while nci_lobe_idx < len(nci_lobes_flat):

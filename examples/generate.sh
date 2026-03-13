@@ -14,6 +14,7 @@ xyzrender "$DIR/caffeine.xyz" -o "$IMG/caffeine_default.png"
 xyzrender "$DIR/caffeine.xyz" --config flat -o "$IMG/caffeine_flat.svg"
 xyzrender "$DIR/caffeine.xyz" --config paton -o "$IMG/caffeine_paton.svg"
 xyzrender "$DIR/caffeine.xyz" --config skeletal -o "$IMG/caffeine_skeletal.svg"
+xyzrender "$DIR/caffeine.xyz" --config bubble --hy -o "$IMG/caffeine_bubble.svg"
 
 echo "=== Display options ==="
 xyzrender "$DIR/ethanol.xyz" --hy -o "$IMG/ethanol_all_h.svg"           # all H

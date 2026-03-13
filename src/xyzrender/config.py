@@ -165,6 +165,7 @@ def build_config(
     vdw_opacity=None,
     vdw_scale=None,
     vdw_gradient_strength=None,
+    hide_bonds: bool = False,
     hy: bool | list[int] | None = None,
     no_hy: bool = False,
     orient: bool | None = None,
@@ -240,6 +241,8 @@ def build_config(
             overrides[key] = val
     if transparent:
         overrides["transparent"] = True
+    if hide_bonds:
+        overrides["hide_bonds"] = True
 
     cfg = build_render_config(config_data, overrides)
     cfg.auto_orient = orient if orient is not None else True
