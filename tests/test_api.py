@@ -338,15 +338,17 @@ def test_measure_from_path():
 # ---------------------------------------------------------------------------
 
 
-def test_render_gradient_uses_defs_and_use(caffeine):
-    """Gradient mode deduplicates atoms into <defs> with <use> references."""
+def test_render_gradient_uses_defs_and_circles(caffeine):
+    """Gradient mode defines radialGradient in <defs> and renders inline <circle fill=url(#...)>."""
     svg = str(render(caffeine, gradient=True, orient=False))
-    assert "<use" in svg
     assert "<defs>" in svg
+    assert "radialGradient" in svg
+    assert 'fill="url(#' in svg
+    assert "<use" not in svg
 
 
 def test_render_fog_without_gradient_uses_circles(ethanol):
-    """Fog-only mode renders individual circles, not <use> references."""
+    """Fog-only mode renders individual circles, not gradient defs."""
     svg = str(render(ethanol, fog=True, gradient=False, orient=False))
     assert "<circle" in svg
     assert "<use" not in svg
@@ -354,8 +356,9 @@ def test_render_fog_without_gradient_uses_circles(ethanol):
 
 def test_render_gradient_and_fog_combined(caffeine):
     svg = str(render(caffeine, gradient=True, fog=True, orient=False))
-    assert "<use" in svg
     assert "<defs>" in svg
+    assert "radialGradient" in svg
+    assert "<use" not in svg
 
 
 # ---------------------------------------------------------------------------

@@ -422,6 +422,8 @@ class RenderConfig:
     nci_color_mode: str = _DEFAULT_NCI_COLOR_MODE
     # Overlay
     overlay_color: str = "mediumorchid"
+    # Ensemble
+    ensemble_colors: list[str] | None = None  # resolved hex per conformer (None = CPK)
     # Skeletal formula line rendering
     skeletal_style: bool = False
     skeletal_label_color: str | None = None  # override all element labels (None = per-element CPK)

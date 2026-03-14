@@ -3,7 +3,7 @@
 import logging
 
 from xyzrender.annotations import load_cmap
-from xyzrender.api import GIFResult, Molecule, SVGResult, ensemble, load, measure, orient, render, render_gif
+from xyzrender.api import GIFResult, Molecule, SVGResult, load, measure, orient, render, render_gif
 from xyzrender.config import build_config
 from xyzrender.types import RenderConfig
 
@@ -14,7 +14,6 @@ __all__ = [
     "SVGResult",
     "build_config",
     "configure_logging",
-    "ensemble",
     "load",
     "load_cmap",
     "measure",

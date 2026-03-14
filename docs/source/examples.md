@@ -8,6 +8,7 @@ uv run bash examples/generate.sh
 
 - [Basics](examples/basics.md) — hydrogen display, bond orders, aromatic notation, vdW spheres, and presets
 - [Structural Overlay](examples/overlay.md) — RMSD-aligned conformer comparison
+- [Conformer Ensemble](examples/ensemble.md) — multi-frame trajectory overlay with palettes and opacity
 - [Animations](examples/animations.md) — rotation GIFs, TS vibration, trajectory animations, and combined options
 - [Transition States and NCI](examples/ts_nci.md) — transition state bonds and non-covalent interactions, auto-detected or manual
 - [Molecular Orbitals](examples/mo.md) — molecular orbital lobes from cube files
@@ -24,6 +25,7 @@ uv run bash examples/generate.sh
 
 examples/basics
 examples/overlay
+examples/ensemble
 examples/animations
 examples/ts_nci
 examples/mo

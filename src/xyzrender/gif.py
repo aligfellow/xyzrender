@@ -715,10 +715,14 @@ def _parallel_render(worker, items, total: int) -> list[bytes]:
     import multiprocessing
 
     pngs = [b""] * total
-    with multiprocessing.Pool() as pool:
+    pool = multiprocessing.Pool()
+    try:
         for i, (idx, png_data) in enumerate(pool.imap_unordered(worker, items)):
             pngs[idx] = png_data
             _progress(i + 1, total)
+    finally:
+        pool.close()
+        pool.join()
     return pngs
 
 

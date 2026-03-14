@@ -1,8 +1,8 @@
 """Ensemble overlay: align and merge multiple conformers into one graph.
 
-This module is intentionally independent from :mod:`xyzrender.overlay`.
-It reuses the same Kabsch-based alignment idea, but does *not* apply any
-overlay-specific styling — colours are left to the normal CPK palette.
+Frames from a multi-frame trajectory are RMSD-aligned onto a reference frame
+using the shared Kabsch algorithm from :mod:`xyzrender.overlay`.  The merged
+graph can optionally apply per-conformer colours and opacity.
 """
 
 from __future__ import annotations
@@ -10,6 +10,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
+
+from xyzrender.overlay import _node_list, kabsch_align
+from xyzrender.types import Color
 
 if TYPE_CHECKING:
     import networkx as nx
@@ -19,32 +22,11 @@ if TYPE_CHECKING:
 _Z_NUDGE: float = -1e-3
 
 
-def _node_list(graph: nx.Graph) -> list:
-    return list(graph.nodes())
-
-
-def _positions_from_frame(frame: dict) -> np.ndarray:
-    """Return positions array for a trajectory *frame* dict."""
-    return np.array(frame["positions"], dtype=float)
-
-
-def _kabsch_rotation(p_centered: np.ndarray, q_centered: np.ndarray) -> np.ndarray:
-    """Kabsch rotation matrix rot s.t. q_centered @ rot.T ≈ p_centered.
-
-    Both arrays must already be mean-centred.  Ensures det(rot) = +1 (proper
-    rotation, no reflection).
-    """
-    h = q_centered.T @ p_centered
-    u, _, vt = np.linalg.svd(h)
-    det = np.linalg.det(vt.T @ u.T)
-    d_mat = np.diag([1.0, 1.0, det])
-    return vt.T @ d_mat @ u.T
-
-
 def align(
     frames: list[dict],
     *,
     reference_frame: int = 0,
+    align_atoms: list[int] | None = None,
 ) -> list[np.ndarray]:
     """Align all trajectory *frames* onto *reference_frame*.
 
@@ -56,6 +38,10 @@ def align(
     reference_frame:
         Index of the reference frame.  All other frames are RMSD-aligned
         onto this frame via the Kabsch algorithm.
+    align_atoms:
+        Optional 0-indexed atom indices to fit on (min 3).  When given, only
+        these atoms contribute to the Kabsch fit; the rotation is applied to
+        all atoms.
 
     Returns
     -------
@@ -70,44 +56,59 @@ def align(
         msg = f"ensemble.align: reference_frame {reference_frame} out of range for {len(frames)} frames"
         raise ValueError(msg)
 
-    ref = frames[reference_frame]
-    ref_pos = _positions_from_frame(ref)
+    ref_pos = np.array(frames[reference_frame]["positions"], dtype=float)
     n_atoms = ref_pos.shape[0]
 
     aligned: list[np.ndarray] = []
-    c_ref = ref_pos.mean(axis=0)
 
     for idx, frame in enumerate(frames):
-        pos = _positions_from_frame(frame)
+        pos = np.array(frame["positions"], dtype=float)
         if pos.shape != ref_pos.shape:
-            msg = (
-                f"ensemble.align: frame {idx} has shape {pos.shape}, "
-                f"expected {ref_pos.shape} from reference frame"
-            )
+            msg = f"ensemble.align: frame {idx} has shape {pos.shape}, expected {ref_pos.shape} from reference frame"
             raise ValueError(msg)
         if idx == reference_frame:
             aligned.append(ref_pos.copy())
             continue
-        c = pos.mean(axis=0)
-        rot = _kabsch_rotation(ref_pos - c_ref, pos - c)
-        aligned.append((pos - c) @ rot.T + c_ref)
+        aligned.append(kabsch_align(ref_pos, pos, align_atoms=align_atoms))
 
     assert len(aligned) == len(frames)
     assert all(a.shape == (n_atoms, 3) for a in aligned)
     return aligned
 
 
-def merge_graphs(reference_graph: nx.Graph, aligned_positions: list[np.ndarray]) -> nx.Graph:
+def merge_graphs(
+    reference_graph: nx.Graph,
+    aligned_positions: list[np.ndarray],
+    *,
+    conformer_colors: list[str] | None = None,
+    conformer_graphs: list[nx.Graph] | None = None,
+) -> nx.Graph:
     """Merge *reference_graph* with additional conformers into a single graph.
 
-    No overlay-specific styling attributes are added; the renderer will use
-    the normal CPK palette based on element symbols.
+    Parameters
+    ----------
+    reference_graph:
+        The graph for the reference conformer (frame 0).
+    aligned_positions:
+        One (N, 3) position array per frame (including reference).
+    conformer_colors:
+        Optional list of hex colour strings, one per conformer.  When given,
+        non-reference atoms get ``ensemble_color`` and bonds get
+        ``bond_color_override`` attributes (30 % darkened).  The reference
+        conformer (index 0) colour is ignored (uses CPK).
+    conformer_graphs:
+        Optional per-frame graphs (one per frame, including reference).  When
+        given, each conformer uses its own graph's edges instead of copying
+        the reference frame's edges.  Useful for trajectories where bonding
+        or NCI interactions differ between frames.
 
-    Node attributes:
+    Node attributes added:
     - ``molecule_index``: conformer index (0 for reference frame).
+    - ``ensemble_color``: hex colour (only when *conformer_colors* given, non-ref).
 
-    Edge attributes:
+    Edge attributes added:
     - ``molecule_index``: conformer index for that bond set.
+    - ``bond_color_override``: hex colour (only when *conformer_colors* given, non-ref).
     """
     import networkx as nx
 
@@ -115,14 +116,17 @@ def merge_graphs(reference_graph: nx.Graph, aligned_positions: list[np.ndarray])
         msg = "ensemble.merge_graphs: aligned_positions must contain at least one frame"
         raise ValueError(msg)
 
-    base_nodes = _node_list(reference_graph)
-    n_base = len(base_nodes)
+    all_nodes = _node_list(reference_graph)
+    # Separate real atoms from NCI centroid dummy nodes (symbol="*").
+    real_nodes = [n for n in all_nodes if reference_graph.nodes[n].get("symbol") != "*"]
+    centroid_nodes = [n for n in all_nodes if reference_graph.nodes[n].get("symbol") == "*"]
+    n_real = len(real_nodes)
     n_frames = len(aligned_positions)
 
-    if aligned_positions[0].shape[0] != n_base:
+    if aligned_positions[0].shape[0] != n_real:
         msg = (
             "ensemble.merge_graphs: position array length does not match "
-            f"reference graph (got {aligned_positions[0].shape[0]}, expected {n_base})"
+            f"real atom count in reference graph (got {aligned_positions[0].shape[0]}, expected {n_real})"
         )
         raise ValueError(msg)
 
@@ -131,41 +135,62 @@ def merge_graphs(reference_graph: nx.Graph, aligned_positions: list[np.ndarray])
 
     # Reference conformer (index 0): keep original node IDs.
     pos0 = aligned_positions[0]
-    for k, nid in enumerate(base_nodes):
+    for k, nid in enumerate(real_nodes):
         data = dict(reference_graph.nodes[nid])
         data["molecule_index"] = 0
         x, y, z = pos0[k]
         data["position"] = (float(x), float(y), float(z))
         merged.add_node(nid, **data)
 
+    # Add NCI centroid nodes (reference frame only) with their existing positions.
+    for nid in centroid_nodes:
+        data = dict(reference_graph.nodes[nid])
+        data["molecule_index"] = 0
+        merged.add_node(nid, **data)
+
     for i, j, d in reference_graph.edges(data=True):
         merged.add_edge(i, j, **dict(d), molecule_index=0)
 
     # Additional conformers: copy node/edge attributes, renumbering node IDs.
-    next_id = n_base
+    next_id = max(all_nodes) + 1 if all_nodes else 0
     for conf_idx in range(1, n_frames):
         pos = aligned_positions[conf_idx]
-        if pos.shape[0] != n_base:
+        if pos.shape[0] != n_real:
             msg = (
                 "ensemble.merge_graphs: position array length does not match "
-                f"reference graph (got {pos.shape[0]}, expected {n_base})"
+                f"real atom count in reference graph (got {pos.shape[0]}, expected {n_real})"
             )
             raise ValueError(msg)
 
-        id_map = {old: next_id + i for i, old in enumerate(base_nodes)}
+        # Per-conformer colour overrides
+        atom_color_hex: str | None = None
+        bond_color_hex: str | None = None
+        if conformer_colors is not None and conf_idx < len(conformer_colors):
+            atom_color_hex = conformer_colors[conf_idx]
+            bond_color_hex = Color.from_str(atom_color_hex).darken(strength=0.30).hex
 
-        for k, old_id in enumerate(base_nodes):
+        # Use per-frame graph if available, otherwise copy reference edges.
+        frame_graph = conformer_graphs[conf_idx] if conformer_graphs is not None else reference_graph
+
+        id_map = {old: next_id + i for i, old in enumerate(real_nodes)}
+
+        for k, old_id in enumerate(real_nodes):
             data = dict(reference_graph.nodes[old_id])
             data["molecule_index"] = conf_idx
             x, y, z = pos[k]
             # Nudge z slightly so conformers don't z-fight in SVG rendering.
             data["position"] = (float(x), float(y), float(z) + conf_idx * _Z_NUDGE)
+            if atom_color_hex is not None:
+                data["ensemble_color"] = atom_color_hex
             merged.add_node(id_map[old_id], **data)
 
-        for i, j, d in reference_graph.edges(data=True):
-            merged.add_edge(id_map[i], id_map[j], **dict(d), molecule_index=conf_idx)
+        edge_attrs: dict = {"molecule_index": conf_idx}
+        if bond_color_hex is not None:
+            edge_attrs["bond_color_override"] = bond_color_hex
+        for i, j, d in frame_graph.edges(data=True):
+            if i in id_map and j in id_map:
+                merged.add_edge(id_map[i], id_map[j], **dict(d), **edge_attrs)
 
-        next_id += n_base
+        next_id += n_real
 
     return merged
-

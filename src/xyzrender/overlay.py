@@ -7,6 +7,9 @@ always on top when depths are equal (drawn last in SVG order).
 
 Atom pairing is index-based: atom *i* in mol1 corresponds to atom *i* in mol2.
 Both molecules must have the same number of atoms.
+
+This module also exposes :func:`kabsch_align`, the shared Kabsch helper used by
+both overlay and ensemble alignment.
 """
 
 from __future__ import annotations
@@ -54,11 +57,66 @@ def _kabsch_rotation(p_centered: np.ndarray, q_centered: np.ndarray) -> np.ndarr
 
 
 # ---------------------------------------------------------------------------
-# Public API
+# Public API — shared Kabsch alignment
 # ---------------------------------------------------------------------------
 
 
-def align(mol1_graph: nx.Graph, mol2_graph: nx.Graph) -> np.ndarray:
+def kabsch_align(
+    ref_positions: np.ndarray,
+    mobile_positions: np.ndarray,
+    align_atoms: list[int] | None = None,
+) -> np.ndarray:
+    """Kabsch RMSD alignment of *mobile_positions* onto *ref_positions*.
+
+    Parameters
+    ----------
+    ref_positions, mobile_positions:
+        (N, 3) arrays of matching atom positions.  Must have the same shape.
+    align_atoms:
+        Optional list of 0-indexed atom indices to fit on.  When given (min 3),
+        the rotation and translation are computed from this subset only, then
+        applied to *all* atoms.  ``None`` (default) fits on every atom.
+
+    Returns
+    -------
+    np.ndarray, shape (N, 3)
+        Aligned positions for *mobile_positions*.
+    """
+    if ref_positions.shape != mobile_positions.shape:
+        msg = f"kabsch_align: shape mismatch — ref {ref_positions.shape} vs mobile {mobile_positions.shape}"
+        raise ValueError(msg)
+
+    if align_atoms is not None:
+        if len(align_atoms) < 3:
+            msg = "kabsch_align: align_atoms must contain at least 3 indices to define a plane"
+            raise ValueError(msg)
+        n = ref_positions.shape[0]
+        for idx in align_atoms:
+            if not (0 <= idx < n):
+                msg = f"kabsch_align: align_atoms index {idx} out of range for {n} atoms"
+                raise ValueError(msg)
+        ref_sub = ref_positions[align_atoms]
+        mob_sub = mobile_positions[align_atoms]
+    else:
+        ref_sub = ref_positions
+        mob_sub = mobile_positions
+
+    c_ref = ref_sub.mean(axis=0)
+    c_mob = mob_sub.mean(axis=0)
+    rot = _kabsch_rotation(ref_sub - c_ref, mob_sub - c_mob)
+    return (mobile_positions - c_mob) @ rot.T + c_ref
+
+
+# ---------------------------------------------------------------------------
+# Public API — overlay
+# ---------------------------------------------------------------------------
+
+
+def align(
+    mol1_graph: nx.Graph,
+    mol2_graph: nx.Graph,
+    align_atoms: list[int] | None = None,
+) -> np.ndarray:
     """Align mol2 onto mol1 by index; return aligned positions for mol2 nodes.
 
     Atom *i* in mol1 is paired with atom *i* in mol2 — both molecules must
@@ -68,6 +126,10 @@ def align(mol1_graph: nx.Graph, mol2_graph: nx.Graph) -> np.ndarray:
     ----------
     mol1_graph, mol2_graph:
         NetworkX graphs.  This function does not mutate them.
+    align_atoms:
+        Optional 0-indexed atom indices to fit on (min 3).  When given, only
+        these atoms contribute to the Kabsch fit; the rotation is applied to
+        all atoms.
 
     Returns
     -------
@@ -82,10 +144,7 @@ def align(mol1_graph: nx.Graph, mol2_graph: nx.Graph) -> np.ndarray:
         msg = f"overlay: mol1 has {n1} atoms, mol2 has {n2} — counts must match."
         raise ValueError(msg)
 
-    c1 = pos1.mean(axis=0)
-    c2 = pos2.mean(axis=0)
-    rot = _kabsch_rotation(pos1 - c1, pos2 - c2)
-    return (pos2 - c2) @ rot.T + c1
+    return kabsch_align(pos1, pos2, align_atoms=align_atoms)
 
 
 def merge_graphs(

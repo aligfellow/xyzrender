@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from xyzrender import load, render
-from xyzrender.overlay import align, merge_graphs
+from xyzrender.overlay import align, kabsch_align, merge_graphs
 
 STRUCTURES = Path(__file__).parent.parent / "examples" / "structures"
 
@@ -108,3 +108,42 @@ def test_render_overlay_mutual_exclusion_cell():
 def test_render_overlay_atom_count_mismatch(caffeine, ethanol):
     with pytest.raises(ValueError, match="counts must match"):
         render(caffeine, overlay=ethanol, orient=False)
+
+
+# ---------------------------------------------------------------------------
+# kabsch_align() — shared alignment function
+# ---------------------------------------------------------------------------
+
+
+def test_kabsch_align_identity():
+    """Aligning identical positions returns them unchanged."""
+    pos = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=float)
+    aligned = kabsch_align(pos, pos.copy())
+    assert float(np.sqrt(np.mean((aligned - pos) ** 2))) < 1e-10
+
+
+def test_kabsch_align_with_align_atoms():
+    """Subset alignment: fit on 3 atoms, transform applies to all."""
+    ref = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [2, 2, 2]], dtype=float)
+    # Rotate the mobile by 90 deg around z
+    rot = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]], dtype=float)
+    mobile = ref @ rot.T
+    aligned = kabsch_align(ref, mobile, align_atoms=[0, 1, 2])
+    # The first 3 atoms should be well-aligned
+    assert float(np.sqrt(np.mean((aligned[:3] - ref[:3]) ** 2))) < 1e-4
+    # All atoms should be aligned since it's a rigid rotation
+    assert float(np.sqrt(np.mean((aligned - ref) ** 2))) < 1e-4
+
+
+def test_kabsch_align_too_few_atoms_raises():
+    """align_atoms with fewer than 3 indices should raise."""
+    pos = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]], dtype=float)
+    with pytest.raises(ValueError, match="at least 3"):
+        kabsch_align(pos, pos.copy(), align_atoms=[0, 1])
+
+
+def test_render_overlay_with_align_atoms(caffeine):
+    """Overlay with align_atoms renders without error."""
+    # Use 1-indexed atoms for the render API
+    svg = str(render(caffeine, overlay=caffeine, align_atoms=[1, 2, 3], orient=False))
+    assert svg.startswith("<svg")

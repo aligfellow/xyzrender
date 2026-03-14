@@ -9,8 +9,6 @@ from pathlib import Path
 
 from xyzrender.api import (
     Molecule,
-    _build_ensemble_molecule,
-    ensemble,
     load,
     orient,
     render,
@@ -226,6 +224,18 @@ def main() -> None:
         action="store_true",
         default=False,
         help="Ensemble overlay for multi-frame XYZ trajectories (align all frames onto the first)",
+    )
+    ov_g.add_argument(
+        "--align-atoms",
+        default=None,
+        dest="align_atoms",
+        help='1-indexed atom indices (min 3) for alignment subset, e.g. "1,2,3" or "1-6"',
+    )
+    ov_g.add_argument(
+        "--ensemble-color",
+        default=None,
+        dest="ensemble_color",
+        help="Palette (viridis, spectral, coolwarm), a single color, or comma-separated colors",
     )
 
     # --- Orientation ---
@@ -602,11 +612,47 @@ def main() -> None:
         except (ValueError, FileNotFoundError) as e:
             p.error(str(e))
 
-    # --- Interactive viewer ---
+    # --- Parse align-atoms (comma-separated 1-indexed, e.g. "1,2,3" or "1-6") ---
+    _align_atoms: list[int] | None = None
+    if args.align_atoms is not None:
+        # _parse_indices returns 0-indexed
+        _align_atoms = list(_parse_indices(args.align_atoms))
+
+    # --- Parse ensemble color: palette name, single color, or comma-separated list ---
+    _ens_color: str | list[str] | None = None
+    _ens_palette: str | None = None
+    if args.ensemble_color is not None:
+        from xyzrender.colors import PALETTE_NAMES
+
+        val = args.ensemble_color.strip()
+        if val in PALETTE_NAMES:
+            _ens_palette = val
+        else:
+            parts = [c.strip() for c in val.split(",")]
+            _ens_color = parts if len(parts) > 1 else parts[0]
+
+    # --- Interactive viewer (operates on the reference frame only) ---
     if args.interactive:
         orient(mol)
         if not mol.oriented:
             sys.exit(1)
+
+    # --- Ensemble: load all frames, align onto (possibly oriented) reference ---
+    if args.ensemble:
+        mol = load(
+            args.input,
+            ensemble=True,
+            align_atoms=_align_atoms,
+            ensemble_color=_ens_color,
+            ensemble_palette=_ens_palette,
+            ensemble_opacity=args.opacity,
+            rebuild=args.rebuild,
+            nci_detect=args.nci_detect,
+            charge=args.charge,
+            multiplicity=args.multiplicity,
+            kekule=args.kekule,
+            reference_mol=mol,
+        )
 
     # --- Crystal ghost resolution ---
     # Ghosts default: on whenever the molecule carries cell_data (auto-detected or explicit)
@@ -614,66 +660,37 @@ def main() -> None:
 
     # --- Render static SVG ---
     try:
-        if args.ensemble:
-            ensemble(
-                args.input,
-                config=cfg,
-                no_cell=args.no_cell,
-                axes=args.axes,
-                axis=args.axis,
-                ghosts=_show_ghosts,
-                cell_color=args.cell_color,
-                cell_width=args.cell_width,
-                ghost_opacity=args.ghost_opacity,
-                mo=args.mo,
-                dens=args.dens,
-                esp=args.esp,
-                nci=args.nci_surf,
-                iso=args.iso,
-                mo_pos_color=args.mo_colors[0] if args.mo_colors else None,
-                mo_neg_color=args.mo_colors[1] if args.mo_colors else None,
-                mo_blur=args.mo_blur,
-                mo_upsample=args.mo_upsample,
-                flat_mo=args.flat_mo,
-                dens_color=args.dens_color,
-                nci_color=args.nci_color,
-                nci_coloring=args.nci_coloring,
-                overlay=args.overlay,
-                overlay_color=args.overlay_color,
-                vector=args.vector,
-                vector_scale=args.vector_scale,
-                output=args.output,
-            )
-        else:
-            render(
-                mol,
-                config=cfg,
-                no_cell=args.no_cell,
-                axes=args.axes,
-                axis=args.axis,
-                ghosts=_show_ghosts,
-                cell_color=args.cell_color,
-                cell_width=args.cell_width,
-                ghost_opacity=args.ghost_opacity,
-                mo=args.mo,
-                dens=args.dens,
-                esp=args.esp,
-                nci=args.nci_surf,
-                iso=args.iso,
-                mo_pos_color=args.mo_colors[0] if args.mo_colors else None,
-                mo_neg_color=args.mo_colors[1] if args.mo_colors else None,
-                mo_blur=args.mo_blur,
-                mo_upsample=args.mo_upsample,
-                flat_mo=args.flat_mo,
-                dens_color=args.dens_color,
-                nci_color=args.nci_color,
-                nci_coloring=args.nci_coloring,
-                overlay=args.overlay,
-                overlay_color=args.overlay_color,
-                vector=args.vector,
-                vector_scale=args.vector_scale,
-                output=args.output,
-            )
+        render(
+            mol,
+            config=cfg,
+            no_cell=args.no_cell,
+            axes=args.axes,
+            axis=args.axis,
+            ghosts=_show_ghosts,
+            cell_color=args.cell_color,
+            cell_width=args.cell_width,
+            ghost_opacity=args.ghost_opacity,
+            mo=args.mo,
+            dens=args.dens,
+            esp=args.esp,
+            nci=args.nci_surf,
+            iso=args.iso,
+            mo_pos_color=args.mo_colors[0] if args.mo_colors else None,
+            mo_neg_color=args.mo_colors[1] if args.mo_colors else None,
+            mo_blur=args.mo_blur,
+            mo_upsample=args.mo_upsample,
+            flat_mo=args.flat_mo,
+            dens_color=args.dens_color,
+            nci_color=args.nci_color,
+            nci_coloring=args.nci_coloring,
+            opacity=args.opacity,
+            overlay=args.overlay,
+            overlay_color=args.overlay_color,
+            align_atoms=[i + 1 for i in _align_atoms] if _align_atoms else None,
+            vector=args.vector,
+            vector_scale=args.vector_scale,
+            output=args.output,
+        )
     except ValueError as e:
         p.error(str(e))
 
@@ -691,15 +708,8 @@ def main() -> None:
                     )
 
         if args.ensemble and args.gif_rot:
-            # Ensemble rotation GIF: build ensemble Molecule once and spin it.
-            mol_or_path = _build_ensemble_molecule(
-                args.input,
-                charge=args.charge,
-                multiplicity=args.multiplicity,
-                kekule=args.kekule,
-                rebuild=args.rebuild,
-                quick=args.bo is False,
-            )
+            # Ensemble rotation GIF: use the pre-built ensemble Molecule.
+            mol_or_path = mol
         else:
             mol_or_path: str | Molecule = args.input if (args.gif_ts or args.gif_trj) else mol
         # For gif_ts/gif_trj the trajectory is read from disk (mol_or_path is a path),

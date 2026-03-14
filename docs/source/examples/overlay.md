@@ -28,3 +28,4 @@ render_gif(mol1, overlay=mol2, gif_rot="y")       # spinning overlay GIF
 |------|-------------|
 | `--overlay FILE` | Second structure to overlay (RMSD-aligned onto the primary) |
 | `--overlay-color COLOR` | Color for the overlay structure (hex or named, default: contrasting) |
+| `--align-atoms INDICES` | 1-indexed atom subset for Kabsch alignment (min 3), e.g. `1,2,3` or `1-6` |
