@@ -398,19 +398,16 @@ xyzrender isothio_xtb.xyz --overlay isothio_uma.xyz -c 1 --overlay-color green -
 
 ### Ensemble overlay
 
-Render all conformers from a multi-frame XYZ trajectory in a single image. All frames are RMSD-aligned onto the first via the Kabsch algorithm (index-based atom pairing), and rendered with the standard CPK colour scheme.
+Render all conformers from a multi-frame XYZ trajectory in a single image. Frames are RMSD-aligned onto the reference via the Kabsch algorithm. By default, CPK atom colours are used; `--ensemble-color` applies a palette.
 
 ```bash
-xyzrender examples/structures/sn2.v000.xyz --ensemble -o sn2_ensemble.svg
+xyzrender examples/structures/triphenylbenzol.xyz --ensemble -o triphenylbenzol_ensemble.svg
+xyzrender examples/structures/triphenylbenzol.xyz --ensemble --align-atoms 21,22,23 --ensemble-color spectral --opacity 0.4 -o triphenylbenzol_ensemble_custom.svg
 ```
 
-| SN2 ensemble | Triphenylbenzol ensemble |
-|--------------|--------------------------|
-| ![sn2 ensemble](sn2_ensemble.svg) | ![triphenylbenzol ensemble](examples/images/triphenylbenzol_ensemble.svg) |
-
-| Triphenylbenzol ensemble (static) | Triphenylbenzol ensemble (rotation GIF) |
-|-----------------------------------|-----------------------------------------|
-| ![triphenylbenzol ensemble](examples/images/triphenylbenzol_ensemble.svg) | ![triphenylbenzol ensemble gif](examples/images/triphenylbenzol_ensemble.gif) |
+| Default (CPK) | Spectral + opacity |
+|---------------|--------------------|
+| ![triphenylbenzol ensemble](examples/images/triphenylbenzol_ensemble.svg) | ![triphenylbenzol ensemble custom](examples/images/triphenylbenzol_ensemble_custom.svg) |
 
 ### Transition states and NCI
 

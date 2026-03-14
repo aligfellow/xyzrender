@@ -114,17 +114,57 @@ class GIFResult:
 
 
 @dataclass
+class EnsembleFrames:
+    """Per-conformer data for an ensemble loaded with ``load(ensemble=True)``.
+
+    Kept separate from ``Molecule.graph`` (which holds only the reference frame)
+    so the graph always represents a single n_atoms structure regardless of
+    ensemble size.  Consumers (render, render_gif) build the merged multi-
+    conformer graph lazily from these arrays.
+
+    Attributes
+    ----------
+    positions:
+        Stacked conformer positions, shape ``(n_conformers, n_atoms, 3)``.
+        All frames are RMSD-aligned onto the reference frame.
+        Contiguous memory allows vectorised rotation across all conformers
+        simultaneously (single matmul for GIF frames).
+    colors:
+        Resolved hex color string per conformer (``None`` = use CPK).
+    opacities:
+        Per-conformer opacity override (``None`` = fully opaque).
+    conformer_graphs:
+        Optional per-frame graphs for ``rebuild=True`` ensembles (topology
+        can differ per frame).  ``None`` means all frames share the reference
+        topology.
+    reference_idx:
+        Index into *positions* / *colors* / *opacities* that is the reference.
+    """
+
+    positions: np.ndarray  # shape (n_conformers, n_atoms, 3)
+    colors: list[str | None]  # per-conformer hex color
+    opacities: list[float | None]  # per-conformer opacity
+    conformer_graphs: list[nx.Graph] | None = None
+    reference_idx: int = 0
+
+
+@dataclass
 class Molecule:
     """Container for a loaded molecular structure.
 
     Obtain via :func:`load`.  Pass directly to :func:`render` or
     :func:`render_gif` to avoid re-parsing the file.
+
+    For ensemble molecules (``load(ensemble=True)``), ``graph`` holds only the
+    reference conformer (n_atoms nodes).  The full per-conformer data lives in
+    ``ensemble``; the merged multi-conformer graph is built lazily at render time.
     """
 
     graph: nx.Graph
     cube_data: CubeData | None = None
     cell_data: CellData | None = None
     oriented: bool = False
+    ensemble: EnsembleFrames | None = None
 
     def to_xyz(self, path: str | os.PathLike, title: str = "") -> None:
         """Write the molecule to an XYZ file.
@@ -606,8 +646,8 @@ def render(
     else:
         mol = load(molecule)
 
-    # Detect ensemble from graph attributes (set by load(ensemble=True))
-    _is_ensemble = any(mol.graph.nodes[n].get("molecule_index", 0) > 0 for n in mol.graph.nodes())
+    # Detect ensemble (mol.ensemble is populated by load(ensemble=True))
+    _is_ensemble = mol.ensemble is not None
     if _is_ensemble:
         if overlay is not None:
             msg = "ensemble cannot be combined with overlay="
@@ -691,6 +731,36 @@ def render(
         cell_data=copy.deepcopy(mol.cell_data) if mol.cell_data is not None else None,
         oriented=mol.oriented,
     )
+
+    # --- Ensemble: build merged graph lazily (z_nudge=True for static renders) ---
+    # mol.graph holds only the reference frame; conformer data lives in mol.ensemble.
+    # We merge here so the renderer sees the full n_conformers x n_atoms graph, while
+    # mol.graph stays clean for repeated render() calls.
+    if _is_ensemble:
+        from xyzrender.ensemble import merge_graphs as _ensemble_merge_graphs
+
+        ens = mol.ensemble
+        assert ens is not None  # narrowing: _is_ensemble = mol.ensemble is not None
+        merged_graph = _ensemble_merge_graphs(
+            rmol.graph,
+            ens.positions,
+            conformer_colors=ens.colors,
+            conformer_graphs=ens.conformer_graphs,
+            z_nudge=True,
+        )
+        # Apply per-conformer opacity stored in EnsembleFrames
+        for nid in merged_graph.nodes():
+            conf_idx = merged_graph.nodes[nid].get("molecule_index", 0)
+            if conf_idx > 0:
+                op = ens.opacities[conf_idx]
+                if op is not None:
+                    merged_graph.nodes[nid]["ensemble_opacity"] = op
+        rmol = Molecule(
+            graph=merged_graph,
+            cube_data=rmol.cube_data,
+            cell_data=rmol.cell_data,
+            oriented=rmol.oriented,
+        )
 
     # --- Vectors (user-supplied + crystal axes) ---
     _combine_vector_sources(
@@ -1155,6 +1225,25 @@ def render_gif(
             # corrupt the caller's Molecule, and so _apply_cell_config can add ghost atoms.
             ref_graph = copy.deepcopy(ref_graph)
 
+        # --- Ensemble: build scratch merged graph (z_nudge=False — meaningless for rotation) ---
+        if isinstance(molecule, Molecule) and molecule.ensemble is not None:
+            from xyzrender.ensemble import merge_graphs as _ensemble_merge_graphs
+
+            ens = molecule.ensemble
+            ref_graph = _ensemble_merge_graphs(
+                ref_graph,
+                ens.positions,
+                conformer_colors=ens.colors,
+                conformer_graphs=ens.conformer_graphs,
+                z_nudge=False,
+            )
+            for nid in ref_graph.nodes():
+                conf_idx = ref_graph.nodes[nid].get("molecule_index", 0)
+                if conf_idx > 0:
+                    op = ens.opacities[conf_idx]
+                    if op is not None:
+                        ref_graph.nodes[nid]["ensemble_opacity"] = op
+
         # --- Overlay alignment (gif_rot only) ---
         if overlay is not None:
             from xyzrender.overlay import align, merge_graphs
@@ -1316,7 +1405,6 @@ def _build_ensemble_molecule(
     interactive orientation be applied before ensemble alignment.
     """
     from xyzrender.ensemble import align as ensemble_align
-    from xyzrender.ensemble import merge_graphs as ensemble_merge_graphs
     from xyzrender.readers import load_molecule, load_trajectory_frames
 
     traj_path = Path(str(trajectory))
@@ -1409,31 +1497,34 @@ def _build_ensemble_molecule(
             conformer_graphs.append(fg)
 
     # Resolve palette colours now that we know n_conformers.
-    # Default to viridis when no colour/palette specified.
+    # Default: None (CPK atom colours). Palette/explicit colour opt-in only.
     n_conf = len(frames)
     if ensemble_palette is not None:
         from xyzrender.colors import sample_palette
 
         conformer_colors = sample_palette(ensemble_palette, n_conf)
-    elif conformer_colors is None:
-        from xyzrender.colors import sample_palette
-
-        conformer_colors = sample_palette("viridis", n_conf)
-    elif len(conformer_colors) == 1:
+    elif conformer_colors is not None and len(conformer_colors) == 1:
         # Single-colour sentinel → expand to all conformers
         conformer_colors = conformer_colors * n_conf
+    # else: conformer_colors is None → CPK default, leave as-is
 
-    ensemble_graph = ensemble_merge_graphs(
-        ref_graph, aligned_positions, conformer_colors=conformer_colors, conformer_graphs=conformer_graphs
+    # Build per-conformer opacities list (None = fully opaque / use default)
+    opacities: list[float | None] = [None] * n_conf
+    if ensemble_opacity is not None:
+        for i in range(n_conf):
+            if i != reference_frame:
+                opacities[i] = ensemble_opacity
+
+    colors: list[str | None] = list(conformer_colors) if conformer_colors is not None else [None] * n_conf
+    ens = EnsembleFrames(
+        positions=np.stack(aligned_positions, axis=0),  # (n_conformers, n_atoms, 3)
+        colors=colors,
+        opacities=opacities,
+        conformer_graphs=conformer_graphs,
+        reference_idx=reference_frame,
     )
 
-    # Apply ensemble opacity to non-reference conformer nodes
-    if ensemble_opacity is not None:
-        for nid in ensemble_graph.nodes():
-            if ensemble_graph.nodes[nid].get("molecule_index", 0) > 0:
-                ensemble_graph.nodes[nid]["ensemble_opacity"] = ensemble_opacity
-
-    return Molecule(graph=ensemble_graph, cube_data=None, cell_data=cell_data, oriented=oriented)
+    return Molecule(graph=ref_graph, cube_data=None, cell_data=cell_data, oriented=oriented, ensemble=ens)
 
 
 # ---------------------------------------------------------------------------

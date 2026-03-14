@@ -264,3 +264,50 @@ def kabsch_rotation(original: np.ndarray, target: np.ndarray) -> np.ndarray:
     u, _, vt = np.linalg.svd(h)
     d = np.linalg.det(vt.T @ u.T)
     return vt.T @ np.diag([1.0, 1.0, np.sign(d)]) @ u.T
+
+
+def kabsch_align(
+    ref_positions: np.ndarray,
+    mobile_positions: np.ndarray,
+    align_atoms: list[int] | None = None,
+) -> np.ndarray:
+    """Kabsch RMSD alignment of *mobile_positions* onto *ref_positions*.
+
+    Parameters
+    ----------
+    ref_positions, mobile_positions:
+        (N, 3) arrays of matching atom positions.  Must have the same shape.
+    align_atoms:
+        Optional list of 0-indexed atom indices to fit on.  When given (min 3),
+        the rotation and translation are computed from this subset only, then
+        applied to *all* atoms.  ``None`` (default) fits on every atom.
+
+    Returns
+    -------
+    np.ndarray, shape (N, 3)
+        Aligned positions for *mobile_positions*.
+    """
+    if ref_positions.shape != mobile_positions.shape:
+        msg = f"kabsch_align: shape mismatch — ref {ref_positions.shape} vs mobile {mobile_positions.shape}"
+        raise ValueError(msg)
+
+    if align_atoms is not None:
+        if len(align_atoms) < 3:
+            msg = "kabsch_align: align_atoms must contain at least 3 indices to define a plane"
+            raise ValueError(msg)
+        n = ref_positions.shape[0]
+        for idx in align_atoms:
+            if not (0 <= idx < n):
+                msg = f"kabsch_align: align_atoms index {idx} out of range for {n} atoms"
+                raise ValueError(msg)
+        ref_sub = ref_positions[align_atoms]
+        mob_sub = mobile_positions[align_atoms]
+    else:
+        ref_sub = ref_positions
+        mob_sub = mobile_positions
+
+    c_ref = ref_sub.mean(axis=0)
+    c_mob = mob_sub.mean(axis=0)
+    # kabsch_rotation(mobile, ref) → h = mobile_centered.T @ ref_centered → R s.t. mobile @ R.T ≈ ref
+    rot = kabsch_rotation(mob_sub, ref_sub)
+    return (mobile_positions - c_mob) @ rot.T + c_ref

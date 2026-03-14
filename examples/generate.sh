@@ -99,8 +99,8 @@ xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 -o "$IMG/
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 --hy --align-atoms "1,2,3" -o "$IMG/isothio_overlay_align.svg"
 
 echo "=== Ensemble ==="
-xyzrender "$DIR/triphenylbenzol.xyz" --ensemble -o "$IMG/triphenylbenzol_ensemble.svg"
-xyzrender "$DIR/triphenylbenzol.xyz" --ensemble --align 21,22,23 --ensemble-color viridis -o "$IMG/triphenylbenzol_ensemble_custom.svg"
+xyzrender "$DIR/triphenylbenzol.xyz" --ensemble -o "$IMG/triphenylbenzol_ensemble.svg" --gif-rot -go "$IMG/triphenylbenzol_ensemble.gif"
+xyzrender "$DIR/triphenylbenzol.xyz" --ensemble --align 21,22,23 --ensemble-color viridis --opacity 0.4 -o "$IMG/triphenylbenzol_ensemble_custom.svg"
 
 echo "=== Convex hull ==="
 xyzrender "$DIR/benzene.xyz" --hy --hull 1-6 -o "$IMG/benzene_ring_hull.svg" 

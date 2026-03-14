@@ -38,7 +38,7 @@ _H_ATOM_SCALE = 0.6  # display-radius shrink factor for H atoms (ball-and-stick)
 _H_VDW_SCALE = 0.65  # VdW-sphere shrink factor for H atoms
 
 
-def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) -> str:
+def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, _unique_ids: bool = True) -> str:
     """Render molecular graph to SVG string."""
     cfg = config or RenderConfig()
     node_ids = list(graph.nodes())
@@ -191,13 +191,16 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
             if graph.nodes[node_ids[ai]].get("overlay", False):
                 colors[ai] = overlay_atom_color
 
-    # Override atom colors for ensemble conformers with per-conformer colours
-    has_ensemble_color = any(graph.nodes[nid].get("ensemble_color") for nid in node_ids)
-    if has_ensemble_color:
-        for ai in range(n):
-            ec = graph.nodes[node_ids[ai]].get("ensemble_color")
-            if ec:
-                colors[ai] = Color.from_str(ec)
+    # Override atom colors for ensemble conformers with per-conformer colours.
+    # Single pass: extract and apply in one loop (avoids any() scan + second pass).
+    ens_colors: list[str | None] = [graph.nodes[nid].get("ensemble_color") for nid in node_ids]
+    for ai in range(n):
+        ec = ens_colors[ai]
+        if ec:
+            colors[ai] = Color.from_str(ec)
+
+    # Pre-extract ensemble_opacity per atom — avoids two dict lookups per atom inside the main loop.
+    ens_opacities: list[float | None] = [graph.nodes[nid].get("ensemble_opacity") for nid in node_ids]
 
     # Bond lookup: (bond_order, style, color_override)
     bonds: dict[tuple[int, int], tuple[float, BondStyle, str | None]] = {}
@@ -679,11 +682,10 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
 
         xi, yi = _proj(pos[ai], scale, cx, cy, canvas_w, canvas_h)
         is_image = graph.nodes[ai].get("image", False)
-        _ens_op = graph.nodes[node_ids[ai]].get("ensemble_opacity")
         if is_image:
             atom_op = cfg.periodic_image_opacity
-        elif _ens_op is not None:
-            atom_op = _ens_op
+        elif ens_opacities[ai] is not None:
+            atom_op = ens_opacities[ai]
         else:
             atom_op = 1.0
         op_attr_atom = f' opacity="{atom_op:.2f}"' if atom_op < 1.0 else ""
@@ -749,11 +751,12 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
                 bo, style, color_ov = bonds[(ai, aj_int)]
                 # Use periodic_image_opacity if either endpoint is an image atom
                 _aj_image = graph.nodes[aj_int].get("image", False)
-                _aj_ens_op = graph.nodes[node_ids[aj_int]].get("ensemble_opacity") if not _aj_image else None
+                _aj_ens_op = ens_opacities[aj_int] if not _aj_image else None
+                _ai_ens_op = ens_opacities[ai]
                 if is_image or _aj_image:
                     bond_op = cfg.periodic_image_opacity
-                elif _ens_op is not None or _aj_ens_op is not None:
-                    bond_op = min(v for v in (_ens_op, _aj_ens_op) if v is not None)
+                elif _ai_ens_op is not None or _aj_ens_op is not None:
+                    bond_op = min(v for v in (_ai_ens_op, _aj_ens_op) if v is not None)
                 else:
                     bond_op = 1.0
                 add_bond(ai, aj_int, bo, style, opacity=bond_op, color_override=color_ov)
@@ -867,10 +870,12 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True) 
     # Jupyter notebook page collide, causing atoms/gradients from the first render to
     # appear in all subsequent ones.  Prefix every id, href, and url() reference with
     # a unique token so each SVG is self-contained regardless of embedding context.
-    p = f"x{next(_render_counter)}"
-    raw = raw.replace('id="', f'id="{p}')
-    raw = raw.replace('href="#', f'href="#{p}')
-    raw = raw.replace("url(#", f"url(#{p}")
+    # Skip when _unique_ids=False (GIF frames: converted to PNG immediately, never shown as SVG).
+    if _unique_ids:
+        p = f"x{next(_render_counter)}"
+        raw = raw.replace('id="', f'id="{p}')
+        raw = raw.replace('href="#', f'href="#{p}')
+        raw = raw.replace("url(#", f"url(#{p}")
     return raw
 
 

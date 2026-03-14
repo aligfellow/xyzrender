@@ -359,7 +359,7 @@ def render_rotation_gif(
     if "lattice" in graph.graph and "lattice_origin" not in graph.graph:
         graph.graph["lattice_origin"] = np.zeros(3)
 
-    original_positions = {n: graph.nodes[n]["position"] for n in nodes}
+    original_pos_array = np.array([graph.nodes[n]["position"] for n in nodes], dtype=float)
     original_lattice = np.array(graph.graph["lattice"], dtype=float) if "lattice" in graph.graph else None
     original_lattice_origin = (
         np.array(graph.graph["lattice_origin"], dtype=float) if "lattice_origin" in graph.graph else None
@@ -368,7 +368,7 @@ def render_rotation_gif(
     # Pass lattice to _rotation_axis for crystallographic hkl axis strings
     _lattice = config.cell_data.lattice if config.cell_data is not None else None
     axis_vec, axis_sign = _rotation_axis(axis, lattice=_lattice)
-    frame = {"positions": list(original_positions.values()), "symbols": [graph.nodes[n]["symbol"] for n in nodes]}
+    frame = {"positions": original_pos_array.tolist(), "symbols": [graph.nodes[n]["symbol"] for n in nodes]}
     rot_cfg = _fixed_viewport([frame], config, rotation_axis=axis_vec)
 
     # Save original crystal state so we can recompute the rotated box each frame.
@@ -378,7 +378,7 @@ def render_rotation_gif(
     if rot_cfg.cell_data is not None:
         _orig_lattice = rot_cfg.cell_data.lattice.copy()
         _orig_cell_origin = rot_cfg.cell_data.cell_origin.copy()
-        _atom_centroid = np.array(list(original_positions.values())).mean(axis=0)
+        _atom_centroid = original_pos_array.mean(axis=0)
 
     # Expand viewport if density surface extends beyond atoms
     if dens_params is not None and dens_cube is not None:
@@ -403,7 +403,7 @@ def render_rotation_gif(
     # Save pre-rotation vector data so each frame applies a fresh rotation (no drift).
     _gif_vec_origins = np.array([va.origin for va in rot_cfg.vectors]) if rot_cfg.vectors else np.full((0, 3), np.nan)
     _gif_vec_dirs = np.array([va.vector for va in rot_cfg.vectors]) if rot_cfg.vectors else np.full((0, 3), np.nan)
-    _gif_vec_centroid = np.mean(list(original_positions.values()), axis=0) if rot_cfg.vectors else np.full(3, np.nan)
+    _gif_vec_centroid = original_pos_array.mean(axis=0) if rot_cfg.vectors else np.full(3, np.nan)
 
     # Pre-populate surface caches with cube-invariant data (lobes, grid positions,
     # bounding radius) so workers only do the per-frame Kabsch rotation.
@@ -425,7 +425,7 @@ def render_rotation_gif(
         graph=graph,
         config=config,
         nodes=nodes,
-        original_positions=original_positions,
+        original_pos_array=original_pos_array,
         original_lattice=original_lattice,
         original_lattice_origin=original_lattice_origin,
         axis_vec=axis_vec,
@@ -447,8 +447,8 @@ def render_rotation_gif(
     )
     pngs = _parallel_render(worker, range(n_frames), n_frames)
 
-    for n in nodes:
-        graph.nodes[n]["position"] = original_positions[n]
+    for i, n in enumerate(nodes):
+        graph.nodes[n]["position"] = tuple(original_pos_array[i].tolist())
 
     _stitch_gif(pngs, output, fps)
     logger.info("Wrote %s", output)
@@ -642,7 +642,7 @@ def _render_rot_frame(
     graph: "nx.Graph",
     config: "RenderConfig",
     nodes: list,
-    original_positions: dict,
+    original_pos_array: np.ndarray,  # shape (n_nodes, 3)
     original_lattice: np.ndarray | None,
     original_lattice_origin: np.ndarray | None,
     axis_vec: np.ndarray,
@@ -665,20 +665,21 @@ def _render_rot_frame(
     """Worker: render one rotation GIF frame to PNG. Surfaces recomputed via Kabsch per frame."""
     import copy
 
-    from xyzrender.utils import apply_axis_angle_rotation
-
-    for n in nodes:
-        graph.nodes[n]["position"] = original_positions[n]
     if original_lattice is not None:
         graph.graph["lattice"] = original_lattice.copy()
     if original_lattice_origin is not None:
         graph.graph["lattice_origin"] = original_lattice_origin.copy()
 
     total_angle = axis_sign * step * frame_idx
-    apply_axis_angle_rotation(graph, axis_vec, total_angle)
-
-    # Compute rotation matrix once; reused for vectors and cell_data.
+    # Compute rotation matrix once; reused for positions, vectors, and cell_data.
     rot_mat = _axis_angle_matrix(axis_vec, total_angle)
+
+    # Vectorized position update: one matmul over all nodes, one write-back loop.
+    # Replaces: (1) reset dict loop, (2) read loop inside apply_axis_angle_rotation.
+    centroid = original_pos_array.mean(axis=0)
+    rotated = (rot_mat @ (original_pos_array - centroid).T).T + centroid
+    for i, n in enumerate(nodes):
+        graph.nodes[n]["position"] = tuple(rotated[i].tolist())
 
     frame_cfg = copy.copy(rot_cfg)
 
@@ -702,7 +703,7 @@ def _render_rot_frame(
 
         recompute_dens(graph, frame_cfg, dens_params, dens_cube, frame_cfg.surface_opacity, _dens_cache)
 
-    svg = render_svg(graph, frame_cfg, _log=False)
+    svg = render_svg(graph, frame_cfg, _log=False, _unique_ids=False)
     return frame_idx, _svg_to_png(svg, config.canvas_size)
 
 

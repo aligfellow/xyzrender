@@ -11,8 +11,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from xyzrender.overlay import _node_list, kabsch_align
+from xyzrender.overlay import _node_list
 from xyzrender.types import Color
+from xyzrender.utils import kabsch_align
 
 if TYPE_CHECKING:
     import networkx as nx
@@ -78,10 +79,11 @@ def align(
 
 def merge_graphs(
     reference_graph: nx.Graph,
-    aligned_positions: list[np.ndarray],
+    aligned_positions: list[np.ndarray] | np.ndarray,  # list or (n_conformers, n_atoms, 3)
     *,
-    conformer_colors: list[str] | None = None,
+    conformer_colors: list[str | None] | None = None,
     conformer_graphs: list[nx.Graph] | None = None,
+    z_nudge: bool = True,
 ) -> nx.Graph:
     """Merge *reference_graph* with additional conformers into a single graph.
 
@@ -112,7 +114,7 @@ def merge_graphs(
     """
     import networkx as nx
 
-    if not aligned_positions:
+    if len(aligned_positions) == 0:
         msg = "ensemble.merge_graphs: aligned_positions must contain at least one frame"
         raise ValueError(msg)
 
@@ -167,7 +169,8 @@ def merge_graphs(
         bond_color_hex: str | None = None
         if conformer_colors is not None and conf_idx < len(conformer_colors):
             atom_color_hex = conformer_colors[conf_idx]
-            bond_color_hex = Color.from_str(atom_color_hex).darken(strength=0.30).hex
+            if atom_color_hex is not None:
+                bond_color_hex = Color.from_str(atom_color_hex).darken(strength=0.30).hex
 
         # Use per-frame graph if available, otherwise copy reference edges.
         frame_graph = conformer_graphs[conf_idx] if conformer_graphs is not None else reference_graph
@@ -178,8 +181,9 @@ def merge_graphs(
             data = dict(reference_graph.nodes[old_id])
             data["molecule_index"] = conf_idx
             x, y, z = pos[k]
-            # Nudge z slightly so conformers don't z-fight in SVG rendering.
-            data["position"] = (float(x), float(y), float(z) + conf_idx * _Z_NUDGE)
+            # Optionally nudge z slightly so conformers don't z-fight in SVG rendering.
+            nudge = conf_idx * _Z_NUDGE if z_nudge else 0.0
+            data["position"] = (float(x), float(y), float(z) + nudge)
             if atom_color_hex is not None:
                 data["ensemble_color"] = atom_color_hex
             merged.add_node(id_map[old_id], **data)

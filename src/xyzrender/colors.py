@@ -107,7 +107,7 @@ _COOLWARM_STOPS: list[Color] = [
 ]
 
 _PALETTES: dict[str, list[Color]] = {
-    "viridis": _VIRIDIS_STOPS,
+    "viridis": CMAP_PALETTES["viridis"],
     "spectral": _SPECTRAL_STOPS,
     "coolwarm": _COOLWARM_STOPS,
 }

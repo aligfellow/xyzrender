@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from xyzrender.types import Color
+from xyzrender.utils import kabsch_align
 
 if TYPE_CHECKING:
     import networkx as nx
@@ -43,68 +44,8 @@ def _positions(graph: nx.Graph) -> tuple[np.ndarray, list]:
     return pos, nodes
 
 
-def _kabsch_rotation(p_centered: np.ndarray, q_centered: np.ndarray) -> np.ndarray:
-    """Kabsch rotation matrix rot s.t. q_centered @ rot.T ≈ p_centered.
-
-    Both arrays must already be mean-centred.  Ensures det(rot) = +1 (proper
-    rotation, no reflection).
-    """
-    h = q_centered.T @ p_centered
-    u, _, vt = np.linalg.svd(h)
-    det = np.linalg.det(vt.T @ u.T)
-    d_mat = np.diag([1.0, 1.0, det])
-    return vt.T @ d_mat @ u.T
-
-
-# ---------------------------------------------------------------------------
-# Public API — shared Kabsch alignment
-# ---------------------------------------------------------------------------
-
-
-def kabsch_align(
-    ref_positions: np.ndarray,
-    mobile_positions: np.ndarray,
-    align_atoms: list[int] | None = None,
-) -> np.ndarray:
-    """Kabsch RMSD alignment of *mobile_positions* onto *ref_positions*.
-
-    Parameters
-    ----------
-    ref_positions, mobile_positions:
-        (N, 3) arrays of matching atom positions.  Must have the same shape.
-    align_atoms:
-        Optional list of 0-indexed atom indices to fit on.  When given (min 3),
-        the rotation and translation are computed from this subset only, then
-        applied to *all* atoms.  ``None`` (default) fits on every atom.
-
-    Returns
-    -------
-    np.ndarray, shape (N, 3)
-        Aligned positions for *mobile_positions*.
-    """
-    if ref_positions.shape != mobile_positions.shape:
-        msg = f"kabsch_align: shape mismatch — ref {ref_positions.shape} vs mobile {mobile_positions.shape}"
-        raise ValueError(msg)
-
-    if align_atoms is not None:
-        if len(align_atoms) < 3:
-            msg = "kabsch_align: align_atoms must contain at least 3 indices to define a plane"
-            raise ValueError(msg)
-        n = ref_positions.shape[0]
-        for idx in align_atoms:
-            if not (0 <= idx < n):
-                msg = f"kabsch_align: align_atoms index {idx} out of range for {n} atoms"
-                raise ValueError(msg)
-        ref_sub = ref_positions[align_atoms]
-        mob_sub = mobile_positions[align_atoms]
-    else:
-        ref_sub = ref_positions
-        mob_sub = mobile_positions
-
-    c_ref = ref_sub.mean(axis=0)
-    c_mob = mob_sub.mean(axis=0)
-    rot = _kabsch_rotation(ref_sub - c_ref, mob_sub - c_mob)
-    return (mobile_positions - c_mob) @ rot.T + c_ref
+# kabsch_align is implemented in utils and re-exported here for backward compat.
+__all__ = ["align", "kabsch_align", "merge_graphs"]
 
 
 # ---------------------------------------------------------------------------
