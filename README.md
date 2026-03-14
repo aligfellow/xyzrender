@@ -298,7 +298,7 @@ xyzrender caffeine.xyz -o caffeine_default.svg              # default preset
 xyzrender caffeine.xyz --config flat -o caffeine_flat.svg   # flat: no gradient
 xyzrender caffeine.xyz --config paton -o caffeine_paton.svg # paton: PyMOL-style
 xyzrender caffeine.xyz --config skeletal -o caffeine_skeletal.svg # skeletal formula diagram
-xyzrender caffeine.xyz --config bubble --hy -o caffeine_bubble.svg # space-filling (CPK)
+xyzrender caffeine.xyz --config bubble --hy -o caffeine_bubble.svg # space-filling-like
 ```
 
 The `paton` style is inspired by the clean styling used by [Rob Paton](https://github.com/patonlab) through PyMOL (see [gist](https://gist.github.com/bobbypaton/1cdc4784f3fc8374467bae5eb410edef))
