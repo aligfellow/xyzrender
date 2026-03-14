@@ -10,7 +10,7 @@
 xyzrender caffeine.xyz                        # default
 xyzrender caffeine.xyz --config flat          # flat: no gradient
 xyzrender caffeine.xyz --config paton         # paton: PyMOL-style
-xyzrender caffeine.xyz --config bubble --hy   # space-filling (CPK)
+xyzrender caffeine.xyz --config bubble --hy   # space-filling-like
 ```
 
 The `paton` style is inspired by the clean styling used by [Rob Paton](https://github.com/patonlab) through PyMOL.
