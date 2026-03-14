@@ -50,7 +50,7 @@ def atom_colors(
 
 _BAR_W = 30.0
 _MARGIN = 16.0
-_TICK_GAP = 8.0
+_TICK_GAP = 16.0
 
 
 def colorbar_extra_width(vmin: float, vmax: float, fs: float) -> int:
