@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from xyzgraph.stereo import assign_ez, assign_rs
+from xyzgraph.stereo import annotate_stereo
 
 from xyzrender.annotations import AtomValueLabel, BondLabel, Annotation
 
@@ -29,12 +29,16 @@ def build_stereo_annotations(
 
     annotations: list[Annotation] = []
 
+    annotate_stereo(graph)
+
     if include_rs:
-        rs = assign_rs(graph)
-        for idx, label in rs.items():
-            annotations.append(AtomValueLabel(idx, label, on_atom=(rs_style == "atom")))
+        for idx, data in graph.nodes(data=True):
+            label = data.get("stereo")
+            if label in {"R", "S"}:
+                annotations.append(AtomValueLabel(idx, label, on_atom=(rs_style == "atom")))
     if include_ez:
-        ez = assign_ez(graph)
-        for (i, j), label in ez.items():
-            annotations.append(BondLabel(i, j, label))
+        for i, j, data in graph.edges(data=True):
+            label = data.get("stereo")
+            if label in {"E", "Z"}:
+                annotations.append(BondLabel(i, j, label))
     return annotations
