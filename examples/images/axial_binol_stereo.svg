@@ -99,6 +99,6 @@
   <circle cx="222.2" cy="349.3" r="25.3" fill="url(#x0g19)" stroke="#000000" stroke-width="4.5"/>
   <circle cx="561.0" cy="103.2" r="25.3" fill="url(#x0g2)" stroke="#000000" stroke-width="4.5"/>
   <circle cx="406.7" cy="45.3" r="22.7" fill="url(#x0g0)" stroke="#000000" stroke-width="4.5"/>
-  <text x="400.0" y="190.5" font-family="monospace" font-size="22.3px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#ffffff" stroke="#ffffff" stroke-width="7.8" stroke-linejoin="round">P</text>
-  <text x="400.0" y="190.5" font-family="monospace" font-size="22.3px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#222222">P</text>
+  <text x="400.0" y="200.6" font-family="monospace" font-size="22.3px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#ffffff" stroke="#ffffff" stroke-width="7.8" stroke-linejoin="round">Rₐ</text>
+  <text x="400.0" y="200.6" font-family="monospace" font-size="22.3px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#222222">Rₐ</text>
 </svg>

@@ -57,4 +57,6 @@
   <line x1="532.3" y1="139.8" x2="589.3" y2="137.5" stroke="#000000" stroke-width="8.4" stroke-linecap="round" stroke-dasharray="8.4,16.8"/>
   <circle cx="186.5" cy="309.6" r="27.2" fill="url(#x0g3)" stroke="#000000" stroke-width="4.8"/>
   <circle cx="613.5" cy="129.4" r="27.2" fill="url(#x0g9)" stroke="#000000" stroke-width="4.8"/>
+  <text x="398.7" y="183.6" font-family="monospace" font-size="23.9px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#ffffff" stroke="#ffffff" stroke-width="8.4" stroke-linejoin="round">Sₐ</text>
+  <text x="398.7" y="183.6" font-family="monospace" font-size="23.9px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#222222">Sₐ</text>
 </svg>

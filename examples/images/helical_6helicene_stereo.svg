@@ -116,12 +116,6 @@
   <circle cx="376.8" cy="94.5" r="16.4" fill="url(#x0g11)" stroke="#000000" stroke-width="2.9"/>
   <circle cx="223.5" cy="268.7" r="16.4" fill="url(#x0g6)" stroke="#000000" stroke-width="2.9"/>
   <circle cx="512.9" cy="85.5" r="16.4" fill="url(#x0g18)" stroke="#000000" stroke-width="2.9"/>
-  <text x="247.6" y="134.7" font-family="monospace" font-size="14.4px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#ffffff" stroke="#ffffff" stroke-width="5.1" stroke-linejoin="round">Sₐ</text>
-  <text x="247.6" y="134.7" font-family="monospace" font-size="14.4px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#222222">Sₐ</text>
-  <text x="350.4" y="184.3" font-family="monospace" font-size="14.4px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#ffffff" stroke="#ffffff" stroke-width="5.1" stroke-linejoin="round">Rₐ</text>
-  <text x="350.4" y="184.3" font-family="monospace" font-size="14.4px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#222222">Rₐ</text>
-  <text x="446.8" y="122.5" font-family="monospace" font-size="14.4px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#ffffff" stroke="#ffffff" stroke-width="5.1" stroke-linejoin="round">Rₐ</text>
-  <text x="446.8" y="122.5" font-family="monospace" font-size="14.4px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#222222">Rₐ</text>
-  <text x="549.9" y="172.0" font-family="monospace" font-size="14.4px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#ffffff" stroke="#ffffff" stroke-width="5.1" stroke-linejoin="round">Sₐ</text>
-  <text x="549.9" y="172.0" font-family="monospace" font-size="14.4px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#222222">Sₐ</text>
+  <text x="350.7" y="173.8" font-family="monospace" font-size="14.4px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#ffffff" stroke="#ffffff" stroke-width="5.1" stroke-linejoin="round">P</text>
+  <text x="350.7" y="173.8" font-family="monospace" font-size="14.4px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#222222">P</text>
 </svg>
