@@ -66,6 +66,9 @@ render(mol, ts_bonds=[(1, 6)])      # manual TS bond (1-indexed)
 render(mol, nci_bonds=[(2, 8)])     # manual NCI bond (1-indexed)
 render(mol, idx=True)               # atom index labels ("C1", "N3", ...)
 render(mol, idx="n")                # index only ("1", "3", ...)
+render(mol, highlight="1-3,7")                          # highlight atoms 1-3 and 7 (orchid)
+render(mol, highlight="1-3,7", highlight_color="red")   # custom colour
+render(mol, highlight=[0, 1, 2, 6])                     # 0-indexed list (Python API)
 ```
 
 ### Structural overlay

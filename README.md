@@ -131,6 +131,12 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |--------------|------------------|------------|----------|
 | ![benzene hull](examples/images/benzene_ring_hull.svg) | ![anthracene hull](examples/images/anthracene_hull.svg) | ![mnh hull](examples/images/mnh_hull_rings.svg) | ![anthracene rot](examples/images/anthracene_hull.gif) |
 
+### Highlight
+
+| Default (orchid) | Custom colour | Rotation |
+|------------------|---------------|----------|
+| ![hl](examples/images/caffeine_hl.svg) | ![hl custom](examples/images/caffeine_hl_custom.svg) | ![hl rot](examples/images/caffeine_hl.gif) |
+
 ### Structural overlay & ensemble
 
 | Overlay | Custom colour | Ensemble (CPK) | Ensemble (spectral) |
