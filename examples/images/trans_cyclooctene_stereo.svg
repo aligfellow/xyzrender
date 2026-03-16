@@ -23,8 +23,8 @@
   <line x1="606.5" y1="314.4" x2="525.6" y2="252.3" stroke="#010101" stroke-width="20.0" stroke-linecap="round"/>
   <circle cx="184.8" cy="307.1" r="45.4" fill="url(#x0g6)" stroke="#090909" stroke-width="8.0"/>
   <circle cx="476.8" cy="609.9" r="45.4" fill="url(#x0g3)" stroke="#020202" stroke-width="8.0"/>
-  <line x1="435.6" y1="620.1" x2="347.6" y2="616.2" stroke="#000000" stroke-width="14.0" stroke-linecap="round"/>
-  <line x1="436.6" y1="596.1" x2="348.7" y2="592.2" stroke="#000000" stroke-width="14.0" stroke-linecap="round"/>
+  <line x1="435.4" y1="623.5" x2="347.5" y2="619.5" stroke="#000000" stroke-width="14.0" stroke-linecap="round"/>
+  <line x1="436.8" y1="592.7" x2="348.8" y2="588.8" stroke="#000000" stroke-width="14.0" stroke-linecap="round"/>
   <circle cx="307.5" cy="602.3" r="45.4" fill="url(#x0g4)" stroke="#000000" stroke-width="8.0"/>
   <circle cx="496.3" cy="229.8" r="45.4" fill="url(#x0g0)" stroke="#000000" stroke-width="8.0"/>
 </svg>
