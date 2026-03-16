@@ -27,4 +27,6 @@
   <line x1="436.8" y1="592.7" x2="348.8" y2="588.8" stroke="#000000" stroke-width="14.0" stroke-linecap="round"/>
   <circle cx="307.5" cy="602.3" r="45.4" fill="url(#x0g4)" stroke="#000000" stroke-width="8.0"/>
   <circle cx="496.3" cy="229.8" r="45.4" fill="url(#x0g0)" stroke="#000000" stroke-width="8.0"/>
+  <text x="389.4" y="666.1" font-family="monospace" font-size="40.0px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#ffffff" stroke="#ffffff" stroke-width="14.0" stroke-linejoin="round">Z</text>
+  <text x="389.4" y="666.1" font-family="monospace" font-size="40.0px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#222222">Z</text>
 </svg>
