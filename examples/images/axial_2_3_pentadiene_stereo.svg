@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 471" width="800" height="471">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <defs>
+    <radialGradient id="x0g0" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
+    <radialGradient id="x0g1" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
+    <radialGradient id="x0g2" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
+    <radialGradient id="x0g3" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
+    <radialGradient id="x0g4" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
+  </defs>
+  <circle cx="255.6" cy="292.3" r="40.7" fill="url(#x0g1)" stroke="#000000" stroke-width="7.2"/>
+  <line x1="289.3" y1="274.2" x2="362.2" y2="258.9" stroke="#000000" stroke-width="12.6" stroke-linecap="round"/>
+  <line x1="293.7" y1="295.3" x2="366.6" y2="280.0" stroke="#000000" stroke-width="12.6" stroke-linecap="round"/>
+  <line x1="228.9" y1="267.2" x2="158.8" y2="201.3" stroke="#000000" stroke-width="17.9" stroke-linecap="round"/>
+  <circle cx="400.3" cy="261.9" r="40.7" fill="url(#x0g2)" stroke="#000000" stroke-width="7.2"/>
+  <line x1="433.9" y1="243.9" x2="495.7" y2="231.0" stroke="#000000" stroke-width="12.6" stroke-linecap="round"/>
+  <line x1="438.3" y1="265.0" x2="500.1" y2="252.1" stroke="#000000" stroke-width="12.6" stroke-linecap="round"/>
+  <circle cx="533.7" cy="234.1" r="40.7" fill="url(#x0g3)" stroke="#000000" stroke-width="7.2"/>
+  <line x1="567.4" y1="216.1" x2="640.0" y2="200.9" stroke="#000000" stroke-width="12.6" stroke-linecap="round"/>
+  <line x1="571.8" y1="237.1" x2="644.4" y2="222.0" stroke="#000000" stroke-width="12.6" stroke-linecap="round"/>
+  <circle cx="678.0" cy="203.9" r="40.7" fill="url(#x0g4)" stroke="#000000" stroke-width="7.2"/>
+  <circle cx="132.1" cy="176.3" r="40.7" fill="url(#x0g0)" stroke="#000000" stroke-width="7.2"/>
+</svg>

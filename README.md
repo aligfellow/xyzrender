@@ -162,6 +162,16 @@ Use `--stereo` for atom‑centred R/S labels, or `--stereo label` to offset them
 |------------|------------|
 | ![Z-stilbene](examples/images/Z-stillbene.svg) | ![E-stilbene](examples/images/E-stillbene.svg) |
 
+Axial (Rₐ/Sₐ), planar (Rₚ/Sₚ), and helical (P/M) labels are also supported for suitable motifs.
+
+| Axial (BINOL) | Axial (2,2′-dichlorobiphenyl) | Axial (2,3-pentadiene) |
+|--------------|-------------------------------|------------------------|
+| ![axial binol](examples/images/axial_binol_stereo.svg) | ![axial dichlorobiphenyl](examples/images/axial_2_2_dichlorobiphenyl_stereo.svg) | ![axial allene](examples/images/axial_2_3_pentadiene_stereo.svg) |
+
+| Planar (substituted ferrocene) | Helical ([6]helicene) | trans-cyclooctene |
+|--------------------------------|-----------------------|-------------------|
+| ![planar ferrocene](examples/images/ferrocene_chiral_cp_stereo.svg) | ![helical helicene](examples/images/helical_6helicene_stereo.svg) | ![trans cyclooctene](examples/images/trans_cyclooctene_stereo.svg) |
+
 ### Atom property colormap
 
 | Mulliken charges (rotation) | Symmetric range | With colorbar |
