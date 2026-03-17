@@ -69,7 +69,9 @@ def test_crystal_images(vasp_crystal):
         # Every image atom must have at least one bond to a cell atom
         neighbors = list(graph.neighbors(node_id))
         cell_neighbors = [nb for nb in neighbors if nb in cell_ids]
-        assert cell_neighbors, f"Image node {node_id} (sym={attrs['symbol']}) has no bond to a cell atom"
+        assert (
+            cell_neighbors
+        ), f"Image node {node_id} (sym={attrs['symbol']}) has no bond to a cell atom"
 
 
 def test_crystal_images_no_orphans(vasp_crystal):
@@ -89,7 +91,9 @@ def test_crystal_images_no_orphans(vasp_crystal):
             for nb in graph.neighbors(node_id)
             if nb in cell_ids and graph.edges[node_id, nb].get("image_bond", False)
         ]
-        assert image_bonds_to_cell, f"Image node {node_id} has no image_bond edge to a cell atom"
+        assert (
+            image_bonds_to_cell
+        ), f"Image node {node_id} has no image_bond edge to a cell atom"
 
 
 def test_build_supercell_repeats_atoms_and_scales_lattice(vasp_crystal):
@@ -102,16 +106,17 @@ def test_build_supercell_repeats_atoms_and_scales_lattice(vasp_crystal):
     n0 = graph.number_of_nodes()
     a = cell_data.lattice[0].copy()
 
-    g2, cd2 = build_supercell(graph, cell_data, (2, 1, 1))
+    g2 = build_supercell(graph, cell_data, (2, 1, 1))
     assert g2.number_of_nodes() == 2 * n0
-    np.testing.assert_allclose(cd2.lattice[0], 2 * a, atol=1e-9)
 
     # For at least one atom, there must be a copy at +a.
     p0 = np.array(g2.nodes[0]["position"], dtype=float)
     target = p0 + a
     pos_all = np.array([g2.nodes[i]["position"] for i in g2.nodes()], dtype=float)
     dists = np.linalg.norm(pos_all - target[None, :], axis=1)
-    assert float(dists.min()) < 1e-6, "Expected a replicated atom at +a in the (2,1,1) supercell"
+    assert (
+        float(dists.min()) < 1e-6
+    ), "Expected a replicated atom at +a in the (2,1,1) supercell"
 
 
 # ---------------------------------------------------------------------------
@@ -217,7 +222,9 @@ def test_extxyz_cell_box_renders(extxyz_graph):
     from xyzrender.types import CellData, RenderConfig
 
     cfg = RenderConfig(
-        cell_data=CellData(lattice=np.array(extxyz_graph.graph["lattice"], dtype=float)),
+        cell_data=CellData(
+            lattice=np.array(extxyz_graph.graph["lattice"], dtype=float)
+        ),
         show_cell=True,
     )
     svg = render_svg(extxyz_graph, cfg)
@@ -236,9 +243,8 @@ def test_extxyz_supercell_builds_without_phonopy(extxyz_graph):
     origin = np.array(g.graph.get("lattice_origin", np.zeros(3)), dtype=float)
     cd = CellData(lattice=lat, cell_origin=origin)
 
-    g2, cd2 = build_supercell(g, cd, (2, 2, 1))
+    g2 = build_supercell(g, cd, (2, 2, 1))
     assert g2.number_of_nodes() == 4 * n0
-    assert cd2.lattice.shape == (3, 3)
 
 
 def test_orient_hkl_cell_corotates_with_atoms(vasp_crystal):
@@ -277,9 +283,9 @@ def test_orient_hkl_cell_origin_updated_from_zero(vasp_crystal):
 
     # cell_origin is rotated around the atom centroid; since the centroid is
     # not at the origin the rotated zero-origin is non-zero
-    assert not np.allclose(cell_data.cell_origin, np.zeros(3), atol=1e-6), (
-        f"cell_origin should be non-zero after HKL rotation (got {cell_data.cell_origin})"
-    )
+    assert not np.allclose(
+        cell_data.cell_origin, np.zeros(3), atol=1e-6
+    ), f"cell_origin should be non-zero after HKL rotation (got {cell_data.cell_origin})"
 
 
 def test_orient_hkl_fractional_coords_preserved(vasp_crystal):
@@ -292,13 +298,17 @@ def test_orient_hkl_fractional_coords_preserved(vasp_crystal):
     graph, cell_data = copy.deepcopy(vasp_crystal)
     node_ids = list(graph.nodes())
     pos0 = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
-    frac_before = np.linalg.solve(cell_data.lattice.T, (pos0 - cell_data.cell_origin).T).T
+    frac_before = np.linalg.solve(
+        cell_data.lattice.T, (pos0 - cell_data.cell_origin).T
+    ).T
 
     cfg = RenderConfig()
     orient_hkl_to_view(graph, cell_data, "111", cfg)
 
     pos1 = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
-    frac_after = np.linalg.solve(cell_data.lattice.T, (pos1 - cell_data.cell_origin).T).T
+    frac_after = np.linalg.solve(
+        cell_data.lattice.T, (pos1 - cell_data.cell_origin).T
+    ).T
 
     np.testing.assert_allclose(
         frac_after,
@@ -330,8 +340,14 @@ def test_orient_hkl_cell_corotates_with_ghost_atoms(vasp_crystal):
     assert len(cell_lines) == 12
 
     # COM of real atoms must be inside the cell (fractional coords in [0, 1])
-    real_pos = np.array([graph.nodes[i]["position"] for i in range(n_real)], dtype=float)
+    real_pos = np.array(
+        [graph.nodes[i]["position"] for i in range(n_real)], dtype=float
+    )
     com = real_pos.mean(axis=0)
     frac = np.linalg.solve(cell_data.lattice.T, com - cell_data.cell_origin)
-    assert np.all(frac > -0.5), f"COM fractional coords {frac} are far outside the cell after rotation"
-    assert np.all(frac < 1.5), f"COM fractional coords {frac} are far outside the cell after rotation"
+    assert np.all(
+        frac > -0.5
+    ), f"COM fractional coords {frac} are far outside the cell after rotation"
+    assert np.all(
+        frac < 1.5
+    ), f"COM fractional coords {frac} are far outside the cell after rotation"

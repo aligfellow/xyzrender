@@ -129,7 +129,7 @@ def load_crystal(
 
 def build_supercell(
     graph: "nx.Graph", cell_data: CellData, repeats: tuple[int, int, int]
-) -> tuple["nx.Graph", CellData]:
+) -> "nx.Graph":
     """Return a new graph and CellData representing a repeated supercell.
 
     Parameters
@@ -145,7 +145,7 @@ def build_supercell(
 
     Returns
     -------
-    (new_graph, new_cell_data)
+    (new_graph)
         The supercell graph and updated CellData with lattice vectors scaled by
         ``(m, n, l)``.
     """
@@ -176,11 +176,11 @@ def build_supercell(
 
         empty = nx.Graph()
         empty.graph.update(dict(graph.graph))
-        empty.graph["lattice"] = new_lattice
+        empty.graph["lattice"] = cell_data.lattice
         empty.graph["lattice_origin"] = np.array(
-            graph.graph.get("lattice_origin", new_cd.cell_origin), dtype=float
+            graph.graph.get("lattice_origin", cell_data.cell_origin), dtype=float
         ).copy()
-        return empty, new_cd
+        return empty
 
     base_node_attrs = [dict(graph.nodes[nid]) for nid in base_nodes]
     atoms: list[tuple[str, tuple[float, float, float]]] = []
@@ -219,7 +219,7 @@ def build_supercell(
         graph.graph.get("lattice_origin", new_cd.cell_origin), dtype=float
     ).copy()
 
-    return new_g, new_cd
+    return new_g
 
 
 def add_crystal_images(graph: nx.Graph, crystal_data: CellData) -> int:
