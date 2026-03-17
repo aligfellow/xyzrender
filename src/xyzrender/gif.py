@@ -5,12 +5,13 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass
-from functools import lru_cache, partial
+from functools import partial
 from io import BytesIO
 from typing import TYPE_CHECKING
 
 import numpy as np
 
+from xyzrender.export import svg_to_png_bytes
 from xyzrender.renderer import render_svg
 from xyzrender.utils import kabsch_rotation, pca_matrix
 
@@ -712,7 +713,7 @@ def _render_rot_frame(
         recompute_dens(graph, frame_cfg, ctx.dens_params, ctx.dens_cube, frame_cfg.surface_opacity, ctx.dens_cache)
 
     svg = render_svg(graph, frame_cfg, _log=False, _unique_ids=False)
-    return frame_idx, _svg_to_png(svg, config.canvas_size)
+    return frame_idx, svg_to_png_bytes(svg, size=config.canvas_size)
 
 
 def _parallel_render(worker, items, total: int) -> list[bytes]:
@@ -776,7 +777,7 @@ def _render_traj_frame(
             frame_config = _rotate_vectors_in_cfg(config, rot_mat, _rg_centroid, rf_vec_origins, rf_vec_dirs)
 
     svg = render_svg(render_graph, frame_config, _log=False)
-    return idx, _svg_to_png(svg, config.canvas_size)
+    return idx, svg_to_png_bytes(svg, size=config.canvas_size)
 
 
 def _render_frames(
@@ -823,41 +824,6 @@ def _render_frames(
         rf_vec_dirs=_rf_vec_dirs,
     )
     return _parallel_render(worker, enumerate(frames), total)
-
-
-def _svg_to_png(svg: str, size: int) -> bytes:
-    """Convert SVG string to PNG bytes.
-
-    Prefers **resvg-py** when available — it supports
-    SVG filters (``feGaussianBlur``, ``feTurbulence``, etc.) that cairosvg
-    silently ignores, so ``--dof`` effects will only appear in GIFs when resvg-py
-    is installed.  Falls back to cairosvg.
-    """
-    if _has_resvg():
-        return _resvg_svg_to_png(svg, size)
-    try:
-        import cairosvg
-    except ImportError:
-        msg = "GIF generation requires resvg-py or cairosvg — pip install resvg-py"
-        raise ImportError(msg) from None
-    return cairosvg.svg2png(bytestring=svg.encode(), output_width=size, output_height=size)
-
-
-@lru_cache(maxsize=1)
-def _has_resvg() -> bool:
-    """Check if resvg-py is importable (cached)."""
-    try:
-        from resvg_py import svg_to_bytes  # noqa: F401
-    except ImportError:
-        return False
-    return True
-
-
-def _resvg_svg_to_png(svg: str, size: int) -> bytes:
-    """Convert SVG to PNG via resvg-py."""
-    from resvg_py import svg_to_bytes
-
-    return svg_to_bytes(svg_string=svg, width=size, height=size)
 
 
 def _stitch_gif(pngs: list[bytes], output: str, fps: int) -> None:

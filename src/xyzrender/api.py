@@ -1719,6 +1719,8 @@ def _write_output(svg: str, output: Path, cfg: RenderConfig) -> None:
 
         svg_to_png(svg, str(output), size=cfg.canvas_size, dpi=getattr(cfg, "dpi", 300))
     elif ext == ".pdf":
+        if cfg.dof:
+            logger.warning("PDF output uses cairosvg which does not support SVG filters — --dof blur will not appear")
         from xyzrender.export import svg_to_pdf
 
         svg_to_pdf(svg, str(output))
