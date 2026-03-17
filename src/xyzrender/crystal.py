@@ -57,11 +57,7 @@ def _is_bonded(sym_i: str, sym_j: str, dist: float) -> bool:
     if hi and hj:
         t = _bond_thresholds.threshold_h_h
     elif hi or hj:
-        t = (
-            _bond_thresholds.threshold_h_metal
-            if (mi or mj)
-            else _bond_thresholds.threshold_h_nonmetal
-        )
+        t = _bond_thresholds.threshold_h_metal if (mi or mj) else _bond_thresholds.threshold_h_nonmetal
     elif mi and mj:
         t = _bond_thresholds.threshold_metal_metal_self
     elif mi or mj:
@@ -112,8 +108,7 @@ def load_crystal(
     lattice = np.array(unitcell.cell) * factor  # shape (3, 3), rows = a, b, c in Å
 
     atoms: list[tuple[str, tuple[float, float, float]]] = [
-        (sym, (float(pos[0]), float(pos[1]), float(pos[2])))
-        for sym, pos in zip(symbols, positions, strict=True)
+        (sym, (float(pos[0]), float(pos[1]), float(pos[2]))) for sym, pos in zip(symbols, positions, strict=True)
     ]
     graph = build_graph(atoms, charge=0, multiplicity=None, kekule=False, quick=True)
     logger.info(
@@ -127,9 +122,7 @@ def load_crystal(
     return graph, CellData(lattice=lattice)
 
 
-def build_supercell(
-    graph: "nx.Graph", cell_data: CellData, repeats: tuple[int, int, int]
-) -> "nx.Graph":
+def build_supercell(graph: "nx.Graph", cell_data: CellData, repeats: tuple[int, int, int]) -> "nx.Graph":
     """Return a new graph and CellData representing a repeated supercell.
 
     Parameters
@@ -154,9 +147,7 @@ def build_supercell(
         raise ValueError(f"supercell repeats must be >= 1, got {repeats!r}")
 
     if any(bool(graph.nodes[nid].get("image", False)) for nid in graph.nodes()):
-        raise ValueError(
-            "build_supercell: graph already contains image atoms (apply before add_crystal_images)"
-        )
+        raise ValueError("build_supercell: graph already contains image atoms (apply before add_crystal_images)")
 
     a = np.array(cell_data.lattice[0], dtype=float)
     b = np.array(cell_data.lattice[1], dtype=float)
@@ -196,11 +187,7 @@ def build_supercell(
                     atoms.append((sym, (float(pos[0]), float(pos[1]), float(pos[2]))))
                     # Preserve any extra per-atom attributes (rare for crystals),
                     # but strip image-related fields.
-                    extra = {
-                        k: v
-                        for k, v in attrs.items()
-                        if k not in {"position", "image", "source"}
-                    }
+                    extra = {k: v for k, v in attrs.items() if k not in {"position", "image", "source"}}
                     extra_node_attrs.append(extra)
 
     # Rebuild connectivity across the whole supercell.
@@ -215,9 +202,7 @@ def build_supercell(
     # Preserve graph-level metadata and update lattice/origin.
     new_g.graph.update(dict(graph.graph))
     new_g.graph["lattice"] = new_lattice
-    new_g.graph["lattice_origin"] = np.array(
-        graph.graph.get("lattice_origin", new_cd.cell_origin), dtype=float
-    ).copy()
+    new_g.graph["lattice_origin"] = np.array(graph.graph.get("lattice_origin", new_cd.cell_origin), dtype=float).copy()
 
     return new_g
 
@@ -245,11 +230,7 @@ def add_crystal_images(graph: nx.Graph, crystal_data: CellData) -> int:
     next_id = max(cell_ids) + 1
     n_added = 0
 
-    shifts = [
-        (dx, dy, dz)
-        for dx, dy, dz in itertools.product((-1, 0, 1), repeat=3)
-        if (dx, dy, dz) != (0, 0, 0)
-    ]
+    shifts = [(dx, dy, dz) for dx, dy, dz in itertools.product((-1, 0, 1), repeat=3) if (dx, dy, dz) != (0, 0, 0)]
 
     for dx, dy, dz in shifts:
         offset = dx * a + dy * b + dz * c
@@ -258,11 +239,7 @@ def add_crystal_images(graph: nx.Graph, crystal_data: CellData) -> int:
             img_pos = cell_pos[src_id] + offset
 
             bonded_to: list[int] = [
-                j
-                for j in cell_ids
-                if _is_bonded(
-                    sym_i, cell_syms[j], float(np.linalg.norm(img_pos - cell_pos[j]))
-                )
+                j for j in cell_ids if _is_bonded(sym_i, cell_syms[j], float(np.linalg.norm(img_pos - cell_pos[j])))
             ]
 
             if not bonded_to:

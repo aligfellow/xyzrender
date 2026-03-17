@@ -737,10 +737,10 @@ def main() -> None:
         lat = getattr(mol.cell_data, "lattice", None)
         if lat is None:
             p.error("--supercell requires an input with a unit cell (lattice).")
-        import numpy as _np
+        import numpy as np
 
-        lat = _np.array(lat, dtype=float)
-        if lat.shape != (3, 3) or _np.allclose(lat, 0.0):
+        lat = np.array(lat, dtype=float)
+        if lat.shape != (3, 3) or np.allclose(lat, 0.0):
             p.error("--supercell requires a non-zero 3x3 lattice matrix.")
 
     # --- Render static SVG ---

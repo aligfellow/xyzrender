@@ -397,8 +397,7 @@ def measure(
     else:
         graph = load(molecule).graph
 
-    from xyzrender.measure import (all_bond_angles, all_bond_lengths,
-                                   all_dihedrals)
+    from xyzrender.measure import all_bond_angles, all_bond_lengths, all_dihedrals
 
     result: dict = {}
     active = set(modes) if modes is not None else {"d", "a", "t"}
@@ -576,8 +575,7 @@ def render(
     SVGResult
         Wrapper around the SVG string.  Displays inline in Jupyter.
     """
-    from xyzrender.config import (build_config, build_surface_params,
-                                  collect_surf_overrides)
+    from xyzrender.config import build_config, build_surface_params, collect_surf_overrides
     from xyzrender.renderer import render_svg
 
     # --- Early parameter validation ---
@@ -872,8 +870,7 @@ def render(
     )
 
     from xyzrender.cube import parse_cube
-    from xyzrender.surfaces import (compute_dens_surface, compute_esp_surface,
-                                    compute_mo_surface, compute_nci_surface)
+    from xyzrender.surfaces import compute_dens_surface, compute_esp_surface, compute_mo_surface, compute_nci_surface
 
     if mo_params is not None and cube_data is not None:
         compute_mo_surface(rmol.graph, cube_data, cfg, mo_params)
@@ -1017,9 +1014,13 @@ def render_gif(
         Wrapper with path to the written GIF file.
     """
     from xyzrender.config import build_config
-    from xyzrender.gif import (ROTATION_AXES, render_rotation_gif,
-                               render_trajectory_gif, render_vibration_gif,
-                               render_vibration_rotation_gif)
+    from xyzrender.gif import (
+        ROTATION_AXES,
+        render_rotation_gif,
+        render_trajectory_gif,
+        render_vibration_gif,
+        render_vibration_rotation_gif,
+    )
 
     if not (gif_rot or gif_trj or gif_ts):
         msg = "render_gif: set gif_rot, gif_trj=True, or gif_ts=True"
@@ -1198,8 +1199,7 @@ def render_gif(
 
         # --- Ensemble: build scratch merged graph (z_nudge=False — meaningless for rotation) ---
         if isinstance(molecule, Molecule) and molecule.ensemble is not None:
-            from xyzrender.ensemble import \
-                merge_graphs as _ensemble_merge_graphs
+            from xyzrender.ensemble import merge_graphs as _ensemble_merge_graphs
 
             ens = molecule.ensemble
             ref_graph = _ensemble_merge_graphs(
@@ -1270,8 +1270,7 @@ def render_gif(
         # Build surface params when a cube is present
         mo_params = dens_params = None
         if cube_data is not None and (mo or dens):
-            from xyzrender.config import (build_surface_params,
-                                          collect_surf_overrides)
+            from xyzrender.config import build_surface_params, collect_surf_overrides
 
             surf_overrides = collect_surf_overrides(
                 iso=iso,
