@@ -61,12 +61,12 @@ uv tool install xyzrender
 To test without installing, you can use [uvx](https://docs.astral.sh/uv/guides/tools/#running-tools)
 
 ```bash
-uvx xyzrender 
+uvx xyzrender
 ```
 
 ### From Source:
 
-Using pip: 
+Using pip:
 
 ```bash
 git clone https://github.com/aligfellow/xyzrender.git
@@ -77,6 +77,7 @@ pip install -e .
 # or straight from git
 pip install git+https://github.com/aligfellow/xyzrender.git
 ```
+
 For more information on installation and optional dependencies (crystal, SMILES, CIF, GIF), see the [installation docs](https://xyzrender.readthedocs.io/en/latest/installation.html)
 
 ## Quick start
@@ -109,105 +110,101 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### Presets
 
-| Default | Flat | Paton (pymol-like) | Skeletal | Bubble |
-|---------|------|--------------------|----------|--------|
+| Default                                          | Flat                                       | Paton (pymol-like)                           | Skeletal                                           | Bubble                                         |
+| ------------------------------------------------ | ------------------------------------------ | -------------------------------------------- | -------------------------------------------------- | ---------------------------------------------- |
 | ![default](examples/images/caffeine_default.svg) | ![flat](examples/images/caffeine_flat.svg) | ![paton](examples/images/caffeine_paton.svg) | ![skeletal](examples/images/caffeine_skeletal.svg) | ![bubble](examples/images/caffeine_bubble.svg) |
 
 ### Display options
 
-| All H | Some H | No H | Aromatic | Kekule |
-|-------|--------|------|----------|--------|
+| All H                                       | Some H                                        | No H                                      | Aromatic                                | Kekule                                         |
+| ------------------------------------------- | --------------------------------------------- | ----------------------------------------- | --------------------------------------- | ---------------------------------------------- |
 | ![all H](examples/images/ethanol_all_h.svg) | ![some H](examples/images/ethanol_some_h.svg) | ![no H](examples/images/ethanol_no_h.svg) | ![benzene](examples/images/benzene.svg) | ![kekule](examples/images/caffeine_kekule.svg) |
 
 ### vdW spheres
 
-| All atoms | Partial | Paton-style |
-|-----------|---------|-------------|
+| All atoms                                  | Partial                                                    | Paton-style                                            |
+| ------------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------ |
 | ![vdw](examples/images/asparagine_vdw.svg) | ![vdw partial](examples/images/asparagine_vdw_partial.svg) | ![vdw paton](examples/images/asparagine_vdw_paton.svg) |
 
 ### Convex hull
 
-| Benzene ring | Anthracene rings | Auto rings | Rotation |
-|--------------|------------------|------------|----------|
+| Benzene ring                                           | Anthracene rings                                        | Auto rings                                      | Rotation                                               |
+| ------------------------------------------------------ | ------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------ |
 | ![benzene hull](examples/images/benzene_ring_hull.svg) | ![anthracene hull](examples/images/anthracene_hull.svg) | ![mnh hull](examples/images/mnh_hull_rings.svg) | ![anthracene rot](examples/images/anthracene_hull.gif) |
 
 ### Structural overlay & ensemble
 
-| Overlay | Custom colour | Ensemble (CPK) | Ensemble (spectral) |
-|---------|---------------|----------------|---------------------|
+| Overlay                                         | Custom colour                                                 | Ensemble (CPK)                                            | Ensemble (spectral)                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------- |
 | ![overlay](examples/images/isothio_overlay.svg) | ![overlay custom](examples/images/isothio_overlay_custom.svg) | ![ensemble](examples/images/triphenylbenzol_ensemble.svg) | ![ensemble custom](examples/images/triphenylbenzol_ensemble_custom.svg) |
 
 ### Transition states & NCI
 
-| Auto TS | Manual TS | Auto NCI | QM output |
-|---------|-----------|----------|-----------|
+| Auto TS                           | Manual TS                                 | Auto NCI                        | QM output                            |
+| --------------------------------- | ----------------------------------------- | ------------------------------- | ------------------------------------ |
 | ![ts](examples/images/sn2_ts.svg) | ![ts man](examples/images/sn2_ts_man.svg) | ![nci](examples/images/nci.svg) | ![bimp](examples/images/bimp_qm.svg) |
 
 ### Annotations & labels
 
-| Distances + angles + dihedrals | Custom labels | TS with labels |
-|--------------------|--------|----------------|
+| Distances + angles + dihedrals                     | Custom labels                                  | TS with labels                                  |
+| -------------------------------------------------- | ---------------------------------------------- | ----------------------------------------------- |
 | ![dihedral](examples/images/caffeine_dihedral.svg) | ![labels](examples/images/caffeine_labels.svg) | ![sn2 labels](examples/images/sn2_ts_label.svg) |
 
-### Stereochemistry labels (`--stereo`)
+### Stereochemistry labels
 
-R/S and E/Z labels are assigned by `xyzgraph` from 3D geometry and rendered in xyzrender.
-Use `--stereo` for atom‑centred R/S labels, or `--stereo label` to offset them.
-
-| R/S atom-centered | R/S offset label |
-|-------------------|------------------|
+| R/S atom-centered                                                | R/S offset label                                             |
+| ---------------------------------------------------------------- | ------------------------------------------------------------ |
 | ![R/S atom](examples/images/R-lactate_atom_stereo_labelling.svg) | ![R/S label](examples/images/R-lactate_stereo_labelling.svg) |
 
-| Z-stilbene | E-stilbene |
-|------------|------------|
+| Z-stilbene                                     | E-stilbene                                     |
+| ---------------------------------------------- | ---------------------------------------------- |
 | ![Z-stilbene](examples/images/Z-stillbene.svg) | ![E-stilbene](examples/images/E-stillbene.svg) |
 
-Axial (Rₐ/Sₐ), planar (Rₚ/Sₚ), and helical (P/M) labels are also supported for suitable motifs.
-
-| Axial (BINOL) | Axial (2,2′-dichlorobiphenyl) | Axial (2,3-pentadiene) |
-|--------------|-------------------------------|------------------------|
+| Axial (Ra)                                          | Axial (Sa)                                                    | Axial (Allene)                                           |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | ![axial binol](examples/images/axial_binol_stereo.svg) | ![axial dichlorobiphenyl](examples/images/axial_2_2_dichlorobiphenyl_stereo.svg) | ![axial allene](examples/images/axial_2_3_pentadiene_stereo.svg) |
 
-| Planar (substituted ferrocene) | Helical ([6]helicene) | trans-cyclooctene |
-|--------------------------------|-----------------------|-------------------|
-| ![planar ferrocene](examples/images/ferrocene_chiral_cp_stereo.svg) | ![helical helicene](examples/images/helical_6helicene_stereo.svg) | ![trans cyclooctene](examples/images/trans_cyclooctene_stereo.svg) |
+| Planar                                      | Helical                                             |                                                 |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------ |
+| ![planar ferrocene](examples/images/ferrocene_chiral_cp_stereo.svg) | ![helical helicene](examples/images/helical_6helicene_stereo.svg) |
 
 ### Atom property colormap
 
-| Mulliken charges (rotation) | Symmetric range | With colorbar |
-|----------------------------|----------------|---------------|
+| Mulliken charges (rotation)                    | Symmetric range                            | With colorbar                                       |
+| ---------------------------------------------- | ------------------------------------------ | --------------------------------------------------- |
 | ![cmap gif](examples/images/caffeine_cmap.gif) | ![cmap](examples/images/caffeine_cmap.svg) | ![cbar](examples/images/caffeine_cmap_colorbar.svg) |
 
 ### Surfaces (cube files)
 
-| MO (HOMO) | MO (LUMO) | Density | ESP |
-|-----------|-----------|---------|-----|
+| MO (HOMO)                                  | MO (LUMO)                                  | Density                                    | ESP                                      |
+| ------------------------------------------ | ------------------------------------------ | ------------------------------------------ | ---------------------------------------- |
 | ![homo](examples/images/caffeine_homo.svg) | ![lumo](examples/images/caffeine_lumo.svg) | ![dens](examples/images/caffeine_dens.svg) | ![esp](examples/images/caffeine_esp.svg) |
 
-| NCI surface (H-bond) | NCI surface (pi-stack) | Vector arrows | 
-|-----------------------|------------------------|---------------|
-| ![nci surf](examples/images/base-pair-nci_surf.svg) | ![nci pi](examples/images/phenol_di-nci_surf.svg) | ![vectors](examples/images/ethanol_dip.svg) | 
+| NCI surface (H-bond)                                | NCI surface (pi-stack)                            | Vector arrows                               |
+| --------------------------------------------------- | ------------------------------------------------- | ------------------------------------------- |
+| ![nci surf](examples/images/base-pair-nci_surf.svg) | ![nci pi](examples/images/phenol_di-nci_surf.svg) | ![vectors](examples/images/ethanol_dip.svg) |
+
 ### File formats
 
-| PDB | SMILES |
-|-----|--------|
+| PDB                                     | SMILES                                         |
+| --------------------------------------- | ---------------------------------------------- |
 | ![PDB](examples/images/ala_phe_ala.svg) | ![smiles](examples/images/cyclohexane_smi.svg) |
 
 ### Crystal / periodic structures
 
-| Unit cell | Rotation | VASP | Viewing direction |
-|-----------|----------|------|-------------------|
+| Unit cell                                  | Rotation                                       | VASP                                   | Viewing direction                    |
+| ------------------------------------------ | ---------------------------------------------- | -------------------------------------- | ------------------------------------ |
 | ![cell](examples/images/caffeine_cell.svg) | ![cell rot](examples/images/caffeine_cell.gif) | ![vasp](examples/images/NV63_vasp.svg) | ![111](examples/images/NV63_111.gif) |
 
 ### GIF animations
 
-| Rotation | TS + NCI + vdW + rotation | Trajectory | TS |
-|----------|---------------------------|------------|------------------|
+| Rotation                                | TS + NCI + vdW + rotation                  | Trajectory                           | TS                               |
+| --------------------------------------- | ------------------------------------------ | ------------------------------------ | -------------------------------- |
 | ![rotate](examples/images/caffeine.gif) | ![ts rot](examples/images/bimp_nci_ts.gif) | ![trj](examples/images/bimp_trj.gif) | ![ts](examples/images/mn-h2.gif) |
 
-| Overlay rotation | MO | Density | Vectors |
-|----------|---------------------------|------------|-----|
-| ![overlay gif](examples/images/isothio_overlay.gif) | ![homo](examples/images/caffeine_homo.gif) | ![dens](examples/images/caffeine_dens.gif) | ![vectors](examples/images/ethanol_forces_efield.gif) | 
+| Overlay rotation                                    | MO                                         | Density                                    | Vectors                                               |
+| --------------------------------------------------- | ------------------------------------------ | ------------------------------------------ | ----------------------------------------------------- |
+| ![overlay gif](examples/images/isothio_overlay.gif) | ![homo](examples/images/caffeine_homo.gif) | ![dens](examples/images/caffeine_dens.gif) | ![vectors](examples/images/ethanol_forces_efield.gif) |
 
 For usage details and CLI commands, see the [examples](https://xyzrender.readthedocs.io/en/latest/examples.html) and [CLI reference](https://xyzrender.readthedocs.io/en/latest/cli_reference.html) in the docs.
 
@@ -230,7 +227,8 @@ Full documentation at [**xyzrender.readthedocs.io**](https://xyzrender.readthedo
 
 ## Acknowledgements
 
-The SVG rendering in xyzrender is built on and heavily inspired by [**xyz2svg**](https://github.com/briling/xyz2svg). The CPK colour scheme, core SVG atom/bond rendering logic, fog, and overall approach originate from that project.  
+The SVG rendering in xyzrender is built on and heavily inspired by [**xyz2svg**](https://github.com/briling/xyz2svg). The CPK colour scheme, core SVG atom/bond rendering logic, fog, and overall approach originate from that project.
+
 - [Ksenia Briling (@briling)](https://github.com/briling) — [**xyz2svg**](https://github.com/briling/xyz2svg) and [**v**](https://github.com/briling/v)
 - [Iñigo Iribarren Aguirre (@iribirii)](https://github.com/iribirii) — radial gradient (pseudo-3D) rendering from [**xyz2svg**](https://github.com/briling/xyz2svg).
 
@@ -262,7 +260,7 @@ Contributors:
 
 xyzrender uses [xyzgraph](https://github.com/aligfellow/xyzgraph) and [graphRC](https://github.com/aligfellow/graphRC) for all molecular graph construction — bond orders, aromaticity detection, NCI interactions, and TS bond detection. If you use xyzrender in published work, please cite:
 
-> A.S. Goodfellow* and B.N. Nguyen, *J. Chem. Theory Comput.*, 2026, DOI: [10.1021/acs.jctc.5c02073](https://doi.org/10.1021/acs.jctc.5c02073). Preprint [here](https://doi.org/10.26434/chemrxiv-2025-k69gt).
+> A.S. Goodfellow* and B.N. Nguyen, *J. Chem. Theory Comput.\*, 2026, DOI: [10.1021/acs.jctc.5c02073](https://doi.org/10.1021/acs.jctc.5c02073). Preprint [here](https://doi.org/10.26434/chemrxiv-2025-k69gt).
 
 ### BibTeX
 
@@ -283,7 +281,6 @@ xyzrender uses [xyzgraph](https://github.com/aligfellow/xyzgraph) and [graphRC](
 
 Requires [uv](https://docs.astral.sh/uv/) and [just](https://github.com/casey/just).
 
-
 ```bash
 git clone https://github.com/aligfellow/xyzrender.git
 cd xyzrender
@@ -291,15 +288,15 @@ just setup   # install dev dependencies
 just check   # lint + type-check + tests
 ```
 
-| Command | Description |
-|---|---|
+| Command      | Description                   |
+| ------------ | ----------------------------- |
 | `just check` | Run lint + type-check + tests |
-| `just lint` | Format and lint with ruff |
-| `just type` | Type-check with ty |
-| `just test` | Run pytest with coverage |
-| `just fix` | Auto-fix lint issues |
-| `just build` | Build distribution |
-| `just setup` | Install all dev dependencies |
+| `just lint`  | Format and lint with ruff     |
+| `just type`  | Type-check with ty            |
+| `just test`  | Run pytest with coverage      |
+| `just fix`   | Auto-fix lint issues          |
+| `just build` | Build distribution            |
+| `just setup` | Install all dev dependencies  |
 
 ### CI
 
@@ -308,6 +305,7 @@ GitHub Actions runs lint, type-check, and tests on every push to `main` and ever
 </details>
 
 ## Template
+
 Generated from [aligfellow/python-template](https://github.com/aligfellow/python-template).
 
 <details>
