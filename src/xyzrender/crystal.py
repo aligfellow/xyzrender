@@ -162,7 +162,7 @@ def build_supercell(
     b = np.array(cell_data.lattice[1], dtype=float)
     c = np.array(cell_data.lattice[2], dtype=float)
 
-    new_lattice = np.vstack([m * a, n * b, l_idx * c]).astype(float)
+    new_lattice = np.vstack([1 * a, 1 * b, 1 * c]).astype(float)
     new_cd = CellData(
         lattice=new_lattice,
         cell_origin=np.array(cell_data.cell_origin, dtype=float).copy(),
