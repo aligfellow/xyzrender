@@ -929,9 +929,6 @@ def render_gif(
     no_hy: bool = False,
     bo: bool | None = None,
     orient: bool | None = None,
-    # --- Stereochemistry ---
-    stereo: bool = False,
-    stereo_rs: str = "label",
     # --- Structural overlay (gif_rot only) ---
     overlay: str | os.PathLike | Molecule | None = None,
     overlay_color: str | None = None,
@@ -1083,11 +1080,6 @@ def render_gif(
             no_hy=no_hy,
             orient=orient,
         )
-
-    if stereo:
-        from xyzrender.stereo import build_stereo_annotations
-
-        cfg.annotations.extend(build_stereo_annotations(_gif_graph, rs_style=stereo_rs))
 
     # --- Convex hull (both config paths) ---
     from xyzrender.hull import apply_hull_to_config
