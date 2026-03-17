@@ -489,6 +489,12 @@ def render(
     hull_opacity: float | None = None,
     hull_edge: bool | None = None,
     hull_edge_width_ratio: float | None = None,
+    # --- Highlight ---
+    highlight: str | list[int] | None = None,
+    highlight_color: str | None = None,
+    # --- Depth of field ---
+    dof: bool = False,
+    dof_strength: float | None = None,
     # --- Overlay ---
     overlay: str | os.PathLike | Molecule | None = None,
     overlay_color: str | None = None,
@@ -653,6 +659,15 @@ def render(
         cbar=cbar,
         opacity=opacity,
     )
+
+    # --- Highlight ---
+    _apply_highlight(cfg, highlight=highlight, highlight_color=highlight_color)
+
+    # --- Depth of field ---
+    if dof:
+        cfg.dof = True
+    if dof_strength is not None:
+        cfg.dof_strength = dof_strength
 
     # --- Convex hull (both config paths) ---
     from xyzrender.hull import apply_hull_to_config
@@ -918,6 +933,12 @@ def render_gif(
     no_hy: bool = False,
     bo: bool | None = None,
     orient: bool | None = None,
+    # --- Highlight ---
+    highlight: str | list[int] | None = None,
+    highlight_color: str | None = None,
+    # --- Depth of field ---
+    dof: bool = False,
+    dof_strength: float | None = None,
     # --- Structural overlay (gif_rot only) ---
     overlay: str | os.PathLike | Molecule | None = None,
     overlay_color: str | None = None,
@@ -1068,6 +1089,15 @@ def render_gif(
             no_hy=no_hy,
             orient=orient,
         )
+
+    # --- Highlight ---
+    _apply_highlight(cfg, highlight=highlight, highlight_color=highlight_color)
+
+    # --- Depth of field ---
+    if dof:
+        cfg.dof = True
+    if dof_strength is not None:
+        cfg.dof_strength = dof_strength
 
     # --- Convex hull (both config paths) ---
     from xyzrender.hull import apply_hull_to_config
@@ -1472,6 +1502,36 @@ def _build_ensemble_molecule(
 # ---------------------------------------------------------------------------
 
 
+def _apply_highlight(
+    cfg: "RenderConfig",
+    *,
+    highlight: "str | list[int] | None" = None,
+    highlight_color: "str | None" = None,
+) -> None:
+    """Apply highlight atom coloring to *cfg* (mutates in place).
+
+    *highlight* is either a 1-indexed string (``"1-5,8"``) matching the CLI
+    format, or a 0-indexed ``list[int]`` for the Python API.
+    """
+    if highlight is not None:
+        if isinstance(highlight, str):
+            # Parse 1-indexed string → 0-indexed list (same logic as cli._parse_indices)
+            indices: list[int] = []
+            for part in highlight.split(","):
+                if "-" in part:
+                    a, b = part.split("-")
+                    indices.extend(range(int(a) - 1, int(b)))
+                else:
+                    indices.append(int(part) - 1)
+            cfg.highlight_indices = indices
+        else:
+            cfg.highlight_indices = list(highlight)
+    if highlight_color is not None:
+        from xyzrender.types import resolve_color
+
+        cfg.highlight_color = resolve_color(highlight_color)
+
+
 def _apply_render_overlays(
     cfg: "RenderConfig",
     graph: "nx.Graph",
@@ -1659,6 +1719,8 @@ def _write_output(svg: str, output: Path, cfg: RenderConfig) -> None:
 
         svg_to_png(svg, str(output), size=cfg.canvas_size, dpi=getattr(cfg, "dpi", 300))
     elif ext == ".pdf":
+        if cfg.dof:
+            logger.warning("PDF output uses cairosvg which does not support SVG filters — --dof blur will not appear")
         from xyzrender.export import svg_to_pdf
 
         svg_to_pdf(svg, str(output))

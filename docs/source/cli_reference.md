@@ -43,6 +43,10 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--vdw-opacity` | vdW sphere opacity (default: 0.25) |
 | `--vdw-scale` | vdW sphere radius scale |
 | `--vdw-gradient` | vdW sphere gradient strength |
+| `--hl ATOMS` | Highlight atom indices: `"1-5,8,12"` (1-indexed). Colors atoms and their connecting bonds |
+| `--hl-color COLOR` | Highlight color (default: orchid) |
+| `--dof` | Depth-of-field blur (front atoms sharp, back atoms blurred) |
+| `--dof-strength FLOAT` | DoF max blur strength (default: 3.0) |
 
 ## Structural overlay / ensemble
 

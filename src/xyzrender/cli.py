@@ -276,6 +276,25 @@ def main() -> None:
     gif_g.add_argument("--gif-fps", type=int, default=10, help="GIF frames per second (default: 10)")
     gif_g.add_argument("--rot-frames", type=int, default=120, help="Rotation frames (default: 120)")
 
+    # --- Highlight ---
+    hl_g = p.add_argument_group("highlight")
+    hl_g.add_argument(
+        "--hl",
+        default=None,
+        metavar="ATOMS",
+        help='Highlight atom indices: "1-5,8,12" (1-indexed). Colors atoms and their connecting bonds.',
+    )
+    hl_g.add_argument("--hl-color", default=None, metavar="COLOR", help="Highlight color (default: orchid)")
+
+    # --- Depth of field ---
+    dof_g = p.add_argument_group("depth of field")
+    dof_g.add_argument(
+        "--dof", action="store_true", default=False, help="Depth-of-field blur (front sharp, back blurred)"
+    )
+    dof_g.add_argument(
+        "--dof-strength", type=float, default=None, metavar="FLOAT", help="DoF max blur strength (default: 3.0)"
+    )
+
     # --- Measurements & annotations ---
     annot_g = p.add_argument_group("measurements & annotations")
     annot_g.add_argument(
@@ -480,6 +499,20 @@ def main() -> None:
     if args.skeletal_label_color is not None:
         cfg.skeletal_label_color = args.skeletal_label_color
 
+    # Highlight atoms
+    if args.hl is not None:
+        cfg.highlight_indices = _parse_indices(args.hl)
+    if args.hl_color is not None:
+        from xyzrender.types import resolve_color
+
+        cfg.highlight_color = resolve_color(args.hl_color)
+
+    # Depth of field
+    if args.dof:
+        cfg.dof = True
+    if args.dof_strength is not None:
+        cfg.dof_strength = args.dof_strength
+
     # Output path defaults and validation
     base = _basename(args.input, from_stdin)
     if not args.output:
@@ -492,7 +525,7 @@ def main() -> None:
 
     wants_gif = args.gif_ts or args.gif_rot or args.gif_trj
 
-    # Warn when annotation flags (static-SVG only) are combined with GIF output
+    # Warn when SVG-only flags are combined with GIF output
     annotation_flags_used = args.idx is not None or args.label_specs or args.label
     if annotation_flags_used and wants_gif:
         print(

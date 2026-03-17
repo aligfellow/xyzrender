@@ -110,6 +110,7 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
         "dens_color",
         "nci_color",
         "overlay_color",
+        "highlight_color",
     )
     for key in _color_fields:
         if key in merged:

@@ -208,6 +208,18 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     # Pre-extract ensemble_opacity per atom — avoids two dict lookups per atom inside the main loop.
     ens_opacities: list[float | None] = [graph.nodes[nid].get("ensemble_opacity") for nid in node_ids]
 
+    # Highlight: override colors for user-specified atom subset
+    hl_set: set[int] = set()
+    hl_bond_color: str | None = None
+    if cfg.highlight_indices is not None:
+        hl_set = set(cfg.highlight_indices)
+        hl_color = Color.from_str(cfg.highlight_color)
+        for ai in range(n):
+            if ai in hl_set:
+                colors[ai] = hl_color
+        # Pre-compute darkened highlight color for bonds between highlighted atoms
+        hl_bond_color = hl_color.blend(Color(0, 0, 0), 0.3).hex
+
     # Bond lookup: (bond_order, style, color_override)
     bonds: dict[tuple[int, int], tuple[float, BondStyle, str | None]] = {}
     if not cfg.hide_bonds:
@@ -229,6 +241,11 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         for i, j in cfg.nci_bonds:
             existing = bonds.get((i, j), (1.0, BondStyle.SOLID, None))
             bonds[(i, j)] = bonds[(j, i)] = (existing[0], BondStyle.DOTTED, existing[2])
+        # Highlight: color bonds between two highlighted atoms
+        if hl_set and hl_bond_color is not None:
+            for (i, j), (bo, style, c_ov) in list(bonds.items()):
+                if i in hl_set and j in hl_set and c_ov is None:
+                    bonds[(i, j)] = bonds[(j, i)] = (bo, style, hl_bond_color)
 
     # Only hide C-H hydrogens (not O-H, N-H, free H, etc.)
     hidden = set()
@@ -250,6 +267,17 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         depth = pos[:, 2].max() - pos[:, 2]  # distance from front atom
         fog_f = cfg.fog_strength * np.clip((depth - _FOG_NEAR) / zr, 0.0, 1.0)
 
+    # Depth-of-field: per-atom blur bucket (0 = sharp front, N-1 = max blur back)
+    n_dof_levels = 20
+    dof_buckets: list[int] = []
+    if cfg.dof:
+        if cfg.fog:
+            dof_depth = fog_f / max(cfg.fog_strength, 1e-6)  # normalize back to [0, 1]
+        else:
+            zr = max(pos[:, 2].max() - pos[:, 2].min(), 1e-6)
+            dof_depth = np.clip((pos[:, 2].max() - pos[:, 2] - _FOG_NEAR) / zr, 0.0, 1.0)
+        dof_buckets = [int(d * (n_dof_levels - 1) + 0.5) for d in dof_depth]
+
     # --- Build SVG ---
     svg = [
         f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
@@ -259,6 +287,17 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     ]
     if not cfg.transparent:
         svg.append(f'  <rect width="100%" height="100%" fill="{cfg.background}"/>')
+
+    # DoF filter definitions
+    if cfg.dof:
+        svg.append("  <defs>")
+        for lvl in range(n_dof_levels):
+            blur = lvl / max(n_dof_levels - 1, 1) * cfg.dof_strength
+            svg.append(
+                f'    <filter id="dof{lvl}" x="-50%" y="-50%" width="200%" height="200%">'
+                f'<feGaussianBlur stdDeviation="{blur:.2f}"/></filter>'
+            )
+        svg.append("  </defs>")
 
     use_grad = cfg.gradient and not cfg.skeletal_style
     if cfg.skeletal_style:
@@ -714,6 +753,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 )
         else:
             # Atom circle (gradient or flat fill)
+            dof_attr = f' filter="url(#dof{dof_buckets[ai]})"' if cfg.dof else ""
             if use_grad:
                 if use_per_atom_grad:
                     grad_id = f"g{ai}"
@@ -723,7 +763,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     fs_atom = cfg.atom_stroke_color
                 svg.append(
                     f'  <circle cx="{xi:.1f}" cy="{yi:.1f}" r="{radii[ai] * scale:.1f}" '
-                    f'fill="url(#{grad_id})" stroke="{fs_atom}" stroke-width="{sw:.1f}"{op_attr_atom}/>'
+                    f'fill="url(#{grad_id})" stroke="{fs_atom}" stroke-width="{sw:.1f}"{op_attr_atom}{dof_attr}/>'
                 )
             else:
                 fill, stroke = colors[ai].hex, cfg.atom_stroke_color
@@ -732,7 +772,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     stroke = blend_fog(stroke, fog_rgb, fog_f[ai])
                 svg.append(
                     f'  <circle cx="{xi:.1f}" cy="{yi:.1f}" r="{radii[ai] * scale:.1f}" '
-                    f'fill="{fill}" stroke="{stroke}" stroke-width="{sw:.1f}"{op_attr_atom}/>'
+                    f'fill="{fill}" stroke="{stroke}" stroke-width="{sw:.1f}"{op_attr_atom}{dof_attr}/>'
                 )
 
             # Atom index label — depth-sorted with atom so nearer atoms occlude it
