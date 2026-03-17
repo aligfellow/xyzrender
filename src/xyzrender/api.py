@@ -446,6 +446,7 @@ def render(
     no_cell: bool = False,
     axes: bool = True,
     axis: str | None = None,
+    supercell: tuple[int, int, int] = (1, 1, 1),
     ghosts: bool | None = None,
     cell_color: str | None = None,
     cell_width: float | None = None,
@@ -589,6 +590,10 @@ def render(
         mol = molecule
     else:
         mol = load(molecule)
+
+    # Supercell requires lattice/cell_data (works for any periodic input, not just phonopy crystals)
+    if supercell != (1, 1, 1) and mol.cell_data is None:
+        raise ValueError("supercell requires an input with a unit cell (lattice).")
 
     # Detect ensemble (mol.ensemble is populated by load(ensemble=True))
     _is_ensemble = mol.ensemble is not None
@@ -735,6 +740,7 @@ def render(
             cfg,
             no_cell=no_cell,
             axis=axis,
+            supercell=supercell,
             ghosts=ghosts,
             cell_color=cell_color,
             cell_width=cell_width,
@@ -970,6 +976,7 @@ def render_gif(
     no_cell: bool = False,
     axes: bool = True,
     axis: str | None = None,
+    supercell: tuple[int, int, int] = (1, 1, 1),
     ghosts: bool | None = None,
     cell_color: str | None = None,
     cell_width: float | None = None,
@@ -1257,6 +1264,7 @@ def render_gif(
                 cfg,
                 no_cell=no_cell,
                 axis=axis,
+                supercell=supercell,
                 ghosts=ghosts,
                 cell_color=cell_color,
                 cell_width=cell_width,
@@ -1651,6 +1659,7 @@ def _apply_cell_config(
     *,
     no_cell: bool,
     axis: str | None,
+    supercell: tuple[int, int, int] = (1, 1, 1),
     ghosts: bool | None,
     cell_color: str | None,
     cell_width: float | None,
@@ -1681,6 +1690,21 @@ def _apply_cell_config(
 
         orient_hkl_to_view(mol.graph, cell_data, axis, cfg)
         cfg.auto_orient = False
+
+    # Supercell replication (must occur before adding ghost atoms)
+    if supercell != (1, 1, 1):
+        lat = getattr(cell_data, "lattice", None)
+        if lat is None:
+            raise ValueError("supercell requires an input with a unit cell (lattice).")
+        lat = np.array(lat, dtype=float)
+        if lat.shape != (3, 3) or np.allclose(lat, 0.0):
+            raise ValueError("supercell requires a non-zero 3x3 lattice matrix.")
+        from xyzrender.crystal import build_supercell
+
+        mol.graph, mol.cell_data = build_supercell(mol.graph, cell_data, supercell)
+        cell_data = mol.cell_data
+        assert cell_data is not None
+        cfg.cell_data = cell_data
 
     # Ghost (periodic image) atoms — default: on when cell_data is present
     _show_ghosts = ghosts if ghosts is not None else True

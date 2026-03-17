@@ -1,0 +1,705 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../genindex.html"><link rel="search" title="Search" href="../../search.html">
+
+    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+        <title>xyzrender.config - xyzrender documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../index.html"><div class="brand">xyzrender  documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../index.html">
+  
+  <span class="sidebar-brand-text">xyzrender  documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart_cli.html">CLI Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart_python.html">Python / Jupyter Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../python_api.html">Python API Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../userguide.html">User Guide</a><input aria-label="Toggle navigation of User Guide" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../formats.html">Input Formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../orientation.html">Orientation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../configuration.html">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../cli_reference.html">CLI Reference</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../examples.html">Examples</a><input aria-label="Toggle navigation of Examples" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/overlay.html">Structural Overlay</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/ensemble.html">Conformer Ensemble</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/animations.html">Animations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/ts_nci.html">Transition States and NCI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/mo.html">Molecular Orbitals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/dens_esp.html">Electron Density and ESP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/nci_surf.html">NCI Surface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/hull.html">Convex hull</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/crystal.html">Crystal Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/annotations.html">Annotations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../examples/cmap.html">Atom Colormap</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../reference.html">API Reference</a><input aria-label="Toggle navigation of API Reference" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../api/core.html">Core API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/types.html">Types Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/config.html">Config Reference</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">About</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../citation.html">Citation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../acknowledgements.html">Acknowledgements</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for xyzrender.config</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Configuration loading for xyzrender.&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">xyzrender.types</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DensParams</span><span class="p">,</span>
+    <span class="n">ESPParams</span><span class="p">,</span>
+    <span class="n">MOParams</span><span class="p">,</span>
+    <span class="n">NCIParams</span><span class="p">,</span>
+    <span class="n">RenderConfig</span><span class="p">,</span>
+    <span class="n">resolve_color</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">_PRESET_DIR</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">&quot;presets&quot;</span>
+<span class="n">_DEFAULT_CONFIG</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_load_default</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the built-in default preset.&quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">_DEFAULT_CONFIG</span>  <span class="c1"># noqa: PLW0603</span>
+    <span class="k">if</span> <span class="n">_DEFAULT_CONFIG</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">_DEFAULT_CONFIG</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">((</span><span class="n">_PRESET_DIR</span> <span class="o">/</span> <span class="s2">&quot;default.json&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+    <span class="c1"># Always return a fresh copy so callers can mutate safely.</span>
+    <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">_DEFAULT_CONFIG</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_merge_onto_default</span><span class="p">(</span><span class="n">overrides</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Merge *overrides* on top of default.json, deep-merging nested dicts.&quot;&quot;&quot;</span>
+    <span class="n">base</span> <span class="o">=</span> <span class="n">_load_default</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">overrides</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">),</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="n">base</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">base</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+    <span class="k">return</span> <span class="n">base</span>
+
+
+<div class="viewcode-block" id="load_config">
+<a class="viewcode-back" href="../../api/config.html#xyzrender.config.load_config">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_config</span><span class="p">(</span><span class="n">name_or_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load config from a built-in preset name or a JSON file path.</span>
+
+<span class="sd">    All presets (including named built-ins like ``&quot;flat&quot;`` or ``&quot;paton&quot;``) are</span>
+<span class="sd">    merged on top of ``default.json`` so unspecified keys always inherit the</span>
+<span class="sd">    standard defaults.  The ``&quot;default&quot;`` preset itself is returned as-is.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Built-in default — returned as-is (it IS the base)</span>
+    <span class="k">if</span> <span class="n">name_or_path</span> <span class="o">==</span> <span class="s2">&quot;default&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_load_default</span><span class="p">()</span>
+
+    <span class="c1"># Other built-in presets — merge on top of default</span>
+    <span class="n">preset_file</span> <span class="o">=</span> <span class="n">_PRESET_DIR</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name_or_path</span><span class="si">}</span><span class="s2">.json&quot;</span>
+    <span class="k">if</span> <span class="n">preset_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading preset: </span><span class="si">%s</span><span class="s2"> (on top of default)&quot;</span><span class="p">,</span> <span class="n">preset_file</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_merge_onto_default</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">preset_file</span><span class="o">.</span><span class="n">read_text</span><span class="p">()))</span>
+
+    <span class="c1"># User-provided file path — same merge</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">name_or_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading config file: </span><span class="si">%s</span><span class="s2"> (on top of default)&quot;</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_merge_onto_default</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">read_text</span><span class="p">()))</span>
+
+    <span class="n">available</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">stem</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">_PRESET_DIR</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">&quot;*.json&quot;</span><span class="p">))</span> <span class="k">if</span> <span class="n">p</span><span class="o">.</span><span class="n">stem</span> <span class="o">!=</span> <span class="s2">&quot;named_colors&quot;</span><span class="p">)</span>
+    <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Config not found: </span><span class="si">{</span><span class="n">name_or_path</span><span class="si">!r}</span><span class="s2"> (built-in presets: </span><span class="si">{</span><span class="n">available</span><span class="si">}</span><span class="s2">)&quot;</span>
+    <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="build_render_config">
+<a class="viewcode-back" href="../../api/config.html#xyzrender.config.build_render_config">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_render_config</span><span class="p">(</span><span class="n">config_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">cli_overrides</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RenderConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Merge config dict with CLI overrides into a RenderConfig.</span>
+
+<span class="sd">    ``config_data`` is the base layer (from JSON).</span>
+<span class="sd">    ``cli_overrides`` contains only explicitly-set CLI values (non-None).</span>
+<span class="sd">    CLI values win over config file values.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">merged</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">config_data</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">cli_overrides</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">merged</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+
+    <span class="c1"># &quot;colors&quot; key in JSON maps to color_overrides on RenderConfig</span>
+    <span class="n">colors</span> <span class="o">=</span> <span class="n">merged</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;colors&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">colors</span><span class="p">:</span>
+        <span class="n">merged</span><span class="p">[</span><span class="s2">&quot;color_overrides&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">sym</span><span class="p">:</span> <span class="n">resolve_color</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">sym</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">colors</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+    <span class="c1"># Rename JSON surface keys → RenderConfig field names</span>
+    <span class="k">for</span> <span class="n">old</span><span class="p">,</span> <span class="n">new</span> <span class="ow">in</span> <span class="p">(</span>
+        <span class="p">(</span><span class="s2">&quot;mo_iso&quot;</span><span class="p">,</span> <span class="s2">&quot;mo_isovalue&quot;</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;mo_blur&quot;</span><span class="p">,</span> <span class="s2">&quot;mo_blur_sigma&quot;</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;mo_upsample&quot;</span><span class="p">,</span> <span class="s2">&quot;mo_upsample_factor&quot;</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;dens_iso&quot;</span><span class="p">,</span> <span class="s2">&quot;dens_isovalue&quot;</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;nci_iso&quot;</span><span class="p">,</span> <span class="s2">&quot;nci_isovalue&quot;</span><span class="p">),</span>
+    <span class="p">):</span>
+        <span class="k">if</span> <span class="n">old</span> <span class="ow">in</span> <span class="n">merged</span><span class="p">:</span>
+            <span class="n">merged</span><span class="p">[</span><span class="n">new</span><span class="p">]</span> <span class="o">=</span> <span class="n">merged</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">old</span><span class="p">)</span>
+
+    <span class="c1"># Resolve all color fields to hex</span>
+    <span class="n">_color_fields</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">&quot;background&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;bond_color&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;atom_stroke_color&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;label_color&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cmap_unlabeled&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cell_color&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mo_pos_color&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;mo_neg_color&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;dens_color&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;nci_color&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;overlay_color&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;highlight_color&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">_color_fields</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">merged</span><span class="p">:</span>
+            <span class="n">merged</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">resolve_color</span><span class="p">(</span><span class="n">merged</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+
+    <span class="c1"># axis_colors comes from JSON as a list of 3 strings; convert to tuple and resolve</span>
+    <span class="k">if</span> <span class="s2">&quot;axis_colors&quot;</span> <span class="ow">in</span> <span class="n">merged</span><span class="p">:</span>
+        <span class="n">raw</span> <span class="o">=</span> <span class="n">merged</span><span class="p">[</span><span class="s2">&quot;axis_colors&quot;</span><span class="p">]</span>
+        <span class="n">merged</span><span class="p">[</span><span class="s2">&quot;axis_colors&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">resolve_color</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">raw</span><span class="p">)</span>
+
+    <span class="c1"># hull_colors: list of color strings (one per subset) → resolve to hex</span>
+    <span class="k">if</span> <span class="s2">&quot;hull_colors&quot;</span> <span class="ow">in</span> <span class="n">merged</span> <span class="ow">and</span> <span class="n">merged</span><span class="p">[</span><span class="s2">&quot;hull_colors&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">merged</span><span class="p">[</span><span class="s2">&quot;hull_colors&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">resolve_color</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">merged</span><span class="p">[</span><span class="s2">&quot;hull_colors&quot;</span><span class="p">]]</span>
+
+    <span class="k">return</span> <span class="n">RenderConfig</span><span class="p">(</span><span class="o">**</span><span class="n">merged</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="apply_hydrogen_flags">
+<a class="viewcode-back" href="../../api/config.html#xyzrender.config.apply_hydrogen_flags">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">apply_hydrogen_flags</span><span class="p">(</span><span class="n">cfg</span><span class="p">:</span> <span class="n">RenderConfig</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">hy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">no_hy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Single source of truth for --hy / --no-hy logic. Called by CLI and Python API.</span>
+
+<span class="sd">    hy=None → hide C-H (default), hy=True → show all, hy=[1,3] → show specific (1-indexed).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">no_hy</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">hide_h</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">show_h_indices</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">elif</span> <span class="n">hy</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">hide_h</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">elif</span> <span class="n">hy</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">hide_h</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">hy</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">hide_h</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">show_h_indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">hy</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="build_config">
+<a class="viewcode-back" href="../../api/config.html#xyzrender.config.build_config">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_config</span><span class="p">(</span>
+    <span class="n">config_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">canvas_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">atom_scale</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">bond_width</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">atom_stroke_width</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">bond_color</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">background</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">transparent</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">gradient</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">hue_shift_factor</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">light_shift_factor</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">saturation_shift_factor</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">fog</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">fog_strength</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">bo</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">label_font_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">vdw_opacity</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">vdw_scale</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">vdw_gradient_strength</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">hide_bonds</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">hy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">no_hy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">orient</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">opacity</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">ts_bonds</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">nci_bonds</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">vdw_indices</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">show_indices</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">idx_format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;sn&quot;</span><span class="p">,</span>
+    <span class="n">atom_cmap</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">cmap_range</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">cmap_palette</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;viridis&quot;</span><span class="p">,</span>
+    <span class="n">cbar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">cmap_symm</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RenderConfig</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a :class:`~xyzrender.types.RenderConfig` from a preset and style kwargs.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    config_name:</span>
+<span class="sd">        Preset name (``&quot;default&quot;``, ``&quot;flat&quot;``, ``&quot;paton&quot;``, …) or path to a</span>
+<span class="sd">        custom JSON config file.</span>
+<span class="sd">    canvas_size, atom_scale, bond_width, …:</span>
+<span class="sd">        Style overrides; any ``None`` value falls back to the preset default.</span>
+<span class="sd">    orient:</span>
+<span class="sd">        ``True`` / ``False`` to force / suppress PCA auto-orientation.</span>
+<span class="sd">        ``None`` (default) enables auto-orientation.</span>
+<span class="sd">    ts_bonds, nci_bonds:</span>
+<span class="sd">        Manual TS / NCI bond overlays as 0-indexed atom pairs.</span>
+<span class="sd">    vdw_indices:</span>
+<span class="sd">        VdW sphere atom list (0-indexed). ``[]`` = all atoms, ``None`` = off.</span>
+<span class="sd">    show_indices:</span>
+<span class="sd">        Enable atom index labels.</span>
+<span class="sd">    atom_cmap:</span>
+<span class="sd">        Atom property colour map (0-indexed keys).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    RenderConfig</span>
+<span class="sd">        Ready to pass to :func:`~xyzrender.render` as ``config=``.</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    -------</span>
+<span class="sd">    ::</span>
+
+<span class="sd">        cfg = build_config(&quot;flat&quot;, atom_scale=1.5, gradient=False)</span>
+<span class="sd">        render(mol1, config=cfg)</span>
+<span class="sd">        render(mol2, config=cfg)</span>
+
+<span class="sd">    Bond/index/cmap params use **0-indexed** atom numbering (the internal</span>
+<span class="sd">    convention). The Python API converts from user-facing 1-indexed values</span>
+<span class="sd">    before calling this function; the CLI passes _parse_pairs() output directly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">config_data</span> <span class="o">=</span> <span class="n">load_config</span><span class="p">(</span><span class="n">config_name</span><span class="p">)</span>
+    <span class="n">overrides</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="p">[</span>
+        <span class="p">(</span><span class="s2">&quot;canvas_size&quot;</span><span class="p">,</span> <span class="n">canvas_size</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;atom_scale&quot;</span><span class="p">,</span> <span class="n">atom_scale</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;bond_width&quot;</span><span class="p">,</span> <span class="n">bond_width</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;atom_stroke_width&quot;</span><span class="p">,</span> <span class="n">atom_stroke_width</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;bond_color&quot;</span><span class="p">,</span> <span class="n">bond_color</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;background&quot;</span><span class="p">,</span> <span class="n">background</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;gradient&quot;</span><span class="p">,</span> <span class="n">gradient</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;hue_shift_factor&quot;</span><span class="p">,</span> <span class="n">hue_shift_factor</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;light_shift_factor&quot;</span><span class="p">,</span> <span class="n">light_shift_factor</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;saturation_shift_factor&quot;</span><span class="p">,</span> <span class="n">saturation_shift_factor</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;fog&quot;</span><span class="p">,</span> <span class="n">fog</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;fog_strength&quot;</span><span class="p">,</span> <span class="n">fog_strength</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;bond_orders&quot;</span><span class="p">,</span> <span class="n">bo</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;label_font_size&quot;</span><span class="p">,</span> <span class="n">label_font_size</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;vdw_opacity&quot;</span><span class="p">,</span> <span class="n">vdw_opacity</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;vdw_scale&quot;</span><span class="p">,</span> <span class="n">vdw_scale</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;vdw_gradient_strength&quot;</span><span class="p">,</span> <span class="n">vdw_gradient_strength</span><span class="p">),</span>
+    <span class="p">]:</span>
+        <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">overrides</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+    <span class="k">if</span> <span class="n">transparent</span><span class="p">:</span>
+        <span class="n">overrides</span><span class="p">[</span><span class="s2">&quot;transparent&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="n">hide_bonds</span><span class="p">:</span>
+        <span class="n">overrides</span><span class="p">[</span><span class="s2">&quot;hide_bonds&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="n">cfg</span> <span class="o">=</span> <span class="n">build_render_config</span><span class="p">(</span><span class="n">config_data</span><span class="p">,</span> <span class="n">overrides</span><span class="p">)</span>
+    <span class="n">cfg</span><span class="o">.</span><span class="n">auto_orient</span> <span class="o">=</span> <span class="n">orient</span> <span class="k">if</span> <span class="n">orient</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">True</span>
+    <span class="n">apply_hydrogen_flags</span><span class="p">(</span><span class="n">cfg</span><span class="p">,</span> <span class="n">hy</span><span class="o">=</span><span class="n">hy</span><span class="p">,</span> <span class="n">no_hy</span><span class="o">=</span><span class="n">no_hy</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">opacity</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">surface_opacity</span> <span class="o">=</span> <span class="n">opacity</span>
+    <span class="k">if</span> <span class="n">ts_bonds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">ts_bonds</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">ts_bonds</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">nci_bonds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">nci_bonds</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">nci_bonds</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">vdw_indices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">vdw_indices</span> <span class="o">=</span> <span class="n">vdw_indices</span>
+    <span class="k">if</span> <span class="n">show_indices</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">show_indices</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">idx_format</span> <span class="o">=</span> <span class="n">idx_format</span>
+    <span class="k">if</span> <span class="n">atom_cmap</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">atom_cmap</span> <span class="o">=</span> <span class="n">atom_cmap</span>
+    <span class="k">if</span> <span class="n">cmap_range</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">cmap_range</span> <span class="o">=</span> <span class="n">cmap_range</span>
+    <span class="n">cfg</span><span class="o">.</span><span class="n">cmap_palette</span> <span class="o">=</span> <span class="n">cmap_palette</span>
+    <span class="k">if</span> <span class="n">cbar</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">cbar</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="n">cmap_symm</span><span class="p">:</span>
+        <span class="n">cfg</span><span class="o">.</span><span class="n">cmap_symm</span> <span class="o">=</span> <span class="kc">True</span>
+
+    <span class="k">return</span> <span class="n">cfg</span></div>
+
+
+
+<div class="viewcode-block" id="collect_surf_overrides">
+<a class="viewcode-back" href="../../api/config.html#xyzrender.config.collect_surf_overrides">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">collect_surf_overrides</span><span class="p">(</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">iso</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">mo_pos_color</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">mo_neg_color</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">mo_blur</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">mo_upsample</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">flat_mo</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">dens_color</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">nci_color</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">nci_coloring</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">nci_cutoff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Collect surface param overrides into a dict for ``build_surface_params``.</span>
+
+<span class="sd">    ``nci_coloring`` maps to the internal key ``nci_color_mode`` (matches</span>
+<span class="sd">    ``--nci-coloring`` CLI flag). ``flat_mo=True`` overrides the config default.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">overrides</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="p">[</span>
+        <span class="p">(</span><span class="s2">&quot;iso&quot;</span><span class="p">,</span> <span class="n">iso</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;mo_pos_color&quot;</span><span class="p">,</span> <span class="n">mo_pos_color</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;mo_neg_color&quot;</span><span class="p">,</span> <span class="n">mo_neg_color</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;mo_blur&quot;</span><span class="p">,</span> <span class="n">mo_blur</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;mo_upsample&quot;</span><span class="p">,</span> <span class="n">mo_upsample</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;flat_mo&quot;</span><span class="p">,</span> <span class="n">flat_mo</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">),</span>  <span class="c1"># False → don&#39;t override; True → set</span>
+        <span class="p">(</span><span class="s2">&quot;dens_color&quot;</span><span class="p">,</span> <span class="n">dens_color</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;nci_color&quot;</span><span class="p">,</span> <span class="n">nci_color</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;nci_color_mode&quot;</span><span class="p">,</span> <span class="n">nci_coloring</span><span class="p">),</span>
+        <span class="p">(</span><span class="s2">&quot;nci_cutoff&quot;</span><span class="p">,</span> <span class="n">nci_cutoff</span><span class="p">),</span>
+    <span class="p">]:</span>
+        <span class="k">if</span> <span class="n">val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">overrides</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+    <span class="k">return</span> <span class="n">overrides</span></div>
+
+
+
+<div class="viewcode-block" id="build_surface_params">
+<a class="viewcode-back" href="../../api/config.html#xyzrender.config.build_surface_params">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">build_surface_params</span><span class="p">(</span>
+    <span class="n">cfg</span><span class="p">:</span> <span class="n">RenderConfig</span><span class="p">,</span>
+    <span class="n">cli_overrides</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">has_mo</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">has_dens</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">has_esp</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">has_nci</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">MOParams</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">DensParams</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">ESPParams</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">NCIParams</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract and merge surface params from config + CLI into typed ``*Params`` objects.</span>
+
+<span class="sd">    Returns ``None`` for any surface that is not active (``has_*`` flag is</span>
+<span class="sd">    ``False``), so callers can use simple ``if params:`` checks.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    cfg:</span>
+<span class="sd">        Render config (surface defaults stored on fields populated by :func:`build_config`).</span>
+<span class="sd">    cli_overrides:</span>
+<span class="sd">        Dict of explicit per-render values (non-``None`` values only).</span>
+<span class="sd">    has_mo, has_dens, has_esp, has_nci:</span>
+<span class="sd">        Flags indicating which surfaces are active.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mo_params</span><span class="p">:</span> <span class="n">MOParams</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">dens_params</span><span class="p">:</span> <span class="n">DensParams</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">esp_params</span><span class="p">:</span> <span class="n">ESPParams</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">nci_params</span><span class="p">:</span> <span class="n">NCIParams</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="c1"># Shared isovalue override from --iso / iso= kwarg</span>
+    <span class="n">iso_override</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">cli_overrides</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;iso&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">has_mo</span><span class="p">:</span>
+        <span class="n">mo_params</span> <span class="o">=</span> <span class="n">MOParams</span><span class="p">(</span>
+            <span class="n">isovalue</span><span class="o">=</span><span class="n">iso_override</span> <span class="k">if</span> <span class="n">iso_override</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cfg</span><span class="o">.</span><span class="n">mo_isovalue</span><span class="p">,</span>
+            <span class="n">pos_color</span><span class="o">=</span><span class="n">cli_overrides</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mo_pos_color&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">cfg</span><span class="o">.</span><span class="n">mo_pos_color</span><span class="p">,</span>
+            <span class="n">neg_color</span><span class="o">=</span><span class="n">cli_overrides</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mo_neg_color&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">cfg</span><span class="o">.</span><span class="n">mo_neg_color</span><span class="p">,</span>
+            <span class="n">blur_sigma</span><span class="o">=</span><span class="n">cli_overrides</span><span class="p">[</span><span class="s2">&quot;mo_blur&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">cli_overrides</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mo_blur&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cfg</span><span class="o">.</span><span class="n">mo_blur_sigma</span><span class="p">,</span>
+            <span class="n">upsample_factor</span><span class="o">=</span><span class="n">cli_overrides</span><span class="p">[</span><span class="s2">&quot;mo_upsample&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">cli_overrides</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mo_upsample&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="k">else</span> <span class="n">cfg</span><span class="o">.</span><span class="n">mo_upsample_factor</span><span class="p">,</span>
+            <span class="n">flat</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">cli_overrides</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;flat_mo&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">cfg</span><span class="o">.</span><span class="n">flat_mo</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">has_dens</span><span class="p">:</span>
+        <span class="n">dens_params</span> <span class="o">=</span> <span class="n">DensParams</span><span class="p">(</span>
+            <span class="n">isovalue</span><span class="o">=</span><span class="n">iso_override</span> <span class="k">if</span> <span class="n">iso_override</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cfg</span><span class="o">.</span><span class="n">dens_isovalue</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">cli_overrides</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dens_color&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">cfg</span><span class="o">.</span><span class="n">dens_color</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">has_esp</span><span class="p">:</span>
+        <span class="n">esp_params</span> <span class="o">=</span> <span class="n">ESPParams</span><span class="p">(</span>
+            <span class="n">isovalue</span><span class="o">=</span><span class="n">iso_override</span> <span class="k">if</span> <span class="n">iso_override</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cfg</span><span class="o">.</span><span class="n">dens_isovalue</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">has_nci</span><span class="p">:</span>
+        <span class="n">nci_params</span> <span class="o">=</span> <span class="n">NCIParams</span><span class="p">(</span>
+            <span class="n">isovalue</span><span class="o">=</span><span class="n">iso_override</span> <span class="k">if</span> <span class="n">iso_override</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cfg</span><span class="o">.</span><span class="n">nci_isovalue</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">cli_overrides</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nci_color&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">cfg</span><span class="o">.</span><span class="n">nci_color</span><span class="p">,</span>
+            <span class="n">color_mode</span><span class="o">=</span><span class="n">cli_overrides</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nci_color_mode&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">cfg</span><span class="o">.</span><span class="n">nci_color_mode</span><span class="p">,</span>
+            <span class="n">dens_cutoff</span><span class="o">=</span><span class="n">cli_overrides</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;nci_cutoff&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">mo_params</span><span class="p">,</span> <span class="n">dens_params</span><span class="p">,</span> <span class="n">esp_params</span><span class="p">,</span> <span class="n">nci_params</span></div>
+
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Dr Alister S. Goodfellow
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../../_static/scripts/furo.js?v=46bd48cc"></script>
+    </body>
+</html>

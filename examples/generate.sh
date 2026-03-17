@@ -83,13 +83,16 @@ xyzrender "$DIR/ethanol.xyz" --hy --vector "$DIR/ethanol_forces_efield.json" --v
 echo "=== Crystal / unit cell ==="
 xyzrender "$DIR/caffeine_cell.xyz" --cell -o "$IMG/caffeine_cell.svg" --no-orient --gif-rot -go "$IMG/caffeine_cell.gif" 
 xyzrender "$DIR/caffeine_cell.xyz" --cell-color maroon -o "$IMG/caffeine_cell_custom.svg" # custom edge color
+xyzrender "$DIR/caffeine_cell.xyz" --supercell 2 2 1 --no-ghosts -o "$IMG/caffeine_cell_supercell_221_no_ghosts.svg"
 
 echo "=== Crystal / periodic structures ==="
 xyzrender "$DIR/NV63.vasp" --crystal vasp -o "$IMG/NV63_vasp.svg" --gif-rot -go "$IMG/NV63_vasp.gif"  # auto-detected as VASP
 xyzrender "$DIR/NV63.in" --crystal qe --no-axes -o "$IMG/NV63_qe.svg"          # explicit QE mode
+xyzrender "$DIR/NV63.vasp" --crystal vasp --supercell 2 2 1 --no-ghosts --no-axes -o "$IMG/NV63_vasp_supercell_221_no_ghosts.svg"
 xyzrender "$DIR/NV63_cell.xyz" -o "$IMG/NV63_cell.svg"      
 xyzrender "$DIR/NV63_cell.xyz" --no-ghosts --no-axes -o "$IMG/NV63_cell_no_ghosts.svg"       
 xyzrender "$DIR/NV63_cell.xyz" --no-cell -o "$IMG/NV63_cell_no_cell.svg"       
+xyzrender "$DIR/NV63_cell.xyz" --supercell 2 2 1 --no-ghosts --no-axes -o "$IMG/NV63_cell_supercell_221_no_ghosts.svg"
 xyzrender "$DIR/NV63_cell.xyz" --axis 001 -o "$IMG/NV63_001.svg"   # looking down [001]
 xyzrender "$DIR/NV63_cell.xyz" --axis 111 --gif-rot 111 -o "$IMG/NV63_111.svg" -go "$IMG/NV63_111.gif"  # look down [111], rotate around [111]
 

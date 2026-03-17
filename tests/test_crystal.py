@@ -14,6 +14,7 @@ EXTXYZ_FILE = EXAMPLES / "caffeine_cell.xyz"
 
 @pytest.fixture(scope="module")
 def vasp_crystal():
+    pytest.importorskip("phonopy")
     from xyzrender.crystal import load_crystal
 
     return load_crystal(VASP_FILE, "vasp")
@@ -21,6 +22,7 @@ def vasp_crystal():
 
 @pytest.fixture(scope="module")
 def qe_crystal():
+    pytest.importorskip("phonopy")
     from xyzrender.crystal import load_crystal
 
     return load_crystal(QE_FILE, "qe")
@@ -88,6 +90,28 @@ def test_crystal_images_no_orphans(vasp_crystal):
             if nb in cell_ids and graph.edges[node_id, nb].get("image_bond", False)
         ]
         assert image_bonds_to_cell, f"Image node {node_id} has no image_bond edge to a cell atom"
+
+
+def test_build_supercell_repeats_atoms_and_scales_lattice(vasp_crystal):
+    """build_supercell replicates the unit cell and scales lattice vectors."""
+    import copy
+
+    from xyzrender.crystal import build_supercell
+
+    graph, cell_data = copy.deepcopy(vasp_crystal)
+    n0 = graph.number_of_nodes()
+    a = cell_data.lattice[0].copy()
+
+    g2, cd2 = build_supercell(graph, cell_data, (2, 1, 1))
+    assert g2.number_of_nodes() == 2 * n0
+    np.testing.assert_allclose(cd2.lattice[0], 2 * a, atol=1e-9)
+
+    # For at least one atom, there must be a copy at +a.
+    p0 = np.array(g2.nodes[0]["position"], dtype=float)
+    target = p0 + a
+    pos_all = np.array([g2.nodes[i]["position"] for i in g2.nodes()], dtype=float)
+    dists = np.linalg.norm(pos_all - target[None, :], axis=1)
+    assert float(dists.min()) < 1e-6, "Expected a replicated atom at +a in the (2,1,1) supercell"
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +223,22 @@ def test_extxyz_cell_box_renders(extxyz_graph):
     svg = render_svg(extxyz_graph, cfg)
     cell_lines = [ln for ln in svg.splitlines() if 'class="cell-edge"' in ln]
     assert len(cell_lines) == 12
+
+
+def test_extxyz_supercell_builds_without_phonopy(extxyz_graph):
+    """Supercell expansion works for any input that carries a lattice (extXYZ)."""
+    from xyzrender.crystal import build_supercell
+    from xyzrender.types import CellData
+
+    g = extxyz_graph
+    n0 = g.number_of_nodes()
+    lat = np.array(g.graph["lattice"], dtype=float)
+    origin = np.array(g.graph.get("lattice_origin", np.zeros(3)), dtype=float)
+    cd = CellData(lattice=lat, cell_origin=origin)
+
+    g2, cd2 = build_supercell(g, cd, (2, 2, 1))
+    assert g2.number_of_nodes() == 4 * n0
+    assert cd2.lattice.shape == (3, 3)
 
 
 def test_orient_hkl_cell_corotates_with_atoms(vasp_crystal):

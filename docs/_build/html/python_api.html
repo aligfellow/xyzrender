@@ -1,0 +1,587 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="User Guide" href="userguide.html"><link rel="prev" title="Python / Jupyter Quickstart" href="quickstart_python.html">
+
+    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+        <title>Python API Guide - xyzrender documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">xyzrender  documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  
+  <span class="sidebar-brand-text">xyzrender  documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_cli.html">CLI Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_python.html">Python / Jupyter Quickstart</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Python API Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="userguide.html">User Guide</a><input aria-label="Toggle navigation of User Guide" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="formats.html">Input Formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="orientation.html">Orientation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli_reference.html">CLI Reference</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="examples.html">Examples</a><input aria-label="Toggle navigation of Examples" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="examples/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/overlay.html">Structural Overlay</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/ensemble.html">Conformer Ensemble</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/animations.html">Animations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/ts_nci.html">Transition States and NCI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/mo.html">Molecular Orbitals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/dens_esp.html">Electron Density and ESP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/nci_surf.html">NCI Surface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/hull.html">Convex hull</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/crystal.html">Crystal Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/annotations.html">Annotations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/cmap.html">Atom Colormap</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="reference.html">API Reference</a><input aria-label="Toggle navigation of API Reference" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/core.html">Core API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/types.html">Types Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/config.html">Config Reference</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">About</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="citation.html">Citation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="acknowledgements.html">Acknowledgements</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="_sources/python_api.md.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="python-api-guide">
+<h1>Python API Guide<a class="headerlink" href="#python-api-guide" title="Link to this heading">¶</a></h1>
+<p>xyzrender has a full Python API. All CLI flags are available as keyword arguments. Results display inline in Jupyter automatically.</p>
+<p>See also the <a class="reference internal" href="api/core.html"><span class="std std-doc">auto-generated API reference</span></a> for docstrings and type signatures, and the runnable <a class="reference external" href="https://github.com/aligfellow/xyzrender/blob/main/examples/examples.ipynb"><code class="docutils literal notranslate"><span class="pre">examples/examples.ipynb</span></code></a> notebook.</p>
+<section id="loading-molecules">
+<h2>Loading molecules<a class="headerlink" href="#loading-molecules" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">load()</span></code> parses a file and returns a <code class="docutils literal notranslate"><span class="pre">Molecule</span></code> object. Pass it to <code class="docutils literal notranslate"><span class="pre">render()</span></code> to avoid re-reading the file on every call. You can also pass a path string directly to <code class="docutils literal notranslate"><span class="pre">render()</span></code> as a shorthand.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">xyzrender</span><span class="w"> </span><span class="kn">import</span> <span class="n">load</span><span class="p">,</span> <span class="n">render</span>
+
+<span class="n">mol</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;caffeine.xyz&quot;</span><span class="p">)</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>                          <span class="c1"># displays inline in Jupyter</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="s2">&quot;caffeine.svg&quot;</span><span class="p">)</span>   <span class="c1"># save as SVG</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="s2">&quot;caffeine.png&quot;</span><span class="p">)</span>   <span class="c1"># save as PNG</span>
+
+<span class="c1"># Short-form: pass a path directly (re-parses each time)</span>
+<span class="n">render</span><span class="p">(</span><span class="s2">&quot;caffeine.xyz&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<section id="loading-options">
+<h3>Loading options<a class="headerlink" href="#loading-options" title="Link to this heading">¶</a></h3>
+<p>Use <code class="docutils literal notranslate"><span class="pre">load()</span></code> keyword arguments for non-default loading behaviour:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mol</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;ts.out&quot;</span><span class="p">,</span> <span class="n">ts_detect</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>            <span class="c1"># detect TS bonds via graphRC</span>
+<span class="n">mol</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;mol.xyz&quot;</span><span class="p">,</span> <span class="n">nci_detect</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>          <span class="c1"># detect NCI interactions</span>
+<span class="n">mol</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;mol.sdf&quot;</span><span class="p">,</span> <span class="n">mol_frame</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">kekule</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="c1"># SDF frame + Kekule bonds</span>
+<span class="n">mol</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;CC(=O)O&quot;</span><span class="p">,</span> <span class="n">smiles</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>              <span class="c1"># SMILES → 3D (requires rdkit)</span>
+<span class="n">mol</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;POSCAR&quot;</span><span class="p">,</span> <span class="n">crystal</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>              <span class="c1"># VASP/QE structure (requires phonopy)</span>
+<span class="n">mol</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;caffeine_cell.xyz&quot;</span><span class="p">,</span> <span class="n">cell</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>      <span class="c1"># extXYZ Lattice= header</span>
+<span class="n">mol</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;mol.xyz&quot;</span><span class="p">,</span> <span class="n">quick</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>               <span class="c1"># skip BO detection (faster, use with bo=False)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="render-options">
+<h2>Render options<a class="headerlink" href="#render-options" title="Link to this heading">¶</a></h2>
+<p>All CLI flags are available as keyword arguments to <code class="docutils literal notranslate"><span class="pre">render()</span></code>:</p>
+<section id="styling">
+<h3>Styling<a class="headerlink" href="#styling" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="s2">&quot;flat&quot;</span><span class="p">)</span>                                     <span class="c1"># built-in preset</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="s2">&quot;paton&quot;</span><span class="p">,</span> <span class="n">transparent</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>                  <span class="c1"># preset + transparent bg</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">bond_width</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">atom_scale</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">background</span><span class="o">=</span><span class="s2">&quot;#f0f0f0&quot;</span><span class="p">)</span> <span class="c1"># individual overrides</span>
+</pre></div>
+</div>
+</section>
+<section id="hydrogen-visibility">
+<h3>Hydrogen visibility<a class="headerlink" href="#hydrogen-visibility" title="Link to this heading">¶</a></h3>
+<p>Atom indices are <strong>1-indexed</strong>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ethanol</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;ethanol.xyz&quot;</span><span class="p">)</span>
+<span class="n">render</span><span class="p">(</span><span class="n">ethanol</span><span class="p">,</span> <span class="n">hy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>            <span class="c1"># show all H</span>
+<span class="n">render</span><span class="p">(</span><span class="n">ethanol</span><span class="p">,</span> <span class="n">no_hy</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>         <span class="c1"># hide all H</span>
+<span class="n">render</span><span class="p">(</span><span class="n">ethanol</span><span class="p">,</span> <span class="n">hy</span><span class="o">=</span><span class="p">[</span><span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">])</span>       <span class="c1"># show specific H atoms</span>
+</pre></div>
+</div>
+</section>
+<section id="overlays">
+<h3>Overlays<a class="headerlink" href="#overlays" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">vdw</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>               <span class="c1"># vdW spheres on all atoms</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">vdw</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">])</span>          <span class="c1"># vdW spheres on specific atoms</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">ts_bonds</span><span class="o">=</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">)])</span>      <span class="c1"># manual TS bond (1-indexed)</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">nci_bonds</span><span class="o">=</span><span class="p">[(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">8</span><span class="p">)])</span>     <span class="c1"># manual NCI bond (1-indexed)</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">idx</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>               <span class="c1"># atom index labels (&quot;C1&quot;, &quot;N3&quot;, ...)</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">idx</span><span class="o">=</span><span class="s2">&quot;n&quot;</span><span class="p">)</span>                <span class="c1"># index only (&quot;1&quot;, &quot;3&quot;, ...)</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">highlight</span><span class="o">=</span><span class="s2">&quot;1-3,7&quot;</span><span class="p">)</span>                          <span class="c1"># highlight atoms 1-3 and 7 (orchid)</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">highlight</span><span class="o">=</span><span class="s2">&quot;1-3,7&quot;</span><span class="p">,</span> <span class="n">highlight_color</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">)</span>   <span class="c1"># custom colour</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">highlight</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">6</span><span class="p">])</span>                     <span class="c1"># 0-indexed list (Python API)</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">dof</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>                                   <span class="c1"># depth-of-field blur</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">dof</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dof_strength</span><span class="o">=</span><span class="mf">6.0</span><span class="p">)</span>                 <span class="c1"># stronger blur</span>
+</pre></div>
+</div>
+</section>
+<section id="structural-overlay">
+<h3>Structural overlay<a class="headerlink" href="#structural-overlay" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mol1</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;isothio_xtb.xyz&quot;</span><span class="p">,</span> <span class="n">charge</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">mol2</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;isothio_uma.xyz&quot;</span><span class="p">,</span> <span class="n">charge</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol1</span><span class="p">,</span> <span class="n">overlay</span><span class="o">=</span><span class="n">mol2</span><span class="p">)</span>                         <span class="c1"># overlay mol2 onto mol1</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol1</span><span class="p">,</span> <span class="n">overlay</span><span class="o">=</span><span class="n">mol2</span><span class="p">,</span> <span class="n">overlay_color</span><span class="o">=</span><span class="s2">&quot;green&quot;</span><span class="p">)</span>  <span class="c1"># custom overlay color</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol1</span><span class="p">,</span> <span class="n">overlay</span><span class="o">=</span><span class="n">mol2</span><span class="p">,</span> <span class="n">align_atoms</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span>  <span class="c1"># align on atom subset</span>
+<span class="n">render_gif</span><span class="p">(</span><span class="n">mol1</span><span class="p">,</span> <span class="n">overlay</span><span class="o">=</span><span class="n">mol2</span><span class="p">,</span> <span class="n">gif_rot</span><span class="o">=</span><span class="s2">&quot;y&quot;</span><span class="p">)</span>        <span class="c1"># spinning overlay GIF</span>
+</pre></div>
+</div>
+<p>See <a class="reference internal" href="examples/overlay.html"><span class="std std-doc">Structural Overlay</span></a> and <a class="reference internal" href="examples/ensemble.html"><span class="std std-doc">Conformer Ensemble</span></a> for more.</p>
+</section>
+<section id="annotations">
+<h3>Annotations<a class="headerlink" href="#annotations" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;1 2 d&quot;</span><span class="p">,</span> <span class="s2">&quot;1 2 3 a&quot;</span><span class="p">])</span>   <span class="c1"># inline spec strings</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">label_file</span><span class="o">=</span><span class="s2">&quot;annot.txt&quot;</span><span class="p">)</span>         <span class="c1"># bulk annotation file</span>
+</pre></div>
+</div>
+<p>See <a class="reference internal" href="examples/annotations.html"><span class="std std-doc">Annotations</span></a> for the full spec syntax.</p>
+</section>
+<section id="atom-property-colormap">
+<h3>Atom property colormap<a class="headerlink" href="#atom-property-colormap" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">cmap</span></code> accepts a <code class="docutils literal notranslate"><span class="pre">{1-indexed</span> <span class="pre">atom:</span> <span class="pre">value}</span></code> dict or a path to a two-column file. Atoms absent from the mapping are drawn white.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="p">{</span><span class="mi">1</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="o">-</span><span class="mf">0.3</span><span class="p">},</span> <span class="n">cmap_range</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;charges.txt&quot;</span><span class="p">,</span> <span class="n">cmap_symm</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>   <span class="c1"># symmetric range about 0</span>
+</pre></div>
+</div>
+<p>See <a class="reference internal" href="examples/cmap.html"><span class="std std-doc">Atom Property Colormap</span></a> for details on file format, palettes, and the colorbar.</p>
+</section>
+<section id="surfaces-cube-files">
+<h3>Surfaces (cube files)<a class="headerlink" href="#surfaces-cube-files" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mol_cube</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;caffeine_homo.cube&quot;</span><span class="p">)</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol_cube</span><span class="p">,</span> <span class="n">mo</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>                                          <span class="c1"># MO lobes</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol_cube</span><span class="p">,</span> <span class="n">mo</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">iso</span><span class="o">=</span><span class="mf">0.03</span><span class="p">,</span> <span class="n">mo_pos_color</span><span class="o">=</span><span class="s2">&quot;maroon&quot;</span><span class="p">,</span> <span class="n">mo_neg_color</span><span class="o">=</span><span class="s2">&quot;teal&quot;</span><span class="p">)</span>
+
+<span class="n">dens_cube</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;caffeine_dens.cube&quot;</span><span class="p">)</span>
+<span class="n">render</span><span class="p">(</span><span class="n">dens_cube</span><span class="p">,</span> <span class="n">dens</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>                       <span class="c1"># density isosurface</span>
+<span class="n">render</span><span class="p">(</span><span class="n">dens_cube</span><span class="p">,</span> <span class="n">esp</span><span class="o">=</span><span class="s2">&quot;caffeine_esp.cube&quot;</span><span class="p">)</span>         <span class="c1"># ESP mapped onto density</span>
+<span class="n">render</span><span class="p">(</span><span class="n">dens_cube</span><span class="p">,</span> <span class="n">nci</span><span class="o">=</span><span class="s2">&quot;caffeine_grad.cube&quot;</span><span class="p">)</span>        <span class="c1"># NCI surface</span>
+</pre></div>
+</div>
+<p>See <a class="reference internal" href="examples/mo.html"><span class="std std-doc">Molecular Orbitals</span></a>, <a class="reference internal" href="examples/dens_esp.html"><span class="std std-doc">Electron Density and ESP</span></a>, and <a class="reference internal" href="examples/nci_surf.html"><span class="std std-doc">NCI Surface</span></a>.</p>
+</section>
+<section id="convex-hull">
+<h3>Convex hull<a class="headerlink" href="#convex-hull" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">hull</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">],</span>
+       <span class="n">hull_color</span><span class="o">=</span><span class="s2">&quot;steelblue&quot;</span><span class="p">,</span> <span class="n">hull_opacity</span><span class="o">=</span><span class="mf">0.35</span><span class="p">)</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">hull</span><span class="o">=</span><span class="s2">&quot;rings&quot;</span><span class="p">,</span> <span class="n">hull_color</span><span class="o">=</span><span class="s2">&quot;teal&quot;</span><span class="p">)</span>       <span class="c1"># auto-detect aromatic rings</span>
+</pre></div>
+</div>
+<p>See <a class="reference internal" href="examples/hull.html"><span class="std std-doc">Convex Hull</span></a> for multi-subset hulls and all options.</p>
+</section>
+</section>
+<section id="reusing-a-style-config">
+<h2>Reusing a style config<a class="headerlink" href="#reusing-a-style-config" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">build_config()</span></code> builds a <code class="docutils literal notranslate"><span class="pre">RenderConfig</span></code> object you can pass to <code class="docutils literal notranslate"><span class="pre">render()</span></code> and <code class="docutils literal notranslate"><span class="pre">render_gif()</span></code>. Useful in notebooks or scripts that render several structures with the same style:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">xyzrender</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_config</span>
+
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">build_config</span><span class="p">(</span><span class="s2">&quot;flat&quot;</span><span class="p">,</span> <span class="n">atom_scale</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">gradient</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol1</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">)</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol2</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span> <span class="n">ts_bonds</span><span class="o">=</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">)])</span>   <span class="c1"># per-render overlay on shared style</span>
+<span class="n">render_gif</span><span class="p">(</span><span class="s2">&quot;mol.xyz&quot;</span><span class="p">,</span> <span class="n">gif_rot</span><span class="o">=</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="geometry-measurements">
+<h2>Geometry measurements<a class="headerlink" href="#geometry-measurements" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">measure()</span></code> returns bonded distances, angles, and dihedrals as a dict. It does not render anything. Atom indices in the output are <strong>0-indexed</strong>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">xyzrender</span><span class="w"> </span><span class="kn">import</span> <span class="n">measure</span>
+
+<span class="n">data</span> <span class="o">=</span> <span class="n">measure</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>                    <span class="c1"># all measurements</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">measure</span><span class="p">(</span><span class="s2">&quot;mol.xyz&quot;</span><span class="p">)</span>             <span class="c1"># also accepts a path</span>
+<span class="n">data</span> <span class="o">=</span> <span class="n">measure</span><span class="p">(</span><span class="n">mol</span><span class="p">,</span> <span class="n">modes</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;d&quot;</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">])</span> <span class="c1"># distances and angles only</span>
+
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;distances&quot;</span><span class="p">]:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">d</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2"> Å&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="saving-geometry">
+<h2>Saving geometry<a class="headerlink" href="#saving-geometry" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">Molecule.to_xyz()</span></code> writes the structure to an XYZ file. Ghost atoms are excluded. If the molecule has <code class="docutils literal notranslate"><span class="pre">cell_data</span></code> (loaded with <code class="docutils literal notranslate"><span class="pre">cell=True</span></code> or <code class="docutils literal notranslate"><span class="pre">crystal=...</span></code>), the output is extXYZ with a <code class="docutils literal notranslate"><span class="pre">Lattice=</span></code> header so it can be reloaded directly.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mol</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;CC(=O)O&quot;</span><span class="p">,</span> <span class="n">smiles</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">mol</span><span class="o">.</span><span class="n">to_xyz</span><span class="p">(</span><span class="s2">&quot;acetic_acid.xyz&quot;</span><span class="p">)</span>                            <span class="c1"># plain XYZ</span>
+<span class="n">mol</span><span class="o">.</span><span class="n">to_xyz</span><span class="p">(</span><span class="s2">&quot;acetic_acid.xyz&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;acetic acid&quot;</span><span class="p">)</span>       <span class="c1"># with comment line</span>
+
+<span class="n">mol_cell</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;caffeine_cell.xyz&quot;</span><span class="p">,</span> <span class="n">cell</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">mol_cell</span><span class="o">.</span><span class="n">to_xyz</span><span class="p">(</span><span class="s2">&quot;out.xyz&quot;</span><span class="p">)</span>                               <span class="c1"># extXYZ with Lattice= header</span>
+</pre></div>
+</div>
+</section>
+<section id="interactive-orientation">
+<h2>Interactive orientation<a class="headerlink" href="#interactive-orientation" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">orient()</span></code> opens the 3D viewer (<a class="reference external" href="https://github.com/briling/v"><strong>v</strong></a>) so you can rotate a molecule manually, then locks the orientation for subsequent <code class="docutils literal notranslate"><span class="pre">render()</span></code> calls:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">xyzrender</span><span class="w"> </span><span class="kn">import</span> <span class="n">orient</span>
+
+<span class="n">mol</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;caffeine.xyz&quot;</span><span class="p">)</span>
+<span class="n">orient</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>        <span class="c1"># opens viewer — rotate, close to confirm</span>
+<span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>        <span class="c1"># renders in the manually chosen orientation</span>
+</pre></div>
+</div>
+<p>Requires <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">xyzrender[v]</span></code> (Linux only).</p>
+</section>
+<section id="gif-animations">
+<h2>GIF animations<a class="headerlink" href="#gif-animations" title="Link to this heading">¶</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">xyzrender</span><span class="w"> </span><span class="kn">import</span> <span class="n">render_gif</span>
+
+<span class="n">render_gif</span><span class="p">(</span><span class="s2">&quot;caffeine.xyz&quot;</span><span class="p">,</span> <span class="n">gif_rot</span><span class="o">=</span><span class="s2">&quot;y&quot;</span><span class="p">)</span>           <span class="c1"># rotation GIF</span>
+<span class="n">render_gif</span><span class="p">(</span><span class="s2">&quot;ts.out&quot;</span><span class="p">,</span> <span class="n">gif_ts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>                  <span class="c1"># TS vibration GIF</span>
+<span class="n">render_gif</span><span class="p">(</span><span class="s2">&quot;traj.xyz&quot;</span><span class="p">,</span> <span class="n">gif_trj</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>               <span class="c1"># trajectory GIF</span>
+<span class="n">render_gif</span><span class="p">(</span><span class="s2">&quot;mol.xyz&quot;</span><span class="p">,</span> <span class="n">gif_rot</span><span class="o">=</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">)</span>     <span class="c1"># with shared style config</span>
+
+<span class="c1"># Surface in rotation GIF (cube file)</span>
+<span class="n">mol_cube</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="s2">&quot;caffeine_homo.cube&quot;</span><span class="p">)</span>
+<span class="n">render_gif</span><span class="p">(</span><span class="n">mol_cube</span><span class="p">,</span> <span class="n">gif_rot</span><span class="o">=</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="n">mo</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="s2">&quot;homo_rot.gif&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="return-types">
+<h2>Return types<a class="headerlink" href="#return-types" title="Link to this heading">¶</a></h2>
+<section id="svgresult">
+<h3>SVGResult<a class="headerlink" href="#svgresult" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">render()</span></code> returns an <code class="docutils literal notranslate"><span class="pre">SVGResult</span></code> object. In Jupyter it displays inline automatically.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">result</span> <span class="o">=</span> <span class="n">render</span><span class="p">(</span><span class="n">mol</span><span class="p">)</span>
+<span class="nb">str</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>              <span class="c1"># raw SVG string</span>
+<span class="n">result</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;out.svg&quot;</span><span class="p">)</span>   <span class="c1"># write to file</span>
+</pre></div>
+</div>
+</section>
+<section id="gifresult">
+<h3>GIFResult<a class="headerlink" href="#gifresult" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">render_gif()</span></code> returns a <code class="docutils literal notranslate"><span class="pre">GIFResult</span></code> object. In Jupyter it displays inline automatically.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">gif</span> <span class="o">=</span> <span class="n">render_gif</span><span class="p">(</span><span class="s2">&quot;mol.xyz&quot;</span><span class="p">,</span> <span class="n">gif_rot</span><span class="o">=</span><span class="s2">&quot;y&quot;</span><span class="p">)</span>
+<span class="n">gif</span><span class="o">.</span><span class="n">path</span>                 <span class="c1"># pathlib.Path to the GIF on disk</span>
+<span class="nb">bytes</span><span class="p">(</span><span class="n">gif</span><span class="p">)</span>               <span class="c1"># raw GIF bytes</span>
+<span class="n">gif</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;copy.gif&quot;</span><span class="p">)</span>     <span class="c1"># copy to another path</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="userguide.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">User Guide</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="quickstart_python.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Python / Jupyter Quickstart</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Dr Alister S. Goodfellow
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Python API Guide</a><ul>
+<li><a class="reference internal" href="#loading-molecules">Loading molecules</a><ul>
+<li><a class="reference internal" href="#loading-options">Loading options</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#render-options">Render options</a><ul>
+<li><a class="reference internal" href="#styling">Styling</a></li>
+<li><a class="reference internal" href="#hydrogen-visibility">Hydrogen visibility</a></li>
+<li><a class="reference internal" href="#overlays">Overlays</a></li>
+<li><a class="reference internal" href="#structural-overlay">Structural overlay</a></li>
+<li><a class="reference internal" href="#annotations">Annotations</a></li>
+<li><a class="reference internal" href="#atom-property-colormap">Atom property colormap</a></li>
+<li><a class="reference internal" href="#surfaces-cube-files">Surfaces (cube files)</a></li>
+<li><a class="reference internal" href="#convex-hull">Convex hull</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#reusing-a-style-config">Reusing a style config</a></li>
+<li><a class="reference internal" href="#geometry-measurements">Geometry measurements</a></li>
+<li><a class="reference internal" href="#saving-geometry">Saving geometry</a></li>
+<li><a class="reference internal" href="#interactive-orientation">Interactive orientation</a></li>
+<li><a class="reference internal" href="#gif-animations">GIF animations</a></li>
+<li><a class="reference internal" href="#return-types">Return types</a><ul>
+<li><a class="reference internal" href="#svgresult">SVGResult</a></li>
+<li><a class="reference internal" href="#gifresult">GIFResult</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/scripts/furo.js?v=46bd48cc"></script>
+    </body>
+</html>

@@ -10,6 +10,8 @@ Public API
 load_crystal
     Load a VASP/QE/... crystal structure file and return a molecular graph
     together with its ``CellData`` (lattice matrix + cell origin).
+build_supercell
+    Expand a unit cell into a supercell by integer repetition.
 add_crystal_images
     Populate a crystal graph with ghost atoms from the 26 neighbouring unit
     cells so that bonds crossing cell boundaries are visible.
@@ -36,6 +38,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+__all__ = ["add_crystal_images", "build_supercell", "load_crystal"]
+
 
 def _is_bonded(sym_i: str, sym_j: str, dist: float) -> bool:
     """Return True if two atoms at *dist* Å apart are likely bonded.
@@ -53,7 +57,11 @@ def _is_bonded(sym_i: str, sym_j: str, dist: float) -> bool:
     if hi and hj:
         t = _bond_thresholds.threshold_h_h
     elif hi or hj:
-        t = _bond_thresholds.threshold_h_metal if (mi or mj) else _bond_thresholds.threshold_h_nonmetal
+        t = (
+            _bond_thresholds.threshold_h_metal
+            if (mi or mj)
+            else _bond_thresholds.threshold_h_nonmetal
+        )
     elif mi and mj:
         t = _bond_thresholds.threshold_metal_metal_self
     elif mi or mj:
@@ -85,7 +93,10 @@ def load_crystal(
     """
     logger.info("Loading %s", path)
     try:
-        from phonopy.interface.calculator import get_calculator_physical_units, read_crystal_structure
+        from phonopy.interface.calculator import (
+            get_calculator_physical_units,
+            read_crystal_structure,
+        )
     except ImportError:
         msg = "Crystal structure loading requires phonopy: pip install 'xyzrender[crystal]'"
         raise ImportError(msg) from None
@@ -101,7 +112,8 @@ def load_crystal(
     lattice = np.array(unitcell.cell) * factor  # shape (3, 3), rows = a, b, c in Å
 
     atoms: list[tuple[str, tuple[float, float, float]]] = [
-        (sym, (float(pos[0]), float(pos[1]), float(pos[2]))) for sym, pos in zip(symbols, positions, strict=True)
+        (sym, (float(pos[0]), float(pos[1]), float(pos[2])))
+        for sym, pos in zip(symbols, positions, strict=True)
     ]
     graph = build_graph(atoms, charge=0, multiplicity=None, kekule=False, quick=True)
     logger.info(
@@ -113,6 +125,101 @@ def load_crystal(
     graph.graph["lattice"] = lattice
     graph.graph["lattice_origin"] = np.zeros(3)
     return graph, CellData(lattice=lattice)
+
+
+def build_supercell(
+    graph: "nx.Graph", cell_data: CellData, repeats: tuple[int, int, int]
+) -> tuple["nx.Graph", CellData]:
+    """Return a new graph and CellData representing a repeated supercell.
+
+    Parameters
+    ----------
+    graph:
+        Base-cell graph. Must not already contain periodic image atoms
+        (nodes with ``image=True``).
+    cell_data:
+        Cell lattice/origin describing the base cell.
+    repeats:
+        Integer repetition counts ``(m, n, l)`` along lattice vectors
+        ``a, b, c``. Each must be >= 1.
+
+    Returns
+    -------
+    (new_graph, new_cell_data)
+        The supercell graph and updated CellData with lattice vectors scaled by
+        ``(m, n, l)``.
+    """
+    m, n, l_idx = repeats
+    if m < 1 or n < 1 or l_idx < 1:
+        raise ValueError(f"supercell repeats must be >= 1, got {repeats!r}")
+
+    if any(bool(graph.nodes[nid].get("image", False)) for nid in graph.nodes()):
+        raise ValueError(
+            "build_supercell: graph already contains image atoms (apply before add_crystal_images)"
+        )
+
+    a = np.array(cell_data.lattice[0], dtype=float)
+    b = np.array(cell_data.lattice[1], dtype=float)
+    c = np.array(cell_data.lattice[2], dtype=float)
+
+    new_lattice = np.vstack([m * a, n * b, l_idx * c]).astype(float)
+    new_cd = CellData(
+        lattice=new_lattice,
+        cell_origin=np.array(cell_data.cell_origin, dtype=float).copy(),
+    )
+
+    # Build replicated atom list in a deterministic order, then let xyzgraph
+    # recompute connectivity for the full supercell.
+    base_nodes = list(graph.nodes())
+    if not base_nodes:
+        import networkx as nx
+
+        empty = nx.Graph()
+        empty.graph.update(dict(graph.graph))
+        empty.graph["lattice"] = new_lattice
+        empty.graph["lattice_origin"] = np.array(
+            graph.graph.get("lattice_origin", new_cd.cell_origin), dtype=float
+        ).copy()
+        return empty, new_cd
+
+    base_node_attrs = [dict(graph.nodes[nid]) for nid in base_nodes]
+    atoms: list[tuple[str, tuple[float, float, float]]] = []
+    extra_node_attrs: list[dict] = []
+
+    for ii in range(m):
+        for jj in range(n):
+            for kk in range(l_idx):
+                offset = ii * a + jj * b + kk * c
+                for attrs in base_node_attrs:
+                    sym = attrs["symbol"]
+                    pos = np.array(attrs["position"], dtype=float) + offset
+                    atoms.append((sym, (float(pos[0]), float(pos[1]), float(pos[2]))))
+                    # Preserve any extra per-atom attributes (rare for crystals),
+                    # but strip image-related fields.
+                    extra = {
+                        k: v
+                        for k, v in attrs.items()
+                        if k not in {"position", "image", "source"}
+                    }
+                    extra_node_attrs.append(extra)
+
+    # Rebuild connectivity across the whole supercell.
+    # quick=True: periodic structures render with bond orders suppressed anyway.
+    new_g = build_graph(atoms, charge=0, multiplicity=None, kekule=False, quick=True)
+
+    # Re-apply preserved node attrs (by construction order: build_graph uses 0..N-1).
+    for i, extra in enumerate(extra_node_attrs):
+        for k, v in extra.items():
+            new_g.nodes[i][k] = v
+
+    # Preserve graph-level metadata and update lattice/origin.
+    new_g.graph.update(dict(graph.graph))
+    new_g.graph["lattice"] = new_lattice
+    new_g.graph["lattice_origin"] = np.array(
+        graph.graph.get("lattice_origin", new_cd.cell_origin), dtype=float
+    ).copy()
+
+    return new_g, new_cd
 
 
 def add_crystal_images(graph: nx.Graph, crystal_data: CellData) -> int:
@@ -138,7 +245,11 @@ def add_crystal_images(graph: nx.Graph, crystal_data: CellData) -> int:
     next_id = max(cell_ids) + 1
     n_added = 0
 
-    shifts = [(dx, dy, dz) for dx, dy, dz in itertools.product((-1, 0, 1), repeat=3) if (dx, dy, dz) != (0, 0, 0)]
+    shifts = [
+        (dx, dy, dz)
+        for dx, dy, dz in itertools.product((-1, 0, 1), repeat=3)
+        if (dx, dy, dz) != (0, 0, 0)
+    ]
 
     for dx, dy, dz in shifts:
         offset = dx * a + dy * b + dz * c
@@ -147,7 +258,11 @@ def add_crystal_images(graph: nx.Graph, crystal_data: CellData) -> int:
             img_pos = cell_pos[src_id] + offset
 
             bonded_to: list[int] = [
-                j for j in cell_ids if _is_bonded(sym_i, cell_syms[j], float(np.linalg.norm(img_pos - cell_pos[j])))
+                j
+                for j in cell_ids
+                if _is_bonded(
+                    sym_i, cell_syms[j], float(np.linalg.norm(img_pos - cell_pos[j]))
+                )
             ]
 
             if not bonded_to:

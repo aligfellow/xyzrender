@@ -1,0 +1,807 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="Examples" href="examples.html"><link rel="prev" title="Configuration" href="configuration.html">
+
+    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+        <title>CLI Reference - xyzrender documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">xyzrender  documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  
+  <span class="sidebar-brand-text">xyzrender  documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_cli.html">CLI Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_python.html">Python / Jupyter Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="python_api.html">Python API Guide</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">User Guide</span></p>
+<ul class="current">
+<li class="toctree-l1 current has-children"><a class="reference internal" href="userguide.html">User Guide</a><input aria-label="Toggle navigation of User Guide" checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="formats.html">Input Formats</a></li>
+<li class="toctree-l2"><a class="reference internal" href="orientation.html">Orientation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html">Configuration</a></li>
+<li class="toctree-l2 current current-page"><a class="current reference internal" href="#">CLI Reference</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="examples.html">Examples</a><input aria-label="Toggle navigation of Examples" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="examples/basics.html">Basics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/overlay.html">Structural Overlay</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/ensemble.html">Conformer Ensemble</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/animations.html">Animations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/ts_nci.html">Transition States and NCI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/mo.html">Molecular Orbitals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/dens_esp.html">Electron Density and ESP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/nci_surf.html">NCI Surface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/hull.html">Convex hull</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/crystal.html">Crystal Structures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/annotations.html">Annotations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/cmap.html">Atom Colormap</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="reference.html">API Reference</a><input aria-label="Toggle navigation of API Reference" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" role="switch" type="checkbox"/><label for="toctree-checkbox-3"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/core.html">Core API</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/types.html">Types Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/config.html">Config Reference</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">About</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="citation.html">Citation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="acknowledgements.html">Acknowledgements</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="_sources/cli_reference.md.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="cli-reference">
+<h1>CLI Reference<a class="headerlink" href="#cli-reference" title="Link to this heading">¶</a></h1>
+<p>Full flag reference for <code class="docutils literal notranslate"><span class="pre">xyzrender</span></code>. See also <code class="docutils literal notranslate"><span class="pre">xyzrender</span> <span class="pre">--help</span></code>.</p>
+<section id="input-output">
+<h2>Input / Output<a class="headerlink" href="#input-output" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-o</span></code>, <code class="docutils literal notranslate"><span class="pre">--output</span></code></p></td>
+<td><p>Static output path (<code class="docutils literal notranslate"><span class="pre">.svg</span></code>, <code class="docutils literal notranslate"><span class="pre">.png</span></code>, <code class="docutils literal notranslate"><span class="pre">.pdf</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--smi</span> <span class="pre">SMILES</span></code></p></td>
+<td><p>Embed a SMILES string into 3D (requires rdkit)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mol-frame</span> <span class="pre">N</span></code></p></td>
+<td><p>Record index in multi-molecule SDF (default: 0)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--rebuild</span></code></p></td>
+<td><p>Ignore file connectivity; re-detect bonds with xyzgraph</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-c</span></code>, <code class="docutils literal notranslate"><span class="pre">--charge</span></code></p></td>
+<td><p>Molecular charge</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-m</span></code>, <code class="docutils literal notranslate"><span class="pre">--multiplicity</span></code></p></td>
+<td><p>Spin multiplicity</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--config</span></code></p></td>
+<td><p>Config preset (<code class="docutils literal notranslate"><span class="pre">default</span></code>, <code class="docutils literal notranslate"><span class="pre">flat</span></code>, <code class="docutils literal notranslate"><span class="pre">paton</span></code>, <code class="docutils literal notranslate"><span class="pre">skeletal</span></code>) or path to JSON file</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-d</span></code>, <code class="docutils literal notranslate"><span class="pre">--debug</span></code></p></td>
+<td><p>Debug logging</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="styling">
+<h2>Styling<a class="headerlink" href="#styling" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-S</span></code>, <code class="docutils literal notranslate"><span class="pre">--canvas-size</span></code></p></td>
+<td><p>Canvas size in px (default: 800)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-a</span></code>, <code class="docutils literal notranslate"><span class="pre">--atom-scale</span></code></p></td>
+<td><p>Atom radius scale factor</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-b</span></code>, <code class="docutils literal notranslate"><span class="pre">--bond-width</span></code></p></td>
+<td><p>Bond stroke width</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-s</span></code>, <code class="docutils literal notranslate"><span class="pre">--atom-stroke-width</span></code></p></td>
+<td><p>Atom outline stroke width</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--bond-color</span></code></p></td>
+<td><p>Bond color (hex or named)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-B</span></code>, <code class="docutils literal notranslate"><span class="pre">--background</span></code></p></td>
+<td><p>Background color</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-t</span></code>, <code class="docutils literal notranslate"><span class="pre">--transparent</span></code></p></td>
+<td><p>Transparent background</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-G</span></code>, <code class="docutils literal notranslate"><span class="pre">--gradient-strength</span></code></p></td>
+<td><p>Gradient contrast multiplier</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--grad</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-grad</span></code></p></td>
+<td><p>Radial gradient toggle</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-F</span></code>, <code class="docutils literal notranslate"><span class="pre">--fog-strength</span></code></p></td>
+<td><p>Depth fog strength</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--fog</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-fog</span></code></p></td>
+<td><p>Depth fog toggle</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--bo</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-bo</span></code></p></td>
+<td><p>Bond order rendering toggle</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="display">
+<h2>Display<a class="headerlink" href="#display" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--hy</span></code></p></td>
+<td><p>Show H atoms (no args = all, or specify 1-indexed atom numbers)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-hy</span></code></p></td>
+<td><p>Hide all H atoms</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-k</span></code>, <code class="docutils literal notranslate"><span class="pre">--kekule</span></code></p></td>
+<td><p>Use Kekulé bond orders (no aromatic 1.5)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--vdw</span></code></p></td>
+<td><p>vdW spheres (no args = all, or index ranges e.g. <code class="docutils literal notranslate"><span class="pre">1-6</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--vdw-opacity</span></code></p></td>
+<td><p>vdW sphere opacity (default: 0.25)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--vdw-scale</span></code></p></td>
+<td><p>vdW sphere radius scale</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--vdw-gradient</span></code></p></td>
+<td><p>vdW sphere gradient strength</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--hl</span> <span class="pre">ATOMS</span></code></p></td>
+<td><p>Highlight atom indices: <code class="docutils literal notranslate"><span class="pre">&quot;1-5,8,12&quot;</span></code> (1-indexed). Colors atoms and their connecting bonds</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--hl-color</span> <span class="pre">COLOR</span></code></p></td>
+<td><p>Highlight color (default: orchid)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--dof</span></code></p></td>
+<td><p>Depth-of-field blur (front atoms sharp, back atoms blurred)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--dof-strength</span> <span class="pre">FLOAT</span></code></p></td>
+<td><p>DoF max blur strength (default: 3.0)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="structural-overlay-ensemble">
+<h2>Structural overlay / ensemble<a class="headerlink" href="#structural-overlay-ensemble" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--overlay</span> <span class="pre">FILE</span></code></p></td>
+<td><p>Second structure to overlay (RMSD-aligned onto the primary)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--overlay-color</span> <span class="pre">COLOR</span></code></p></td>
+<td><p>Color for the overlay structure (hex or named)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ensemble</span></code></p></td>
+<td><p>Ensemble overlay for multi-frame XYZ trajectories; conformers default to CPK atom colours</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--ensemble-color</span> <span class="pre">VALUE</span></code></p></td>
+<td><p>Palette name (<code class="docutils literal notranslate"><span class="pre">viridis</span></code>, <code class="docutils literal notranslate"><span class="pre">spectral</span></code>, <code class="docutils literal notranslate"><span class="pre">coolwarm</span></code>), a single colour, or comma-separated colours</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--opacity</span> <span class="pre">FLOAT</span></code></p></td>
+<td><p>Opacity for non-reference conformers (0–1)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--align-atoms</span> <span class="pre">INDICES</span></code></p></td>
+<td><p>1-indexed atom subset for Kabsch alignment (min 3), e.g. <code class="docutils literal notranslate"><span class="pre">1,2,3</span></code> or <code class="docutils literal notranslate"><span class="pre">1-6</span></code>. Works with <code class="docutils literal notranslate"><span class="pre">--overlay</span></code> and <code class="docutils literal notranslate"><span class="pre">--ensemble</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="orientation">
+<h2>Orientation<a class="headerlink" href="#orientation" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-I</span></code>, <code class="docutils literal notranslate"><span class="pre">--interactive</span></code></p></td>
+<td><p>Interactive rotation via <code class="docutils literal notranslate"><span class="pre">v</span></code> viewer</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--orient</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-orient</span></code></p></td>
+<td><p>Auto-orientation toggle</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="ts-nci">
+<h2>TS / NCI<a class="headerlink" href="#ts-nci" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ts</span></code></p></td>
+<td><p>Auto-detect TS bonds via graphRC</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--ts-frame</span></code></p></td>
+<td><p>TS reference frame (0-indexed)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ts-bond</span></code></p></td>
+<td><p>Manual TS bond pair(s) (1-indexed, e.g. <code class="docutils literal notranslate"><span class="pre">1-2</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--nci</span></code></p></td>
+<td><p>Auto-detect NCI interactions</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--nci-bond</span></code></p></td>
+<td><p>Manual NCI bond pair(s) (1-indexed)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="surfaces">
+<h2>Surfaces<a class="headerlink" href="#surfaces" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mo</span></code></p></td>
+<td><p>Render MO lobes from <code class="docutils literal notranslate"><span class="pre">.cube</span></code> input</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--mo-colors</span> <span class="pre">POS</span> <span class="pre">NEG</span></code></p></td>
+<td><p>MO lobe colors (hex or named)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--mo-blur</span> <span class="pre">SIGMA</span></code></p></td>
+<td><p>MO Gaussian blur sigma (default: 0.8, ADVANCED)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--mo-upsample</span> <span class="pre">N</span></code></p></td>
+<td><p>MO contour upsample factor (default: 3, ADVANCED)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--flat-mo</span></code></p></td>
+<td><p>Render all MO lobes as front-facing (no depth classification)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--dens</span></code></p></td>
+<td><p>Render density isosurface from <code class="docutils literal notranslate"><span class="pre">.cube</span></code> input</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--dens-color</span></code></p></td>
+<td><p>Density surface color (default: <code class="docutils literal notranslate"><span class="pre">steelblue</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--esp</span> <span class="pre">CUBE</span></code></p></td>
+<td><p>ESP cube file for potential coloring (implies <code class="docutils literal notranslate"><span class="pre">--dens</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--nci-surf</span> <span class="pre">CUBE</span></code></p></td>
+<td><p>NCI gradient (RDG) cube — render NCI surface lobes</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--nci-coloring</span> <span class="pre">MODE</span></code></p></td>
+<td><p>NCI coloring: <code class="docutils literal notranslate"><span class="pre">avg</span></code> (default), <code class="docutils literal notranslate"><span class="pre">pixel</span></code>, <code class="docutils literal notranslate"><span class="pre">uniform</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--nci-color</span> <span class="pre">COLOR</span></code></p></td>
+<td><p>NCI lobe color for <code class="docutils literal notranslate"><span class="pre">uniform</span></code> mode (default: <code class="docutils literal notranslate"><span class="pre">forestgreen</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--iso</span></code></p></td>
+<td><p>Isosurface threshold (MO default: 0.05, density/ESP: 0.001, NCI: 0.3)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--opacity</span></code></p></td>
+<td><p>Surface opacity multiplier (default: 1.0)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="annotations">
+<h2>Annotations<a class="headerlink" href="#annotations" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--measure</span> <span class="pre">[TYPE...]</span></code></p></td>
+<td><p>Print bond measurements to stdout (<code class="docutils literal notranslate"><span class="pre">d</span></code>, <code class="docutils literal notranslate"><span class="pre">a</span></code>, <code class="docutils literal notranslate"><span class="pre">t</span></code>; combine or omit for all)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--idx</span> <span class="pre">[FMT]</span></code></p></td>
+<td><p>Atom index labels in SVG (<code class="docutils literal notranslate"><span class="pre">sn</span></code> = C1, <code class="docutils literal notranslate"><span class="pre">s</span></code> = C, <code class="docutils literal notranslate"><span class="pre">n</span></code> = 1)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-l</span> <span class="pre">TOKEN...</span></code></p></td>
+<td><p>Inline SVG annotation (repeatable); 1-based indices</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--label</span> <span class="pre">FILE</span></code></p></td>
+<td><p>Bulk annotation file (same syntax as <code class="docutils literal notranslate"><span class="pre">-l</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--label-size</span> <span class="pre">PT</span></code></p></td>
+<td><p>Label font size (overrides preset)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--cmap</span> <span class="pre">FILE</span></code></p></td>
+<td><p>Per-atom property colormap (1-indexed atom index, value)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--cmap-range</span> <span class="pre">VMIN</span> <span class="pre">VMAX</span></code></p></td>
+<td><p>Explicit colormap range (default: auto from file)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--cmap-symm</span></code></p></td>
+<td><p>Symmetric colormap range about zero: `[-max(</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--cmap-palette</span> <span class="pre">NAME</span></code></p></td>
+<td><p>Colormap palette (default: <code class="docutils literal notranslate"><span class="pre">viridis</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--cbar</span></code></p></td>
+<td><p>Add a vertical colorbar on the right showing the data range</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="vector-arrows">
+<h2>Vector arrows<a class="headerlink" href="#vector-arrows" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--vector</span> <span class="pre">FILE</span></code></p></td>
+<td><p>Path to a JSON file defining 3D vector arrows for overlay</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--vector-scale</span></code></p></td>
+<td><p>Global length multiplier for all vector arrows</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="gif-animations">
+<h2>GIF animations<a class="headerlink" href="#gif-animations" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--gif-rot</span> <span class="pre">[AXIS]</span></code></p></td>
+<td><p>Rotation GIF (default axis: <code class="docutils literal notranslate"><span class="pre">y</span></code>). Combinable with <code class="docutils literal notranslate"><span class="pre">--gif-ts</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--gif-ts</span></code></p></td>
+<td><p>TS vibration GIF (via graphRC)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--gif-trj</span></code></p></td>
+<td><p>Trajectory / optimisation GIF (multi-frame input)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-go</span></code>, <code class="docutils literal notranslate"><span class="pre">--gif-output</span></code></p></td>
+<td><p>GIF output path (default: <code class="docutils literal notranslate"><span class="pre">{basename}.gif</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--gif-fps</span></code></p></td>
+<td><p>Frames per second (default: 10)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--rot-frames</span></code></p></td>
+<td><p>Rotation frame count (default: 120)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Available rotation axes: <code class="docutils literal notranslate"><span class="pre">x</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code>, <code class="docutils literal notranslate"><span class="pre">z</span></code>, <code class="docutils literal notranslate"><span class="pre">xy</span></code>, <code class="docutils literal notranslate"><span class="pre">xz</span></code>, <code class="docutils literal notranslate"><span class="pre">yz</span></code>, <code class="docutils literal notranslate"><span class="pre">yx</span></code>, <code class="docutils literal notranslate"><span class="pre">zx</span></code>, <code class="docutils literal notranslate"><span class="pre">zy</span></code>. Prefix <code class="docutils literal notranslate"><span class="pre">-</span></code> to reverse (e.g. <code class="docutils literal notranslate"><span class="pre">-xy</span></code>). For crystal inputs, a 3-digit Miller index string is also accepted (e.g. <code class="docutils literal notranslate"><span class="pre">111</span></code>, <code class="docutils literal notranslate"><span class="pre">001</span></code>).</p>
+</section>
+<section id="convex-hull">
+<h2>Convex hull<a class="headerlink" href="#convex-hull" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--hull</span> <span class="pre">[INDICES</span> <span class="pre">...]</span></code></p></td>
+<td><p>Draw convex hull (no args = all heavy atoms; <code class="docutils literal notranslate"><span class="pre">rings</span></code> = auto-detect aromatic rings; or 1-indexed subsets e.g. <code class="docutils literal notranslate"><span class="pre">1-6</span></code> or <code class="docutils literal notranslate"><span class="pre">1-6</span> <span class="pre">7-12</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--hull-color</span> <span class="pre">COLOR</span> <span class="pre">[...]</span></code></p></td>
+<td><p>Hull fill color(s) (hex or named, one per subset)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--hull-opacity</span> <span class="pre">FLOAT</span></code></p></td>
+<td><p>Hull fill opacity (0-1)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--hull-edge</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-hull-edge</span></code></p></td>
+<td><p>Draw/hide non-bond hull edges (default: on)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--hull-edge-width-ratio</span> <span class="pre">FLOAT</span></code></p></td>
+<td><p>Hull edge stroke width as fraction of bond width (default: 0.4)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="crystal-unit-cell">
+<h2>Crystal / unit cell<a class="headerlink" href="#crystal-unit-cell" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Flag</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--cell</span></code></p></td>
+<td><p>Draw unit cell box from <code class="docutils literal notranslate"><span class="pre">Lattice=</span></code> in extXYZ (usually auto-detected)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--cell-color</span></code></p></td>
+<td><p>Cell edge color (hex or named, default: <code class="docutils literal notranslate"><span class="pre">gray</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--cell-width</span></code></p></td>
+<td><p>Unit cell box line width (default: 2.0)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--crystal</span> <span class="pre">[{vasp,qe}]</span></code></p></td>
+<td><p>Load as crystal via <code class="docutils literal notranslate"><span class="pre">phonopy</span></code>; format auto-detected or explicit</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--no-cell</span></code></p></td>
+<td><p>Hide the unit cell box</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--ghosts</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-ghosts</span></code></p></td>
+<td><p>Show/hide ghost (periodic image) atoms outside the cell</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--ghost-opacity</span></code></p></td>
+<td><p>Opacity of ghost atoms/bonds (default: 0.5)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--axes</span></code> / <code class="docutils literal notranslate"><span class="pre">--no-axes</span></code></p></td>
+<td><p>Show/hide the a/b/c axis arrows</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--axis</span> <span class="pre">HKL</span></code></p></td>
+<td><p>Orient looking down a crystallographic direction (e.g. <code class="docutils literal notranslate"><span class="pre">111</span></code>, <code class="docutils literal notranslate"><span class="pre">001</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--supercell</span> <span class="pre">M</span> <span class="pre">N</span> <span class="pre">L</span></code></p></td>
+<td><p>Repeat the unit cell <code class="docutils literal notranslate"><span class="pre">M×N×L</span></code> times along a/b/c (requires lattice/unit-cell data; default: <code class="docutils literal notranslate"><span class="pre">1</span> <span class="pre">1</span> <span class="pre">1</span></code>)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="examples.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Examples</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="configuration.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Configuration</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Dr Alister S. Goodfellow
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">CLI Reference</a><ul>
+<li><a class="reference internal" href="#input-output">Input / Output</a></li>
+<li><a class="reference internal" href="#styling">Styling</a></li>
+<li><a class="reference internal" href="#display">Display</a></li>
+<li><a class="reference internal" href="#structural-overlay-ensemble">Structural overlay / ensemble</a></li>
+<li><a class="reference internal" href="#orientation">Orientation</a></li>
+<li><a class="reference internal" href="#ts-nci">TS / NCI</a></li>
+<li><a class="reference internal" href="#surfaces">Surfaces</a></li>
+<li><a class="reference internal" href="#annotations">Annotations</a></li>
+<li><a class="reference internal" href="#vector-arrows">Vector arrows</a></li>
+<li><a class="reference internal" href="#gif-animations">GIF animations</a></li>
+<li><a class="reference internal" href="#convex-hull">Convex hull</a></li>
+<li><a class="reference internal" href="#crystal-unit-cell">Crystal / unit cell</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/scripts/furo.js?v=46bd48cc"></script>
+    </body>
+</html>
