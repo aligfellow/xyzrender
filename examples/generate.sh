@@ -97,6 +97,9 @@ echo "=== Highlight ==="
 xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" -o "$IMG/caffeine_hl.svg" --gif-rot -go "$IMG/caffeine_hl.gif" 
 xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" --hl-color lightseagreen -o "$IMG/caffeine_hl_custom.svg"
 
+echo "=== Depth of field ==="
+xyzrender "$DIR/caffeine.xyz" --dof --no-orient -o "$IMG/caffeine_dof.svg"
+
 echo "=== Overlays ==="
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 --hy -o "$IMG/isothio_overlay.svg" --gif-rot -go "$IMG/isothio_overlay.gif"
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 -o "$IMG/isothio_overlay_custom.svg" --no-orient --overlay-color green -a 2

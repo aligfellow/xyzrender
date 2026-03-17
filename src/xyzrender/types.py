@@ -431,6 +431,9 @@ class RenderConfig:
     # Highlight (atom group coloring)
     highlight_indices: list[int] | None = None  # 0-indexed atom indices to highlight
     highlight_color: str = "orchid"  # default from preset
+    # Depth of field
+    dof: bool = False
+    dof_strength: float = 3.0  # max blur stdDeviation in SVG units
     # Overlay
     overlay_color: str = "mediumorchid"
     # Ensemble

@@ -492,6 +492,9 @@ def render(
     # --- Highlight ---
     highlight: str | list[int] | None = None,
     highlight_color: str | None = None,
+    # --- Depth of field ---
+    dof: bool = False,
+    dof_strength: float | None = None,
     # --- Overlay ---
     overlay: str | os.PathLike | Molecule | None = None,
     overlay_color: str | None = None,
@@ -659,6 +662,12 @@ def render(
 
     # --- Highlight ---
     _apply_highlight(cfg, highlight=highlight, highlight_color=highlight_color)
+
+    # --- Depth of field ---
+    if dof:
+        cfg.dof = True
+    if dof_strength is not None:
+        cfg.dof_strength = dof_strength
 
     # --- Convex hull (both config paths) ---
     from xyzrender.hull import apply_hull_to_config
@@ -927,6 +936,9 @@ def render_gif(
     # --- Highlight ---
     highlight: str | list[int] | None = None,
     highlight_color: str | None = None,
+    # --- Depth of field ---
+    dof: bool = False,
+    dof_strength: float | None = None,
     # --- Structural overlay (gif_rot only) ---
     overlay: str | os.PathLike | Molecule | None = None,
     overlay_color: str | None = None,
@@ -1080,6 +1092,12 @@ def render_gif(
 
     # --- Highlight ---
     _apply_highlight(cfg, highlight=highlight, highlight_color=highlight_color)
+
+    # --- Depth of field ---
+    if dof:
+        cfg.dof = True
+    if dof_strength is not None:
+        cfg.dof_strength = dof_strength
 
     # --- Convex hull (both config paths) ---
     from xyzrender.hull import apply_hull_to_config

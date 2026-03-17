@@ -137,6 +137,12 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |------------------|---------------|----------|
 | ![hl](examples/images/caffeine_hl.svg) | ![hl custom](examples/images/caffeine_hl_custom.svg) | ![hl rot](examples/images/caffeine_hl.gif) |
 
+### Depth of field
+
+| DoF |
+|-----|
+| ![dof](examples/images/caffeine_dof.svg) |
+
 ### Structural overlay & ensemble
 
 | Overlay | Custom colour | Ensemble (CPK) | Ensemble (spectral) |
@@ -224,6 +230,12 @@ Key dependencies:
 - [**cclib**](https://github.com/cclib/cclib) — parsing quantum chemistry output files (ORCA, Gaussian, Q-Chem, etc.)
 - [**CairoSVG**](https://github.com/Kozea/CairoSVG) — SVG to PNG/PDF conversion
 - [**Pillow**](https://github.com/python-pillow/Pillow) — GIF frame assembly
+
+For SVG filter effects (`--dof`, `--sketch`, `--shadow`) in GIFs/PNG:
+
+- [**resvg-py**](https://github.com/nicmr/resvg-py) — `pip install resvg-py` (recommended, cross-platform wheels)
+
+Falls back to CairoSVG automatically (filters silently ignored). SVG output always contains the filters regardless.
 
 Optional dependencies:
 

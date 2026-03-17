@@ -267,6 +267,17 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         depth = pos[:, 2].max() - pos[:, 2]  # distance from front atom
         fog_f = cfg.fog_strength * np.clip((depth - _FOG_NEAR) / zr, 0.0, 1.0)
 
+    # Depth-of-field: per-atom blur bucket (0 = sharp front, N-1 = max blur back)
+    n_dof_levels = 20
+    dof_buckets: list[int] = []
+    if cfg.dof:
+        if cfg.fog:
+            dof_depth = fog_f / max(cfg.fog_strength, 1e-6)  # normalize back to [0, 1]
+        else:
+            zr = max(pos[:, 2].max() - pos[:, 2].min(), 1e-6)
+            dof_depth = np.clip((pos[:, 2].max() - pos[:, 2] - _FOG_NEAR) / zr, 0.0, 1.0)
+        dof_buckets = [int(d * (n_dof_levels - 1) + 0.5) for d in dof_depth]
+
     # --- Build SVG ---
     svg = [
         f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
@@ -276,6 +287,17 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     ]
     if not cfg.transparent:
         svg.append(f'  <rect width="100%" height="100%" fill="{cfg.background}"/>')
+
+    # DoF filter definitions
+    if cfg.dof:
+        svg.append("  <defs>")
+        for lvl in range(n_dof_levels):
+            blur = lvl / max(n_dof_levels - 1, 1) * cfg.dof_strength
+            svg.append(
+                f'    <filter id="dof{lvl}" x="-50%" y="-50%" width="200%" height="200%">'
+                f'<feGaussianBlur stdDeviation="{blur:.2f}"/></filter>'
+            )
+        svg.append("  </defs>")
 
     use_grad = cfg.gradient and not cfg.skeletal_style
     if cfg.skeletal_style:
@@ -731,6 +753,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 )
         else:
             # Atom circle (gradient or flat fill)
+            dof_attr = f' filter="url(#dof{dof_buckets[ai]})"' if cfg.dof else ""
             if use_grad:
                 if use_per_atom_grad:
                     grad_id = f"g{ai}"
@@ -740,7 +763,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     fs_atom = cfg.atom_stroke_color
                 svg.append(
                     f'  <circle cx="{xi:.1f}" cy="{yi:.1f}" r="{radii[ai] * scale:.1f}" '
-                    f'fill="url(#{grad_id})" stroke="{fs_atom}" stroke-width="{sw:.1f}"{op_attr_atom}/>'
+                    f'fill="url(#{grad_id})" stroke="{fs_atom}" stroke-width="{sw:.1f}"{op_attr_atom}{dof_attr}/>'
                 )
             else:
                 fill, stroke = colors[ai].hex, cfg.atom_stroke_color
@@ -749,7 +772,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     stroke = blend_fog(stroke, fog_rgb, fog_f[ai])
                 svg.append(
                     f'  <circle cx="{xi:.1f}" cy="{yi:.1f}" r="{radii[ai] * scale:.1f}" '
-                    f'fill="{fill}" stroke="{stroke}" stroke-width="{sw:.1f}"{op_attr_atom}/>'
+                    f'fill="{fill}" stroke="{stroke}" stroke-width="{sw:.1f}"{op_attr_atom}{dof_attr}/>'
                 )
 
             # Atom index label — depth-sorted with atom so nearer atoms occlude it

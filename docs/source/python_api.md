@@ -69,6 +69,8 @@ render(mol, idx="n")                # index only ("1", "3", ...)
 render(mol, highlight="1-3,7")                          # highlight atoms 1-3 and 7 (orchid)
 render(mol, highlight="1-3,7", highlight_color="red")   # custom colour
 render(mol, highlight=[0, 1, 2, 6])                     # 0-indexed list (Python API)
+render(mol, dof=True)                                   # depth-of-field blur
+render(mol, dof=True, dof_strength=6.0)                 # stronger blur
 ```
 
 ### Structural overlay

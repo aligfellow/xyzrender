@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import sys
 from dataclasses import dataclass
-from functools import partial
+from functools import lru_cache, partial
 from io import BytesIO
 from typing import TYPE_CHECKING
 
@@ -826,14 +826,38 @@ def _render_frames(
 
 
 def _svg_to_png(svg: str, size: int) -> bytes:
-    """Convert SVG string to PNG bytes."""
+    """Convert SVG string to PNG bytes.
+
+    Prefers **resvg-py** (``pip install resvg-py``) when available — it supports
+    SVG filters (``feGaussianBlur``, ``feTurbulence``, etc.) that cairosvg
+    silently ignores, so ``--dof`` / ``--sketch`` / ``--shadow`` effects will
+    only appear in GIFs when resvg-py is installed.  Falls back to cairosvg.
+    """
+    if _has_resvg():
+        return _resvg_svg_to_png(svg, size)
     try:
         import cairosvg
     except ImportError:
-        msg = "GIF generation requires cairosvg"
+        msg = "GIF generation requires resvg-py or cairosvg — pip install resvg-py"
         raise ImportError(msg) from None
-
     return cairosvg.svg2png(bytestring=svg.encode(), output_width=size, output_height=size)
+
+
+@lru_cache(maxsize=1)
+def _has_resvg() -> bool:
+    """Check if resvg-py is importable (cached)."""
+    try:
+        from resvg_py import svg_to_bytes  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+def _resvg_svg_to_png(svg: str, size: int) -> bytes:
+    """Convert SVG to PNG via resvg-py."""
+    from resvg_py import svg_to_bytes
+
+    return svg_to_bytes(svg_string=svg, width=size, height=size)
 
 
 def _stitch_gif(pngs: list[bytes], output: str, fps: int) -> None:

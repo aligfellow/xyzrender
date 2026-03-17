@@ -286,6 +286,15 @@ def main() -> None:
     )
     hl_g.add_argument("--hl-color", default=None, metavar="COLOR", help="Highlight color (default: orchid)")
 
+    # --- Depth of field ---
+    dof_g = p.add_argument_group("depth of field")
+    dof_g.add_argument(
+        "--dof", action="store_true", default=False, help="Depth-of-field blur (front sharp, back blurred)"
+    )
+    dof_g.add_argument(
+        "--dof-strength", type=float, default=None, metavar="FLOAT", help="DoF max blur strength (default: 3.0)"
+    )
+
     # --- Measurements & annotations ---
     annot_g = p.add_argument_group("measurements & annotations")
     annot_g.add_argument(
@@ -498,6 +507,12 @@ def main() -> None:
 
         cfg.highlight_color = resolve_color(args.hl_color)
 
+    # Depth of field
+    if args.dof:
+        cfg.dof = True
+    if args.dof_strength is not None:
+        cfg.dof_strength = args.dof_strength
+
     # Output path defaults and validation
     base = _basename(args.input, from_stdin)
     if not args.output:
@@ -510,7 +525,7 @@ def main() -> None:
 
     wants_gif = args.gif_ts or args.gif_rot or args.gif_trj
 
-    # Warn when annotation flags (static-SVG only) are combined with GIF output
+    # Warn when SVG-only flags are combined with GIF output
     annotation_flags_used = args.idx is not None or args.label_specs or args.label
     if annotation_flags_used and wants_gif:
         print(
