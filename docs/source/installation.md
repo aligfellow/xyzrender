@@ -45,14 +45,6 @@ pip install 'xyzrender[cif]'      # CIF input (ase)
 pip install 'xyzrender[all]'      # everything above
 ```
 
-## SVG filter support (for `--dof`, `--sketch`, `--shadow` in GIFs)
-
-SVG filter effects always work in static SVG output (viewed in a browser). For these effects to appear in GIFs and PNG exports, install [resvg-py](https://github.com/nicmr/resvg-py):
-
-```bash
-pip install resvg-py
-```
-
 xyzrender auto-detects resvg-py and uses it when available. Without it, CairoSVG is used as fallback (filters silently ignored in raster output).
 
 ## Development setup

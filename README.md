@@ -230,10 +230,7 @@ Key dependencies:
 - [**cclib**](https://github.com/cclib/cclib) — parsing quantum chemistry output files (ORCA, Gaussian, Q-Chem, etc.)
 - [**CairoSVG**](https://github.com/Kozea/CairoSVG) — SVG to PNG/PDF conversion
 - [**Pillow**](https://github.com/python-pillow/Pillow) — GIF frame assembly
-
-For SVG filter effects (`--dof`, `--sketch`, `--shadow`) in GIFs/PNG:
-
-- [**resvg-py**](https://github.com/nicmr/resvg-py) — `pip install resvg-py` (recommended, cross-platform wheels)
+- [**resvg-py**](https://github.com/nicmr/resvg-py) — SVG to PNG conversion preserving SVG effects
 
 Falls back to CairoSVG automatically (filters silently ignored). SVG output always contains the filters regardless.
 

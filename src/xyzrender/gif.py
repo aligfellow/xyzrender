@@ -828,10 +828,10 @@ def _render_frames(
 def _svg_to_png(svg: str, size: int) -> bytes:
     """Convert SVG string to PNG bytes.
 
-    Prefers **resvg-py** (``pip install resvg-py``) when available — it supports
+    Prefers **resvg-py** when available — it supports
     SVG filters (``feGaussianBlur``, ``feTurbulence``, etc.) that cairosvg
-    silently ignores, so ``--dof`` / ``--sketch`` / ``--shadow`` effects will
-    only appear in GIFs when resvg-py is installed.  Falls back to cairosvg.
+    silently ignores, so ``--dof`` effects will only appear in GIFs when resvg-py
+    is installed.  Falls back to cairosvg.
     """
     if _has_resvg():
         return _resvg_svg_to_png(svg, size)
