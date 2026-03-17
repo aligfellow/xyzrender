@@ -54,9 +54,9 @@ xyzrender asparagine.xyz --hy --vdw --config paton    # paton style
 
 Blur back atoms while keeping front atoms sharp. Uses SVG `feGaussianBlur` filters.
 
-| DoF |
-|-----|
-| ![dof](../../../examples/images/caffeine_dof.svg) |
+| DoF | Rotation | 
+|-----|----------|
+| ![dof](../../../examples/images/caffeine_dof.svg) | ![dof](../../../examples/images/caffeine_dof.gif) | 
 
 ```bash
 xyzrender caffeine.xyz --dof --no-orient                    # default strength
