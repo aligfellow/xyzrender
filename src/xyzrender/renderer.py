@@ -805,6 +805,12 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     bond_op = min(v for v in (_ai_ens_op, _aj_ens_op) if v is not None)
                 else:
                     bond_op = 1.0
+                # Diffuse GIF: fade stretched bonds
+                _diff_op = graph.edges[ai, aj_int].get("diffuse_opacity") if graph.has_edge(ai, aj_int) else None
+                if _diff_op is not None:
+                    bond_op = min(bond_op, _diff_op)
+                if bond_op < 0.01:
+                    continue  # skip invisible bonds
                 add_bond(ai, aj_int, bo, style, opacity=bond_op, color_override=color_ov)
 
     # NCI patches in front of all atoms (z_depth > frontmost atom)

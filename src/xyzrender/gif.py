@@ -534,6 +534,179 @@ def render_trajectory_gif(
     logger.info("Wrote %s", output)
 
 
+# ---------------------------------------------------------------------------
+# Diffuse / build frame generators
+# ---------------------------------------------------------------------------
+
+
+def _schedule(t: float, name: str) -> float:
+    """Map progress *t* (0→1) through a displacement schedule.
+
+    Default "cosine" uses an asymmetric curve that accelerates quickly
+    and decelerates gently — when reversed for assembly playback, atoms
+    rush in fast then settle slowly into equilibrium.
+    """
+    if name == "sqrt":
+        return t**0.5
+    if name == "cosine":
+        # Quadratic: fast initial motion, slow tail toward equilibrium
+        return t**2
+    return t  # linear
+
+
+def _diffuse_frames(
+    graph: "nx.Graph",
+    n_frames: int = 40,
+    sigma: float = 4.0,
+    radial_bias: float = 0.5,
+    jitter: float = 0.3,
+    schedule: str = "cosine",
+    reverse: bool = True,
+    seed: int = 42,
+    anchor: set[int] | None = None,
+) -> list[dict]:
+    """Generate frames with progressive noise on atom positions.
+
+    Each atom gets a drift direction (blend of radial outward + random) and
+    per-frame isotropic jitter that scales with displacement, giving a noisy
+    random-walk feel rather than a smooth glide.
+
+    *anchor* atoms (0-indexed) stay at their original positions throughout.
+
+    When *reverse* is True (default), the frame list is reversed so playback
+    shows atoms assembling from noise into the molecule (denoising aesthetic).
+
+    Each frame dict includes a ``"bond_opacities"`` mapping
+    ``{(i,j): float}`` for bonds whose current length exceeds the
+    equilibrium length — the renderer uses this to fade stretched bonds.
+    """
+    nodes = list(graph.nodes())
+    positions = np.array([graph.nodes[n]["position"] for n in nodes])
+    symbols = [graph.nodes[n]["symbol"] for n in nodes]
+    n_atoms = len(nodes)
+    anchor = anchor or set()
+
+    centroid = positions.mean(axis=0)
+    rng = np.random.default_rng(seed)
+
+    # Radial unit vectors (away from centroid)
+    radial = positions - centroid
+    norms = np.linalg.norm(radial, axis=1, keepdims=True)
+    at_center = (norms < 1e-8).flatten()
+    random_dirs = rng.standard_normal(radial.shape)
+    random_dirs /= np.linalg.norm(random_dirs, axis=1, keepdims=True)
+    radial[at_center] = random_dirs[at_center]
+    norms[at_center.reshape(-1, 1)] = 1.0
+    r_hat = radial / norms
+
+    # Per-atom drift direction = blend of radial + isotropic
+    iso_noise = rng.standard_normal(positions.shape)
+    iso_noise /= np.linalg.norm(iso_noise, axis=1, keepdims=True)
+    drift = sigma * (radial_bias * r_hat + (1 - radial_bias) * iso_noise)
+
+    # Anchor mask: 0 for anchored atoms, 1 for mobile
+    mobile = np.array([0.0 if i in anchor else 1.0 for i in range(n_atoms)]).reshape(-1, 1)
+
+    # Build cumulative random walk
+    walk = np.zeros_like(positions)
+    walk_history = [walk.copy()]
+    for _fi in range(1, n_frames):
+        step = rng.standard_normal(positions.shape) * jitter * sigma / max(n_frames, 1) ** 0.5
+        walk = walk + step
+        walk_history.append(walk.copy())
+
+    # Equilibrium bond lengths for opacity fading
+    eq_lengths: dict[tuple[int, int], float] = {}
+    for i, j in graph.edges():
+        d = float(np.linalg.norm(positions[i] - positions[j]))
+        eq_lengths[(i, j)] = eq_lengths[(j, i)] = d
+
+    frames = []
+    for fi in range(n_frames):
+        t = fi / max(n_frames - 1, 1)
+        d = _schedule(t, schedule)
+        noise = mobile * (d * drift + d * d * walk_history[fi])
+        perturbed = positions + noise
+
+        # Bond opacity: exponential fade beyond equilibrium length
+        bond_opacities: dict[tuple[int, int], float] = {}
+        for (i, j), eq_len in eq_lengths.items():
+            if i >= j:
+                continue
+            cur_len = float(np.linalg.norm(perturbed[i] - perturbed[j]))
+            ratio = cur_len / max(eq_len, 0.1)
+            if ratio > 1.0:
+                # Steep exponential decay beyond equilibrium
+                op = max(0.0, np.exp(-6.0 * (ratio - 1.0)))
+                bond_opacities[(i, j)] = bond_opacities[(j, i)] = op
+
+        frames.append(
+            {
+                "symbols": symbols,
+                "positions": perturbed.tolist(),
+                "bond_opacities": bond_opacities,
+            }
+        )
+
+    if reverse:
+        frames.reverse()
+    return frames
+
+
+def render_diffuse_gif(
+    graph: "nx.Graph",
+    config: "RenderConfig",
+    output: str,
+    *,
+    n_frames: int = 40,
+    sigma: float = 4.0,
+    radial_bias: float = 0.5,
+    jitter: float = 0.3,
+    schedule: str = "cosine",
+    reverse: bool = True,
+    fps: int = 10,
+    rotation_axis: str | None = None,
+    anchor: set[int] | None = None,
+) -> None:
+    """Render a diffuse/assembly GIF.
+
+    Atoms scatter with a blend of radial and isotropic noise, then
+    settle into position.  Bonds are hidden during the animation to
+    avoid stretched-bond artefacts — they appear cleanly in the final
+    (settled) frames.
+    """
+    import copy
+
+    if config.auto_orient:
+        vt = pca_matrix(np.array([graph.nodes[n]["position"] for n in graph.nodes()]))
+        _orient_graph(graph, vt)
+        config = copy.copy(config)
+        config.auto_orient = False
+
+    frames = _diffuse_frames(
+        graph,
+        n_frames=n_frames,
+        sigma=sigma,
+        radial_bias=radial_bias,
+        jitter=jitter,
+        schedule=schedule,
+        reverse=reverse,
+        anchor=anchor,
+    )
+
+    axis_vec = None
+    axis_sign = 1.0
+    if rotation_axis:
+        axis_vec, axis_sign = _rotation_axis(rotation_axis)
+
+    config = _fixed_viewport(frames, config, rotation_axis=axis_vec)
+
+    logger.info("Rendering diffuse GIF (%d frames%s)", len(frames), f", axis={rotation_axis}" if rotation_axis else "")
+    pngs = _render_frames(graph, frames, config, rotation_axis=axis_vec, rotation_sign=axis_sign)
+    _stitch_gif(pngs, output, fps)
+    logger.info("Wrote %s", output)
+
+
 def _fixed_viewport(frames: list[dict], config: RenderConfig, rotation_axis: np.ndarray | None = None) -> RenderConfig:
     """Create a config with fixed viewport so every frame has identical canvas size.
 
@@ -757,6 +930,13 @@ def _render_traj_frame(
     positions = frame["positions"]
     for i, (x, y, z) in enumerate(positions):
         graph.nodes[i]["position"] = (float(x), float(y), float(z))
+
+    # Apply per-frame bond opacities (from diffuse GIF: fades stretched bonds)
+    bond_opacities = frame.get("bond_opacities")
+    if bond_opacities:
+        for (i, j), op in bond_opacities.items():
+            if graph.has_edge(i, j):
+                graph[i][j]["diffuse_opacity"] = op
 
     if nci_analyzer is not None:
         ncis = nci_analyzer.detect(np.array(positions))
