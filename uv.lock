@@ -2205,8 +2205,8 @@ wheels = [
 
 [[package]]
 name = "xyzgraph"
-version = "1.6.2"
-source = { registry = "https://pypi.org/simple" }
+version = "1.6.5"
+source = { editable = "../xyzgraph" }
 dependencies = [
     { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -2214,9 +2214,27 @@ dependencies = [
     { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "rdkit" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b8/01/164dc16da0980f36234bbcb4be2ec5e3d1167d6c1a1b1dfef02a2ac30033/xyzgraph-1.6.2.tar.gz", hash = "sha256:5fa89b218a0d3250149a600fa3bc11f7ff44c7f6db825d74a5ee340fc7fe9295", size = 143757, upload-time = "2026-03-08T12:57:30.562Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f8/37/c95521187d46f6f8188c22e32e8cca200cc226bcc297b5629fcbde87848e/xyzgraph-1.6.2-py3-none-any.whl", hash = "sha256:51e10be06354bb95233562dffaf2db5be33eb44a41337174e19a99903854f43a", size = 107207, upload-time = "2026-03-08T12:57:28.105Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "networkx" },
+    { name = "numpy" },
+    { name = "rdkit" },
+    { name = "scipy", marker = "extra == 'rdkit-tm'" },
+]
+provides-extras = ["rdkit-tm"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pre-commit", specifier = ">=3.5.0" },
+    { name = "pytest", specifier = ">=8.3.5" },
+    { name = "pytest-cov", specifier = ">=5.0.0" },
+    { name = "ruff", specifier = ">=0.14.14" },
+    { name = "ty", specifier = ">=0.0.14" },
+]
+rdkit-tm = [
+    { name = "scipy" },
+    { name = "xyz2mol-tm", git = "https://github.com/jensengroup/xyz2mol_tm.git" },
 ]
 
 [[package]]
@@ -2293,7 +2311,7 @@ requires-dist = [
     { name = "scipy", marker = "extra == 'hull'", specifier = ">=1.10" },
     { name = "vmol", marker = "extra == 'all'" },
     { name = "vmol", marker = "extra == 'v'" },
-    { name = "xyzgraph", specifier = ">=1.6.2" },
+    { name = "xyzgraph", editable = "../xyzgraph" },
 ]
 provides-extras = ["hull", "crystal", "smi", "cif", "v", "all"]
 

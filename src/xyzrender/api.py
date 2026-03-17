@@ -929,6 +929,9 @@ def render_gif(
     no_hy: bool = False,
     bo: bool | None = None,
     orient: bool | None = None,
+    # --- Stereochemistry ---
+    stereo: bool = False,
+    stereo_rs: str = "label",
     # --- Structural overlay (gif_rot only) ---
     overlay: str | os.PathLike | Molecule | None = None,
     overlay_color: str | None = None,

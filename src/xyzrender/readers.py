@@ -220,7 +220,6 @@ def graph_from_moldata(
             graph.add_node(i, symbol=sym, position=pos)
         for i, j, order in data.bonds:
             graph.add_edge(i, j, bond_order=order)
-        graph.graph["stereo_hint"] = bool(data.stereo_bonds_present or data.stereo_atoms_present)
         isolated = sum(1 for n in graph.nodes if graph.degree(n) == 0)
         if isolated > 0:
             logger.warning(
@@ -245,7 +244,6 @@ def graph_from_moldata(
         kekule=kekule,
         quick=quick,
     )
-    graph.graph["stereo_hint"] = bool(data.stereo_bonds_present or data.stereo_atoms_present)
     logger.info(
         "Graph rebuilt via xyzgraph: %d atoms, %d bonds",
         graph.number_of_nodes(),

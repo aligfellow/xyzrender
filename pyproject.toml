@@ -11,7 +11,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.24",
-    "xyzgraph>=1.6.5",
+    "xyzgraph>=1.6.2",
     "cclib",
     "graphrc>=1.3.6",
     "cairosvg",
@@ -43,6 +43,9 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 xyzrender = ["presets/*.json"]
+
+[tool.uv.sources]
+xyzgraph = { path = "../xyzgraph", editable = true }
 
 [dependency-groups]
 dev = [

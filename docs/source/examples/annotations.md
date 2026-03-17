@@ -56,6 +56,44 @@ Same syntax as `-l`, one spec per line. Lines whose first token is not an intege
 xyzrender sn2.out --ts --label sn2_label.txt --label-size 40
 ```
 
+## Stereochemistry (`--stereo`)
+
+Add R/S and E/Z stereochemistry labels derived from 3D geometry (via [xyzgraph](https://github.com/aligfellow/xyzgraph)).
+
+| R/S atom-centered | R/S offset label |
+|---|---|
+| ![R/S atom](../../../examples/images/R-lactate_atom_stereo_labelling.svg) | ![R/S label](../../../examples/images/R-lactate_stereo_labelling.svg) |
+
+```bash
+xyzrender R-lactate.xyz --stereo            # R/S centered on atom (default)
+xyzrender R-lactate.xyz --stereo label      # R/S offset like other annotations
+```
+
+E/Z labels are placed at bond midpoints:
+
+| Z-stilbene | E-stilbene |
+|---|---|
+| ![Z](../../../examples/images/Z-stillbene.svg) | ![E](../../../examples/images/E-stillbene.svg) |
+
+```bash
+xyzrender Z-stilbene.xyz --stereo
+xyzrender E-stilbene.xyz --stereo
+```
+
+Axial, planar, and helical chirality are also detected:
+
+| Axial (binol) | Planar (ferrocene) | Helical ([6]helicene) |
+|---|---|---|
+| ![axial](../../../examples/images/axial_binol_stereo.svg) | ![planar](../../../examples/images/ferrocene_chiral_cp_stereo.svg) | ![helical](../../../examples/images/helical_6helicene_stereo.svg) |
+
+```bash
+xyzrender binol.xyz --stereo
+xyzrender ferrocene.xyz --stereo
+xyzrender 6helicene.xyz --stereo
+```
+
+> **Note:** `--stereo` with `--idx` will overlap labels on stereocenters since both draw text at the atom position. Use `--stereo label` to offset R/S labels if combining with `--idx`.
+
 ## Atom property colormap (`--cmap`)
 
 Color atoms by a per-atom scalar value (e.g. partial charges) using a Viridis-like colormap.

@@ -644,12 +644,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         else:
             nb = max(1, round(bo))
             w = bw if nb == 1 else bw * 0.7
-            sep = gap
-            if nb == 2:
-                # Ensure double bonds remain visually distinct on small molecules.
-                sep = max(gap, w * 1.1)
             for ib in range(-nb + 1, nb, 2):
-                ox, oy = px * ib * sep, py * ib * sep
+                ox, oy = px * ib * gap, py * ib * gap
                 svg.append(
                     f'  <line x1="{x1 + ox:.1f}" y1="{y1 + oy:.1f}" x2="{x2 + ox:.1f}" y2="{y2 + oy:.1f}" '
                     f'stroke="{color}" stroke-width="{w:.1f}" stroke-linecap="round"{op_attr}/>'
@@ -1088,6 +1084,8 @@ def _annotations_svg(
         if isinstance(ann, AtomValueLabel):
             xi, yi = _proj(pos[ann.index], scale, cx, cy, canvas_w, canvas_h)
             if ann.on_atom:
+                # NB: overlaps with --idx labels which also render at (xi, yi);
+                # use on_atom=False (--stereo label) when combining with --idx.
                 svg.append(_text_svg(xi, yi, ann.text, fs, col))
             else:
                 svg.append(_text_svg(xi, yi + fs * cfg.label_offset, ann.text, fs, col))

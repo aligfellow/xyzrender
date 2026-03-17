@@ -45,12 +45,6 @@ class MolData:
     pbc_cell:
         ``(3, 3)`` float array whose rows are the lattice vectors **a**, **b**,
         **c** in Ångström, or ``None`` for non-periodic structures.
-    stereo_bonds_present:
-        True if the source file contains explicit bond stereochemistry
-        annotations (e.g., wedge/hash or CFG=).
-    stereo_atoms_present:
-        True if the source file contains explicit atom stereochemistry
-        annotations (e.g., chiral flags).
     """
 
     atoms: list[tuple[str, tuple[float, float, float]]]
@@ -58,8 +52,6 @@ class MolData:
     name: str = ""
     charge: int = 0
     pbc_cell: np.ndarray | None = field(default=None, repr=False)
-    stereo_bonds_present: bool = False
-    stereo_atoms_present: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -164,7 +156,6 @@ def _parse_mol_v2000(lines: list[str], name: str) -> MolData:
         atoms.append((sym, (x, y, z)))
 
     bonds: list[tuple[int, int, float]] = []
-    stereo_bonds_present = False
     for ln in lines[bond_start : bond_start + n_bonds]:
         parts = ln.split()
         if len(parts) < 3:
@@ -173,13 +164,6 @@ def _parse_mol_v2000(lines: list[str], name: str) -> MolData:
             a1, a2, btype = int(parts[0]) - 1, int(parts[1]) - 1, int(parts[2])
         except ValueError:
             continue
-        if len(parts) >= 4:
-            try:
-                stereo_flag = int(parts[3])
-            except ValueError:
-                stereo_flag = 0
-            if stereo_flag != 0:
-                stereo_bonds_present = True
         bonds.append((a1, a2, _V2000_BOND_ORDER.get(btype, 1.0)))
 
     # Override charges from M  CHG lines (more reliable than atom block codes)
@@ -197,13 +181,7 @@ def _parse_mol_v2000(lines: list[str], name: str) -> MolData:
                 pass
 
     total_charge = sum(atom_charges.values())
-    return MolData(
-        atoms=atoms,
-        bonds=bonds,
-        name=name,
-        charge=total_charge,
-        stereo_bonds_present=stereo_bonds_present,
-    )
+    return MolData(atoms=atoms, bonds=bonds, name=name, charge=total_charge)
 
 
 def _parse_mol_v3000(lines: list[str], name: str) -> MolData:
@@ -213,8 +191,6 @@ def _parse_mol_v3000(lines: list[str], name: str) -> MolData:
     atoms: list[tuple[str, tuple[float, float, float]]] = []
     bonds: list[tuple[int, int, float]] = []
     total_charge = 0
-    stereo_bonds_present = False
-    stereo_atoms_present = False
 
     for ln in lines:
         s = ln.strip()
@@ -256,8 +232,6 @@ def _parse_mol_v3000(lines: list[str], name: str) -> MolData:
                         chg = int(p.split("=", 1)[1])
                     except ValueError:
                         pass
-                if p.upper().startswith("CFG="):
-                    stereo_atoms_present = True
             total_charge += chg
             atoms.append((sym, (x, y, z)))
 
@@ -273,17 +247,8 @@ def _parse_mol_v3000(lines: list[str], name: str) -> MolData:
             except ValueError:
                 continue
             bonds.append((a1, a2, _V2000_BOND_ORDER.get(btype, 1.0)))
-            if "CFG=" in s.upper():
-                stereo_bonds_present = True
 
-    return MolData(
-        atoms=atoms,
-        bonds=bonds,
-        name=name,
-        charge=total_charge,
-        stereo_bonds_present=stereo_bonds_present,
-        stereo_atoms_present=stereo_atoms_present,
-    )
+    return MolData(atoms=atoms, bonds=bonds, name=name, charge=total_charge)
 
 
 def parse_mol(path: str | Path) -> MolData:
@@ -653,15 +618,7 @@ def parse_smiles(smiles: str, kekule: bool = False) -> MolData:
         (b.GetBeginAtomIdx(), b.GetEndAtomIdx(), b.GetBondTypeAsDouble()) for b in mol.GetBonds()
     ]
 
-    stereo_atoms_present = "@" in smiles
-    stereo_bonds_present = "/" in smiles or "\\" in smiles
-    return MolData(
-        atoms=atoms,
-        bonds=bonds,
-        name=smiles,
-        stereo_bonds_present=stereo_bonds_present,
-        stereo_atoms_present=stereo_atoms_present,
-    )
+    return MolData(atoms=atoms, bonds=bonds, name=smiles)
 
 
 # ---------------------------------------------------------------------------
