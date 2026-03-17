@@ -139,9 +139,9 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### Depth of field
 
-| DoF |
-|-----|
-| ![dof](examples/images/caffeine_dof.svg) |
+| DoF | Rotation |
+|-----|----------| 
+| ![dof](examples/images/caffeine_dof.svg) | ![dof](examples/images/caffeine_dof.gif) |
 
 ### Structural overlay & ensemble
 
