@@ -54,39 +54,75 @@ def rotate_with_viewer(
 
     logger.info("Using viewer: %s", viewer)
     n = graph.number_of_nodes()
-    atoms: _Atoms = [(graph.nodes[i]["symbol"], graph.nodes[i]["position"]) for i in range(n)]
+    symbols = [graph.nodes[i]["symbol"] for i in range(n)]
     orig_pos = np.array([graph.nodes[i]["position"] for i in range(n)], dtype=float)
     lattice = graph.graph.get("lattice")
 
+    atoms: _Atoms = list(zip(symbols, [tuple(row) for row in orig_pos], strict=True))
     rotated_text = _run_viewer_with_atoms(viewer, atoms, lattice=lattice)
 
-    if not rotated_text.strip():
+    if not rotated_text or not rotated_text.strip():
         logger.warning("No output from viewer.")
         return None, None, None
 
+    # Extract rotation matrix from vmol 'u' output (rot:r00,r01,...,r22)
+    # and strip rotation lines so _parse_auto sees clean XYZ.
+    rot = None
+    xyz_lines: list[str] = []
+    for line in rotated_text.splitlines():
+        if line.startswith("rot:"):
+            vals = [float(v) for v in line[4:].split(",")]
+            rot = np.array(vals, dtype=float).reshape(3, 3)
+        elif line.startswith("rotation>"):
+            continue  # skip verbose rotation lines
+        else:
+            xyz_lines.append(line)
+
     from xyzrender.readers import _parse_auto
 
-    # take the first frame of output
-    rotated_atoms = _parse_auto(rotated_text)
+    rotated_atoms = _parse_auto("\n".join(xyz_lines))
     if not rotated_atoms or len(rotated_atoms) != n:
         logger.warning("Could not parse viewer output.")
         return None, None, None
 
-    for i, (_sym, pos) in enumerate(rotated_atoms):
-        graph.nodes[i]["position"] = pos
+    new_pos = np.array([pos for _sym, pos in rotated_atoms], dtype=float)
+    for i in range(n):
+        graph.nodes[i]["position"] = tuple(new_pos[i])
 
-    from xyzrender.utils import kabsch_rotation
+    if rot is None:
+        logger.warning("No rotation matrix from viewer.")
+        return None, None, None
 
-    new_pos = np.array([graph.nodes[i]["position"] for i in range(n)], dtype=float)
-    rot = kabsch_rotation(orig_pos, new_pos)
     c1 = orig_pos.mean(axis=0)
     c2 = new_pos.mean(axis=0)
+
+    # Check if the viewer applied cell wrapping (atoms moved relative to
+    # each other, not just rotated).
+    rotated_orig = (rot @ (orig_pos - c1).T).T + c2
+    rmsd = float(np.sqrt(np.mean(np.sum((new_pos - rotated_orig) ** 2, axis=1))))
+    wrapped = rmsd > 0.1
 
     if lattice is not None:
         lat = np.array(lattice, dtype=float)
         origin = np.array(graph.graph.get("lattice_origin", np.zeros(3)), dtype=float)
+        # Rotation matrix from vmol is exact — apply to lattice regardless
+        # of wrapping (wrapping only affects atom positions, not the lattice).
         graph.graph["lattice"] = (rot @ lat.T).T
         graph.graph["lattice_origin"] = rot @ (origin - c1) + c2
+
+    if wrapped:
+        logger.info("Cell wrapping detected (RMSD=%.3f Å), rebuilding bonds", rmsd)
+        from xyzgraph import build_graph as _build_graph
+
+        new_graph = _build_graph(
+            list(zip(symbols, [tuple(row) for row in new_pos], strict=True)),
+            charge=0,
+            multiplicity=None,
+            kekule=False,
+            quick=True,
+        )
+        graph.remove_edges_from(list(graph.edges()))
+        graph.add_edges_from(new_graph.edges(data=True))
 
     return rot, c1, c2
 
@@ -177,8 +213,8 @@ def _run_viewer_with_atoms(viewer: Vmol, atoms: _Atoms, lattice: np.ndarray | No
     q, r = zip(*atoms, strict=True)
     mol = {"q": q, "r": r, "name": "Rotate molecule with mouse / arrows and press q / Esc to confirm"}
 
-    # automatically print the coordinates before exiting
-    extra: list[str] = ["exitcom:z"]
+    # print rotation matrix (u) then coordinates (z) before exiting
+    extra: list[str] = ["exitcom:uz"]
 
     if lattice is not None:
         # v accepts the 3x3 matrix as 9 comma-separated values

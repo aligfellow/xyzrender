@@ -810,6 +810,7 @@ def main() -> None:
             align_atoms=[i + 1 for i in _align_atoms] if _align_atoms else None,
             vector=args.vector,
             vector_scale=args.vector_scale,
+            bo=args.bo,
             output=args.output,
         )
     except ValueError as e:
