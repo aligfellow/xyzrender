@@ -5,13 +5,14 @@ import logging
 from xyzrender.annotations import load_cmap
 from xyzrender.api import Molecule, load, measure, orient, render, render_gif
 from xyzrender.config import build_config
-from xyzrender.types import GIFResult, RenderConfig, SVGResult
+from xyzrender.types import GIFResult, RenderConfig, StyleRegion, SVGResult
 
 __all__ = [
     "GIFResult",
     "Molecule",
     "RenderConfig",
     "SVGResult",
+    "StyleRegion",
     "build_config",
     "configure_logging",
     "load",
