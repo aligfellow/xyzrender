@@ -10,6 +10,7 @@ dist/
 
 # Docs
 docs/build/
+docs/_build/
 
 # Virtual environment
 .venv/
