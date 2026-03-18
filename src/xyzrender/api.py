@@ -921,6 +921,15 @@ def render_gif(
     gif_rot: str | None = None,
     gif_trj: bool = False,
     gif_ts: bool = False,
+    gif_diffuse: bool = False,
+    # --- Diffuse params ---
+    diffuse_frames: int = 60,
+    diffuse_noise: float = 0.3,
+    diffuse_bonds: str = "fade",
+    diffuse_rot: int | None = None,
+    diffuse_reverse: bool = True,
+    anchor: str | list[int] | None = None,
+    # --- Common ---
     output: str | os.PathLike | None = None,
     gif_fps: int = 10,
     rot_frames: int = 120,
@@ -1034,23 +1043,28 @@ def render_gif(
     from xyzrender.config import build_config
     from xyzrender.gif import (
         ROTATION_AXES,
+        render_diffuse_gif,
         render_rotation_gif,
         render_trajectory_gif,
         render_vibration_gif,
         render_vibration_rotation_gif,
     )
 
-    if not (gif_rot or gif_trj or gif_ts):
-        msg = "render_gif: set gif_rot, gif_trj=True, or gif_ts=True"
+    if not (gif_rot or gif_trj or gif_ts or gif_diffuse):
+        msg = "render_gif: set gif_rot, gif_trj=True, gif_ts=True, or gif_diffuse=True"
         raise ValueError(msg)
 
     if gif_ts and gif_trj:
         msg = "render_gif: gif_ts and gif_trj are mutually exclusive"
         raise ValueError(msg)
 
-    if (mo or dens) and (gif_ts or gif_trj):
+    if gif_diffuse and (gif_ts or gif_trj):
+        msg = "render_gif: gif_diffuse is mutually exclusive with gif_ts / gif_trj"
+        raise ValueError(msg)
+
+    if (mo or dens) and (gif_ts or gif_trj or gif_diffuse):
         active_surf = "mo" if mo else "dens"
-        active_gif = "gif_ts" if gif_ts else "gif_trj"
+        active_gif = "gif_ts" if gif_ts else ("gif_trj" if gif_trj else "gif_diffuse")
         msg = f"render_gif: {active_surf} surface is only supported with gif_rot, not {active_gif}"
         raise ValueError(msg)
 
@@ -1211,6 +1225,29 @@ def render_gif(
             reference_graph=_trj_ref,
             detect_nci=detect_nci,
             axis=gif_rot,
+        )
+
+    elif gif_diffuse:
+        if ref_graph is None:
+            from xyzrender.readers import load_molecule
+
+            ref_graph, _ = load_molecule(str(mol_path))
+        else:
+            ref_graph = copy.deepcopy(ref_graph)
+        from xyzrender.diffuse import parse_anchor
+
+        render_diffuse_gif(
+            ref_graph,
+            cfg,
+            str(gif_path),
+            n_frames=diffuse_frames,
+            noise=diffuse_noise,
+            bonds=diffuse_bonds,
+            reverse=diffuse_reverse,
+            fps=gif_fps,
+            rotation_axis=gif_rot,
+            rotation_degrees=float(diffuse_rot) if diffuse_rot else 360.0,
+            anchor=parse_anchor(anchor),
         )
 
     else:

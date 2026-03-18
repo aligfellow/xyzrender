@@ -83,6 +83,9 @@ xyzrender "$DIR/mn-h2.log" -o "$IMG/mn-h2_gif.svg" --gif-ts -go "$IMG/mn-h2.gif"
 xyzrender "$DIR/bimp.out" -o "$IMG/bimp_ts_nci.svg" --ts --gif-trj --vdw 84-169 --nci -go "$IMG/bimp_nci_trj.gif"
 xyzrender "$DIR/bimp.out" -o "$IMG/bimp_ts_nci.svg" --gif-ts --gif-rot --vdw 84-169 --nci -go "$IMG/bimp_nci_ts.gif"
 
+echo "=== Diffuse ==="
+xyzrender "$DIR/caffeine.xyz" --gif-diffuse -go "$IMG/caffeine_diffuse.gif" --gif-rot xy --diffuse-rot 180
+
 echo "=== Vector arrows ==="
 xyzrender "$DIR/ethanol.xyz" --vector "$DIR/ethanol_dip.json" -o "$IMG/ethanol_dip.svg" --gif-rot -go "$IMG/ethanol_dip.gif"           # dipole at center of mass, with rotation
 xyzrender "$DIR/ethanol.xyz" --hy --vector "$DIR/ethanol_forces_efield.json" --vector-scale 1.5 -o "$IMG/ethanol_forces_efield.svg" -go "$IMG/ethanol_forces_efield.gif" --gif-rot  # per-atom forces, with rotation

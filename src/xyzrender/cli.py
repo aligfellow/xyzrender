@@ -265,9 +265,31 @@ def main() -> None:
         default=None,
         help="Rotation GIF (default axis: y). Combinable with --gif-ts.",
     )
+    gif_g.add_argument("--gif-diffuse", action="store_true", help="Diffuse/assembly GIF — atoms scatter and reassemble")
     gif_g.add_argument("-go", "--gif-output", default=None, help="GIF output path")
     gif_g.add_argument("--gif-fps", type=int, default=10, help="GIF frames per second (default: 10)")
     gif_g.add_argument("--rot-frames", type=int, default=120, help="Rotation frames (default: 120)")
+    gif_g.add_argument("--diffuse-frames", type=int, default=60, help="Number of diffuse frames (default: 60)")
+    gif_g.add_argument("--diffuse-noise", type=float, default=0.3, help="Per-frame random walk noise (default: 0.3)")
+    gif_g.add_argument(
+        "--diffuse-bonds",
+        choices=["fade", "show", "hide"],
+        default="fade",
+        help="Bond visibility during diffuse: fade (default), show, or hide",
+    )
+    gif_g.add_argument(
+        "--diffuse-rot",
+        type=int,
+        nargs="?",
+        const=180,
+        default=None,
+        metavar="DEG",
+        help="Add rotation during diffuse (default: 180°)",
+    )
+    gif_g.add_argument(
+        "--diffuse-forward", action="store_true", help="Play forward (molecule → noise) instead of assembly"
+    )
+    gif_g.add_argument("--anchor", default=None, metavar="ATOMS", help='Atoms that stay fixed: "1-5,8" (1-indexed)')
 
     # --- Highlight ---
     hl_g = p.add_argument_group("highlight")
@@ -557,7 +579,14 @@ def main() -> None:
         supported = ", ".join("." + e for e in sorted(_SUPPORTED_EXTENSIONS))
         p.error(f"Unsupported static output format: .{static_ext} (use {supported})")
 
-    wants_gif = args.gif_ts or args.gif_rot or args.gif_trj
+    wants_gif = args.gif_ts or args.gif_rot or args.gif_trj or args.gif_diffuse
+
+    if args.gif_diffuse and (args.gif_ts or args.gif_trj):
+        p.error("--gif-diffuse cannot be combined with --gif-ts or --gif-trj")
+
+    # --diffuse-rot without --gif-rot implies y-axis rotation
+    if args.gif_diffuse and args.diffuse_rot is not None and not args.gif_rot:
+        args.gif_rot = "y"
 
     # Warn when SVG-only flags are combined with GIF output
     annotation_flags_used = args.idx is not None or args.label_specs or args.label
@@ -814,6 +843,13 @@ def main() -> None:
                 gif_rot=args.gif_rot or None,
                 gif_trj=args.gif_trj,
                 gif_ts=args.gif_ts,
+                gif_diffuse=args.gif_diffuse,
+                diffuse_frames=args.diffuse_frames,
+                diffuse_noise=args.diffuse_noise,
+                diffuse_bonds=args.diffuse_bonds,
+                diffuse_rot=args.diffuse_rot,
+                diffuse_reverse=not args.diffuse_forward,
+                anchor=args.anchor,
                 output=gif_path,
                 gif_fps=args.gif_fps,
                 rot_frames=args.rot_frames,
