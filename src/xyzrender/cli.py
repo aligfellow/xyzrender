@@ -528,13 +528,9 @@ def main() -> None:
 
     # Style regions
     if args.region:
-        from xyzrender.config import build_region_config
-        from xyzrender.types import StyleRegion
+        from xyzrender.api import _apply_style_regions
 
-        for atoms_str, config_name in args.region:
-            indices = _parse_indices(atoms_str)
-            rcfg = build_region_config(config_name)
-            cfg.style_regions.append(StyleRegion(indices=indices, config=rcfg))
+        _apply_style_regions(cfg, regions=[(atoms_str, config_name) for atoms_str, config_name in args.region])
 
     # Bond coloring
     if args.bond_by_element is not None:

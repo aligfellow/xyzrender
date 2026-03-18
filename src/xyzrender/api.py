@@ -1569,8 +1569,16 @@ def _apply_style_regions(
     from xyzrender.config import build_region_config
     from xyzrender.types import StyleRegion
 
+    seen: set[int] = set()
     for atoms_spec, config_spec in regions:
         indices = parse_atom_indices(atoms_spec)
+
+        overlap = seen & set(indices)
+        if overlap:
+            examples = sorted(overlap)[:5]
+            msg = f"atom(s) {', '.join(str(i + 1) for i in examples)} appear in multiple style regions (1-indexed)"
+            raise ValueError(msg)
+        seen.update(indices)
 
         if isinstance(config_spec, str):
             rcfg = build_region_config(config_spec)
