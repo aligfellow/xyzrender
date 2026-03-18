@@ -42,9 +42,10 @@ if TYPE_CHECKING:
     import networkx as nx
 
     from xyzrender.cube import CubeData
-    from xyzrender.types import CellData, RenderConfig, VectorArrow
+    from xyzrender.types import CellData, VectorArrow
 
-from xyzrender.types import GIFResult, SVGResult, resolve_color
+from xyzrender.types import GIFResult, RenderConfig, SVGResult, resolve_color
+from xyzrender.utils import parse_atom_indices
 
 logger = logging.getLogger(__name__)
 
@@ -492,6 +493,11 @@ def render(
     # --- Highlight ---
     highlight: str | list[int] | None = None,
     highlight_color: str | None = None,
+    # --- Style regions ---
+    regions: list[tuple[str | list[int], str | RenderConfig]] | None = None,
+    # --- Bond coloring ---
+    bond_color_by_element: bool | None = None,
+    bond_gradient: bool | None = None,
     # --- Depth of field ---
     dof: bool = False,
     dof_strength: float | None = None,
@@ -662,6 +668,15 @@ def render(
 
     # --- Highlight ---
     _apply_highlight(cfg, highlight=highlight, highlight_color=highlight_color)
+
+    # --- Style regions ---
+    _apply_style_regions(cfg, regions=regions)
+
+    # --- Bond coloring ---
+    if bond_color_by_element is not None:
+        cfg.bond_color_by_element = bond_color_by_element
+    if bond_gradient is not None:
+        cfg.bond_gradient = bond_gradient
 
     # --- Depth of field ---
     if dof:
@@ -936,6 +951,11 @@ def render_gif(
     # --- Highlight ---
     highlight: str | list[int] | None = None,
     highlight_color: str | None = None,
+    # --- Style regions ---
+    regions: list[tuple[str | list[int], str | RenderConfig]] | None = None,
+    # --- Bond coloring ---
+    bond_color_by_element: bool | None = None,
+    bond_gradient: bool | None = None,
     # --- Depth of field ---
     dof: bool = False,
     dof_strength: float | None = None,
@@ -1092,6 +1112,15 @@ def render_gif(
 
     # --- Highlight ---
     _apply_highlight(cfg, highlight=highlight, highlight_color=highlight_color)
+
+    # --- Style regions ---
+    _apply_style_regions(cfg, regions=regions)
+
+    # --- Bond coloring ---
+    if bond_color_by_element is not None:
+        cfg.bond_color_by_element = bond_color_by_element
+    if bond_gradient is not None:
+        cfg.bond_gradient = bond_gradient
 
     # --- Depth of field ---
     if dof:
@@ -1514,22 +1543,53 @@ def _apply_highlight(
     format, or a 0-indexed ``list[int]`` for the Python API.
     """
     if highlight is not None:
-        if isinstance(highlight, str):
-            # Parse 1-indexed string → 0-indexed list (same logic as cli._parse_indices)
-            indices: list[int] = []
-            for part in highlight.split(","):
-                if "-" in part:
-                    a, b = part.split("-")
-                    indices.extend(range(int(a) - 1, int(b)))
-                else:
-                    indices.append(int(part) - 1)
-            cfg.highlight_indices = indices
-        else:
-            cfg.highlight_indices = list(highlight)
+        cfg.highlight_indices = parse_atom_indices(highlight)
     if highlight_color is not None:
         from xyzrender.types import resolve_color
 
         cfg.highlight_color = resolve_color(highlight_color)
+
+
+def _apply_style_regions(
+    cfg: "RenderConfig",
+    *,
+    regions: "list[tuple[str | list[int], str | RenderConfig]] | None" = None,
+) -> None:
+    """Apply style-region overrides to *cfg* (mutates in place).
+
+    Each region is ``(atoms_spec, config_spec)`` where *atoms_spec* is a
+    1-indexed string (``"1-5,8"``) or 0-indexed ``list[int]``, and
+    *config_spec* is a preset name or a pre-built :class:`RenderConfig`.
+    """
+    if regions is None:
+        return
+
+    import copy
+
+    from xyzrender.config import build_region_config
+    from xyzrender.types import StyleRegion
+
+    seen: set[int] = set()
+    for atoms_spec, config_spec in regions:
+        indices = parse_atom_indices(atoms_spec)
+
+        overlap = seen & set(indices)
+        if overlap:
+            examples = sorted(overlap)[:5]
+            msg = f"atom(s) {', '.join(str(i + 1) for i in examples)} appear in multiple style regions (1-indexed)"
+            raise ValueError(msg)
+        seen.update(indices)
+
+        if isinstance(config_spec, str):
+            rcfg = build_region_config(config_spec)
+        elif isinstance(config_spec, RenderConfig):
+            rcfg = copy.copy(config_spec)
+        else:
+            msg = f"region config must be a preset name (str) or RenderConfig, got {type(config_spec)}"
+            raise TypeError(msg)
+
+        rcfg.style_regions = []  # no nested regions
+        cfg.style_regions.append(StyleRegion(indices=indices, config=rcfg))
 
 
 def _apply_render_overlays(
