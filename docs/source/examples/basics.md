@@ -6,14 +6,23 @@
 |---------|------|-------------------|--------|
 | ![Default](../../../examples/images/caffeine_default.svg) | ![Flat](../../../examples/images/caffeine_flat.svg) | ![Paton (PyMOL-like)](../../../examples/images/caffeine_paton.svg) | ![Bubble](../../../examples/images/caffeine_bubble.svg) |
 
+| Tube | Wire |
+|------|------|
+| ![Tube](../../../examples/images/caffeine_tube.svg) | ![Wire](../../../examples/images/caffeine_wire.svg) |
+
 ```bash
 xyzrender caffeine.xyz                        # default
 xyzrender caffeine.xyz --config flat          # flat: no gradient
 xyzrender caffeine.xyz --config paton         # paton: PyMOL-style
 xyzrender caffeine.xyz --config bubble --hy   # space-filling-like
+xyzrender caffeine.xyz --config tube          # tube: cylinder-shaded sticks
+xyzrender caffeine.xyz --config wire          # wire: thin element-coloured lines
 ```
 
 The `paton` style is inspired by the clean styling used by [Rob Paton](https://github.com/patonlab) through PyMOL.
+
+The `tube` and `wire` presets hide atom circles and colour each bond by its endpoint atoms, with a cylinder shading gradient for a 3D look. The `tube` preset uses thick bonds; `wire` uses thin bonds.
+
 
 ## Hydrogen display
 
@@ -54,9 +63,9 @@ xyzrender asparagine.xyz --hy --vdw --config paton    # paton style
 
 Blur back atoms while keeping front atoms sharp. Uses SVG `feGaussianBlur` filters.
 
-| DoF |
-|-----|
-| ![dof](../../../examples/images/caffeine_dof.svg) |
+| DoF | Rotation | 
+|-----|----------|
+| ![dof](../../../examples/images/caffeine_dof.svg) | ![dof](../../../examples/images/caffeine_dof.gif) | 
 
 ```bash
 xyzrender caffeine.xyz --dof --no-orient                    # default strength

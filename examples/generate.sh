@@ -15,6 +15,13 @@ xyzrender "$DIR/caffeine.xyz" --config flat -o "$IMG/caffeine_flat.svg"
 xyzrender "$DIR/caffeine.xyz" --config paton -o "$IMG/caffeine_paton.svg"
 xyzrender "$DIR/caffeine.xyz" --config skeletal -o "$IMG/caffeine_skeletal.svg"
 xyzrender "$DIR/caffeine.xyz" --config bubble --hy -o "$IMG/caffeine_bubble.svg"
+xyzrender "$DIR/caffeine.xyz" --config tube -o "$IMG/caffeine_tube.svg"
+xyzrender "$DIR/caffeine.xyz" --config wire -o "$IMG/caffeine_wire.svg"
+
+echo "=== Style regions ==="
+xyzrender "$DIR/caffeine.xyz" --region "1-3,5,10,11" tube -o "$IMG/caffeine_region.svg"
+xyzrender "$DIR/caffeine.xyz" --region "1-3,5,10,11" tube --region "6,7,13,14" bubble -o "$IMG/caffeine_two_region.svg"
+xyzrender "$DIR/bimp.v000.xyz" --no-orient --region "84-165" tube --nci --hl "84-165" --vdw "84-165" -o "$IMG/bimp_regions.svg"
 
 echo "=== Display options ==="
 xyzrender "$DIR/ethanol.xyz" --hy -o "$IMG/ethanol_all_h.svg"           # all H
@@ -98,7 +105,7 @@ xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" -o "$IMG/caffeine_hl.svg" --gif-rot -
 xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" --hl-color lightseagreen -o "$IMG/caffeine_hl_custom.svg"
 
 echo "=== Depth of field ==="
-xyzrender "$DIR/caffeine.xyz" --dof --no-orient -o "$IMG/caffeine_dof.svg"
+xyzrender "$DIR/caffeine.xyz" --dof --no-orient -o "$IMG/caffeine_dof.svg" --gif-rot -go "$IMG/caffeine_dof.gif" 
 
 echo "=== Overlays ==="
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 --hy -o "$IMG/isothio_overlay.svg" --gif-rot -go "$IMG/isothio_overlay.gif"

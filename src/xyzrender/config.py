@@ -81,6 +81,9 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
         if v is not None:
             merged[k] = v
 
+    # style_regions can't be deserialised from plain JSON dicts
+    merged.pop("style_regions", None)
+
     # "colors" key in JSON maps to color_overrides on RenderConfig
     colors = merged.pop("colors", None)
     if colors:
@@ -274,6 +277,16 @@ def build_config(
         cfg.cmap_symm = True
 
     return cfg
+
+
+def build_region_config(config_name: str = "default", **overrides) -> RenderConfig:
+    """Build a :class:`RenderConfig` for use as a :class:`StyleRegion` config.
+
+    Only per-atom/bond fields are meaningful; global fields (canvas, fog,
+    surfaces) are ignored by the renderer for region configs.
+    """
+    config_data = load_config(config_name)
+    return build_render_config(config_data, {k: v for k, v in overrides.items() if v is not None})
 
 
 def collect_surf_overrides(

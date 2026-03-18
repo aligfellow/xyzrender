@@ -373,6 +373,8 @@ class RenderConfig:
     bond_width: float = 5.0
     bond_color: str = "#333333"
     bond_gap: float = 0.6  # multi-bond spacing as fraction of bond_width
+    bond_color_by_element: bool = False  # color bonds by endpoint atom colors
+    bond_gradient: bool = False  # cylinder shading on bonds (perpendicular gradient for 3D tube look)
     gradient: bool = False
     hue_shift_factor: float = 0.2
     light_shift_factor: float = 0.2
@@ -477,6 +479,26 @@ class RenderConfig:
     # Edge color is auto-derived as a darkened shade of the hull fill color.
     show_hull_edges: bool = True
     hull_edge_width_ratio: float = 0.4  # stroke width = bond_width * this
+    # Style regions: render subsets of atoms with a different preset/config
+    style_regions: list[StyleRegion] = field(default_factory=list)
+
+
+@dataclass
+class StyleRegion:
+    """A subset of atoms rendered with a different visual style.
+
+    Only per-atom/bond fields are used (atom_scale, gradient, bond_width,
+    etc.); global fields (canvas_size, background, fog, surfaces) are
+    taken from the base config.
+    """
+
+    indices: list[int]  # 0-indexed atom indices
+    config: RenderConfig  # resolved config for this region
+    _index_set: set[int] = field(default_factory=set, repr=False, init=False)
+
+    def __post_init__(self):
+        """Pre-compute index set for O(1) membership checks."""
+        self._index_set = set(self.indices)
 
 
 # ---------------------------------------------------------------------------

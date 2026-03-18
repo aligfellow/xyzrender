@@ -36,7 +36,7 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Crystal / periodic structures** — render periodic structures with unit cell box, ghost atoms, and crystallographic axis arrows (a/b/c); extXYZ `Lattice=` auto-detected; VASP/QE via [`phonopy`](https://github.com/phonopy/phonopy)
 - **Multiple output formats** — SVG (default), PNG, PDF, and GIF from the same command
 
-**Preconfigured but extensible.** Built-in presets (`default`, `flat`, `paton`, `skeletal`, `bubble`) cover common use cases. Every setting — colors, radii, bond widths, gradients, fog — can be overridden via CLI flags or a custom JSON config file.
+**Preconfigured but extensible.** Built-in presets (`default`, `flat`, `paton`, `skeletal`, `bubble`, `tube`, `wire`) cover common use cases. Every setting — colors, radii, bond widths, gradients, fog — can be overridden via CLI flags or a custom JSON config file.
 
 ```bash
 xyzrender caffeine.xyz                          # SVG with sensible defaults
@@ -109,9 +109,19 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### Presets
 
-| Default | Flat | Paton (pymol-like) | Skeletal | Bubble |
-|---------|------|--------------------|----------|--------|
-| ![default](examples/images/caffeine_default.svg) | ![flat](examples/images/caffeine_flat.svg) | ![paton](examples/images/caffeine_paton.svg) | ![skeletal](examples/images/caffeine_skeletal.svg) | ![bubble](examples/images/caffeine_bubble.svg) |
+| Default | Flat | Paton (pymol-like) | Skeletal | 
+|---------|------|--------------------|----------|
+| ![default](examples/images/caffeine_default.svg) | ![flat](examples/images/caffeine_flat.svg) | ![paton](examples/images/caffeine_paton.svg) | ![skeletal](examples/images/caffeine_skeletal.svg) | 
+
+| Bubble | Tube | Wire |
+|--------|------|------|
+| ![bubble](examples/images/caffeine_bubble.svg) | ![tube](examples/images/caffeine_tube.svg) | ![wire](examples/images/caffeine_wire.svg) |
+
+### Style regions
+
+| Tube + ball-stick region | Tube + ball-stick, NCI, vdW |
+|--------------------------|------------------------|
+| ![region](examples/images/caffeine_region.svg) | ![bimp regions](examples/images/bimp_regions.svg) |
 
 ### Display options
 
@@ -139,9 +149,9 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### Depth of field
 
-| DoF |
-|-----|
-| ![dof](examples/images/caffeine_dof.svg) |
+| DoF | Rotation |
+|-----|----------| 
+| ![dof](examples/images/caffeine_dof.svg) | ![dof](examples/images/caffeine_dof.gif) |
 
 ### Structural overlay & ensemble
 
@@ -230,10 +240,7 @@ Key dependencies:
 - [**cclib**](https://github.com/cclib/cclib) — parsing quantum chemistry output files (ORCA, Gaussian, Q-Chem, etc.)
 - [**CairoSVG**](https://github.com/Kozea/CairoSVG) — SVG to PNG/PDF conversion
 - [**Pillow**](https://github.com/python-pillow/Pillow) — GIF frame assembly
-
-For SVG filter effects (`--dof`, `--sketch`, `--shadow`) in GIFs/PNG:
-
-- [**resvg-py**](https://github.com/nicmr/resvg-py) — `pip install resvg-py` (recommended, cross-platform wheels)
+- [**resvg-py**](https://github.com/nicmr/resvg-py) — SVG to PNG conversion preserving SVG effects
 
 Falls back to CairoSVG automatically (filters silently ignored). SVG output always contains the filters regardless.
 

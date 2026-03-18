@@ -52,16 +52,9 @@ def _parse_pairs(s: str) -> list[tuple[int, int]]:
 
 def _parse_indices(s: str) -> list[int]:
     """Parse '1-20,25,30' → [0..19, 24, 29] (1-indexed input → 0-indexed)."""
-    if not s.strip():
-        return []
-    indices = []
-    for part in s.split(","):
-        if "-" in part:
-            a, b = part.split("-")
-            indices.extend(range(int(a) - 1, int(b)))
-        else:
-            indices.append(int(part) - 1)
-    return indices
+    from xyzrender.utils import parse_atom_indices
+
+    return parse_atom_indices(s)
 
 
 def main() -> None:
@@ -302,6 +295,51 @@ def main() -> None:
         "--dof-strength", type=float, default=None, metavar="FLOAT", help="DoF max blur strength (default: 3.0)"
     )
 
+    # --- Highlight ---
+    hl_g = p.add_argument_group("highlight")
+    hl_g.add_argument(
+        "--hl",
+        default=None,
+        metavar="ATOMS",
+        help='Highlight atom indices: "1-5,8,12" (1-indexed). Colors atoms and their connecting bonds.',
+    )
+    hl_g.add_argument("--hl-color", default=None, metavar="COLOR", help="Highlight color (default: orchid)")
+
+    # --- Style regions ---
+    region_g = p.add_argument_group("style regions")
+    region_g.add_argument(
+        "--region",
+        nargs=2,
+        action="append",
+        default=None,
+        metavar=("ATOMS", "CONFIG"),
+        help='Render atom subset with a different style: --region "1-5" flat. Can be repeated.',
+    )
+
+    # --- Bond coloring ---
+    bond_color_g = p.add_argument_group("bond coloring")
+    bond_color_g.add_argument(
+        "--bond-by-element",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Color bonds by endpoint atom colors (on by default in tube preset)",
+    )
+    bond_color_g.add_argument(
+        "--bond-gradient",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Cylinder shading on bonds (3D tube look). On by default in tube preset.",
+    )
+
+    # --- Depth of field ---
+    dof_g = p.add_argument_group("depth of field")
+    dof_g.add_argument(
+        "--dof", action="store_true", default=False, help="Depth-of-field blur (front sharp, back blurred)"
+    )
+    dof_g.add_argument(
+        "--dof-strength", type=float, default=None, metavar="FLOAT", help="DoF max blur strength (default: 3.0)"
+    )
+
     # --- Measurements & annotations ---
     annot_g = p.add_argument_group("measurements & annotations")
     annot_g.add_argument(
@@ -513,6 +551,21 @@ def main() -> None:
         from xyzrender.types import resolve_color
 
         cfg.highlight_color = resolve_color(args.hl_color)
+
+    # Style regions
+    if args.region:
+        from xyzrender.api import _apply_style_regions
+
+        _apply_style_regions(cfg, regions=[(atoms_str, config_name) for atoms_str, config_name in args.region])
+
+    # Bond coloring
+    if args.bond_by_element is not None:
+        cfg.bond_color_by_element = args.bond_by_element
+    elif args.bond_color is not None:
+        # --bond-color implies uniform colour unless --bond-by-element is explicit
+        cfg.bond_color_by_element = False
+    if args.bond_gradient is not None:
+        cfg.bond_gradient = args.bond_gradient
 
     # Depth of field
     if args.dof:
