@@ -47,7 +47,8 @@ mol.to_xyz("output.xyz", title="My molecule")
 ```python
 from xyzrender import render_gif
 
-render_gif(mol, gif_output="caffeine.gif", gif_rot=True)
+render_gif(mol, gif_rot="y", output="caffeine.gif")
+render_gif(mol, gif_diffuse=True, output="diffuse.gif")
 ```
 
 See [Core API](api/core.rst) for the full API reference.

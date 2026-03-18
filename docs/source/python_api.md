@@ -196,6 +196,12 @@ render_gif("ts.out", gif_ts=True)                  # TS vibration GIF
 render_gif("traj.xyz", gif_trj=True)               # trajectory GIF
 render_gif("mol.xyz", gif_rot="y", config=cfg)     # with shared style config
 
+# Diffuse / assembly GIF
+render_gif("caffeine.xyz", gif_diffuse=True)
+render_gif("caffeine.xyz", gif_diffuse=True, diffuse_noise=0.5, diffuse_bonds="hide")
+render_gif("caffeine.xyz", gif_diffuse=True, gif_rot="y", diffuse_rot=90)
+render_gif("caffeine.xyz", gif_diffuse=True, anchor="1-5,8")
+
 # Surface in rotation GIF (cube file)
 mol_cube = load("caffeine_homo.cube")
 render_gif(mol_cube, gif_rot="y", mo=True, output="homo_rot.gif")

@@ -204,9 +204,13 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |----------|---------------------------|------------|------------------|
 | ![rotate](examples/images/caffeine.gif) | ![ts rot](examples/images/bimp_nci_ts.gif) | ![trj](examples/images/bimp_trj.gif) | ![ts](examples/images/mn-h2.gif) |
 
-| Overlay rotation | MO | Density | Vectors |
-|----------|---------------------------|------------|-----|
-| ![overlay gif](examples/images/isothio_overlay.gif) | ![homo](examples/images/caffeine_homo.gif) | ![dens](examples/images/caffeine_dens.gif) | ![vectors](examples/images/ethanol_forces_efield.gif) | 
+| Overlay rotation | MO | Density | 
+|----------|---------------------------|------------|
+| ![overlay gif](examples/images/isothio_overlay.gif) | ![homo](examples/images/caffeine_homo.gif) | ![dens](examples/images/caffeine_dens.gif) | 
+
+| Vectors | Diffuse / assembly |
+|-----|--------------------|
+| ![vectors](examples/images/ethanol_forces_efield.gif) | ![diffuse](examples/images/caffeine_diffuse.gif) |
 
 For usage details and CLI commands, see the [examples](https://xyzrender.readthedocs.io/en/latest/examples.html) and [CLI reference](https://xyzrender.readthedocs.io/en/latest/cli_reference.html) in the docs.
 

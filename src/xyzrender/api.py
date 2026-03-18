@@ -923,11 +923,10 @@ def render_gif(
     gif_ts: bool = False,
     gif_diffuse: bool = False,
     # --- Diffuse params ---
-    diffuse_frames: int = 40,
-    diffuse_sigma: float = 4.0,
-    diffuse_radial_bias: float = 0.5,
-    diffuse_jitter: float = 0.3,
-    diffuse_schedule: str = "cosine",
+    diffuse_frames: int = 60,
+    diffuse_noise: float = 0.3,
+    diffuse_bonds: str = "fade",
+    diffuse_rot: int | None = None,
     diffuse_reverse: bool = True,
     anchor: str | list[int] | None = None,
     # --- Common ---
@@ -1235,33 +1234,20 @@ def render_gif(
             ref_graph, _ = load_molecule(str(mol_path))
         else:
             ref_graph = copy.deepcopy(ref_graph)
-        # Parse anchor indices (1-indexed string or 0-indexed list)
-        _anchor: set[int] | None = None
-        if anchor is not None:
-            if isinstance(anchor, str):
-                _anchor_indices: list[int] = []
-                for part in anchor.split(","):
-                    if "-" in part:
-                        a, b = part.split("-")
-                        _anchor_indices.extend(range(int(a) - 1, int(b)))
-                    else:
-                        _anchor_indices.append(int(part) - 1)
-                _anchor = set(_anchor_indices)
-            else:
-                _anchor = set(anchor)
+        from xyzrender.diffuse import parse_anchor
+
         render_diffuse_gif(
             ref_graph,
             cfg,
             str(gif_path),
             n_frames=diffuse_frames,
-            sigma=diffuse_sigma,
-            radial_bias=diffuse_radial_bias,
-            jitter=diffuse_jitter,
-            schedule=diffuse_schedule,
+            noise=diffuse_noise,
+            bonds=diffuse_bonds,
             reverse=diffuse_reverse,
             fps=gif_fps,
             rotation_axis=gif_rot,
-            anchor=_anchor,
+            rotation_degrees=float(diffuse_rot) if diffuse_rot else 360.0,
+            anchor=parse_anchor(anchor),
         )
 
     else:
