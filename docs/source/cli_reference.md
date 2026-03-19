@@ -36,15 +36,15 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 
 | Flag | Description |
 |------|-------------|
-| `--hy` | Show H atoms (no args = all, or specify 1-indexed atom numbers) |
+| `--hy [ATOMS]` | Show H atoms (no args = all, or `"1-5,8"` 1-indexed) |
 | `--no-hy` | Hide all H atoms |
 | `-k`, `--kekule` | Use Kekulé bond orders (no aromatic 1.5) |
 | `--vdw` | vdW spheres (no args = all, or index ranges e.g. `1-6`) |
 | `--vdw-opacity` | vdW sphere opacity (default: 0.25) |
 | `--vdw-scale` | vdW sphere radius scale |
 | `--vdw-gradient` | vdW sphere gradient strength |
-| `--hl ATOMS` | Highlight atom indices: `"1-5,8,12"` (1-indexed). Colors atoms and their connecting bonds |
-| `--hl-color COLOR` | Highlight color (default: orchid) |
+| `--mol-color COLOR` | Flat color for all atoms and bonds (overrides CPK). Highlight paints on top |
+| `--hl ATOMS [COLOR]` | Highlight atom group: `--hl "1-5,8" [color]`. Can be repeated for multiple groups. Auto-colors from palette if no color given |
 | `--dof` | Depth-of-field blur (front atoms sharp, back atoms blurred) |
 | `--dof-strength FLOAT` | DoF max blur strength (default: 3.0) |
 

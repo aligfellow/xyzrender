@@ -82,33 +82,13 @@ xyzrender caffeine.xyz --hy --cmap caffeine_charges.txt --cmap-range -0.5 0.5
 - Atoms **not in the file**: white (`#ffffff`). Override with `"cmap_unlabeled"` in a custom JSON preset
 - Range defaults to min/max of provided values; use `--cmap-range vmin vmax` for a symmetric scale
 
-## Atom highlight (`--hl`)
-
-Color specific atoms and their connecting bonds. Accepts 1-indexed atom ranges.
-
-| Default (orchid) | Custom colour | Rotation |
-|------------------|---------------|----------|
-| ![hl](../../../examples/images/caffeine_hl.svg) | ![hl custom](../../../examples/images/caffeine_hl_custom.svg) | ![hl rot](../../../examples/images/caffeine_hl.gif) |
-
-```bash
-xyzrender caffeine.xyz --hl "1-3,7"                          # orchid (default)
-xyzrender caffeine.xyz --hl "1-3,7" --hl-color lightseagreen # custom colour
-xyzrender caffeine.xyz --hl "1-3,7" --gif-rot -go hl.gif     # works in GIFs
-```
-
-```python
-render(mol, highlight="1-3,7")                         # string (1-indexed)
-render(mol, highlight=[0, 1, 2, 6])                    # list (0-indexed)
-render(mol, highlight="1-3,7", highlight_color="red")  # custom colour
-```
-
 ## Vector arrows
 
 Overlay arbitrary 3D vectors as arrows on the rendered image via a JSON file. Useful for dipole moments, forces, electric fields, transition vectors, etc.
 
 | Dipole moment | Rotation |  
 |-------------|-------------|  
-| ![dip](examples/images/ethanol_dip.svg) | ![dip rot](examples/images/ethanol_dip.gif) |  
+| ![dip](../../../examples/images/ethanol_dip.svg) | ![dip rot](../../../examples/images/ethanol_dip.gif) |  
 
 
 ```bash
@@ -158,7 +138,7 @@ The label is suppressed for these compact symbols.  Once the viewing angle chang
 
 | Forces | Rotation |  
 |-------------|-------------|  
-| ![forces](examples/images/ethanol_forces_efield.svg) | ![forces rot](examples/images/ethanol_forces_efield.gif) |  
+| ![forces](../../../examples/images/ethanol_forces_efield.svg) | ![forces rot](../../../examples/images/ethanol_forces_efield.gif) |  
 
 ```text
 {

@@ -141,11 +141,11 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |--------------|------------------|------------|----------|
 | ![benzene hull](examples/images/benzene_ring_hull.svg) | ![anthracene hull](examples/images/anthracene_hull.svg) | ![mnh hull](examples/images/mnh_hull_rings.svg) | ![anthracene rot](examples/images/anthracene_hull.gif) |
 
-### Highlight
+### Highlight & molecule color
 
-| Default (orchid) | Custom colour | Rotation |
-|------------------|---------------|----------|
-| ![hl](examples/images/caffeine_hl.svg) | ![hl custom](examples/images/caffeine_hl_custom.svg) | ![hl rot](examples/images/caffeine_hl.gif) |
+| Default (orchid) | Custom colour | Multi-group | Mol color + highlight |
+|------------------|---------------|-------------|-----------------------|
+| ![hl](examples/images/caffeine_hl.svg) | ![hl custom](examples/images/caffeine_hl_custom.svg) | ![multi hl](examples/images/caffeine_multi_hl.svg) | ![mol color hl](examples/images/caffeine_mol_color_hl_idx.svg) |
 
 ### Depth of field
 

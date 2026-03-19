@@ -32,11 +32,11 @@ mol = load("mol.xyz")
 # Single region
 render(mol, config="tube", regions=[("1-20", "default")])
 
-# Multiple regions — indices are 1-indexed strings (like --hl) or 0-indexed lists
+# Multiple regions — indices are 1-indexed (strings or lists)
 render(mol, config="tube", regions=[("1-20", "default"), ("21-40", "flat")])
 
-# 0-indexed list form
-render(mol, config="tube", regions=[([0, 1, 2, 3], "default")])
+# 1-indexed list form
+render(mol, config="tube", regions=[([1, 2, 3, 4], "default")])
 ```
 
 ## Combining with other overlays
@@ -45,7 +45,7 @@ Style regions compose with all existing overlays — highlight, vdW spheres, NCI
 
 ```bash
 # QM/MM: tube for the MM region, ball-stick QM region with highlight + vdW + NCI
-xyzrender complex.xyz --region "84-165" tube --hl "84-165" --hl-color steelblue --vdw "84-165" --nci
+xyzrender complex.xyz --region "84-165" tube --hl "84-165" steelblue --vdw "84-165" --nci
 
 # Active site: wire background, highlighted residue with vdW spheres
 xyzrender protein.xyz --config wire --region "1-30" default --hl "10-15" --vdw "10-15"
@@ -54,7 +54,7 @@ xyzrender protein.xyz --config wire --region "1-30" default --hl "10-15" --vdw "
 ```python
 render(mol, config="wire",
        regions=[("84-165", "tube")],
-       highlight="84-165", highlight_color="steelblue",
+       highlight=[("84-165", "steelblue")],
        vdw=list(range(84, 166)))
 ```
 
