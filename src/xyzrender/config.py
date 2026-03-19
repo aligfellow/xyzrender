@@ -113,7 +113,6 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
         "dens_color",
         "nci_color",
         "overlay_color",
-        "highlight_color",
     )
     for key in _color_fields:
         if key in merged:
@@ -127,6 +126,14 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
     # hull_colors: list of color strings (one per subset) → resolve to hex
     if "hull_colors" in merged and merged["hull_colors"] is not None:
         merged["hull_colors"] = [resolve_color(c) for c in merged["hull_colors"]]
+
+    # highlight_colors: list of color strings → resolve to hex
+    # Backward compat: old presets may have "highlight_color" (single string)
+    if "highlight_color" in merged:
+        old = merged.pop("highlight_color")
+        merged.setdefault("highlight_colors", [resolve_color(old)])
+    if "highlight_colors" in merged and merged["highlight_colors"] is not None:
+        merged["highlight_colors"] = [resolve_color(c) for c in merged["highlight_colors"]]
 
     return RenderConfig(**merged)
 

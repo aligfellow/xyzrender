@@ -229,17 +229,16 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     # Pre-extract ensemble_opacity per atom — avoids two dict lookups per atom inside the main loop.
     ens_opacities: list[float | None] = [graph.nodes[nid].get("ensemble_opacity") for nid in node_ids]
 
-    # Highlight: override colors for user-specified atom subset
-    hl_set: set[int] = set()
-    hl_bond_color: str | None = None
-    if cfg.highlight_indices is not None:
-        hl_set = set(cfg.highlight_indices)
-        hl_color = Color.from_str(cfg.highlight_color)
-        for ai in range(n):
-            if ai in hl_set:
-                colors[ai] = hl_color
-        # Pre-compute darkened highlight color for bonds between highlighted atoms
-        hl_bond_color = hl_color.blend(Color(0, 0, 0), 0.3).hex
+    # Highlight: override colors for user-specified atom groups
+    hl_atom_group: dict[int, int] = {}  # atom_idx → group_id
+    hl_group_bond_color: list[str] = []  # group_id → darkened bond hex
+    if cfg.highlight_groups:
+        for gid, group in enumerate(cfg.highlight_groups):
+            gc = Color.from_str(group.color)
+            hl_group_bond_color.append(gc.blend(Color(0, 0, 0), 0.3).hex)
+            for ai in group._index_set:
+                colors[ai] = gc
+                hl_atom_group[ai] = gid
 
     # Bond lookup: (bond_order, style, color_override)
     bonds: dict[tuple[int, int], tuple[float, BondStyle, str | None]] = {}
@@ -262,12 +261,13 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         for i, j in cfg.nci_bonds:
             existing = bonds.get((i, j), (1.0, BondStyle.SOLID, None))
             bonds[(i, j)] = bonds[(j, i)] = (existing[0], BondStyle.DOTTED, existing[2])
-        # Highlight: color bonds between two highlighted atoms.
+        # Highlight: color bonds between two atoms in the SAME highlight group.
         # Only SOLID covalent bonds — TS/NCI are structural overlays.
-        if hl_set and hl_bond_color is not None:
+        if hl_atom_group:
             for (i, j), (bo, style, c_ov) in list(bonds.items()):
-                if i in hl_set and j in hl_set and c_ov is None and style == BondStyle.SOLID:
-                    bonds[(i, j)] = bonds[(j, i)] = (bo, style, hl_bond_color)
+                gi, gj = hl_atom_group.get(i), hl_atom_group.get(j)
+                if gi is not None and gi == gj and c_ov is None and style == BondStyle.SOLID:
+                    bonds[(i, j)] = bonds[(j, i)] = (bo, style, hl_group_bond_color[gi])
 
     # Only hide C-H hydrogens (not O-H, N-H, free H, etc.)
     hidden = set()

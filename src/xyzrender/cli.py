@@ -314,11 +314,12 @@ def main() -> None:
     hl_g = p.add_argument_group("highlight")
     hl_g.add_argument(
         "--hl",
+        nargs="+",
+        action="append",
         default=None,
-        metavar="ATOMS",
-        help='Highlight atom indices: "1-5,8,12" (1-indexed). Colors atoms and their connecting bonds.',
+        metavar=("ATOMS", "COLOR"),
+        help='Highlight atom group: --hl "1-5,8" [color]. Can be repeated. Auto-colors if no color given.',
     )
-    hl_g.add_argument("--hl-color", default=None, metavar="COLOR", help="Highlight color (default: orchid)")
 
     # --- Style regions ---
     region_g = p.add_argument_group("style regions")
@@ -559,13 +560,13 @@ def main() -> None:
     if args.skeletal_label_color is not None:
         cfg.skeletal_label_color = args.skeletal_label_color
 
-    # Highlight atoms
+    # Highlight atoms (multi-group) — convert argparse lists to tuples for render()
+    _highlight: list[tuple[str, ...]] | None = None
     if args.hl is not None:
-        cfg.highlight_indices = _parse_indices(args.hl)
-    if args.hl_color is not None:
-        from xyzrender.types import resolve_color
-
-        cfg.highlight_color = resolve_color(args.hl_color)
+        for entry in args.hl:
+            if len(entry) > 2:
+                raise SystemExit(f"error: --hl takes 1-2 arguments (ATOMS [COLOR]), got {len(entry)}")
+        _highlight = [tuple(e) for e in args.hl]
 
     # Style regions
     if args.region:
@@ -804,6 +805,7 @@ def main() -> None:
         render(
             mol,
             config=cfg,
+            highlight=_highlight,
             no_cell=args.no_cell,
             axes=args.axes,
             axis=args.axis,
@@ -860,6 +862,7 @@ def main() -> None:
             render_gif(
                 mol_or_path,
                 config=cfg,
+                highlight=_highlight,
                 gif_rot=args.gif_rot or None,
                 gif_trj=args.gif_trj,
                 gif_ts=args.gif_ts,

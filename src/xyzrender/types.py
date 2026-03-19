@@ -362,6 +362,19 @@ class NCIParams:
 
 
 @dataclass
+class HighlightGroup:
+    """A group of atoms to highlight with a specific color."""
+
+    indices: list[int]  # 0-indexed atom indices
+    color: str  # resolved hex color
+    _index_set: set[int] = field(default_factory=set, repr=False, init=False)
+
+    def __post_init__(self) -> None:
+        """Pre-compute index set for O(1) membership checks."""
+        self._index_set = set(self.indices)
+
+
+@dataclass
 class RenderConfig:
     """Rendering settings."""
 
@@ -431,8 +444,17 @@ class RenderConfig:
     nci_color: str = _DEFAULT_NCI_COLOR
     nci_color_mode: str = _DEFAULT_NCI_COLOR_MODE
     # Highlight (atom group coloring)
-    highlight_indices: list[int] | None = None  # 0-indexed atom indices to highlight
-    highlight_color: str = "orchid"  # default from preset
+    highlight_groups: list[HighlightGroup] = field(default_factory=list)
+    highlight_colors: list[str] = field(
+        default_factory=lambda: [
+            "orchid",
+            "mediumseagreen",
+            "goldenrod",
+            "coral",
+            "mediumpurple",
+            "hotpink",
+        ]
+    )
     # Depth of field
     dof: bool = False
     dof_strength: float = 3.0  # max blur stdDeviation in SVG units
