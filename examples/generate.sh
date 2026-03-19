@@ -25,7 +25,7 @@ xyzrender "$DIR/bimp.v000.xyz" --no-orient --region "84-165" tube --nci --hl "84
 
 echo "=== Display options ==="
 xyzrender "$DIR/ethanol.xyz" --hy -o "$IMG/ethanol_all_h.svg"           # all H
-xyzrender "$DIR/ethanol.xyz" --hy 7 8 9 -o "$IMG/ethanol_some_h.svg"   # specific H atoms
+xyzrender "$DIR/ethanol.xyz" --hy "7-9" -o "$IMG/ethanol_some_h.svg"   # specific H atoms
 xyzrender "$DIR/ethanol.xyz" --no-hy -o "$IMG/ethanol_no_h.svg"        # no H
 xyzrender "$DIR/benzene.xyz" --hy -o "$IMG/benzene.svg"                 # aromatic
 xyzrender "$DIR/caffeine.xyz" --bo -k -o "$IMG/caffeine_kekule.svg"    # Kekule bond orders
