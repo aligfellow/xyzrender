@@ -104,8 +104,10 @@ xyzrender "$DIR/NV63_cell.xyz" --axis 001 -o "$IMG/NV63_001.svg"   # looking dow
 xyzrender "$DIR/NV63_cell.xyz" --axis 111 --gif-rot 111 -o "$IMG/NV63_111.svg" -go "$IMG/NV63_111.gif"  # look down [111], rotate around [111]
 
 echo "=== Highlight ==="
-xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" -o "$IMG/caffeine_hl.svg" --gif-rot -go "$IMG/caffeine_hl.gif" 
-xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" --hl-color lightseagreen -o "$IMG/caffeine_hl_custom.svg"
+xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" -o "$IMG/caffeine_hl.svg" --gif-rot -go "$IMG/caffeine_hl.gif"
+xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" lightseagreen -o "$IMG/caffeine_hl_custom.svg"
+xyzrender "$DIR/caffeine.xyz" --hl "1-3,5,10,11,15,16,19,21" darkorchid --hl "4,6-9,12-14,17,18,20,22-24" teal --hy -o "$IMG/caffeine_multi_hl.svg"
+xyzrender "$DIR/caffeine.xyz" --hl "1-3,5,10,11,15,16,19,21" --mol-color mediumseagreen --hy --idx n -o "$IMG/caffeine_mol_color_hl_idx.svg"
 
 echo "=== Depth of field ==="
 xyzrender "$DIR/caffeine.xyz" --dof --no-orient -o "$IMG/caffeine_dof.svg" --gif-rot -go "$IMG/caffeine_dof.gif" 
