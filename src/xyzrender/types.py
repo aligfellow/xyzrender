@@ -411,6 +411,7 @@ class RenderConfig:
     fixed_span: float | None = None  # fixed viewport span (disables auto-fit)
     fixed_center: tuple[float, float] | None = None  # fixed XY center (disables auto-center)
     color_overrides: dict[str, str] | None = None  # element symbol → hex color
+    mol_color: str | None = None  # flat color for all atoms + bonds (overrides CPK; highlight paints on top)
     # Surface rendering (MO / density / ESP / NCI share one opacity)
     mo_contours: SurfaceContours | None = None
     dens_contours: SurfaceContours | None = None

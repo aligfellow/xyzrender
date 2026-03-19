@@ -490,6 +490,8 @@ def render(
     hull_opacity: float | None = None,
     hull_edge: bool | None = None,
     hull_edge_width_ratio: float | None = None,
+    # --- Molecule color ---
+    mol_color: str | None = None,
     # --- Highlight ---
     highlight: str | list[int] | list[list[int] | str] | list[tuple] | None = None,
     # --- Style regions ---
@@ -664,6 +666,12 @@ def render(
         cbar=cbar,
         opacity=opacity,
     )
+
+    from xyzrender.types import resolve_color
+
+    # --- Molecule color ---
+    if mol_color is not None:
+        cfg.mol_color = resolve_color(mol_color)
 
     # --- Highlight ---
     _apply_highlight(cfg, highlight=highlight)
@@ -956,6 +964,8 @@ def render_gif(
     no_hy: bool = False,
     bo: bool | None = None,
     orient: bool | None = None,
+    # --- Molecule color ---
+    mol_color: str | None = None,
     # --- Highlight ---
     highlight: str | list[int] | list[list[int] | str] | list[tuple] | None = None,
     # --- Style regions ---
@@ -1121,6 +1131,12 @@ def render_gif(
             no_hy=no_hy,
             orient=orient,
         )
+
+    from xyzrender.types import resolve_color
+
+    # --- Molecule color ---
+    if mol_color is not None:
+        cfg.mol_color = resolve_color(mol_color)
 
     # --- Highlight ---
     _apply_highlight(cfg, highlight=highlight)

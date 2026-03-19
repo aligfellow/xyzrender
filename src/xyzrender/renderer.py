@@ -229,6 +229,14 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     # Pre-extract ensemble_opacity per atom — avoids two dict lookups per atom inside the main loop.
     ens_opacities: list[float | None] = [graph.nodes[nid].get("ensemble_opacity") for nid in node_ids]
 
+    # Molecule color: override all atom + bond colors with a single color
+    mol_bond_color: str | None = None
+    if cfg.mol_color is not None:
+        flat = Color.from_str(cfg.mol_color)
+        for ai in range(n):
+            colors[ai] = flat
+        mol_bond_color = flat.blend(Color(0, 0, 0), 0.3).hex
+
     # Highlight: override colors for user-specified atom groups
     hl_atom_group: dict[int, int] = {}  # atom_idx → group_id
     hl_group_bond_color: list[str] = []  # group_id → darkened bond hex
@@ -261,12 +269,23 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         for i, j in cfg.nci_bonds:
             existing = bonds.get((i, j), (1.0, BondStyle.SOLID, None))
             bonds[(i, j)] = bonds[(j, i)] = (existing[0], BondStyle.DOTTED, existing[2])
+        # Molecule color: paint all SOLID bonds with darkened mol_color
+        if mol_bond_color is not None:
+            for (i, j), (bo, style, c_ov) in list(bonds.items()):
+                if c_ov is None and style == BondStyle.SOLID:
+                    bonds[(i, j)] = bonds[(j, i)] = (bo, style, mol_bond_color)
         # Highlight: color bonds between two atoms in the SAME highlight group.
         # Only SOLID covalent bonds — TS/NCI are structural overlays.
+        # Overrides mol_color bond coloring (but not explicit per-edge overrides).
         if hl_atom_group:
             for (i, j), (bo, style, c_ov) in list(bonds.items()):
                 gi, gj = hl_atom_group.get(i), hl_atom_group.get(j)
-                if gi is not None and gi == gj and c_ov is None and style == BondStyle.SOLID:
+                if (
+                    gi is not None
+                    and gi == gj
+                    and style == BondStyle.SOLID
+                    and (c_ov is None or c_ov == mol_bond_color)
+                ):
                     bonds[(i, j)] = bonds[(j, i)] = (bo, style, hl_group_bond_color[gi])
 
     # Only hide C-H hydrogens (not O-H, N-H, free H, etc.)

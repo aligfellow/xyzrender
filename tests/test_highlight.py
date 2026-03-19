@@ -165,3 +165,34 @@ def test_multi_group_same_group_bonds(caffeine):
     )
     dark = Color.from_str(resolve_color("steelblue")).blend(Color(0, 0, 0), 0.3).hex
     assert dark in svg
+
+
+# ---------------------------------------------------------------------------
+# Flat atom color
+# ---------------------------------------------------------------------------
+
+
+def test_mol_color_overrides_cpk(caffeine):
+    """mol_color paints all atoms and bonds a single color."""
+    svg = str(render(caffeine, mol_color="gray", gradient=False, fog=False, orient=False))
+    gray = resolve_color("gray")
+    dark = Color.from_str(gray).blend(Color(0, 0, 0), 0.3).hex
+    assert gray in svg
+    assert dark in svg  # bonds get darkened mol_color
+
+
+def test_mol_color_with_highlight(caffeine):
+    """Highlight paints on top of mol_color."""
+    svg = str(
+        render(
+            caffeine,
+            mol_color="gray",
+            highlight=[1, 2, 3],
+            gradient=False,
+            fog=False,
+            orient=False,
+        )
+    )
+    # Both gray (base) and orchid (highlight) should appear
+    assert resolve_color("gray") in svg
+    assert resolve_color("orchid") in svg

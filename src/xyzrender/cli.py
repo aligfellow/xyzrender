@@ -310,8 +310,11 @@ def main() -> None:
     )
     gif_g.add_argument("--anchor", default=None, metavar="ATOMS", help='Atoms that stay fixed: "1-5,8" (1-indexed)')
 
-    # --- Highlight ---
+    # --- Atom color / Highlight ---
     hl_g = p.add_argument_group("highlight")
+    hl_g.add_argument(
+        "--mol-color", default=None, metavar="COLOR", help="Flat color for all atoms and bonds (overrides CPK)"
+    )
     hl_g.add_argument(
         "--hl",
         nargs="+",
@@ -805,6 +808,7 @@ def main() -> None:
         render(
             mol,
             config=cfg,
+            mol_color=args.mol_color,
             highlight=_highlight,
             no_cell=args.no_cell,
             axes=args.axes,
@@ -862,6 +866,7 @@ def main() -> None:
             render_gif(
                 mol_or_path,
                 config=cfg,
+                mol_color=args.mol_color,
                 highlight=_highlight,
                 gif_rot=args.gif_rot or None,
                 gif_trj=args.gif_trj,
