@@ -33,14 +33,6 @@ xyzrender NV63_cell.xyz --supercell 2 2 1 --no-axes -o NV63_cell_supercell_221.s
 
 The **extXYZ** comment line must contain a `Lattice=` key with the 3×3 cell matrix as nine space-separated floats. Tools like [ASE](https://wiki.fysik.dtu.dk/ase/) can export to extXYZ from CIF or other periodic formats.
 
-## VASP / Quantum ESPRESSO
-
-Requires `pip install 'xyzrender[crystal]'` (phonopy).
-
-| VASP (NV63) | VASP rotation | QE (no axes) |
-|------------|--------------|-------------|
-| ![VASP (NV63)](../../../examples/images/NV63_vasp.svg) | ![VASP rotation](../../../examples/images/NV63_vasp.gif) | ![QE (no axes)](../../../examples/images/NV63_qe.svg) |
-
 ### Supercell expansion
 
 Expand a periodic structure into a supercell with `--supercell M N L`, which repeats the unit cell `M×N×L` times along the lattice vectors (a, b, c). This option is available for any input that includes unit-cell lattice data (e.g. extXYZ `Lattice=` headers, PDB `CRYST1`, CIF, or `--crystal` inputs).
@@ -52,6 +44,14 @@ xyzrender NV63.vasp --crystal vasp -o NV63_vasp.svg
 xyzrender NV63.vasp --crystal --gif-rot -go NV63_vasp.gif
 xyzrender NV63.in --crystal qe --no-axes -o NV63_qe.svg
 ```
+
+## VASP / Quantum ESPRESSO
+
+Requires `pip install 'xyzrender[crystal]'` (phonopy).
+
+| VASP (NV63) | VASP rotation | QE (no axes) |
+|------------|--------------|-------------|
+| ![VASP (NV63)](../../../examples/images/NV63_vasp.svg) | ![VASP rotation](../../../examples/images/NV63_vasp.gif) | ![QE (no axes)](../../../examples/images/NV63_qe.svg) |
 
 Format is auto-detected from extension (`.vasp`, `POSCAR`, `CONTCAR` → VASP; `.in` → QE).
 
