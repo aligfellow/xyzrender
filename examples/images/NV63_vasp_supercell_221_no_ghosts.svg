@@ -255,18 +255,18 @@
     <radialGradient id="x0g251" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#dedede"/><stop offset="40%" stop-color="#d8d8d8"/><stop offset="100%" stop-color="#bcafb2"/></radialGradient>
   </defs>
   <!-- cell box -->
-  <line class="cell-edge" x1="38.1" y1="761.4" x2="761.8" y2="761.4" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
-  <line class="cell-edge" x1="38.1" y1="761.4" x2="761.8" y2="761.4" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
-  <line class="cell-edge" x1="38.1" y1="37.6" x2="761.8" y2="37.6" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
-  <line class="cell-edge" x1="38.1" y1="37.6" x2="761.8" y2="37.6" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
-  <line class="cell-edge" x1="38.1" y1="761.4" x2="38.1" y2="37.6" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
-  <line class="cell-edge" x1="38.1" y1="761.4" x2="38.1" y2="37.6" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
-  <line class="cell-edge" x1="761.8" y1="761.4" x2="761.8" y2="37.6" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
-  <line class="cell-edge" x1="761.8" y1="761.4" x2="761.8" y2="37.6" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
+  <line class="cell-edge" x1="38.1" y1="761.4" x2="400.0" y2="761.4" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
+  <line class="cell-edge" x1="38.1" y1="761.4" x2="400.0" y2="761.4" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
+  <line class="cell-edge" x1="38.1" y1="399.5" x2="400.0" y2="399.5" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
+  <line class="cell-edge" x1="38.1" y1="399.5" x2="400.0" y2="399.5" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
+  <line class="cell-edge" x1="38.1" y1="761.4" x2="38.1" y2="399.5" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
+  <line class="cell-edge" x1="38.1" y1="761.4" x2="38.1" y2="399.5" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
+  <line class="cell-edge" x1="400.0" y1="761.4" x2="400.0" y2="399.5" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
+  <line class="cell-edge" x1="400.0" y1="761.4" x2="400.0" y2="399.5" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
   <line class="cell-edge" x1="38.1" y1="761.4" x2="38.1" y2="761.4" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
-  <line class="cell-edge" x1="38.1" y1="37.6" x2="38.1" y2="37.6" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
-  <line class="cell-edge" x1="761.8" y1="761.4" x2="761.8" y2="761.4" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
-  <line class="cell-edge" x1="761.8" y1="37.6" x2="761.8" y2="37.6" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
+  <line class="cell-edge" x1="38.1" y1="399.5" x2="38.1" y2="399.5" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
+  <line class="cell-edge" x1="400.0" y1="761.4" x2="400.0" y2="761.4" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
+  <line class="cell-edge" x1="400.0" y1="399.5" x2="400.0" y2="399.5" stroke="#808080" stroke-width="4.0" stroke-dasharray="10.0,12.0" stroke-linecap="round"/>
   <circle cx="38.2" cy="761.3" r="18.2" fill="url(#x0g55)" stroke="#b2b2b2" stroke-width="3.2"/>
   <line x1="47.6" y1="751.9" x2="73.6" y2="725.9" stroke="#838383" stroke-width="8.0" stroke-linecap="round"/>
   <circle cx="38.2" cy="399.5" r="18.2" fill="url(#x0g118)" stroke="#b2b2b2" stroke-width="3.2"/>

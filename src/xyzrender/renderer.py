@@ -293,7 +293,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     if cfg.hide_h:
         show = set(cfg.show_h_indices)
         for ai in range(n):
-            if symbols[ai] == "H" and ai not in show and not graph.nodes[ai].get("image", False):
+            if symbols[ai] == "H" and ai not in show:
                 neighbours = list(graph.neighbors(ai))
                 if neighbours and all(symbols[nb] == "C" for nb in neighbours):
                     hidden.add(ai)

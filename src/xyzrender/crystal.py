@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import itertools
 import logging
+from itertools import product as _product
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -123,7 +124,12 @@ def load_crystal(
 
 
 def build_supercell(graph: "nx.Graph", cell_data: CellData, repeats: tuple[int, int, int]) -> "nx.Graph":
-    """Return a new graph and CellData representing a repeated supercell.
+    """Return a new graph representing a repeated supercell.
+
+    The unit-cell graph is replicated *m x n x l* times.  Intra-replica edges
+    are copied verbatim (preserving bond orders and all edge attributes).
+    Cross-boundary bonds between adjacent replicas are detected with the same
+    ``_is_bonded`` distance logic used by :func:`add_crystal_images`.
 
     Parameters
     ----------
@@ -138,12 +144,15 @@ def build_supercell(graph: "nx.Graph", cell_data: CellData, repeats: tuple[int, 
 
     Returns
     -------
-    (new_graph)
-        The supercell graph and updated CellData with lattice vectors scaled by
-        ``(m, n, l)``.
+    nx.Graph
+        Supercell graph.  Graph-level metadata (including ``lattice``) is
+        copied from the input — the lattice remains the **unit-cell** lattice
+        so that the cell-box overlay shows the original unit cell.
     """
-    m, n, l_idx = repeats
-    if m < 1 or n < 1 or l_idx < 1:
+    import networkx as nx
+
+    m, n, l_rep = repeats
+    if m < 1 or n < 1 or l_rep < 1:
         raise ValueError(f"supercell repeats must be >= 1, got {repeats!r}")
 
     if any(bool(graph.nodes[nid].get("image", False)) for nid in graph.nodes()):
@@ -153,57 +162,61 @@ def build_supercell(graph: "nx.Graph", cell_data: CellData, repeats: tuple[int, 
     b = np.array(cell_data.lattice[1], dtype=float)
     c = np.array(cell_data.lattice[2], dtype=float)
 
-    new_lattice = np.vstack([1 * a, 1 * b, 1 * c]).astype(float)
-    new_cd = CellData(
-        lattice=new_lattice,
-        cell_origin=np.array(cell_data.cell_origin, dtype=float).copy(),
-    )
-
-    # Build replicated atom list in a deterministic order, then let xyzgraph
-    # recompute connectivity for the full supercell.
     base_nodes = list(graph.nodes())
-    if not base_nodes:
-        import networkx as nx
+    n_base = len(base_nodes)
 
+    if n_base == 0:
         empty = nx.Graph()
         empty.graph.update(dict(graph.graph))
-        empty.graph["lattice"] = cell_data.lattice
-        empty.graph["lattice_origin"] = np.array(
-            graph.graph.get("lattice_origin", cell_data.cell_origin), dtype=float
-        ).copy()
         return empty
 
-    base_node_attrs = [dict(graph.nodes[nid]) for nid in base_nodes]
-    atoms: list[tuple[str, tuple[float, float, float]]] = []
-    extra_node_attrs: list[dict] = []
+    nid_to_idx = {nid: idx for idx, nid in enumerate(base_nodes)}
 
-    for ii in range(m):
-        for jj in range(n):
-            for kk in range(l_idx):
-                offset = ii * a + jj * b + kk * c
-                for attrs in base_node_attrs:
-                    sym = attrs["symbol"]
-                    pos = np.array(attrs["position"], dtype=float) + offset
-                    atoms.append((sym, (float(pos[0]), float(pos[1]), float(pos[2]))))
-                    # Preserve any extra per-atom attributes (rare for crystals),
-                    # but strip image-related fields.
-                    extra = {k: v for k, v in attrs.items() if k not in {"position", "image", "source"}}
-                    extra_node_attrs.append(extra)
+    # -- 1. Replicate nodes ------------------------------------------------
+    # Deterministic mapping: replica (ii,jj,kk) atom idx →
+    #   (ii * n * l_rep + jj * l_rep + kk) * n_base + idx
+    new_g = nx.Graph()
+    for ii, jj, kk in _product(range(m), range(n), range(l_rep)):
+        offset = ii * a + jj * b + kk * c
+        base = (ii * n * l_rep + jj * l_rep + kk) * n_base
+        for idx, nid in enumerate(base_nodes):
+            attrs = dict(graph.nodes[nid])
+            pos = np.array(attrs["position"], dtype=float) + offset
+            attrs["position"] = (float(pos[0]), float(pos[1]), float(pos[2]))
+            attrs.pop("image", None)
+            attrs.pop("source", None)
+            new_g.add_node(base + idx, **attrs)
 
-    # Rebuild connectivity across the whole supercell.
-    # quick=True: periodic structures render with bond orders suppressed anyway.
-    new_g = build_graph(atoms, charge=0, multiplicity=None, kekule=False, quick=True)
+    # -- 2. Copy intra-replica edges (preserves bond_order etc.) -----------
+    edges = [(nid_to_idx[u], nid_to_idx[v], dict(d)) for u, v, d in graph.edges(data=True)]
+    for ii, jj, kk in _product(range(m), range(n), range(l_rep)):
+        base = (ii * n * l_rep + jj * l_rep + kk) * n_base
+        for ui, vi, data in edges:
+            new_g.add_edge(base + ui, base + vi, **data)
 
-    # Re-apply preserved node attrs (by construction order: build_graph uses 0..N-1).
-    for i, extra in enumerate(extra_node_attrs):
-        for k, v in extra.items():
-            new_g.nodes[i][k] = v
+    # -- 3. Stitch cross-boundary bonds (same logic as add_crystal_images) -
+    # Only the 13 lexicographically-forward shifts so each pair is visited once.
+    forward_shifts = [(dx, dy, dz) for dx, dy, dz in _product((-1, 0, 1), repeat=3) if (dx, dy, dz) > (0, 0, 0)]
+    for dx, dy, dz in forward_shifts:
+        for ii, jj, kk in _product(range(m), range(n), range(l_rep)):
+            ni, nj, nk = ii + dx, jj + dy, kk + dz
+            if not (0 <= ni < m and 0 <= nj < n and 0 <= nk < l_rep):
+                continue
+            src_base = (ii * n * l_rep + jj * l_rep + kk) * n_base
+            tgt_base = (ni * n * l_rep + nj * l_rep + nk) * n_base
+            for u in range(n_base):
+                sid = src_base + u
+                spos = np.array(new_g.nodes[sid]["position"])
+                ssym = new_g.nodes[sid]["symbol"]
+                for v in range(n_base):
+                    tid = tgt_base + v
+                    tpos = np.array(new_g.nodes[tid]["position"])
+                    tsym = new_g.nodes[tid]["symbol"]
+                    if _is_bonded(ssym, tsym, float(np.linalg.norm(spos - tpos))):
+                        new_g.add_edge(sid, tid, bond_order=1.0)
 
-    # Preserve graph-level metadata and update lattice/origin.
+    # -- 4. Graph-level metadata (lattice stays as unit cell for cell box) --
     new_g.graph.update(dict(graph.graph))
-    new_g.graph["lattice"] = new_lattice
-    new_g.graph["lattice_origin"] = np.array(graph.graph.get("lattice_origin", new_cd.cell_origin), dtype=float).copy()
-
     return new_g
 
 

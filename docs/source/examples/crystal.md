@@ -12,18 +12,25 @@ Draw the unit cell box for periodic structures from an extXYZ file with a `Latti
 |---------|---------------|------------|
 | ![Default](../../../examples/images/NV63_cell.svg) | ![No ghost atoms](../../../examples/images/NV63_cell_no_ghosts.svg) | ![No cell box](../../../examples/images/NV63_cell_no_cell.svg) |
 
-| Caffeine 2×2×1 supercell (no ghosts) | NV63 2×2×1 supercell (no ghosts) |
+| Caffeine 2×2×1 (no ghosts) | Caffeine 2×2×1 (ghosts) | Caffeine 2×2×1 (ghosts + `--hy`) |
+|---|---|---|
+| ![no ghosts](../../../examples/images/caffeine_cell_supercell_221_no_ghosts.svg) | ![ghosts](../../../examples/images/caffeine_cell_supercell_221.svg) | ![ghosts + hy](../../../examples/images/caffeine_cell_supercell_221_hy.svg) |
+
+| NV63 2×2×1 (no ghosts) | NV63 2×2×1 (ghosts) |
 |---|---|
-| ![Caffeine 2×2×1 supercell (no ghosts)](../../../examples/images/caffeine_cell_supercell_221_no_ghosts.svg) | ![NV63 2×2×1 supercell (no ghosts)](../../../examples/images/NV63_cell_supercell_221_no_ghosts.svg) |
+| ![no ghosts](../../../examples/images/NV63_cell_supercell_221_no_ghosts.svg) | ![ghosts](../../../examples/images/NV63_cell_supercell_221.svg) |
 
 ```bash
 xyzrender caffeine_cell.xyz -o caffeine_cell.svg
 xyzrender caffeine_cell.xyz --gif-rot -go caffeine_cell.gif
 xyzrender caffeine_cell.xyz --cell-color maroon -o caffeine_cell_custom.svg
 xyzrender caffeine_cell.xyz --supercell 2 2 1 --no-ghosts -o caffeine_cell_supercell_221_no_ghosts.svg
+xyzrender caffeine_cell.xyz --supercell 2 2 1 -o caffeine_cell_supercell_221.svg
+xyzrender caffeine_cell.xyz --supercell 2 2 1 --hy -o caffeine_cell_supercell_221_hy.svg
 xyzrender NV63_cell.xyz --no-ghosts --no-axes -o NV63_cell_no_ghosts.svg
 xyzrender NV63_cell.xyz --no-cell -o NV63_cell_no_cell.svg
 xyzrender NV63_cell.xyz --supercell 2 2 1 --no-ghosts --no-axes -o NV63_cell_supercell_221_no_ghosts.svg
+xyzrender NV63_cell.xyz --supercell 2 2 1 --no-axes -o NV63_cell_supercell_221.svg
 ```
 
 ```{note}
@@ -44,9 +51,11 @@ Requires `pip install 'xyzrender[crystal]'` (phonopy).
 
 Expand a periodic structure into a supercell with `--supercell M N L`, which repeats the unit cell `M×N×L` times along the lattice vectors (a, b, c). This option is available for any input that includes unit-cell lattice data (e.g. extXYZ `Lattice=` headers, PDB `CRYST1`, CIF, or `--crystal` inputs).
 
-| NV63 2×2×1 supercell (no ghosts) |
+Ghost atoms show the periodic images of the *supercell* (not the unit cell), while the cell-box overlay always shows the original unit cell. The `--hy` / `--no-hy` flags apply to ghost H atoms too.
+
+| NV63 VASP 2×2×1 (no ghosts) |
 |---|
-| ![NV63 2×2×1 supercell (no ghosts)](../../../examples/images/NV63_vasp_supercell_221_no_ghosts.svg) |
+| ![NV63 VASP 2×2×1 (no ghosts)](../../../examples/images/NV63_vasp_supercell_221_no_ghosts.svg) |
 
 ```bash
 xyzrender NV63.vasp --crystal vasp -o NV63_vasp.svg

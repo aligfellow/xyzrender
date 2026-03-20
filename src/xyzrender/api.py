@@ -1861,6 +1861,7 @@ def _apply_cell_config(
         cfg.auto_orient = False
 
     # Supercell replication (must occur before adding ghost atoms)
+    _supercell_lattice = None
     if supercell != (1, 1, 1):
         lat = getattr(cell_data, "lattice", None)
         if lat is None:
@@ -1871,16 +1872,29 @@ def _apply_cell_config(
         from xyzrender.crystal import build_supercell
 
         mol.graph = build_supercell(mol.graph, cell_data, supercell)
-        cell_data = mol.cell_data
-        assert cell_data is not None
-        cfg.cell_data = cell_data
+        # Scaled lattice for ghost generation (ghosts = periodic images of the
+        # supercell, not the unit cell).  cell_data stays as unit cell for the
+        # cell-box overlay.
+        _supercell_lattice = np.vstack(
+            [
+                supercell[0] * lat[0],
+                supercell[1] * lat[1],
+                supercell[2] * lat[2],
+            ]
+        )
 
     # Ghost (periodic image) atoms — default: on when cell_data is present
     _show_ghosts = ghosts if ghosts is not None else True
     if _show_ghosts:
         from xyzrender.crystal import add_crystal_images
+        from xyzrender.types import CellData as _CellData
 
-        add_crystal_images(mol.graph, cell_data)
+        ghost_cd = (
+            _CellData(lattice=_supercell_lattice, cell_origin=cell_data.cell_origin)
+            if _supercell_lattice is not None
+            else cell_data
+        )
+        add_crystal_images(mol.graph, ghost_cd)
 
     # Default no-bo for periodic structures (bond orders are not PBC-aware)
     if bo_explicit is None:
