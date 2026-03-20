@@ -171,6 +171,24 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |--------------------|--------|----------------|
 | ![dihedral](examples/images/caffeine_dihedral.svg) | ![labels](examples/images/caffeine_labels.svg) | ![sn2 labels](examples/images/sn2_ts_label.svg) |
 
+### Stereochemistry labels
+
+| R/S atom-centered                                                | R/S offset label                                             |
+| ---------------------------------------------------------------- | ------------------------------------------------------------ |
+| ![R/S atom](examples/images/R-lactate_atom_stereo_labelling.svg) | ![R/S label](examples/images/R-lactate_stereo_labelling.svg) |
+
+| Z-stilbene                                     | E-stilbene                                     |
+| ---------------------------------------------- | ---------------------------------------------- |
+| ![Z-stilbene](examples/images/Z-stillbene.svg) | ![E-stilbene](examples/images/E-stillbene.svg) |
+
+| Axial (Ra)                                          | Axial (Sa)                                                    | Axial (Allene)                                           |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| ![axial binol](examples/images/axial_binol_stereo.svg) | ![axial dichlorobiphenyl](examples/images/axial_2_2_dichlorobiphenyl_stereo.svg) | ![axial allene](examples/images/axial_2_3_pentadiene_stereo.svg) |
+
+| Planar                                      | Helical                                             |                                                 |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------ |
+| ![planar ferrocene](examples/images/ferrocene_chiral_cp_stereo.svg) | ![helical helicene](examples/images/helical_6helicene_stereo.svg) |
+
 ### Atom property colormap
 
 | Mulliken charges (rotation) | Symmetric range | With colorbar |

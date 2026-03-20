@@ -1299,7 +1299,12 @@ def _annotations_svg(
     for ann in cfg.annotations:
         if isinstance(ann, AtomValueLabel):
             xi, yi = _proj(pos[ann.index], scale, cx, cy, canvas_w, canvas_h)
-            svg.append(_text_svg(xi, yi + fs * cfg.label_offset, ann.text, fs, col))
+            if ann.on_atom:
+                # NB: overlaps with --idx labels which also render at (xi, yi);
+                # use on_atom=False (--stereo label) when combining with --idx.
+                svg.append(_text_svg(xi, yi, ann.text, fs, col))
+            else:
+                svg.append(_text_svg(xi, yi + fs * cfg.label_offset, ann.text, fs, col))
 
         elif isinstance(ann, BondLabel):
             mi = (pos[ann.i] + pos[ann.j]) / 2

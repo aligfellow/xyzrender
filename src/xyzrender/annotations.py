@@ -25,6 +25,7 @@ class AtomValueLabel:
 
     index: int  # 0-indexed
     text: str
+    on_atom: bool = False  # True = centered on atom, False = offset label
 
 
 @dataclass(frozen=True)

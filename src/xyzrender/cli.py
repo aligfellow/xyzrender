@@ -365,6 +365,18 @@ def main() -> None:
         "--label-size", type=float, default=None, metavar="PT", help="Label font size (overrides preset)"
     )
     annot_g.add_argument(
+        "--stereo",
+        nargs="?",
+        const="atom",
+        default=None,
+        choices=["atom", "label"],
+        metavar="STYLE",
+        help=(
+            "Add stereochemistry labels (R/S and E/Z) from 3D geometry. "
+            "STYLE=atom|label (default: atom)"
+        ),
+    )
+    annot_g.add_argument(
         "--measure",
         nargs="*",
         default=None,
@@ -747,6 +759,15 @@ def main() -> None:
                 graph=mol.graph,
             )
         except (ValueError, FileNotFoundError) as e:
+            p.error(str(e))
+
+    # --- Stereochemistry labels (R/S and E/Z) ---
+    if args.stereo is not None:
+        from xyzrender.stereo import build_stereo_annotations
+
+        try:
+            cfg.annotations.extend(build_stereo_annotations(mol.graph, rs_style=args.stereo))
+        except ValueError as e:
             p.error(str(e))
 
     # --- Atom property colormap (store on cfg) ---

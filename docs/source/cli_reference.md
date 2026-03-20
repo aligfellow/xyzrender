@@ -103,6 +103,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `-l TOKEN...` | Inline SVG annotation (repeatable); 1-based indices |
 | `--label FILE` | Bulk annotation file (same syntax as `-l`) |
 | `--label-size PT` | Label font size (overrides preset) |
+| `--stereo [STYLE]` | Stereochemistry labels (R/S, E/Z) from 3D geometry. `STYLE`=`atom` (centered, default) or `label` (offset) |
 | `--cmap FILE` | Per-atom property colormap (1-indexed atom index, value) |
 | `--cmap-range VMIN VMAX` | Explicit colormap range (default: auto from file) |
 | `--cmap-symm` | Symmetric colormap range about zero: `[-max(|v|), +max(|v|)]` |

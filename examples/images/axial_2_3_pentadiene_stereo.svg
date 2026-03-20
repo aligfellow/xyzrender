@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 482" width="800" height="482">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <defs>
+    <radialGradient id="x0g0" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
+    <radialGradient id="x0g1" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
+    <radialGradient id="x0g2" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
+    <radialGradient id="x0g3" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
+    <radialGradient id="x0g4" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
+  </defs>
+  <circle cx="552.7" cy="309.6" r="42.2" fill="url(#x0g3)" stroke="#000000" stroke-width="7.4"/>
+  <line x1="514.8" y1="320.8" x2="437.8" y2="320.8" stroke="#000000" stroke-width="13.0" stroke-linecap="round"/>
+  <line x1="514.8" y1="298.5" x2="437.8" y2="298.5" stroke="#000000" stroke-width="13.0" stroke-linecap="round"/>
+  <line x1="574.7" y1="279.0" x2="632.7" y2="198.4" stroke="#000000" stroke-width="18.6" stroke-linecap="round"/>
+  <circle cx="145.3" cy="167.8" r="42.2" fill="url(#x0g0)" stroke="#000000" stroke-width="7.4"/>
+  <line x1="167.3" y1="198.4" x2="225.3" y2="279.0" stroke="#000000" stroke-width="18.6" stroke-linecap="round"/>
+  <circle cx="400.0" cy="309.7" r="42.2" fill="url(#x0g2)" stroke="#000000" stroke-width="7.4"/>
+  <line x1="362.2" y1="320.8" x2="285.2" y2="320.8" stroke="#000000" stroke-width="13.0" stroke-linecap="round"/>
+  <line x1="362.2" y1="298.5" x2="285.2" y2="298.5" stroke="#000000" stroke-width="13.0" stroke-linecap="round"/>
+  <circle cx="654.7" cy="167.8" r="42.2" fill="url(#x0g4)" stroke="#000000" stroke-width="7.4"/>
+  <circle cx="247.3" cy="309.6" r="42.2" fill="url(#x0g1)" stroke="#000000" stroke-width="7.4"/>
+  <text x="400.0" y="253.8" font-family="monospace" font-size="37.2px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#ffffff" stroke="#ffffff" stroke-width="13.0" stroke-linejoin="round">Rₐ</text>
+  <text x="400.0" y="253.8" font-family="monospace" font-size="37.2px" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#222222">Rₐ</text>
+</svg>
