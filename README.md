@@ -194,9 +194,9 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### Crystal / periodic structures
 
-| Unit cell | Rotation | VASP | Viewing direction |
-|-----------|----------|------|-------------------|
-| ![cell](examples/images/caffeine_cell.svg) | ![cell rot](examples/images/caffeine_cell.gif) | ![vasp](examples/images/NV63_vasp.svg) | ![111](examples/images/NV63_111.gif) |
+| Unit cell | Rotation | VASP | Supercell 2×2×1 | Viewing direction |
+|-----------|----------|------|-----------------|-------------------|
+| ![cell](examples/images/caffeine_cell.svg) | ![cell rot](examples/images/caffeine_cell.gif) | ![vasp](examples/images/NV63_vasp.svg) | ![supercell](examples/images/NV63_cell_supercell_221.svg) | ![111](examples/images/NV63_111.gif) |
 
 ### GIF animations
 

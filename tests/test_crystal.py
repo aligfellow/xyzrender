@@ -14,6 +14,7 @@ EXTXYZ_FILE = EXAMPLES / "caffeine_cell.xyz"
 
 @pytest.fixture(scope="module")
 def vasp_crystal():
+    pytest.importorskip("phonopy")
     from xyzrender.crystal import load_crystal
 
     return load_crystal(VASP_FILE, "vasp")
@@ -21,6 +22,7 @@ def vasp_crystal():
 
 @pytest.fixture(scope="module")
 def qe_crystal():
+    pytest.importorskip("phonopy")
     from xyzrender.crystal import load_crystal
 
     return load_crystal(QE_FILE, "qe")
@@ -88,6 +90,77 @@ def test_crystal_images_no_orphans(vasp_crystal):
             if nb in cell_ids and graph.edges[node_id, nb].get("image_bond", False)
         ]
         assert image_bonds_to_cell, f"Image node {node_id} has no image_bond edge to a cell atom"
+
+
+def test_build_supercell_repeats_atoms(vasp_crystal):
+    """build_supercell replicates the unit cell correctly."""
+    import copy
+
+    from xyzrender.crystal import build_supercell
+
+    graph, cell_data = copy.deepcopy(vasp_crystal)
+    n0 = graph.number_of_nodes()
+    a = cell_data.lattice[0].copy()
+
+    g2 = build_supercell(graph, cell_data, (2, 1, 1))
+    assert g2.number_of_nodes() == 2 * n0
+
+    # For at least one atom, there must be a copy at +a.
+    p0 = np.array(g2.nodes[0]["position"], dtype=float)
+    target = p0 + a
+    pos_all = np.array([g2.nodes[i]["position"] for i in g2.nodes()], dtype=float)
+    dists = np.linalg.norm(pos_all - target[None, :], axis=1)
+    assert float(dists.min()) < 1e-6, "Expected a replicated atom at +a in the (2,1,1) supercell"
+
+
+def test_build_supercell_preserves_intra_edges(vasp_crystal):
+    """Intra-replica edges and their attributes are preserved from the unit cell."""
+    import copy
+
+    from xyzrender.crystal import build_supercell
+
+    graph, cell_data = copy.deepcopy(vasp_crystal)
+    e0 = graph.number_of_edges()
+    n0 = graph.number_of_nodes()
+
+    g2 = build_supercell(graph, cell_data, (2, 1, 1))
+    # Must have at least 2x original edges (intra-replica) plus some cross-boundary
+    assert g2.number_of_edges() >= 2 * e0
+
+    # First replica edges (indices 0..n0-1) should match original edge count
+    replica0_edges = [(u, v) for u, v in g2.edges() if u < n0 and v < n0]
+    assert len(replica0_edges) == e0
+
+
+def test_build_supercell_cross_boundary_bonds(vasp_crystal):
+    """Cross-boundary bonds exist between adjacent replicas in the supercell."""
+    import copy
+
+    from xyzrender.crystal import build_supercell
+
+    graph, cell_data = copy.deepcopy(vasp_crystal)
+    n0 = graph.number_of_nodes()
+
+    g2 = build_supercell(graph, cell_data, (2, 1, 1))
+    # Cross-boundary edges: one endpoint in [0, n0) and the other in [n0, 2*n0)
+    cross_edges = [(u, v) for u, v in g2.edges() if (u < n0) != (v < n0)]
+    assert len(cross_edges) > 0, "Expected cross-boundary bonds between replicas"
+
+
+def test_build_supercell_different_axes():
+    """Non-trivial supercell along different axes produces correct atom counts."""
+    from xyzrender.crystal import build_supercell
+    from xyzrender.readers import load_molecule
+    from xyzrender.types import CellData
+
+    g, _ = load_molecule(EXTXYZ_FILE)
+    n0 = g.number_of_nodes()
+    lat = np.array(g.graph["lattice"], dtype=float)
+    cd = CellData(lattice=lat)
+
+    for repeats, factor in [((1, 2, 1), 2), ((1, 1, 3), 3), ((2, 2, 2), 8)]:
+        g2 = build_supercell(g, cd, repeats)
+        assert g2.number_of_nodes() == factor * n0, f"repeats={repeats}"
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +272,49 @@ def test_extxyz_cell_box_renders(extxyz_graph):
     svg = render_svg(extxyz_graph, cfg)
     cell_lines = [ln for ln in svg.splitlines() if 'class="cell-edge"' in ln]
     assert len(cell_lines) == 12
+
+
+def test_extxyz_supercell_builds_without_phonopy(extxyz_graph):
+    """Supercell expansion works for any input that carries a lattice (extXYZ)."""
+    from xyzrender.crystal import build_supercell
+    from xyzrender.types import CellData
+
+    g = extxyz_graph
+    n0 = g.number_of_nodes()
+    lat = np.array(g.graph["lattice"], dtype=float)
+    origin = np.array(g.graph.get("lattice_origin", np.zeros(3)), dtype=float)
+    cd = CellData(lattice=lat, cell_origin=origin)
+
+    g2 = build_supercell(g, cd, (2, 2, 1))
+    assert g2.number_of_nodes() == 4 * n0
+
+
+def test_supercell_ghosts_no_overlap():
+    """Ghost atoms on a supercell must not overlap with real supercell atoms."""
+    from xyzrender.crystal import add_crystal_images, build_supercell
+    from xyzrender.readers import load_molecule
+    from xyzrender.types import CellData
+
+    g, _ = load_molecule(EXTXYZ_FILE)
+    lat = np.array(g.graph["lattice"], dtype=float)
+    cd = CellData(lattice=lat)
+
+    repeats = (2, 1, 1)
+    g2 = build_supercell(g, cd, repeats)
+    real_pos = np.array([g2.nodes[i]["position"] for i in g2.nodes()], dtype=float)
+
+    # Use supercell lattice for ghosts (as api.py now does)
+    sc_lat = np.vstack([repeats[0] * lat[0], repeats[1] * lat[1], repeats[2] * lat[2]])
+    ghost_cd = CellData(lattice=sc_lat, cell_origin=cd.cell_origin)
+    add_crystal_images(g2, ghost_cd)
+
+    # Check no ghost overlaps with any real atom
+    for nid in g2.nodes():
+        if not g2.nodes[nid].get("image", False):
+            continue
+        gpos = np.array(g2.nodes[nid]["position"], dtype=float)
+        dists = np.linalg.norm(real_pos - gpos[None, :], axis=1)
+        assert dists.min() > 0.1, f"Ghost {nid} at {gpos} overlaps with real atom (min dist {dists.min():.3f})"
 
 
 def test_orient_hkl_cell_corotates_with_atoms(vasp_crystal):

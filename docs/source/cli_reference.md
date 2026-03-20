@@ -152,3 +152,4 @@ Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Pref
 | `--ghost-opacity` | Opacity of ghost atoms/bonds (default: 0.5) |
 | `--axes` / `--no-axes` | Show/hide the a/b/c axis arrows |
 | `--axis HKL` | Orient looking down a crystallographic direction (e.g. `111`, `001`) |
+| `--supercell M N L` | Repeat the unit cell `M×N×L` times along a/b/c (requires lattice/unit-cell data; default: `1 1 1`) |

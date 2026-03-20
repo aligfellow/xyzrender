@@ -505,6 +505,14 @@ def main() -> None:
             "Each digit is one Miller index (0-9). Requires --crystal or --cell."
         ),
     )
+    crystal_g.add_argument(
+        "--supercell",
+        nargs=3,
+        type=int,
+        default=(1, 1, 1),
+        metavar=("M", "N", "L"),
+        help="Repeat the unit cell M N L times along a, b, c (requires --crystal). Default: 1 1 1.",
+    )
 
     args = p.parse_args()
     from xyzrender import configure_logging
@@ -657,6 +665,12 @@ def main() -> None:
         except ValueError as e:
             p.error(str(e))
 
+    # Supercell repetition counts (validated fully after loading so we can
+    # ensure the input actually has a unit cell / lattice).
+    _supercell = tuple(args.supercell) if args.supercell is not None else (1, 1, 1)
+    if any(v < 1 for v in _supercell):
+        p.error(f"--supercell values must be >= 1 (got {_supercell})")
+
     if wants_gif:
         gif_path = args.gif_output or f"{base}.gif"
         gif_ext = gif_path.rsplit(".", 1)[-1].lower()
@@ -803,6 +817,19 @@ def main() -> None:
     # Ghosts default: on whenever the molecule carries cell_data (auto-detected or explicit)
     _show_ghosts = args.ghosts if args.ghosts is not None else mol.cell_data is not None
 
+    # Validate supercell usage: allowed for any input that has a valid lattice.
+    if _supercell != (1, 1, 1):
+        if mol.cell_data is None:
+            p.error("--supercell requires an input with a unit cell (lattice).")
+        lat = getattr(mol.cell_data, "lattice", None)
+        if lat is None:
+            p.error("--supercell requires an input with a unit cell (lattice).")
+        import numpy as np
+
+        lat = np.array(lat, dtype=float)
+        if lat.shape != (3, 3) or np.allclose(lat, 0.0):
+            p.error("--supercell requires a non-zero 3x3 lattice matrix.")
+
     # --- Render static SVG ---
     try:
         render(
@@ -813,6 +840,7 @@ def main() -> None:
             no_cell=args.no_cell,
             axes=args.axes,
             axis=args.axis,
+            supercell=_supercell,
             ghosts=_show_ghosts,
             cell_color=args.cell_color,
             cell_width=args.cell_width,
@@ -898,6 +926,7 @@ def main() -> None:
                 no_cell=args.no_cell,
                 axes=args.axes,
                 axis=args.axis,
+                supercell=_supercell,
                 ghosts=_show_ghosts,
                 cell_color=args.cell_color,
                 cell_width=args.cell_width,
