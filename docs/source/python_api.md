@@ -66,9 +66,12 @@ render(mol, ts_bonds=[(1, 6)])      # manual TS bond (1-indexed)
 render(mol, nci_bonds=[(2, 8)])     # manual NCI bond (1-indexed)
 render(mol, idx=True)               # atom index labels ("C1", "N3", ...)
 render(mol, idx="n")                # index only ("1", "3", ...)
-render(mol, highlight="1-3,7")                          # highlight atoms 1-3 and 7 (orchid)
-render(mol, highlight="1-3,7", highlight_color="red")   # custom colour
-render(mol, highlight=[0, 1, 2, 6])                     # 0-indexed list (Python API)
+render(mol, mol_color="gray")                            # flat color for all atoms + bonds
+render(mol, highlight="1-3,7")                           # highlight atoms 1-3 and 7 (orchid)
+render(mol, highlight=[1, 2, 3, 7])                      # 1-indexed list
+render(mol, highlight=[("1-5", "blue"), ("10-15", "red")])  # multi-group with colors
+render(mol, highlight=["1-5", "10-15"])                  # multi-group, auto-colors from palette
+render(mol, mol_color="gray", highlight="1-5")           # gray base + orchid highlight on top
 render(mol, dof=True)                                   # depth-of-field blur
 render(mol, dof=True, dof_strength=6.0)                 # stronger blur
 ```
@@ -195,6 +198,12 @@ render_gif("caffeine.xyz", gif_rot="y")           # rotation GIF
 render_gif("ts.out", gif_ts=True)                  # TS vibration GIF
 render_gif("traj.xyz", gif_trj=True)               # trajectory GIF
 render_gif("mol.xyz", gif_rot="y", config=cfg)     # with shared style config
+
+# Diffuse / assembly GIF
+render_gif("caffeine.xyz", gif_diffuse=True)
+render_gif("caffeine.xyz", gif_diffuse=True, diffuse_noise=0.5, diffuse_bonds="hide")
+render_gif("caffeine.xyz", gif_diffuse=True, gif_rot="y", diffuse_rot=90)
+render_gif("caffeine.xyz", gif_diffuse=True, anchor="1-5,8")
 
 # Surface in rotation GIF (cube file)
 mol_cube = load("caffeine_homo.cube")

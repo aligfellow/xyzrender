@@ -15,10 +15,17 @@ xyzrender "$DIR/caffeine.xyz" --config flat -o "$IMG/caffeine_flat.svg"
 xyzrender "$DIR/caffeine.xyz" --config paton -o "$IMG/caffeine_paton.svg"
 xyzrender "$DIR/caffeine.xyz" --config skeletal -o "$IMG/caffeine_skeletal.svg"
 xyzrender "$DIR/caffeine.xyz" --config bubble --hy -o "$IMG/caffeine_bubble.svg"
+xyzrender "$DIR/caffeine.xyz" --config tube -o "$IMG/caffeine_tube.svg"
+xyzrender "$DIR/caffeine.xyz" --config wire -o "$IMG/caffeine_wire.svg"
+
+echo "=== Style regions ==="
+xyzrender "$DIR/caffeine.xyz" --region "1-3,5,10,11" tube -o "$IMG/caffeine_region.svg"
+xyzrender "$DIR/caffeine.xyz" --region "1-3,5,10,11" tube --region "6,7,13,14" bubble -o "$IMG/caffeine_two_region.svg"
+xyzrender "$DIR/bimp.v000.xyz" --no-orient --region "84-165" tube --nci --hl "84-165" --vdw "84-165" -o "$IMG/bimp_regions.svg"
 
 echo "=== Display options ==="
 xyzrender "$DIR/ethanol.xyz" --hy -o "$IMG/ethanol_all_h.svg"           # all H
-xyzrender "$DIR/ethanol.xyz" --hy 7 8 9 -o "$IMG/ethanol_some_h.svg"   # specific H atoms
+xyzrender "$DIR/ethanol.xyz" --hy "7-9" -o "$IMG/ethanol_some_h.svg"   # specific H atoms
 xyzrender "$DIR/ethanol.xyz" --no-hy -o "$IMG/ethanol_no_h.svg"        # no H
 xyzrender "$DIR/benzene.xyz" --hy -o "$IMG/benzene.svg"                 # aromatic
 xyzrender "$DIR/caffeine.xyz" --bo -k -o "$IMG/caffeine_kekule.svg"    # Kekule bond orders
@@ -76,6 +83,9 @@ xyzrender "$DIR/mn-h2.log" -o "$IMG/mn-h2_gif.svg" --gif-ts -go "$IMG/mn-h2.gif"
 xyzrender "$DIR/bimp.out" -o "$IMG/bimp_ts_nci.svg" --ts --gif-trj --vdw 84-169 --nci -go "$IMG/bimp_nci_trj.gif"
 xyzrender "$DIR/bimp.out" -o "$IMG/bimp_ts_nci.svg" --gif-ts --gif-rot --vdw 84-169 --nci -go "$IMG/bimp_nci_ts.gif"
 
+echo "=== Diffuse ==="
+xyzrender "$DIR/caffeine.xyz" --gif-diffuse -go "$IMG/caffeine_diffuse.gif" --gif-rot xy --diffuse-rot 180
+
 echo "=== Vector arrows ==="
 xyzrender "$DIR/ethanol.xyz" --vector "$DIR/ethanol_dip.json" -o "$IMG/ethanol_dip.svg" --gif-rot -go "$IMG/ethanol_dip.gif"           # dipole at center of mass, with rotation
 xyzrender "$DIR/ethanol.xyz" --hy --vector "$DIR/ethanol_forces_efield.json" --vector-scale 1.5 -o "$IMG/ethanol_forces_efield.svg" -go "$IMG/ethanol_forces_efield.gif" --gif-rot  # per-atom forces, with rotation
@@ -97,8 +107,10 @@ xyzrender "$DIR/NV63_cell.xyz" --axis 001 -o "$IMG/NV63_001.svg"   # looking dow
 xyzrender "$DIR/NV63_cell.xyz" --axis 111 --gif-rot 111 -o "$IMG/NV63_111.svg" -go "$IMG/NV63_111.gif"  # look down [111], rotate around [111]
 
 echo "=== Highlight ==="
-xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" -o "$IMG/caffeine_hl.svg" --gif-rot -go "$IMG/caffeine_hl.gif" 
-xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" --hl-color lightseagreen -o "$IMG/caffeine_hl_custom.svg"
+xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" -o "$IMG/caffeine_hl.svg" --gif-rot -go "$IMG/caffeine_hl.gif"
+xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" lightseagreen -o "$IMG/caffeine_hl_custom.svg"
+xyzrender "$DIR/caffeine.xyz" --hl "1-3,5,10,11,15,16,19,21" darkorchid --hl "4,6-9,12-14,17,18,20,22-24" teal --hy -o "$IMG/caffeine_multi_hl.svg"
+xyzrender "$DIR/caffeine.xyz" --hl "1-3,5,10,11,15,16,19,21" --mol-color mediumseagreen --hy --idx n -o "$IMG/caffeine_mol_color_hl_idx.svg"
 
 echo "=== Depth of field ==="
 xyzrender "$DIR/caffeine.xyz" --dof --no-orient -o "$IMG/caffeine_dof.svg" --gif-rot -go "$IMG/caffeine_dof.gif" 

@@ -36,7 +36,7 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Crystal / periodic structures** — render periodic structures with unit cell box, ghost atoms, and crystallographic axis arrows (a/b/c); extXYZ `Lattice=` auto-detected; VASP/QE via [`phonopy`](https://github.com/phonopy/phonopy)
 - **Multiple output formats** — SVG (default), PNG, PDF, and GIF from the same command
 
-**Preconfigured but extensible.** Built-in presets (`default`, `flat`, `paton`, `skeletal`, `bubble`) cover common use cases. Every setting — colors, radii, bond widths, gradients, fog — can be overridden via CLI flags or a custom JSON config file.
+**Preconfigured but extensible.** Built-in presets (`default`, `flat`, `paton`, `skeletal`, `bubble`, `tube`, `wire`) cover common use cases. Every setting — colors, radii, bond widths, gradients, fog — can be overridden via CLI flags or a custom JSON config file.
 
 ```bash
 xyzrender caffeine.xyz                          # SVG with sensible defaults
@@ -109,9 +109,19 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### Presets
 
-| Default | Flat | Paton (pymol-like) | Skeletal | Bubble |
-|---------|------|--------------------|----------|--------|
-| ![default](examples/images/caffeine_default.svg) | ![flat](examples/images/caffeine_flat.svg) | ![paton](examples/images/caffeine_paton.svg) | ![skeletal](examples/images/caffeine_skeletal.svg) | ![bubble](examples/images/caffeine_bubble.svg) |
+| Default | Flat | Paton (pymol-like) | Skeletal | 
+|---------|------|--------------------|----------|
+| ![default](examples/images/caffeine_default.svg) | ![flat](examples/images/caffeine_flat.svg) | ![paton](examples/images/caffeine_paton.svg) | ![skeletal](examples/images/caffeine_skeletal.svg) | 
+
+| Bubble | Tube | Wire |
+|--------|------|------|
+| ![bubble](examples/images/caffeine_bubble.svg) | ![tube](examples/images/caffeine_tube.svg) | ![wire](examples/images/caffeine_wire.svg) |
+
+### Style regions
+
+| Tube + ball-stick region | Tube + ball-stick, NCI, vdW |
+|--------------------------|------------------------|
+| ![region](examples/images/caffeine_region.svg) | ![bimp regions](examples/images/bimp_regions.svg) |
 
 ### Display options
 
@@ -131,11 +141,11 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |--------------|------------------|------------|----------|
 | ![benzene hull](examples/images/benzene_ring_hull.svg) | ![anthracene hull](examples/images/anthracene_hull.svg) | ![mnh hull](examples/images/mnh_hull_rings.svg) | ![anthracene rot](examples/images/anthracene_hull.gif) |
 
-### Highlight
+### Highlight & molecule color
 
-| Default (orchid) | Custom colour | Rotation |
-|------------------|---------------|----------|
-| ![hl](examples/images/caffeine_hl.svg) | ![hl custom](examples/images/caffeine_hl_custom.svg) | ![hl rot](examples/images/caffeine_hl.gif) |
+| Default (orchid) | Custom colour | Multi-group | Mol color + highlight |
+|------------------|---------------|-------------|-----------------------|
+| ![hl](examples/images/caffeine_hl.svg) | ![hl custom](examples/images/caffeine_hl_custom.svg) | ![multi hl](examples/images/caffeine_multi_hl.svg) | ![mol color hl](examples/images/caffeine_mol_color_hl_idx.svg) |
 
 ### Depth of field
 
@@ -194,9 +204,13 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |----------|---------------------------|------------|------------------|
 | ![rotate](examples/images/caffeine.gif) | ![ts rot](examples/images/bimp_nci_ts.gif) | ![trj](examples/images/bimp_trj.gif) | ![ts](examples/images/mn-h2.gif) |
 
-| Overlay rotation | MO | Density | Vectors |
-|----------|---------------------------|------------|-----|
-| ![overlay gif](examples/images/isothio_overlay.gif) | ![homo](examples/images/caffeine_homo.gif) | ![dens](examples/images/caffeine_dens.gif) | ![vectors](examples/images/ethanol_forces_efield.gif) | 
+| Overlay rotation | MO | Density | 
+|----------|---------------------------|------------|
+| ![overlay gif](examples/images/isothio_overlay.gif) | ![homo](examples/images/caffeine_homo.gif) | ![dens](examples/images/caffeine_dens.gif) | 
+
+| Vectors | Diffuse / assembly |
+|-----|--------------------|
+| ![vectors](examples/images/ethanol_forces_efield.gif) | ![diffuse](examples/images/caffeine_diffuse.gif) |
 
 For usage details and CLI commands, see the [examples](https://xyzrender.readthedocs.io/en/latest/examples.html) and [CLI reference](https://xyzrender.readthedocs.io/en/latest/cli_reference.html) in the docs.
 

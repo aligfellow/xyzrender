@@ -52,15 +52,20 @@ def _parse_pairs(s: str) -> list[tuple[int, int]]:
 
 def _parse_indices(s: str) -> list[int]:
     """Parse '1-20,25,30' → [0..19, 24, 29] (1-indexed input → 0-indexed)."""
-    if not s.strip():
-        return []
-    indices = []
+    from xyzrender.utils import parse_atom_indices
+
+    return parse_atom_indices(s)
+
+
+def _parse_atom_spec(s: str) -> list[int]:
+    """Parse '1-5,8' → [1, 2, 3, 4, 5, 8] (1-indexed, for passing to API)."""
+    indices: list[int] = []
     for part in s.split(","):
         if "-" in part:
             a, b = part.split("-")
-            indices.extend(range(int(a) - 1, int(b)))
+            indices.extend(range(int(a), int(b) + 1))
         else:
-            indices.append(int(part) - 1)
+            indices.append(int(part))
     return indices
 
 
@@ -120,7 +125,14 @@ def main() -> None:
 
     # --- Display ---
     disp_g = p.add_argument_group("display")
-    disp_g.add_argument("--hy", nargs="*", type=int, default=None, help="Show H atoms (no args=all, or 1-indexed)")
+    disp_g.add_argument(
+        "--hy",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="ATOMS",
+        help='Show H atoms (no args=all, or "1-5,8" 1-indexed)',
+    )
     disp_g.add_argument("--no-hy", action="store_true", default=False, help="Hide all H atoms")
     disp_g.add_argument(
         "--no-bonds", action="store_true", default=False, help="Hide all bonds (e.g. space-filling style)"
@@ -272,19 +284,71 @@ def main() -> None:
         default=None,
         help="Rotation GIF (default axis: y). Combinable with --gif-ts.",
     )
+    gif_g.add_argument("--gif-diffuse", action="store_true", help="Diffuse/assembly GIF — atoms scatter and reassemble")
     gif_g.add_argument("-go", "--gif-output", default=None, help="GIF output path")
     gif_g.add_argument("--gif-fps", type=int, default=10, help="GIF frames per second (default: 10)")
     gif_g.add_argument("--rot-frames", type=int, default=120, help="Rotation frames (default: 120)")
+    gif_g.add_argument("--diffuse-frames", type=int, default=60, help="Number of diffuse frames (default: 60)")
+    gif_g.add_argument("--diffuse-noise", type=float, default=0.3, help="Per-frame random walk noise (default: 0.3)")
+    gif_g.add_argument(
+        "--diffuse-bonds",
+        choices=["fade", "show", "hide"],
+        default="fade",
+        help="Bond visibility during diffuse: fade (default), show, or hide",
+    )
+    gif_g.add_argument(
+        "--diffuse-rot",
+        type=int,
+        nargs="?",
+        const=180,
+        default=None,
+        metavar="DEG",
+        help="Add rotation during diffuse (default: 180°)",
+    )
+    gif_g.add_argument(
+        "--diffuse-forward", action="store_true", help="Play forward (molecule → noise) instead of assembly"
+    )
+    gif_g.add_argument("--anchor", default=None, metavar="ATOMS", help='Atoms that stay fixed: "1-5,8" (1-indexed)')
 
-    # --- Highlight ---
+    # --- Atom color / Highlight ---
     hl_g = p.add_argument_group("highlight")
     hl_g.add_argument(
-        "--hl",
-        default=None,
-        metavar="ATOMS",
-        help='Highlight atom indices: "1-5,8,12" (1-indexed). Colors atoms and their connecting bonds.',
+        "--mol-color", default=None, metavar="COLOR", help="Flat color for all atoms and bonds (overrides CPK)"
     )
-    hl_g.add_argument("--hl-color", default=None, metavar="COLOR", help="Highlight color (default: orchid)")
+    hl_g.add_argument(
+        "--hl",
+        nargs="+",
+        action="append",
+        default=None,
+        metavar=("ATOMS", "COLOR"),
+        help='Highlight atom group: --hl "1-5,8" [color]. Can be repeated. Auto-colors if no color given.',
+    )
+
+    # --- Style regions ---
+    region_g = p.add_argument_group("style regions")
+    region_g.add_argument(
+        "--region",
+        nargs=2,
+        action="append",
+        default=None,
+        metavar=("ATOMS", "CONFIG"),
+        help='Render atom subset with a different style: --region "1-5" flat. Can be repeated.',
+    )
+
+    # --- Bond coloring ---
+    bond_color_g = p.add_argument_group("bond coloring")
+    bond_color_g.add_argument(
+        "--bond-by-element",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Color bonds by endpoint atom colors (on by default in tube preset)",
+    )
+    bond_color_g.add_argument(
+        "--bond-gradient",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Cylinder shading on bonds (3D tube look). On by default in tube preset.",
+    )
 
     # --- Depth of field ---
     dof_g = p.add_argument_group("depth of field")
@@ -455,10 +519,10 @@ def main() -> None:
 
     configure_logging(verbose=True, debug=args.debug)
 
-    # Normalise argparse --hy (None | [] | [1,3,5]) → shared (None | True | [1,3,5])
+    # Normalise argparse --hy (None | "" | "1-5,8") → shared (None | True | [1,2,3,4,5,8])
     hy_spec: bool | list[int] | None = None
     if args.hy is not None:
-        hy_spec = True if len(args.hy) == 0 else args.hy
+        hy_spec = True if args.hy == "" else _parse_atom_spec(args.hy)
 
     # Resolve orient flag before build_config so it can be passed in directly
     from_stdin = not args.input and not sys.stdin.isatty()
@@ -507,13 +571,30 @@ def main() -> None:
     if args.skeletal_label_color is not None:
         cfg.skeletal_label_color = args.skeletal_label_color
 
-    # Highlight atoms
+    # Highlight atoms (multi-group) — convert argparse lists to tuples for render()
+    _highlight: list[tuple[str, ...]] | None = None
     if args.hl is not None:
-        cfg.highlight_indices = _parse_indices(args.hl)
-    if args.hl_color is not None:
-        from xyzrender.types import resolve_color
+        for entry in args.hl:
+            if len(entry) > 2:
+                raise SystemExit(f"error: --hl takes 1-2 arguments (ATOMS [COLOR]), got {len(entry)}")
+        _highlight = [tuple(e) for e in args.hl]
 
-        cfg.highlight_color = resolve_color(args.hl_color)
+    # Style regions
+    if args.region:
+        from xyzrender.api import _apply_style_regions
+
+        _apply_style_regions(
+            cfg, regions=[(_parse_atom_spec(atoms_str), config_name) for atoms_str, config_name in args.region]
+        )
+
+    # Bond coloring
+    if args.bond_by_element is not None:
+        cfg.bond_color_by_element = args.bond_by_element
+    elif args.bond_color is not None:
+        # --bond-color implies uniform colour unless --bond-by-element is explicit
+        cfg.bond_color_by_element = False
+    if args.bond_gradient is not None:
+        cfg.bond_gradient = args.bond_gradient
 
     # Depth of field
     if args.dof:
@@ -531,7 +612,14 @@ def main() -> None:
         supported = ", ".join("." + e for e in sorted(_SUPPORTED_EXTENSIONS))
         p.error(f"Unsupported static output format: .{static_ext} (use {supported})")
 
-    wants_gif = args.gif_ts or args.gif_rot or args.gif_trj
+    wants_gif = args.gif_ts or args.gif_rot or args.gif_trj or args.gif_diffuse
+
+    if args.gif_diffuse and (args.gif_ts or args.gif_trj):
+        p.error("--gif-diffuse cannot be combined with --gif-ts or --gif-trj")
+
+    # --diffuse-rot without --gif-rot implies y-axis rotation
+    if args.gif_diffuse and args.diffuse_rot is not None and not args.gif_rot:
+        args.gif_rot = "y"
 
     # Warn when SVG-only flags are combined with GIF output
     annotation_flags_used = args.idx is not None or args.label_specs or args.label
@@ -634,7 +722,7 @@ def main() -> None:
             # --hull with no args → all heavy atoms
             _hull_arg = True
         else:
-            _hull_arg = [_parse_indices(g) for g in args.hull]
+            _hull_arg = [_parse_atom_spec(g) for g in args.hull]
         apply_hull_to_config(
             cfg,
             _hull_arg,
@@ -687,8 +775,7 @@ def main() -> None:
     # --- Parse align-atoms (comma-separated 1-indexed, e.g. "1,2,3" or "1-6") ---
     _align_atoms: list[int] | None = None
     if args.align_atoms is not None:
-        # _parse_indices returns 0-indexed
-        _align_atoms = list(_parse_indices(args.align_atoms))
+        _align_atoms = _parse_atom_spec(args.align_atoms)
 
     # --- Parse ensemble color: palette name, single color, or comma-separated list ---
     _ens_color: str | list[str] | None = None
@@ -748,6 +835,8 @@ def main() -> None:
         render(
             mol,
             config=cfg,
+            mol_color=args.mol_color,
+            highlight=_highlight,
             no_cell=args.no_cell,
             axes=args.axes,
             axis=args.axis,
@@ -772,7 +861,7 @@ def main() -> None:
             opacity=args.opacity,
             overlay=args.overlay,
             overlay_color=args.overlay_color,
-            align_atoms=[i + 1 for i in _align_atoms] if _align_atoms else None,
+            align_atoms=_align_atoms,
             vector=args.vector,
             vector_scale=args.vector_scale,
             output=args.output,
@@ -805,9 +894,18 @@ def main() -> None:
             render_gif(
                 mol_or_path,
                 config=cfg,
+                mol_color=args.mol_color,
+                highlight=_highlight,
                 gif_rot=args.gif_rot or None,
                 gif_trj=args.gif_trj,
                 gif_ts=args.gif_ts,
+                gif_diffuse=args.gif_diffuse,
+                diffuse_frames=args.diffuse_frames,
+                diffuse_noise=args.diffuse_noise,
+                diffuse_bonds=args.diffuse_bonds,
+                diffuse_rot=args.diffuse_rot,
+                diffuse_reverse=not args.diffuse_forward,
+                anchor=_parse_atom_spec(args.anchor) if args.anchor else None,
                 output=gif_path,
                 gif_fps=args.gif_fps,
                 rot_frames=args.rot_frames,

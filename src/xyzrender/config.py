@@ -81,6 +81,9 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
         if v is not None:
             merged[k] = v
 
+    # style_regions can't be deserialised from plain JSON dicts
+    merged.pop("style_regions", None)
+
     # "colors" key in JSON maps to color_overrides on RenderConfig
     colors = merged.pop("colors", None)
     if colors:
@@ -110,7 +113,7 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
         "dens_color",
         "nci_color",
         "overlay_color",
-        "highlight_color",
+        "mol_color",
     )
     for key in _color_fields:
         if key in merged:
@@ -124,6 +127,14 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
     # hull_colors: list of color strings (one per subset) → resolve to hex
     if "hull_colors" in merged and merged["hull_colors"] is not None:
         merged["hull_colors"] = [resolve_color(c) for c in merged["hull_colors"]]
+
+    # highlight_colors: list of color strings → resolve to hex
+    # Backward compat: old presets may have "highlight_color" (single string)
+    if "highlight_color" in merged:
+        old = merged.pop("highlight_color")
+        merged.setdefault("highlight_colors", [resolve_color(old)])
+    if "highlight_colors" in merged and merged["highlight_colors"] is not None:
+        merged["highlight_colors"] = [resolve_color(c) for c in merged["highlight_colors"]]
 
     return RenderConfig(**merged)
 
@@ -274,6 +285,16 @@ def build_config(
         cfg.cmap_symm = True
 
     return cfg
+
+
+def build_region_config(config_name: str = "default", **overrides) -> RenderConfig:
+    """Build a :class:`RenderConfig` for use as a :class:`StyleRegion` config.
+
+    Only per-atom/bond fields are meaningful; global fields (canvas, fog,
+    surfaces) are ignored by the renderer for region configs.
+    """
+    config_data = load_config(config_name)
+    return build_render_config(config_data, {k: v for k, v in overrides.items() if v is not None})
 
 
 def collect_surf_overrides(

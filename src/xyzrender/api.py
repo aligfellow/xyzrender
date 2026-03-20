@@ -42,9 +42,10 @@ if TYPE_CHECKING:
     import networkx as nx
 
     from xyzrender.cube import CubeData
-    from xyzrender.types import CellData, RenderConfig, VectorArrow
+    from xyzrender.types import CellData, VectorArrow
 
-from xyzrender.types import GIFResult, SVGResult, resolve_color
+from xyzrender.types import GIFResult, RenderConfig, SVGResult, resolve_color
+from xyzrender.utils import parse_atom_indices
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +169,7 @@ def load(
     ensemble: bool = False,
     reference_frame: int = 0,
     max_frames: int | None = None,
-    align_atoms: list[int] | None = None,
+    align_atoms: str | list[int] | None = None,
     ensemble_color: str | list[str] | None = None,
     ensemble_palette: str | None = None,
     ensemble_opacity: float | None = None,
@@ -226,7 +227,7 @@ def load(
     max_frames:
         Maximum number of frames to include (default: all).
     align_atoms:
-        0-indexed atom indices for Kabsch alignment subset (min 3).
+        1-indexed atom indices for Kabsch alignment subset (min 3).
         When given, the rotation is computed from this subset only
         but applied to all atoms.
     ensemble_color:
@@ -490,9 +491,15 @@ def render(
     hull_opacity: float | None = None,
     hull_edge: bool | None = None,
     hull_edge_width_ratio: float | None = None,
+    # --- Molecule color ---
+    mol_color: str | None = None,
     # --- Highlight ---
-    highlight: str | list[int] | None = None,
-    highlight_color: str | None = None,
+    highlight: str | list[int] | list[list[int] | str] | list[tuple] | None = None,
+    # --- Style regions ---
+    regions: list[tuple[str | list[int], str | RenderConfig]] | None = None,
+    # --- Bond coloring ---
+    bond_color_by_element: bool | None = None,
+    bond_gradient: bool | None = None,
     # --- Depth of field ---
     dof: bool = False,
     dof_strength: float | None = None,
@@ -500,7 +507,7 @@ def render(
     overlay: str | os.PathLike | Molecule | None = None,
     overlay_color: str | None = None,
     # --- Alignment (overlay subset alignment) ---
-    align_atoms: list[int] | None = None,
+    align_atoms: str | list[int] | None = None,
     # --- Output ---
     output: str | os.PathLike | None = None,
 ) -> SVGResult:
@@ -665,8 +672,23 @@ def render(
         opacity=opacity,
     )
 
+    from xyzrender.types import resolve_color
+
+    # --- Molecule color ---
+    if mol_color is not None:
+        cfg.mol_color = resolve_color(mol_color)
+
     # --- Highlight ---
-    _apply_highlight(cfg, highlight=highlight, highlight_color=highlight_color)
+    _apply_highlight(cfg, highlight=highlight)
+
+    # --- Style regions ---
+    _apply_style_regions(cfg, regions=regions)
+
+    # --- Bond coloring ---
+    if bond_color_by_element is not None:
+        cfg.bond_color_by_element = bond_color_by_element
+    if bond_gradient is not None:
+        cfg.bond_gradient = bond_gradient
 
     # --- Depth of field ---
     if dof:
@@ -796,8 +818,8 @@ def render(
 
         if overlay_color is not None:
             cfg.overlay_color = resolve_color(overlay_color)
-        # Convert 1-indexed align_atoms to 0-indexed for overlay
-        _ov_align = [i - 1 for i in align_atoms] if align_atoms is not None else None
+        # Convert 1-indexed align_atoms (str or list) to 0-indexed for overlay
+        _ov_align = parse_atom_indices(align_atoms) if align_atoms is not None else None
         aligned2 = align(g1, g2, align_atoms=_ov_align)
         rmol = Molecule(
             graph=merge_graphs(g1, g2, aligned2, overlay_color=cfg.overlay_color),
@@ -907,6 +929,15 @@ def render_gif(
     gif_rot: str | None = None,
     gif_trj: bool = False,
     gif_ts: bool = False,
+    gif_diffuse: bool = False,
+    # --- Diffuse params ---
+    diffuse_frames: int = 60,
+    diffuse_noise: float = 0.3,
+    diffuse_bonds: str = "fade",
+    diffuse_rot: int | None = None,
+    diffuse_reverse: bool = True,
+    anchor: str | list[int] | None = None,
+    # --- Common ---
     output: str | os.PathLike | None = None,
     gif_fps: int = 10,
     rot_frames: int = 120,
@@ -934,9 +965,15 @@ def render_gif(
     no_hy: bool = False,
     bo: bool | None = None,
     orient: bool | None = None,
+    # --- Molecule color ---
+    mol_color: str | None = None,
     # --- Highlight ---
-    highlight: str | list[int] | None = None,
-    highlight_color: str | None = None,
+    highlight: str | list[int] | list[list[int] | str] | list[tuple] | None = None,
+    # --- Style regions ---
+    regions: list[tuple[str | list[int], str | RenderConfig]] | None = None,
+    # --- Bond coloring ---
+    bond_color_by_element: bool | None = None,
+    bond_gradient: bool | None = None,
     # --- Depth of field ---
     dof: bool = False,
     dof_strength: float | None = None,
@@ -1016,23 +1053,28 @@ def render_gif(
     from xyzrender.config import build_config
     from xyzrender.gif import (
         ROTATION_AXES,
+        render_diffuse_gif,
         render_rotation_gif,
         render_trajectory_gif,
         render_vibration_gif,
         render_vibration_rotation_gif,
     )
 
-    if not (gif_rot or gif_trj or gif_ts):
-        msg = "render_gif: set gif_rot, gif_trj=True, or gif_ts=True"
+    if not (gif_rot or gif_trj or gif_ts or gif_diffuse):
+        msg = "render_gif: set gif_rot, gif_trj=True, gif_ts=True, or gif_diffuse=True"
         raise ValueError(msg)
 
     if gif_ts and gif_trj:
         msg = "render_gif: gif_ts and gif_trj are mutually exclusive"
         raise ValueError(msg)
 
-    if (mo or dens) and (gif_ts or gif_trj):
+    if gif_diffuse and (gif_ts or gif_trj):
+        msg = "render_gif: gif_diffuse is mutually exclusive with gif_ts / gif_trj"
+        raise ValueError(msg)
+
+    if (mo or dens) and (gif_ts or gif_trj or gif_diffuse):
         active_surf = "mo" if mo else "dens"
-        active_gif = "gif_ts" if gif_ts else "gif_trj"
+        active_gif = "gif_ts" if gif_ts else ("gif_trj" if gif_trj else "gif_diffuse")
         msg = f"render_gif: {active_surf} surface is only supported with gif_rot, not {active_gif}"
         raise ValueError(msg)
 
@@ -1092,8 +1134,23 @@ def render_gif(
             orient=orient,
         )
 
+    from xyzrender.types import resolve_color
+
+    # --- Molecule color ---
+    if mol_color is not None:
+        cfg.mol_color = resolve_color(mol_color)
+
     # --- Highlight ---
-    _apply_highlight(cfg, highlight=highlight, highlight_color=highlight_color)
+    _apply_highlight(cfg, highlight=highlight)
+
+    # --- Style regions ---
+    _apply_style_regions(cfg, regions=regions)
+
+    # --- Bond coloring ---
+    if bond_color_by_element is not None:
+        cfg.bond_color_by_element = bond_color_by_element
+    if bond_gradient is not None:
+        cfg.bond_gradient = bond_gradient
 
     # --- Depth of field ---
     if dof:
@@ -1184,6 +1241,29 @@ def render_gif(
             reference_graph=_trj_ref,
             detect_nci=detect_nci,
             axis=gif_rot,
+        )
+
+    elif gif_diffuse:
+        if ref_graph is None:
+            from xyzrender.readers import load_molecule
+
+            ref_graph, _ = load_molecule(str(mol_path))
+        else:
+            ref_graph = copy.deepcopy(ref_graph)
+        from xyzrender.diffuse import parse_anchor
+
+        render_diffuse_gif(
+            ref_graph,
+            cfg,
+            str(gif_path),
+            n_frames=diffuse_frames,
+            noise=diffuse_noise,
+            bonds=diffuse_bonds,
+            reverse=diffuse_reverse,
+            fps=gif_fps,
+            rotation_axis=gif_rot,
+            rotation_degrees=float(diffuse_rot) if diffuse_rot else 360.0,
+            anchor=parse_anchor(anchor),
         )
 
     else:
@@ -1350,7 +1430,7 @@ def _build_ensemble_molecule(
     *,
     reference_frame: int = 0,
     max_frames: int | None = None,
-    align_atoms: list[int] | None = None,
+    align_atoms: str | list[int] | None = None,
     conformer_colors: list[str] | None = None,
     ensemble_opacity: float | None = None,
     ensemble_palette: str | None = None,
@@ -1441,7 +1521,8 @@ def _build_ensemble_molecule(
         real_nodes = [n for n in _node_list(ref_graph) if ref_graph.nodes[n].get("symbol") != "*"]
         frames[reference_frame]["positions"] = [list(ref_graph.nodes[n]["position"]) for n in real_nodes]
 
-    aligned_positions = ensemble_align(frames, reference_frame=reference_frame, align_atoms=align_atoms)
+    _align_0 = parse_atom_indices(align_atoms) if align_atoms is not None else None
+    aligned_positions = ensemble_align(frames, reference_frame=reference_frame, align_atoms=_align_0)
 
     # NCI detection and per-frame graph building happen *after* alignment so that
     # centroid dummy nodes don't interfere with position array sizes.
@@ -1508,31 +1589,124 @@ def _build_ensemble_molecule(
 def _apply_highlight(
     cfg: "RenderConfig",
     *,
-    highlight: "str | list[int] | None" = None,
-    highlight_color: "str | None" = None,
+    highlight: "str | list[int] | list[list[int] | str] | list[tuple] | None" = None,
 ) -> None:
     """Apply highlight atom coloring to *cfg* (mutates in place).
 
-    *highlight* is either a 1-indexed string (``"1-5,8"``) matching the CLI
-    format, or a 0-indexed ``list[int]`` for the Python API.
-    """
-    if highlight is not None:
-        if isinstance(highlight, str):
-            # Parse 1-indexed string → 0-indexed list (same logic as cli._parse_indices)
-            indices: list[int] = []
-            for part in highlight.split(","):
-                if "-" in part:
-                    a, b = part.split("-")
-                    indices.extend(range(int(a) - 1, int(b)))
-                else:
-                    indices.append(int(part) - 1)
-            cfg.highlight_indices = indices
-        else:
-            cfg.highlight_indices = list(highlight)
-    if highlight_color is not None:
-        from xyzrender.types import resolve_color
+    Accepts multiple forms (all atom indices are 1-indexed):
 
-        cfg.highlight_color = resolve_color(highlight_color)
+    - ``str``: single group, auto-color — ``"1-5,8"``
+    - ``list[int]``: single group, auto-color — ``[1, 2, 3, 4, 5]``
+    - ``list[str | list[int]]``: multi-group, auto-color — ``["1-5", "10-15"]``
+    - ``list[tuple]``: multi-group with colors — ``[("1-5", "blue"), ...]``
+    """
+    if highlight is None:
+        return
+
+    from xyzrender.types import HighlightGroup, resolve_color
+
+    palette = cfg.highlight_colors
+    groups: list[HighlightGroup] = []
+
+    from typing import cast
+
+    # Normalise into list of (indices_spec, color_or_None)
+    raw_groups: list[tuple[str | list[int], str | None]]
+
+    if isinstance(highlight, str):
+        # Single group from string: "1-5,8"
+        raw_groups = [(highlight, None)]
+    elif isinstance(highlight, list) and highlight:
+        first = highlight[0]
+        if isinstance(first, int):
+            # Single group from list[int]: [1, 2, 3, 4, 5]
+            raw_groups = [(cast("list[int]", highlight), None)]
+        elif isinstance(first, str):
+            # Multi-group from list[str]: ["1-5", "10-15"]
+            raw_groups = [(cast("str", s), None) for s in highlight]
+        elif isinstance(first, list):
+            # Multi-group from list[list[int]]: [[1,2,3], [5,6,7,8]] — auto-color
+            raw_groups = [(cast("list[int]", sub), None) for sub in highlight]
+        elif isinstance(first, tuple):
+            # Multi-group from list[tuple]: [("1-5", "blue"), ([1,2,3], "red"), ...]
+            raw_groups = []
+            for entry in highlight:
+                if isinstance(entry, tuple):
+                    atoms_spec = entry[0]
+                    color_spec = entry[1] if len(entry) > 1 else None
+                    raw_groups.append((atoms_spec, color_spec))
+                else:
+                    msg = f"highlight entry must be a tuple, got {type(entry)}"
+                    raise TypeError(msg)
+        else:
+            msg = f"unexpected highlight element type: {type(first)}"
+            raise TypeError(msg)
+    else:
+        return
+
+    seen: set[int] = set()
+    auto_idx = 0
+    for atoms_spec, color_spec in raw_groups:
+        indices = parse_atom_indices(atoms_spec)
+
+        overlap = seen & set(indices)
+        if overlap:
+            examples = sorted(overlap)[:5]
+            msg = f"atom(s) {', '.join(str(i + 1) for i in examples)} appear in multiple highlight groups (1-indexed)"
+            raise ValueError(msg)
+        seen.update(indices)
+
+        if color_spec is not None:
+            color = resolve_color(color_spec)
+        else:
+            color = resolve_color(palette[auto_idx % len(palette)])
+            auto_idx += 1
+
+        groups.append(HighlightGroup(indices=indices, color=color))
+
+    cfg.highlight_groups = groups
+
+
+def _apply_style_regions(
+    cfg: "RenderConfig",
+    *,
+    regions: "list[tuple[str | list[int], str | RenderConfig]] | None" = None,
+) -> None:
+    """Apply style-region overrides to *cfg* (mutates in place).
+
+    Each region is ``(atoms_spec, config_spec)`` where *atoms_spec* is a
+    1-indexed string (``"1-5,8"``) or 1-indexed ``list[int]``, and
+    *config_spec* is a preset name or a pre-built :class:`RenderConfig`.
+    """
+    if regions is None:
+        return
+
+    import copy
+
+    from xyzrender.config import build_region_config
+    from xyzrender.types import StyleRegion
+
+    seen: set[int] = set()
+    for atoms_spec, config_spec in regions:
+        indices = parse_atom_indices(atoms_spec)
+
+        overlap = seen & set(indices)
+        if overlap:
+            examples = sorted(overlap)[:5]
+            msg = f"atom(s) {', '.join(str(i + 1) for i in examples)} appear in multiple style regions (1-indexed)"
+            raise ValueError(msg)
+        seen.update(indices)
+
+        if isinstance(config_spec, str):
+            rcfg = build_region_config(config_spec)
+        elif isinstance(config_spec, RenderConfig):
+            rcfg = copy.copy(config_spec)
+        else:
+            msg = f"region config must be a preset name (str) or RenderConfig, got {type(config_spec)}"
+            raise TypeError(msg)
+
+        rcfg.style_regions = []  # no nested regions
+        cfg.style_regions.append(StyleRegion(indices=indices, config=rcfg))
 
 
 def _apply_render_overlays(

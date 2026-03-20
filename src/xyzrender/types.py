@@ -362,6 +362,19 @@ class NCIParams:
 
 
 @dataclass
+class HighlightGroup:
+    """A group of atoms to highlight with a specific color."""
+
+    indices: list[int]  # 0-indexed atom indices
+    color: str  # resolved hex color
+    _index_set: set[int] = field(default_factory=set, repr=False, init=False)
+
+    def __post_init__(self) -> None:
+        """Pre-compute index set for O(1) membership checks."""
+        self._index_set = set(self.indices)
+
+
+@dataclass
 class RenderConfig:
     """Rendering settings."""
 
@@ -373,6 +386,8 @@ class RenderConfig:
     bond_width: float = 5.0
     bond_color: str = "#333333"
     bond_gap: float = 0.6  # multi-bond spacing as fraction of bond_width
+    bond_color_by_element: bool = False  # color bonds by endpoint atom colors
+    bond_gradient: bool = False  # cylinder shading on bonds (perpendicular gradient for 3D tube look)
     gradient: bool = False
     hue_shift_factor: float = 0.2
     light_shift_factor: float = 0.2
@@ -396,6 +411,7 @@ class RenderConfig:
     fixed_span: float | None = None  # fixed viewport span (disables auto-fit)
     fixed_center: tuple[float, float] | None = None  # fixed XY center (disables auto-center)
     color_overrides: dict[str, str] | None = None  # element symbol → hex color
+    mol_color: str | None = None  # flat color for all atoms + bonds (overrides CPK; highlight paints on top)
     # Surface rendering (MO / density / ESP / NCI share one opacity)
     mo_contours: SurfaceContours | None = None
     dens_contours: SurfaceContours | None = None
@@ -429,8 +445,17 @@ class RenderConfig:
     nci_color: str = _DEFAULT_NCI_COLOR
     nci_color_mode: str = _DEFAULT_NCI_COLOR_MODE
     # Highlight (atom group coloring)
-    highlight_indices: list[int] | None = None  # 0-indexed atom indices to highlight
-    highlight_color: str = "orchid"  # default from preset
+    highlight_groups: list[HighlightGroup] = field(default_factory=list)
+    highlight_colors: list[str] = field(
+        default_factory=lambda: [
+            "orchid",
+            "mediumseagreen",
+            "goldenrod",
+            "coral",
+            "mediumpurple",
+            "hotpink",
+        ]
+    )
     # Depth of field
     dof: bool = False
     dof_strength: float = 3.0  # max blur stdDeviation in SVG units
@@ -477,6 +502,26 @@ class RenderConfig:
     # Edge color is auto-derived as a darkened shade of the hull fill color.
     show_hull_edges: bool = True
     hull_edge_width_ratio: float = 0.4  # stroke width = bond_width * this
+    # Style regions: render subsets of atoms with a different preset/config
+    style_regions: list[StyleRegion] = field(default_factory=list)
+
+
+@dataclass
+class StyleRegion:
+    """A subset of atoms rendered with a different visual style.
+
+    Only per-atom/bond fields are used (atom_scale, gradient, bond_width,
+    etc.); global fields (canvas_size, background, fog, surfaces) are
+    taken from the base config.
+    """
+
+    indices: list[int]  # 0-indexed atom indices
+    config: RenderConfig  # resolved config for this region
+    _index_set: set[int] = field(default_factory=set, repr=False, init=False)
+
+    def __post_init__(self):
+        """Pre-compute index set for O(1) membership checks."""
+        self._index_set = set(self.indices)
 
 
 # ---------------------------------------------------------------------------
