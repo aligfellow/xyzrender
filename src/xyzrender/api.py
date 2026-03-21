@@ -769,8 +769,6 @@ def render(
             ghost_opacity=ghost_opacity,
             bo_explicit=bo,
         )
-        if bo is None and not cfg.bond_orders:
-            logger.warning("Periodic structure: bond orders disabled by default (pass bo=True to override)")
     elif "lattice" in mol.graph.graph:
         logger.info("Lattice found in graph; use load(..., cell=True) to draw the unit cell box")
 
@@ -1896,9 +1894,11 @@ def _apply_cell_config(
         )
         add_crystal_images(mol.graph, ghost_cd)
 
-    # Default no-bo for periodic structures (bond orders are not PBC-aware)
-    if bo_explicit is None:
-        cfg.bond_orders = False
+    # Bond orders are not meaningful for periodic structures (xyzgraph bond
+    # order assignment assumes isolated molecules).
+    if bo_explicit:
+        logger.warning("Bond orders are not supported for periodic structures (--bo ignored)")
+    cfg.bond_orders = False
 
 
 def _resolve_crystal_interface(path: Path, crystal: bool | str) -> str:

@@ -255,6 +255,11 @@ def add_crystal_images(graph: nx.Graph, crystal_data: CellData) -> int:
                 j for j in cell_ids if _is_bonded(sym_i, cell_syms[j], float(np.linalg.norm(img_pos - cell_pos[j])))
             ]
 
+            # Skip ghost hydrogens that only bond to C (C-H across boundary
+            # is not chemically interesting and clutters the image).
+            if sym_i == "H":
+                bonded_to = [j for j in bonded_to if cell_syms[j] != "C"]
+
             if not bonded_to:
                 continue
 

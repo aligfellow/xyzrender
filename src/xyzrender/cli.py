@@ -864,6 +864,7 @@ def main() -> None:
             align_atoms=_align_atoms,
             vector=args.vector,
             vector_scale=args.vector_scale,
+            bo=args.bo,
             output=args.output,
         )
     except ValueError as e:
