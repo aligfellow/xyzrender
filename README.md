@@ -22,6 +22,7 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 
 - **Bond orders and aromaticity** — double bonds, triple bonds, and aromatic ring notation detected automatically from geometry via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
 - **Transition state bonds** — forming/breaking bonds rendered as dashed lines, detected automatically from imaginary frequency vibrations via [`graphRC`](https://github.com/aligfellow/graphRC)
+- **Stereochemistry labels** — R/S, E/Z, axial, planar (metallocene and CIP), and helical chirality labels detected and annotated automatically via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
 - **Non-covalent interactions** — hydrogen bonds and other weak interactions shown as dotted lines, detected automatically via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
 - **GIF animations** — rotation, TS vibration, and trajectory animations for presentations
 - **Molecular orbitals** — render MO lobes from cube files with front/back depth cueing
@@ -173,21 +174,9 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### Stereochemistry labels
 
-| R/S atom-centered                                                | R/S offset label                                             |
-| ---------------------------------------------------------------- | ------------------------------------------------------------ |
-| ![R/S atom](examples/images/R-lactate_atom_stereo_labelling.svg) | ![R/S label](examples/images/R-lactate_stereo_labelling.svg) |
-
-| Z-stilbene                                     | E-stilbene                                     |
-| ---------------------------------------------- | ---------------------------------------------- |
-| ![Z-stilbene](examples/images/Z-stillbene.svg) | ![E-stilbene](examples/images/E-stillbene.svg) |
-
-| Axial (Ra)                                          | Axial (Sa)                                                    | Axial (Allene)                                           |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| ![axial binol](examples/images/axial_binol_stereo.svg) | ![axial dichlorobiphenyl](examples/images/axial_2_2_dichlorobiphenyl_stereo.svg) | ![axial allene](examples/images/axial_2_3_pentadiene_stereo.svg) |
-
-| Planar                                      | Helical                                             |                                                 |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------ |
-| ![planar ferrocene](examples/images/ferrocene_chiral_cp_stereo.svg) | ![helical helicene](examples/images/helical_6helicene_stereo.svg) |
+| Isothiocyanate (R/S, E/Z, planar)                      | TS with stereo (Mn-H₂, `--ts --stereo`)                    |
+| ------------------------------------------------------- | ----------------------------------------------------------- |
+| ![isothio stereo](examples/images/isothio_stereo.svg)   | ![mn-h2 ts stereo](examples/images/mn-h2_ts_stereo.svg)    |
 
 ### Atom property colormap
 
@@ -279,6 +268,7 @@ Contributors:
 - [Sander Cohen-Janes (@scohenjanes5)](https://github.com/scohenjanes5) — crystal/periodic structure support (VASP, Quantum ESPRESSO, ghost atoms, crystallographic axes), vector annotations and gif parallelisation
 - [Rubén Laplaza (@rlaplaza)](https://github.com/rlaplaza) — convex hull facets
 - [Iñigo Iribarren Aguirre (@iribirii)](https://github.com/iribirii) — radial gradients respecting colour space (pseudo-3D), skeletal rendering, ensemble display, supercell projection
+- [James O'Brien (@JamesOBrien2)](https://github.com/JamesOBrien2) — stereochemistry detection and integration
 - [Vinicius Port (@caprilesport)](https://github.com/caprilesport) — `v` binary path discovery
 - [Lucas Attia (@lucasattia)](https://github.com/lucasattia) — `--transparent` background flag
 
