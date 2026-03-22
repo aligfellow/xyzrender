@@ -58,39 +58,18 @@ xyzrender sn2.out --ts --label sn2_label.txt --label-size 40
 
 ## Stereochemistry (`--stereo`)
 
-Add R/S and E/Z stereochemistry labels derived from 3D geometry (via [xyzgraph](https://github.com/aligfellow/xyzgraph)).
+Add stereochemistry labels derived from 3D geometry (via [xyzgraph](https://github.com/aligfellow/xyzgraph)). Detects R/S point chirality, E/Z double bonds, axial, planar (metallocene and CIP), and helical chirality.
 
-| R/S atom-centered | R/S offset label |
+| Isothiocyanate (R/S, E/Z, planar) | TS with stereo (Mn-H₂) |
 |---|---|
-| ![R/S atom](../../../examples/images/R-lactate_atom_stereo_labelling.svg) | ![R/S label](../../../examples/images/R-lactate_stereo_labelling.svg) |
+| ![isothio stereo](../../../examples/images/isothio_stereo.svg) | ![mn-h2 ts stereo](../../../examples/images/mn-h2_ts_stereo.svg) |
 
 ```bash
-xyzrender R-lactate.xyz --stereo            # R/S centered on atom (default)
-xyzrender R-lactate.xyz --stereo label      # R/S offset like other annotations
+xyzrender isothio_xtb.xyz -c 1 --stereo
+xyzrender mn-h2.log --ts --stereo --no-orient
 ```
 
-E/Z labels are placed at bond midpoints:
-
-| Z-stilbene | E-stilbene |
-|---|---|
-| ![Z](../../../examples/images/Z-stillbene.svg) | ![E](../../../examples/images/E-stillbene.svg) |
-
-```bash
-xyzrender Z-stilbene.xyz --stereo
-xyzrender E-stilbene.xyz --stereo
-```
-
-Axial, planar, and helical chirality are also detected:
-
-| Axial (binol) | Planar (ferrocene) | Helical ([6]helicene) |
-|---|---|---|
-| ![axial](../../../examples/images/axial_binol_stereo.svg) | ![planar](../../../examples/images/ferrocene_chiral_cp_stereo.svg) | ![helical](../../../examples/images/helical_6helicene_stereo.svg) |
-
-```bash
-xyzrender binol.xyz --stereo
-xyzrender ferrocene.xyz --stereo
-xyzrender 6helicene.xyz --stereo
-```
+Two display modes for R/S labels: `--stereo` (default, centered on atom) and `--stereo label` (offset like other annotations).
 
 > **Note:** `--stereo` with `--idx` will overlap labels on stereocenters since both draw text at the atom position. Use `--stereo label` to offset R/S labels if combining with `--idx`.
 

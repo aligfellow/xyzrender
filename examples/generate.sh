@@ -60,6 +60,10 @@ xyzrender "$DIR/caffeine.xyz" -l 13 6 9 4 t -l 1 a -l 14 d -l 7 12 8 a -l 11 d -
 xyzrender "$DIR/caffeine.xyz" -l 1 best -l 2 "NBO: 0.4" -o "$IMG/caffeine_labels.svg"
 xyzrender "$DIR/sn2.out" --ts --label "$DIR/sn2_label.txt" -o "$IMG/sn2_ts_label.svg" --label-size 40
 
+echo "=== Stereochemistry ==="
+xyzrender "$DIR/isothio_xtb.xyz" -c 1 --stereo -o "$IMG/isothio_stereo.svg"
+xyzrender "$DIR/mn-h2.log" --ts --stereo --no-orient -o "$IMG/mn-h2_ts_stereo.svg"
+
 echo "=== Molecular orbitals ==="
 xyzrender "$DIR/caffeine_lumo.cube" --mo --mo-colors maroon teal -o "$IMG/caffeine_lumo.svg"
 xyzrender "$DIR/caffeine_homo.cube" --mo --hy --iso 0.03 -o "$IMG/caffeine_homo_iso_hy.svg"
