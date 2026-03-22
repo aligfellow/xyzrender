@@ -2267,20 +2267,26 @@ wheels = [
 
 [[package]]
 name = "vmol"
-version = "3.0rc5"
+version = "3.0rc6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/42/a8/4431a08360d45728cdeeb0450142536ba59ea395b1b0f803e94f2dcfe99b/vmol-3.0rc5.tar.gz", hash = "sha256:c99d152543fc187611c9f739994a08b558494e97cde88a6705c428fd7179df04", size = 12114, upload-time = "2026-03-10T14:07:46.615Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/02/58/24bb52044a2749a6eb28bf517301c1faf21404aa68d370efea5ca38c576f/vmol-3.0rc6.tar.gz", hash = "sha256:7e52dd6adaaa8edd47b9ea71148c9c9f669608cfc0b3e631b649916c0a7022ad", size = 14686, upload-time = "2026-03-22T22:24:46.093Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c9/15/67af25affd6da0a64d9171d96c9b34a3ca3a3ea14ee3209c9b9e97652b92/vmol-3.0rc5-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:8e6c906c95e8cc1d1b2bec3dfe08e6f8a21ede61b6db70335caac3ef9a5b3e83", size = 203234, upload-time = "2026-03-10T14:07:39.278Z" },
-    { url = "https://files.pythonhosted.org/packages/3c/aa/e8635d613d2e9854293262a8e1856c3ccaaf90047a3acfe4794437efae70/vmol-3.0rc5-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:623de8fb4c4e2cbafb8a01c14b863f3348f43d6ef7faade8d89b89e9128271d9", size = 203235, upload-time = "2026-03-10T14:07:41.226Z" },
-    { url = "https://files.pythonhosted.org/packages/66/c9/1c6776f54d4a3be855b8350c00afbd50c954c79470a01760a6bda1026430/vmol-3.0rc5-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:574f673aad3f9fa8055f66c1533f68ae28cf4484bcf1362131e8803cce1f8039", size = 203242, upload-time = "2026-03-10T14:07:42.199Z" },
-    { url = "https://files.pythonhosted.org/packages/11/93/984ec133a484c7dbb1e514114a08be09ede16a7f1394f02cb5a6c3fada38/vmol-3.0rc5-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:cfde6bab53fa457370a0f89703a516b3180f311b97130a64662ecbea551f8ca4", size = 203243, upload-time = "2026-03-10T14:07:43.192Z" },
-    { url = "https://files.pythonhosted.org/packages/74/ba/5bcae54f37c934142b47609f31ce6f4191e274705b5fe89b05a5b52aea9f/vmol-3.0rc5-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:576386f283e00f5a66793a996c928aa5f5a52dd6d04768e0770387c917144331", size = 203245, upload-time = "2026-03-10T14:07:44.43Z" },
-    { url = "https://files.pythonhosted.org/packages/b4/64/21437624ef4371db7a305a915cdedae615a9ca9e77e4a7ad875c9a772a91/vmol-3.0rc5-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:fb917889ab4ad19295a30859fe3d950491af084671908d7758cf172fc2b468f8", size = 203247, upload-time = "2026-03-10T14:07:45.717Z" },
+    { url = "https://files.pythonhosted.org/packages/72/55/16bf0b2357148f270028672d690aa40394a139621db0503d5d53ec8c7921/vmol-3.0rc6-cp310-cp310-macosx_15_0_arm64.whl", hash = "sha256:cc2ba84bbdebe3bce80bea645af9fa4d3cb3210d3532b2be51c63440dca750b2", size = 818116, upload-time = "2026-03-22T22:24:29.005Z" },
+    { url = "https://files.pythonhosted.org/packages/93/b2/17db0e26764ac7a11b050cc4feea879452af52f28635cc6b952dfd9f7ba4/vmol-3.0rc6-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:36e92ec4332ddf1f390fac0eb632e561f3b35fca52b2fabfb5da1c1e54975347", size = 215293, upload-time = "2026-03-22T22:24:30.564Z" },
+    { url = "https://files.pythonhosted.org/packages/75/a5/818ea129b8da9ec59af1fb19d6f5486e596b18ab0e3f2241cc4b491179d7/vmol-3.0rc6-cp311-cp311-macosx_15_0_arm64.whl", hash = "sha256:c9ca1afec084d2da6f32bb73f45ddda0d0b0f39d61e7edc1ff0656cf7c1bd298", size = 818118, upload-time = "2026-03-22T22:24:32.077Z" },
+    { url = "https://files.pythonhosted.org/packages/89/2c/28ba2e4ee6c93c022e22e8866a6eb53ced768bd9fdaceaccd0a5804cb3e2/vmol-3.0rc6-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:af880a1ebade85c2d6cc6d34ff15121da7bcd37dd198aa2e9e1e552b2327a47e", size = 215292, upload-time = "2026-03-22T22:24:34Z" },
+    { url = "https://files.pythonhosted.org/packages/77/44/be774200ba4c453bf0cb29a9b05cce28f4211c3f2f773694665ec1b29679/vmol-3.0rc6-cp312-cp312-macosx_15_0_arm64.whl", hash = "sha256:11b60c7afb3189704f039094fb62cf52ff668d2d3f1720a7d1777f958f0ae5d5", size = 818118, upload-time = "2026-03-22T22:24:35.168Z" },
+    { url = "https://files.pythonhosted.org/packages/67/e4/b93e8f4393ed9e2728b0ab2dfd535527ae04678cb104864a2dcec8e4eedf/vmol-3.0rc6-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:a0733ffefe297c3ae87f67d822733fecbfb6571f4824eb7e0ec4609b2119fcd4", size = 215304, upload-time = "2026-03-22T22:24:36.699Z" },
+    { url = "https://files.pythonhosted.org/packages/a1/6c/c8eade7202aacd7aa13768c19c4b4a95fe373a36e1fdadf88b6de84cea7b/vmol-3.0rc6-cp313-cp313-macosx_15_0_arm64.whl", hash = "sha256:4b1fd67f6be76b641d34e0d68ca9b15d8e16c7dd99c6c4f1c1ef8b263f6b622a", size = 818112, upload-time = "2026-03-22T22:24:37.796Z" },
+    { url = "https://files.pythonhosted.org/packages/d4/9d/bf7665b559f3dc8e784f6f5c1dedaf3d6f394a50a7b6abbeb37161431208/vmol-3.0rc6-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:2c72efd7757f40629859f4def0a690950c071dcd752ba14cc5c2a44adc85308f", size = 215305, upload-time = "2026-03-22T22:24:39.144Z" },
+    { url = "https://files.pythonhosted.org/packages/12/ca/a5b8d119e98892a3382137a6f25283a8c6b0fe25abc06b18ed351748ed82/vmol-3.0rc6-cp314-cp314-macosx_15_0_arm64.whl", hash = "sha256:d17291a58d8018f019e389bc9ce73d34e801b5e3e6d92eb91a1a26b8b35dfa3b", size = 818118, upload-time = "2026-03-22T22:24:40.721Z" },
+    { url = "https://files.pythonhosted.org/packages/37/46/e4d26c6effd9539bfebcfa6c73b75e376675a6150629c3fbfc1c420c3155/vmol-3.0rc6-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:b4c763bd857ef6cf95b188fe28ba9a141767c86763aa37b3243cdec565685fd1", size = 215305, upload-time = "2026-03-22T22:24:42.163Z" },
+    { url = "https://files.pythonhosted.org/packages/fb/de/1238106d6ed216984f03e9b59f5f790aa5a5eaeb8b37dc3f37704026a262/vmol-3.0rc6-cp314-cp314t-macosx_15_0_arm64.whl", hash = "sha256:ef95449d355b6e6ae87b524c7d085da475e8091c54b511b7e44ccdf8420effe8", size = 818115, upload-time = "2026-03-22T22:24:43.694Z" },
+    { url = "https://files.pythonhosted.org/packages/a0/51/28132c6172b0f076d423b8444085b209a3f177b0be8879883a69182dc019/vmol-3.0rc6-cp314-cp314t-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:5002f3402738aee7e1527ac3a5a7e35e4f36bf75a3e38997acccd155fa77548b", size = 215309, upload-time = "2026-03-22T22:24:44.868Z" },
 ]
 
 [[package]]
@@ -2391,7 +2397,7 @@ requires-dist = [
     { name = "resvg-py" },
     { name = "scipy", marker = "extra == 'all'", specifier = ">=1.10" },
     { name = "scipy", marker = "extra == 'hull'", specifier = ">=1.10" },
-    { name = "vmol", marker = "extra == 'all'" },
+    { name = "vmol", marker = "extra == 'all'", specifier = ">=3.0rc6" },
     { name = "vmol", marker = "extra == 'v'" },
     { name = "xyzgraph", specifier = ">=1.6.5" },
 ]
@@ -2408,5 +2414,5 @@ dev = [
     { name = "ruff", specifier = ">=0.14.14" },
     { name = "scipy" },
     { name = "ty", specifier = ">=0.0.14" },
-    { name = "vmol" },
+    { name = "vmol", specifier = ">=3.0rc6" },
 ]

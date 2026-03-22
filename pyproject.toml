@@ -37,7 +37,7 @@ crystal = ["phonopy"]
 smi     = ["rdkit"]
 cif     = ["ase"]
 v       = ["vmol"]
-all     = ["phonopy", "rdkit", "ase", "scipy>=1.10", "vmol"]
+all     = ["phonopy", "rdkit", "ase", "scipy>=1.10", "vmol>=3.0rc6"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -55,7 +55,7 @@ dev = [
     "phonopy",  # optional dep
     "ase",      # optional dep (needed for test_formats.py pdb fixtures)
     "rdkit",    # optional dep (needed for test_formats.py mol/sdf fixtures)
-    "vmol",
+    "vmol>=3.0rc6",
     "scipy",
 ]
 
