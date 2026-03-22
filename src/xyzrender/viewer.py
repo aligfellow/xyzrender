@@ -214,7 +214,7 @@ def _run_viewer_with_atoms(viewer: Vmol, atoms: _Atoms, lattice: np.ndarray | No
     mol = {"q": q, "r": r, "name": "Rotate molecule with mouse / arrows and press q / Esc to confirm"}
 
     # print rotation matrix (u) then coordinates (z) before exiting
-    extra: list[str] = ["exitcom:uz"]
+    extra: list[str] = ["exitcom:uz", "colors:cpk"]
 
     if lattice is not None:
         # v accepts the 3x3 matrix as 9 comma-separated values
