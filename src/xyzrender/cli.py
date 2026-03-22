@@ -371,10 +371,7 @@ def main() -> None:
         default=None,
         choices=["atom", "label"],
         metavar="STYLE",
-        help=(
-            "Add stereochemistry labels (R/S and E/Z) from 3D geometry. "
-            "STYLE=atom|label (default: atom)"
-        ),
+        help=("Add stereochemistry labels (R/S and E/Z) from 3D geometry. STYLE=atom|label (default: atom)"),
     )
     annot_g.add_argument(
         "--measure",

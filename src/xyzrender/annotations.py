@@ -58,7 +58,15 @@ class DihedralLabel:
     text: str
 
 
-Annotation = AtomValueLabel | BondLabel | AngleLabel | DihedralLabel
+@dataclass(frozen=True)
+class CentroidLabel:
+    """Text label placed at the centroid of a set of atoms."""
+
+    atoms: tuple[int, ...]  # 0-indexed
+    text: str
+
+
+Annotation = AtomValueLabel | BondLabel | AngleLabel | DihedralLabel | CentroidLabel
 
 
 # ---------------------------------------------------------------------------

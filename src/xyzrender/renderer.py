@@ -1289,7 +1289,7 @@ def _annotations_svg(
     radii: np.ndarray,
 ) -> list[str]:
     """Render all annotation elements as a flat list of SVG strings."""
-    from xyzrender.annotations import AngleLabel, AtomValueLabel, BondLabel, DihedralLabel
+    from xyzrender.annotations import AngleLabel, AtomValueLabel, BondLabel, CentroidLabel, DihedralLabel
 
     svg: list[str] = []
     col = cfg.label_color
@@ -1397,6 +1397,11 @@ def _annotations_svg(
             else:
                 dpx, dpy = 0.0, -doff
             svg.append(_text_svg(mx + dpx, my + dpy, ann.text, fs, col))
+
+        elif isinstance(ann, CentroidLabel):
+            centroid = pos[list(ann.atoms)].mean(axis=0)
+            cx2, cy2 = _proj(centroid, scale, cx, cy, canvas_w, canvas_h)
+            svg.append(_text_svg(cx2, cy2, ann.text, fs, col))
 
     return svg
 
