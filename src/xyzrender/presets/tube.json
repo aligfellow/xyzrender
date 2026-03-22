@@ -1,0 +1,15 @@
+{
+  "atom_scale": 0,
+  "atom_stroke_width": 0,
+  "bond_width": 50,
+  "hue_shift_factor": 0.05,
+  "light_shift_factor": 0.08,
+  "saturation_shift_factor": 0.05,
+  "gradient": false,
+  "bond_color_by_element": true,
+  "bond_gradient": true,
+  "bond_orders": false,
+  "colors": {
+    "H": "#e5e5e5"
+  }
+}

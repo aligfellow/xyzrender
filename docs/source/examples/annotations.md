@@ -126,7 +126,7 @@ Overlay arbitrary 3D vectors as arrows on the rendered image via a JSON file. Us
 
 | Dipole moment | Rotation |  
 |-------------|-------------|  
-| ![dip](examples/images/ethanol_dip.svg) | ![dip rot](examples/images/ethanol_dip.gif) |  
+| ![dip](../../../examples/images/ethanol_dip.svg) | ![dip rot](../../../examples/images/ethanol_dip.gif) |  
 
 
 ```bash
@@ -176,7 +176,7 @@ The label is suppressed for these compact symbols.  Once the viewing angle chang
 
 | Forces | Rotation |  
 |-------------|-------------|  
-| ![forces](examples/images/ethanol_forces_efield.svg) | ![forces rot](examples/images/ethanol_forces_efield.gif) |  
+| ![forces](../../../examples/images/ethanol_forces_efield.svg) | ![forces rot](../../../examples/images/ethanol_forces_efield.gif) |  
 
 ```text
 {

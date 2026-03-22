@@ -36,7 +36,7 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Crystal / periodic structures** — render periodic structures with unit cell box, ghost atoms, and crystallographic axis arrows (a/b/c); extXYZ `Lattice=` auto-detected; VASP/QE via [`phonopy`](https://github.com/phonopy/phonopy)
 - **Multiple output formats** — SVG (default), PNG, PDF, and GIF from the same command
 
-**Preconfigured but extensible.** Built-in presets (`default`, `flat`, `paton`, `skeletal`, `bubble`) cover common use cases. Every setting — colors, radii, bond widths, gradients, fog — can be overridden via CLI flags or a custom JSON config file.
+**Preconfigured but extensible.** Built-in presets (`default`, `flat`, `paton`, `skeletal`, `bubble`, `tube`, `wire`) cover common use cases. Every setting — colors, radii, bond widths, gradients, fog — can be overridden via CLI flags or a custom JSON config file.
 
 ```bash
 xyzrender caffeine.xyz                          # SVG with sensible defaults
@@ -109,9 +109,19 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### Presets
 
-| Default | Flat | Paton (pymol-like) | Skeletal | Bubble |
-|---------|------|--------------------|----------|--------|
-| ![default](examples/images/caffeine_default.svg) | ![flat](examples/images/caffeine_flat.svg) | ![paton](examples/images/caffeine_paton.svg) | ![skeletal](examples/images/caffeine_skeletal.svg) | ![bubble](examples/images/caffeine_bubble.svg) |
+| Default | Flat | Paton (pymol-like) | Skeletal | 
+|---------|------|--------------------|----------|
+| ![default](examples/images/caffeine_default.svg) | ![flat](examples/images/caffeine_flat.svg) | ![paton](examples/images/caffeine_paton.svg) | ![skeletal](examples/images/caffeine_skeletal.svg) | 
+
+| Bubble | Tube | Wire |
+|--------|------|------|
+| ![bubble](examples/images/caffeine_bubble.svg) | ![tube](examples/images/caffeine_tube.svg) | ![wire](examples/images/caffeine_wire.svg) |
+
+### Style regions
+
+| Tube + ball-stick region | Tube + ball-stick, NCI, vdW |
+|--------------------------|------------------------|
+| ![region](examples/images/caffeine_region.svg) | ![bimp regions](examples/images/bimp_regions.svg) |
 
 ### Display options
 
@@ -130,6 +140,18 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 | Benzene ring | Anthracene rings | Auto rings | Rotation |
 |--------------|------------------|------------|----------|
 | ![benzene hull](examples/images/benzene_ring_hull.svg) | ![anthracene hull](examples/images/anthracene_hull.svg) | ![mnh hull](examples/images/mnh_hull_rings.svg) | ![anthracene rot](examples/images/anthracene_hull.gif) |
+
+### Highlight & molecule color
+
+| Default (orchid) | Custom colour | Multi-group | Mol color + highlight |
+|------------------|---------------|-------------|-----------------------|
+| ![hl](examples/images/caffeine_hl.svg) | ![hl custom](examples/images/caffeine_hl_custom.svg) | ![multi hl](examples/images/caffeine_multi_hl.svg) | ![mol color hl](examples/images/caffeine_mol_color_hl_idx.svg) |
+
+### Depth of field
+
+| DoF | Rotation |
+|-----|----------| 
+| ![dof](examples/images/caffeine_dof.svg) | ![dof](examples/images/caffeine_dof.gif) |
 
 ### Structural overlay & ensemble
 
@@ -190,9 +212,9 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### Crystal / periodic structures
 
-| Unit cell | Rotation | VASP | Viewing direction |
-|-----------|----------|------|-------------------|
-| ![cell](examples/images/caffeine_cell.svg) | ![cell rot](examples/images/caffeine_cell.gif) | ![vasp](examples/images/NV63_vasp.svg) | ![111](examples/images/NV63_111.gif) |
+| Unit cell | Rotation | VASP | Supercell 2×2×1 | Viewing direction |
+|-----------|----------|------|-----------------|-------------------|
+| ![cell](examples/images/caffeine_cell.svg) | ![cell rot](examples/images/caffeine_cell.gif) | ![vasp](examples/images/NV63_vasp.svg) | ![supercell](examples/images/NV63_cell_supercell_221.svg) | ![111](examples/images/NV63_111.gif) |
 
 ### GIF animations
 
@@ -200,9 +222,13 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |----------|---------------------------|------------|------------------|
 | ![rotate](examples/images/caffeine.gif) | ![ts rot](examples/images/bimp_nci_ts.gif) | ![trj](examples/images/bimp_trj.gif) | ![ts](examples/images/mn-h2.gif) |
 
-| Overlay rotation | MO | Density | Vectors |
-|----------|---------------------------|------------|-----|
-| ![overlay gif](examples/images/isothio_overlay.gif) | ![homo](examples/images/caffeine_homo.gif) | ![dens](examples/images/caffeine_dens.gif) | ![vectors](examples/images/ethanol_forces_efield.gif) | 
+| Overlay rotation | MO | Density | 
+|----------|---------------------------|------------|
+| ![overlay gif](examples/images/isothio_overlay.gif) | ![homo](examples/images/caffeine_homo.gif) | ![dens](examples/images/caffeine_dens.gif) | 
+
+| Vectors | Diffuse / assembly |
+|-----|--------------------|
+| ![vectors](examples/images/ethanol_forces_efield.gif) | ![diffuse](examples/images/caffeine_diffuse.gif) |
 
 For usage details and CLI commands, see the [examples](https://xyzrender.readthedocs.io/en/latest/examples.html) and [CLI reference](https://xyzrender.readthedocs.io/en/latest/cli_reference.html) in the docs.
 
@@ -236,6 +262,9 @@ Key dependencies:
 - [**cclib**](https://github.com/cclib/cclib) — parsing quantum chemistry output files (ORCA, Gaussian, Q-Chem, etc.)
 - [**CairoSVG**](https://github.com/Kozea/CairoSVG) — SVG to PNG/PDF conversion
 - [**Pillow**](https://github.com/python-pillow/Pillow) — GIF frame assembly
+- [**resvg-py**](https://github.com/nicmr/resvg-py) — SVG to PNG conversion preserving SVG effects
+
+Falls back to CairoSVG automatically (filters silently ignored). SVG output always contains the filters regardless.
 
 Optional dependencies:
 
@@ -249,7 +278,7 @@ Contributors:
 - [Ksenia Briling (@briling)](https://github.com/briling) — `vmol` integration and the [xyz2svg](https://github.com/briling/xyz2svg) foundation
 - [Sander Cohen-Janes (@scohenjanes5)](https://github.com/scohenjanes5) — crystal/periodic structure support (VASP, Quantum ESPRESSO, ghost atoms, crystallographic axes), vector annotations and gif parallelisation
 - [Rubén Laplaza (@rlaplaza)](https://github.com/rlaplaza) — convex hull facets
-- [Iñigo Iribarren Aguirre (@iribirii)](https://github.com/iribirii) — radial gradients respecting colour space (pseudo-3D), skeletal rendering, ensemble display
+- [Iñigo Iribarren Aguirre (@iribirii)](https://github.com/iribirii) — radial gradients respecting colour space (pseudo-3D), skeletal rendering, ensemble display, supercell projection
 - [Vinicius Port (@caprilesport)](https://github.com/caprilesport) — `v` binary path discovery
 - [Lucas Attia (@lucasattia)](https://github.com/lucasattia) — `--transparent` background flag
 

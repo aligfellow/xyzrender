@@ -45,6 +45,8 @@ pip install 'xyzrender[cif]'      # CIF input (ase)
 pip install 'xyzrender[all]'      # everything above
 ```
 
+xyzrender auto-detects resvg-py and uses it when available. Without it, CairoSVG is used as fallback (filters silently ignored in raster output).
+
 ## Development setup
 
 Requires [uv](https://docs.astral.sh/uv/) and [just](https://github.com/casey/just).

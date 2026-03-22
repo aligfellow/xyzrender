@@ -47,6 +47,41 @@ xyzrender bimp.out --gif-trj --ts -go bimp_trj.gif
 `--gif-ts` and `--gif-trj` are mutually exclusive.
 ```
 
+## Diffuse / assembly
+
+```{image} ../../../examples/images/caffeine_diffuse.gif
+:width: 50%
+:alt: Diffuse assembly animation
+```
+
+````{tab-set}
+```{tab-item} CLI
+xyzrender caffeine.xyz --gif-diffuse -go caffeine_diffuse.gif
+```
+```{tab-item} Python
+render_gif("caffeine.xyz", gif_diffuse=True, output="caffeine_diffuse.gif")
+```
+````
+
+Options:
+
+```bash
+xyzrender caffeine.xyz --gif-diffuse --diffuse-noise 0.5       # more noise
+xyzrender caffeine.xyz --gif-diffuse --diffuse-bonds hide       # no bonds
+xyzrender caffeine.xyz --gif-diffuse --diffuse-bonds show       # keep bonds visible
+xyzrender caffeine.xyz --gif-diffuse --diffuse-forward          # scatter (forward) instead of assembly
+xyzrender caffeine.xyz --gif-diffuse --anchor 1-5               # keep atoms 1–5 fixed
+xyzrender caffeine.xyz --gif-diffuse --gif-rot                  # rotation (360°, y-axis)
+xyzrender caffeine.xyz --gif-diffuse --gif-rot xy               # rotation around xy
+xyzrender caffeine.xyz --gif-diffuse --diffuse-rot              # partial rotation (180°)
+xyzrender caffeine.xyz --gif-diffuse --diffuse-rot 90           # partial rotation (90°)
+```
+
+```{note}
+`--gif-diffuse` cannot be combined with `--gif-ts` or `--gif-trj`.
+`--gif-rot` gives a full 360° rotation; `--diffuse-rot` overrides the angle.
+```
+
 ## Combined
 
 Most options can be combined:

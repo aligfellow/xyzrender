@@ -36,13 +36,17 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 
 | Flag | Description |
 |------|-------------|
-| `--hy` | Show H atoms (no args = all, or specify 1-indexed atom numbers) |
+| `--hy [ATOMS]` | Show H atoms (no args = all, or `"1-5,8"` 1-indexed) |
 | `--no-hy` | Hide all H atoms |
 | `-k`, `--kekule` | Use Kekulé bond orders (no aromatic 1.5) |
 | `--vdw` | vdW spheres (no args = all, or index ranges e.g. `1-6`) |
 | `--vdw-opacity` | vdW sphere opacity (default: 0.25) |
 | `--vdw-scale` | vdW sphere radius scale |
 | `--vdw-gradient` | vdW sphere gradient strength |
+| `--mol-color COLOR` | Flat color for all atoms and bonds (overrides CPK). Highlight paints on top |
+| `--hl ATOMS [COLOR]` | Highlight atom group: `--hl "1-5,8" [color]`. Can be repeated for multiple groups. Auto-colors from palette if no color given |
+| `--dof` | Depth-of-field blur (front atoms sharp, back atoms blurred) |
+| `--dof-strength FLOAT` | DoF max blur strength (default: 3.0) |
 
 ## Structural overlay / ensemble
 
@@ -149,3 +153,4 @@ Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Pref
 | `--ghost-opacity` | Opacity of ghost atoms/bonds (default: 0.5) |
 | `--axes` / `--no-axes` | Show/hide the a/b/c axis arrows |
 | `--axis HKL` | Orient looking down a crystallographic direction (e.g. `111`, `001`) |
+| `--supercell M N L` | Repeat the unit cell `M×N×L` times along a/b/c (requires lattice/unit-cell data; default: `1 1 1`) |

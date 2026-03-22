@@ -13,6 +13,26 @@ if TYPE_CHECKING:
     from xyzrender.types import RenderConfig
 
 
+def parse_atom_indices(spec: str | list[int]) -> list[int]:
+    """Parse an atom specifier into a 0-indexed list of atom indices.
+
+    Accepts a 1-indexed string (``"1-5,8,12"``) or a 1-indexed
+    ``list[int]``.  Both forms are converted to 0-indexed output.
+    """
+    if isinstance(spec, list):
+        return [i - 1 for i in spec]
+    if not isinstance(spec, str) or not spec.strip():
+        return []
+    indices: list[int] = []
+    for part in spec.split(","):
+        if "-" in part:
+            a, b = part.split("-")
+            indices.extend(range(int(a) - 1, int(b)))
+        else:
+            indices.append(int(part) - 1)
+    return indices
+
+
 @overload
 def pca_orient(
     pos: np.ndarray,

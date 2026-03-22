@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from xyzrender.export import svg_to_png_bytes
 from xyzrender.renderer import render_svg
 from xyzrender.utils import kabsch_rotation, pca_matrix
 
@@ -534,6 +535,62 @@ def render_trajectory_gif(
     logger.info("Wrote %s", output)
 
 
+def render_diffuse_gif(
+    graph: "nx.Graph",
+    config: "RenderConfig",
+    output: str,
+    *,
+    n_frames: int = 60,
+    noise: float = 0.3,
+    bonds: str = "fade",
+    reverse: bool = True,
+    fps: int = 10,
+    rotation_axis: str | None = None,
+    rotation_degrees: float = 360.0,
+    anchor: set[int] | None = None,
+) -> None:
+    """Render a diffuse/assembly GIF.
+
+    *bonds* controls bond visibility: ``"fade"`` (default) fades
+    stretched bonds, ``"show"`` keeps all bonds, ``"hide"`` removes them.
+
+    *rotation_degrees* controls how far the molecule rotates during the
+    animation (default 180°). Only used when *rotation_axis* is set.
+    """
+    import copy
+
+    if config.auto_orient:
+        vt = pca_matrix(np.array([graph.nodes[n]["position"] for n in graph.nodes()]))
+        _orient_graph(graph, vt)
+        config = copy.copy(config)
+        config.auto_orient = False
+
+    from xyzrender.diffuse import diffuse_frames
+
+    frames = diffuse_frames(
+        graph,
+        n_frames=n_frames,
+        noise=noise,
+        bonds=bonds,
+        reverse=reverse,
+        anchor=anchor,
+    )
+
+    axis_vec = None
+    axis_sign = 1.0
+    if rotation_axis:
+        axis_vec, axis_sign = _rotation_axis(rotation_axis)
+
+    config = _fixed_viewport(frames, config, rotation_axis=axis_vec)
+
+    logger.info("Rendering diffuse GIF (%d frames%s)", len(frames), f", axis={rotation_axis}" if rotation_axis else "")
+    pngs = _render_frames(
+        graph, frames, config, rotation_axis=axis_vec, rotation_sign=axis_sign, rotation_degrees=rotation_degrees
+    )
+    _stitch_gif(pngs, output, fps)
+    logger.info("Wrote %s", output)
+
+
 def _fixed_viewport(frames: list[dict], config: RenderConfig, rotation_axis: np.ndarray | None = None) -> RenderConfig:
     """Create a config with fixed viewport so every frame has identical canvas size.
 
@@ -712,7 +769,7 @@ def _render_rot_frame(
         recompute_dens(graph, frame_cfg, ctx.dens_params, ctx.dens_cube, frame_cfg.surface_opacity, ctx.dens_cache)
 
     svg = render_svg(graph, frame_cfg, _log=False, _unique_ids=False)
-    return frame_idx, _svg_to_png(svg, config.canvas_size)
+    return frame_idx, svg_to_png_bytes(svg, size=config.canvas_size)
 
 
 def _parallel_render(worker, items, total: int) -> list[bytes]:
@@ -758,6 +815,13 @@ def _render_traj_frame(
     for i, (x, y, z) in enumerate(positions):
         graph.nodes[i]["position"] = (float(x), float(y), float(z))
 
+    # Apply per-frame bond opacities (from diffuse GIF: fades stretched bonds)
+    bond_opacities = frame.get("bond_opacities")
+    if bond_opacities:
+        for (i, j), op in bond_opacities.items():
+            if graph.has_edge(i, j):
+                graph[i][j]["diffuse_opacity"] = op
+
     if nci_analyzer is not None:
         ncis = nci_analyzer.detect(np.array(positions))
         render_graph = build_nci_graph(graph, ncis)
@@ -776,7 +840,7 @@ def _render_traj_frame(
             frame_config = _rotate_vectors_in_cfg(config, rot_mat, _rg_centroid, rf_vec_origins, rf_vec_dirs)
 
     svg = render_svg(render_graph, frame_config, _log=False)
-    return idx, _svg_to_png(svg, config.canvas_size)
+    return idx, svg_to_png_bytes(svg, size=config.canvas_size)
 
 
 def _render_frames(
@@ -788,6 +852,7 @@ def _render_frames(
     fixed_ncis: list | None = None,
     rotation_axis: np.ndarray | None = None,
     rotation_sign: float = 1.0,
+    rotation_degrees: float = 360.0,
 ) -> list[bytes]:
     """Render each trajectory frame to PNG, keeping graph topology fixed.
 
@@ -796,10 +861,10 @@ def _render_frames(
     If *fixed_ncis* is provided, the same NCI set is applied to every frame
     (centroids recomputed from current atom positions each frame).
     If *rotation_axis* is provided, each frame is incrementally rotated
-    around that axis for a full 360° over all frames.
+    around that axis over *rotation_degrees* (default 360°).
     """
     total = len(frames)
-    step = 360.0 / total if rotation_axis is not None else 0
+    step = rotation_degrees / total if rotation_axis is not None else 0
     _rf_vec_origins = (
         np.array([va.origin for va in config.vectors])
         if (config.vectors and rotation_axis is not None)
@@ -823,17 +888,6 @@ def _render_frames(
         rf_vec_dirs=_rf_vec_dirs,
     )
     return _parallel_render(worker, enumerate(frames), total)
-
-
-def _svg_to_png(svg: str, size: int) -> bytes:
-    """Convert SVG string to PNG bytes."""
-    try:
-        import cairosvg
-    except ImportError:
-        msg = "GIF generation requires cairosvg"
-        raise ImportError(msg) from None
-
-    return cairosvg.svg2png(bytestring=svg.encode(), output_width=size, output_height=size)
 
 
 def _stitch_gif(pngs: list[bytes], output: str, fps: int) -> None:

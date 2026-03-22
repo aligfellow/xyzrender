@@ -2,7 +2,7 @@
 
 ## Built-in presets
 
-Use `--config` to load a styling preset. Built-in options: `default`, `flat`, `paton`, `skeletal`, `bubble`.
+Use `--config` to load a styling preset. Built-in options: `default`, `flat`, `paton`, `skeletal`, `bubble`, `tube`, `wire`.
 
 | Preset | Description |
 |--------|-------------|
@@ -11,12 +11,16 @@ Use `--config` to load a styling preset. Built-in options: `default`, `flat`, `p
 | `paton` | PyMOL-inspired style (see [Rob Paton](https://github.com/patonlab)) |
 | `skeletal` | Skeletal formula diagram — thin bonds, minimal atoms |
 | `bubble` | Space-filling (CPK) — large atoms, no bonds |
+| `tube` | Tube/stick model — no atoms, thick element-coloured bonds with cylinder shading |
+| `wire` | Wireframe — no atoms, thin element-coloured bonds with cylinder shading |
 
 ```bash
 xyzrender caffeine.xyz --config flat
 xyzrender caffeine.xyz --config paton
 xyzrender caffeine.xyz --config skeletal
 xyzrender caffeine.xyz --config bubble --hy
+xyzrender caffeine.xyz --config tube
+xyzrender caffeine.xyz --config wire
 ```
 
 CLI flags override preset values:
@@ -61,6 +65,8 @@ All available keys:
   "label_color": "#222222",
   "label_offset": 1.5,
   "cmap_unlabeled": "#ffffff",
+  "bond_color_by_element": false,
+  "bond_gradient": false,
   "colors": {
     "C": "silver",
     "H": "whitesmoke",
@@ -105,3 +111,6 @@ If no `-o` is given, output defaults to `{input_basename}.svg`.
 | `--vdw-opacity` | vdW sphere opacity |
 | `--vdw-scale` | vdW sphere radius scale |
 | `--vdw-gradient` | vdW sphere gradient strength |
+| `--bond-by-element` / `--no-bond-by-element` | Color bonds by endpoint atom colors |
+| `--bond-gradient` / `--no-bond-gradient` | Cylinder shading on bonds (3D tube look) |
+| `--region ATOMS CONFIG` | Render atom subset with a different preset (repeatable) |
