@@ -367,11 +367,21 @@ def main() -> None:
     annot_g.add_argument(
         "--stereo",
         nargs="?",
-        const="atom",
+        const="",
         default=None,
+        metavar="CLASSES",
+        help=(
+            "Add stereochemistry labels from 3D geometry. "
+            "Optional comma-separated class filter: point, ez, axis, plane, helix. "
+            "Omit CLASSES to show all."
+        ),
+    )
+    annot_g.add_argument(
+        "--stereo-style",
+        default="atom",
         choices=["atom", "label"],
         metavar="STYLE",
-        help=("Add stereochemistry labels (R/S and E/Z) from 3D geometry. STYLE=atom|label (default: atom)"),
+        help="R/S label placement: atom (centered) or label (offset). Default: atom.",
     )
     annot_g.add_argument(
         "--measure",
@@ -772,12 +782,21 @@ def main() -> None:
         except (ValueError, FileNotFoundError) as e:
             p.error(str(e))
 
-    # --- Stereochemistry labels (R/S and E/Z) ---
+    # --- Stereochemistry labels ---
     if args.stereo is not None:
-        from xyzrender.stereo import build_stereo_annotations
+        from xyzrender.stereo import STEREO_CLASSES, build_stereo_annotations
+
+        stereo_cls: set[str] | None = None
+        if args.stereo:  # non-empty string → parse classes
+            stereo_cls = {c.strip() for c in args.stereo.split(",")}
+            bad = stereo_cls - STEREO_CLASSES
+            if bad:
+                p.error(
+                    f"Unknown stereo class(es): {', '.join(sorted(bad))}. Valid: {', '.join(sorted(STEREO_CLASSES))}"
+                )
 
         try:
-            cfg.annotations.extend(build_stereo_annotations(mol.graph, rs_style=args.stereo))
+            cfg.annotations.extend(build_stereo_annotations(mol.graph, rs_style=args.stereo_style, classes=stereo_cls))
         except ValueError as e:
             p.error(str(e))
 

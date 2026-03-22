@@ -464,8 +464,8 @@ def render(
     # --- Annotations ---
     labels: list[str] | None = None,
     label_file: str | None = None,
-    stereo: bool = False,
-    stereo_rs: str = "label",
+    stereo: bool | list[str] = False,
+    stereo_style: str = "atom",
     # --- Vector arrows ---
     vector: str | Path | dict | list[VectorArrow] | None = None,
     vector_scale: float | None = None,
@@ -549,9 +549,10 @@ def render(
     label_file:
         Path to an annotation file (same format as ``--label``).
     stereo:
-        If True, add stereochemistry labels (R/S and E/Z) derived from 3D geometry.
-    stereo_rs:
-        Placement for R/S labels: ``"label"`` (offset near atom) or ``"atom"`` (centered on atom).
+        ``True`` for all stereochemistry labels, or a list of classes to show
+        (``"point"``, ``"ez"``, ``"axis"``, ``"plane"``, ``"helix"``).
+    stereo_style:
+        Placement for R/S labels: ``"atom"`` (centered on atom) or ``"label"`` (offset near atom).
     vectors:
         Vector arrows to overlay.  Pass a path/dict to a JSON file, or a list
         of :class:`xyzrender.types.VectorArrow` objects.  Each arrow is drawn
@@ -790,7 +791,8 @@ def render(
     if stereo:
         from xyzrender.stereo import build_stereo_annotations
 
-        cfg.annotations.extend(build_stereo_annotations(rmol.graph, rs_style=stereo_rs))
+        _cls = set(stereo) if isinstance(stereo, list) else None
+        cfg.annotations.extend(build_stereo_annotations(rmol.graph, rs_style=stereo_style, classes=_cls))
 
     # --- Early overlay validation (before ghost atoms are added to g1) ---
     if overlay is not None and mol.cell_data is not None:

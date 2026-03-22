@@ -69,9 +69,18 @@ xyzrender isothio_xtb.xyz -c 1 --stereo
 xyzrender mn-h2.log --ts --stereo --no-orient
 ```
 
-Two display modes for R/S labels: `--stereo` (default, centered on atom) and `--stereo label` (offset like other annotations).
+Filter to specific stereo classes with a comma-separated list:
 
-> **Note:** `--stereo` with `--idx` will overlap labels on stereocenters since both draw text at the atom position. Use `--stereo label` to offset R/S labels if combining with `--idx`.
+```bash
+xyzrender mol.xyz --stereo point,ez      # only R/S and E/Z
+xyzrender mol.xyz --stereo point          # only R/S
+```
+
+Valid classes: `point`, `ez`, `axis`, `plane`, `helix`.
+
+Two display modes for R/S labels: `--stereo-style atom` (default, centered on atom) and `--stereo-style label` (offset like other annotations).
+
+> **Note:** `--stereo` with `--idx` will overlap labels on stereocenters since both draw text at the atom position. Use `--stereo-style label` to offset R/S labels if combining with `--idx`.
 
 ## Atom property colormap (`--cmap`)
 
