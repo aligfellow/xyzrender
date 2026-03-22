@@ -56,6 +56,32 @@ Same syntax as `-l`, one spec per line. Lines whose first token is not an intege
 xyzrender sn2.out --ts --label sn2_label.txt --label-size 40
 ```
 
+## Stereochemistry (`--stereo`)
+
+Add stereochemistry labels derived from 3D geometry (via [xyzgraph](https://github.com/aligfellow/xyzgraph)). Detects R/S point chirality, E/Z double bonds, axial, planar (metallocene and CIP), and helical chirality.
+
+| Isothiocyanate (R/S, E/Z, planar) | TS with stereo (Mn-H₂) |
+|---|---|
+| ![isothio stereo](../../../examples/images/isothio_stereo.svg) | ![mn-h2 ts stereo](../../../examples/images/mn-h2_ts_stereo.svg) |
+
+```bash
+xyzrender isothio_xtb.xyz -c 1 --stereo
+xyzrender mn-h2.log --ts --stereo --no-orient
+```
+
+Filter to specific stereo classes with a comma-separated list:
+
+```bash
+xyzrender mol.xyz --stereo point,ez      # only R/S and E/Z
+xyzrender mol.xyz --stereo point          # only R/S
+```
+
+Valid classes: `point`, `ez`, `axis`, `plane`, `helix`.
+
+Two display modes for R/S labels: `--stereo-style atom` (default, centered on atom) and `--stereo-style label` (offset like other annotations).
+
+> **Note:** `--stereo` with `--idx` will overlap labels on stereocenters since both draw text at the atom position. Use `--stereo-style label` to offset R/S labels if combining with `--idx`.
+
 ## Atom property colormap (`--cmap`)
 
 Color atoms by a per-atom scalar value (e.g. partial charges) using a Viridis-like colormap.
@@ -82,33 +108,13 @@ xyzrender caffeine.xyz --hy --cmap caffeine_charges.txt --cmap-range -0.5 0.5
 - Atoms **not in the file**: white (`#ffffff`). Override with `"cmap_unlabeled"` in a custom JSON preset
 - Range defaults to min/max of provided values; use `--cmap-range vmin vmax` for a symmetric scale
 
-## Atom highlight (`--hl`)
-
-Color specific atoms and their connecting bonds. Accepts 1-indexed atom ranges.
-
-| Default (orchid) | Custom colour | Rotation |
-|------------------|---------------|----------|
-| ![hl](../../../examples/images/caffeine_hl.svg) | ![hl custom](../../../examples/images/caffeine_hl_custom.svg) | ![hl rot](../../../examples/images/caffeine_hl.gif) |
-
-```bash
-xyzrender caffeine.xyz --hl "1-3,7"                          # orchid (default)
-xyzrender caffeine.xyz --hl "1-3,7" --hl-color lightseagreen # custom colour
-xyzrender caffeine.xyz --hl "1-3,7" --gif-rot -go hl.gif     # works in GIFs
-```
-
-```python
-render(mol, highlight="1-3,7")                         # string (1-indexed)
-render(mol, highlight=[0, 1, 2, 6])                    # list (0-indexed)
-render(mol, highlight="1-3,7", highlight_color="red")  # custom colour
-```
-
 ## Vector arrows
 
 Overlay arbitrary 3D vectors as arrows on the rendered image via a JSON file. Useful for dipole moments, forces, electric fields, transition vectors, etc.
 
 | Dipole moment | Rotation |  
 |-------------|-------------|  
-| ![dip](examples/images/ethanol_dip.svg) | ![dip rot](examples/images/ethanol_dip.gif) |  
+| ![dip](../../../examples/images/ethanol_dip.svg) | ![dip rot](../../../examples/images/ethanol_dip.gif) |  
 
 
 ```bash
@@ -158,7 +164,7 @@ The label is suppressed for these compact symbols.  Once the viewing angle chang
 
 | Forces | Rotation |  
 |-------------|-------------|  
-| ![forces](examples/images/ethanol_forces_efield.svg) | ![forces rot](examples/images/ethanol_forces_efield.gif) |  
+| ![forces](../../../examples/images/ethanol_forces_efield.svg) | ![forces rot](../../../examples/images/ethanol_forces_efield.gif) |  
 
 ```text
 {

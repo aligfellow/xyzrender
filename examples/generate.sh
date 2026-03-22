@@ -25,7 +25,7 @@ xyzrender "$DIR/bimp.v000.xyz" --no-orient --region "84-165" tube --nci --hl "84
 
 echo "=== Display options ==="
 xyzrender "$DIR/ethanol.xyz" --hy -o "$IMG/ethanol_all_h.svg"           # all H
-xyzrender "$DIR/ethanol.xyz" --hy 7 8 9 -o "$IMG/ethanol_some_h.svg"   # specific H atoms
+xyzrender "$DIR/ethanol.xyz" --hy "7-9" -o "$IMG/ethanol_some_h.svg"   # specific H atoms
 xyzrender "$DIR/ethanol.xyz" --no-hy -o "$IMG/ethanol_no_h.svg"        # no H
 xyzrender "$DIR/benzene.xyz" --hy -o "$IMG/benzene.svg"                 # aromatic
 xyzrender "$DIR/caffeine.xyz" --bo -k -o "$IMG/caffeine_kekule.svg"    # Kekule bond orders
@@ -60,6 +60,10 @@ xyzrender "$DIR/caffeine.xyz" -l 13 6 9 4 t -l 1 a -l 14 d -l 7 12 8 a -l 11 d -
 xyzrender "$DIR/caffeine.xyz" -l 1 best -l 2 "NBO: 0.4" -o "$IMG/caffeine_labels.svg"
 xyzrender "$DIR/sn2.out" --ts --label "$DIR/sn2_label.txt" -o "$IMG/sn2_ts_label.svg" --label-size 40
 
+echo "=== Stereochemistry ==="
+xyzrender "$DIR/isothio_xtb.xyz" -c 1 --stereo -o "$IMG/isothio_stereo.svg"
+xyzrender "$DIR/mn-h2.log" --ts --stereo --no-orient -o "$IMG/mn-h2_ts_stereo.svg"
+
 echo "=== Molecular orbitals ==="
 xyzrender "$DIR/caffeine_lumo.cube" --mo --mo-colors maroon teal -o "$IMG/caffeine_lumo.svg"
 xyzrender "$DIR/caffeine_homo.cube" --mo --hy --iso 0.03 -o "$IMG/caffeine_homo_iso_hy.svg"
@@ -93,6 +97,8 @@ xyzrender "$DIR/ethanol.xyz" --hy --vector "$DIR/ethanol_forces_efield.json" --v
 echo "=== Crystal / unit cell ==="
 xyzrender "$DIR/caffeine_cell.xyz" --cell -o "$IMG/caffeine_cell.svg" --no-orient --gif-rot -go "$IMG/caffeine_cell.gif" 
 xyzrender "$DIR/caffeine_cell.xyz" --cell-color maroon -o "$IMG/caffeine_cell_custom.svg" # custom edge color
+xyzrender "$DIR/caffeine_cell.xyz" --supercell 2 2 1 -o "$IMG/caffeine_cell_supercell_221.svg"                      # with ghosts
+xyzrender "$DIR/caffeine_cell.xyz" --supercell 2 2 1 --hy -o "$IMG/caffeine_cell_supercell_221_hy.svg"              # ghosts + all H
 
 echo "=== Crystal / periodic structures ==="
 xyzrender "$DIR/NV63.vasp" --crystal vasp -o "$IMG/NV63_vasp.svg" --gif-rot -go "$IMG/NV63_vasp.gif"  # auto-detected as VASP
@@ -100,12 +106,15 @@ xyzrender "$DIR/NV63.in" --crystal qe --no-axes -o "$IMG/NV63_qe.svg"          #
 xyzrender "$DIR/NV63_cell.xyz" -o "$IMG/NV63_cell.svg"      
 xyzrender "$DIR/NV63_cell.xyz" --no-ghosts --no-axes -o "$IMG/NV63_cell_no_ghosts.svg"       
 xyzrender "$DIR/NV63_cell.xyz" --no-cell -o "$IMG/NV63_cell_no_cell.svg"       
+xyzrender "$DIR/NV63_cell.xyz" --supercell 2 2 1 --no-axes -o "$IMG/NV63_cell_supercell_221.svg"                    # with ghosts
 xyzrender "$DIR/NV63_cell.xyz" --axis 001 -o "$IMG/NV63_001.svg"   # looking down [001]
 xyzrender "$DIR/NV63_cell.xyz" --axis 111 --gif-rot 111 -o "$IMG/NV63_111.svg" -go "$IMG/NV63_111.gif"  # look down [111], rotate around [111]
 
 echo "=== Highlight ==="
-xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" -o "$IMG/caffeine_hl.svg" --gif-rot -go "$IMG/caffeine_hl.gif" 
-xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" --hl-color lightseagreen -o "$IMG/caffeine_hl_custom.svg"
+xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" -o "$IMG/caffeine_hl.svg" --gif-rot -go "$IMG/caffeine_hl.gif"
+xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" lightseagreen -o "$IMG/caffeine_hl_custom.svg"
+xyzrender "$DIR/caffeine.xyz" --hl "1-3,5,10,11,15,16,19,21" darkorchid --hl "4,6-9,12-14,17,18,20,22-24" teal --hy -o "$IMG/caffeine_multi_hl.svg"
+xyzrender "$DIR/caffeine.xyz" --hl "1-3,5,10,11,15,16,19,21" --mol-color mediumseagreen --hy --idx n -o "$IMG/caffeine_mol_color_hl_idx.svg"
 
 echo "=== Depth of field ==="
 xyzrender "$DIR/caffeine.xyz" --dof --no-orient -o "$IMG/caffeine_dof.svg" --gif-rot -go "$IMG/caffeine_dof.gif" 

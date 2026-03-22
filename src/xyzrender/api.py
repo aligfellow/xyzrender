@@ -169,7 +169,7 @@ def load(
     ensemble: bool = False,
     reference_frame: int = 0,
     max_frames: int | None = None,
-    align_atoms: list[int] | None = None,
+    align_atoms: str | list[int] | None = None,
     ensemble_color: str | list[str] | None = None,
     ensemble_palette: str | None = None,
     ensemble_opacity: float | None = None,
@@ -227,7 +227,7 @@ def load(
     max_frames:
         Maximum number of frames to include (default: all).
     align_atoms:
-        0-indexed atom indices for Kabsch alignment subset (min 3).
+        1-indexed atom indices for Kabsch alignment subset (min 3).
         When given, the rotation is computed from this subset only
         but applied to all atoms.
     ensemble_color:
@@ -447,6 +447,7 @@ def render(
     no_cell: bool = False,
     axes: bool = True,
     axis: str | None = None,
+    supercell: tuple[int, int, int] = (1, 1, 1),
     ghosts: bool | None = None,
     cell_color: str | None = None,
     cell_width: float | None = None,
@@ -463,6 +464,8 @@ def render(
     # --- Annotations ---
     labels: list[str] | None = None,
     label_file: str | None = None,
+    stereo: bool | list[str] = False,
+    stereo_style: str = "atom",
     # --- Vector arrows ---
     vector: str | Path | dict | list[VectorArrow] | None = None,
     vector_scale: float | None = None,
@@ -490,9 +493,10 @@ def render(
     hull_opacity: float | None = None,
     hull_edge: bool | None = None,
     hull_edge_width_ratio: float | None = None,
+    # --- Molecule color ---
+    mol_color: str | None = None,
     # --- Highlight ---
-    highlight: str | list[int] | None = None,
-    highlight_color: str | None = None,
+    highlight: str | list[int] | list[list[int] | str] | list[tuple] | None = None,
     # --- Style regions ---
     regions: list[tuple[str | list[int], str | RenderConfig]] | None = None,
     # --- Bond coloring ---
@@ -505,7 +509,7 @@ def render(
     overlay: str | os.PathLike | Molecule | None = None,
     overlay_color: str | None = None,
     # --- Alignment (overlay subset alignment) ---
-    align_atoms: list[int] | None = None,
+    align_atoms: str | list[int] | None = None,
     # --- Output ---
     output: str | os.PathLike | None = None,
 ) -> SVGResult:
@@ -544,6 +548,11 @@ def render(
         Inline annotation spec strings (e.g. ``["1 2 d", "3 a", "1 NBO"]``).
     label_file:
         Path to an annotation file (same format as ``--label``).
+    stereo:
+        ``True`` for all stereochemistry labels, or a list of classes to show
+        (``"point"``, ``"ez"``, ``"axis"``, ``"plane"``, ``"helix"``).
+    stereo_style:
+        Placement for R/S labels: ``"atom"`` (centered on atom) or ``"label"`` (offset near atom).
     vectors:
         Vector arrows to overlay.  Pass a path/dict to a JSON file, or a list
         of :class:`xyzrender.types.VectorArrow` objects.  Each arrow is drawn
@@ -596,6 +605,10 @@ def render(
     else:
         mol = load(molecule)
 
+    # Supercell requires lattice/cell_data (works for any periodic input, not just phonopy crystals)
+    if supercell != (1, 1, 1) and mol.cell_data is None:
+        raise ValueError("supercell requires an input with a unit cell (lattice).")
+
     # Detect ensemble (mol.ensemble is populated by load(ensemble=True))
     _is_ensemble = mol.ensemble is not None
     if _is_ensemble:
@@ -622,6 +635,7 @@ def render(
         # Pre-built RenderConfig — shallow copy so we don't mutate the caller's object
         cfg = copy.copy(config)
         cfg.vectors = list(cfg.vectors)
+        cfg.annotations = list(cfg.annotations)
         if _orient is not None:
             cfg.auto_orient = _orient
         elif mol.oriented:
@@ -666,8 +680,14 @@ def render(
         opacity=opacity,
     )
 
+    from xyzrender.types import resolve_color
+
+    # --- Molecule color ---
+    if mol_color is not None:
+        cfg.mol_color = resolve_color(mol_color)
+
     # --- Highlight ---
-    _apply_highlight(cfg, highlight=highlight, highlight_color=highlight_color)
+    _apply_highlight(cfg, highlight=highlight)
 
     # --- Style regions ---
     _apply_style_regions(cfg, regions=regions)
@@ -750,6 +770,7 @@ def render(
             cfg,
             no_cell=no_cell,
             axis=axis,
+            supercell=supercell,
             ghosts=ghosts,
             cell_color=cell_color,
             cell_width=cell_width,
@@ -765,6 +786,11 @@ def render(
 
         inline = [s.split() for s in labels] if labels else None
         cfg.annotations = parse_annotations(inline_specs=inline, file_path=label_file, graph=rmol.graph)
+    if stereo:
+        from xyzrender.stereo import build_stereo_annotations
+
+        _cls = set(stereo) if isinstance(stereo, list) else None
+        cfg.annotations.extend(build_stereo_annotations(rmol.graph, rs_style=stereo_style, classes=_cls))
 
     # --- Early overlay validation (before ghost atoms are added to g1) ---
     if overlay is not None and mol.cell_data is not None:
@@ -803,8 +829,8 @@ def render(
 
         if overlay_color is not None:
             cfg.overlay_color = resolve_color(overlay_color)
-        # Convert 1-indexed align_atoms to 0-indexed for overlay
-        _ov_align = [i - 1 for i in align_atoms] if align_atoms is not None else None
+        # Convert 1-indexed align_atoms (str or list) to 0-indexed for overlay
+        _ov_align = parse_atom_indices(align_atoms) if align_atoms is not None else None
         aligned2 = align(g1, g2, align_atoms=_ov_align)
         rmol = Molecule(
             graph=merge_graphs(g1, g2, aligned2, overlay_color=cfg.overlay_color),
@@ -877,12 +903,7 @@ def render(
     )
 
     from xyzrender.cube import parse_cube
-    from xyzrender.surfaces import (
-        compute_dens_surface,
-        compute_esp_surface,
-        compute_mo_surface,
-        compute_nci_surface,
-    )
+    from xyzrender.surfaces import compute_dens_surface, compute_esp_surface, compute_mo_surface, compute_nci_surface
 
     if mo_params is not None and cube_data is not None:
         compute_mo_surface(rmol.graph, cube_data, cfg, mo_params)
@@ -955,9 +976,10 @@ def render_gif(
     no_hy: bool = False,
     bo: bool | None = None,
     orient: bool | None = None,
+    # --- Molecule color ---
+    mol_color: str | None = None,
     # --- Highlight ---
-    highlight: str | list[int] | None = None,
-    highlight_color: str | None = None,
+    highlight: str | list[int] | list[list[int] | str] | list[tuple] | None = None,
     # --- Style regions ---
     regions: list[tuple[str | list[int], str | RenderConfig]] | None = None,
     # --- Bond coloring ---
@@ -997,6 +1019,7 @@ def render_gif(
     no_cell: bool = False,
     axes: bool = True,
     axis: str | None = None,
+    supercell: tuple[int, int, int] = (1, 1, 1),
     ghosts: bool | None = None,
     cell_color: str | None = None,
     cell_width: float | None = None,
@@ -1096,6 +1119,7 @@ def render_gif(
     if not isinstance(config, str):
         cfg = copy.copy(config)
         cfg.vectors = list(cfg.vectors)
+        cfg.annotations = list(cfg.annotations)
     else:
         cfg = build_config(
             config,
@@ -1122,8 +1146,14 @@ def render_gif(
             orient=orient,
         )
 
+    from xyzrender.types import resolve_color
+
+    # --- Molecule color ---
+    if mol_color is not None:
+        cfg.mol_color = resolve_color(mol_color)
+
     # --- Highlight ---
-    _apply_highlight(cfg, highlight=highlight, highlight_color=highlight_color)
+    _apply_highlight(cfg, highlight=highlight)
 
     # --- Style regions ---
     _apply_style_regions(cfg, regions=regions)
@@ -1321,6 +1351,7 @@ def render_gif(
                 cfg,
                 no_cell=no_cell,
                 axis=axis,
+                supercell=supercell,
                 ghosts=ghosts,
                 cell_color=cell_color,
                 cell_width=cell_width,
@@ -1411,7 +1442,7 @@ def _build_ensemble_molecule(
     *,
     reference_frame: int = 0,
     max_frames: int | None = None,
-    align_atoms: list[int] | None = None,
+    align_atoms: str | list[int] | None = None,
     conformer_colors: list[str] | None = None,
     ensemble_opacity: float | None = None,
     ensemble_palette: str | None = None,
@@ -1502,7 +1533,8 @@ def _build_ensemble_molecule(
         real_nodes = [n for n in _node_list(ref_graph) if ref_graph.nodes[n].get("symbol") != "*"]
         frames[reference_frame]["positions"] = [list(ref_graph.nodes[n]["position"]) for n in real_nodes]
 
-    aligned_positions = ensemble_align(frames, reference_frame=reference_frame, align_atoms=align_atoms)
+    _align_0 = parse_atom_indices(align_atoms) if align_atoms is not None else None
+    aligned_positions = ensemble_align(frames, reference_frame=reference_frame, align_atoms=_align_0)
 
     # NCI detection and per-frame graph building happen *after* alignment so that
     # centroid dummy nodes don't interfere with position array sizes.
@@ -1569,20 +1601,82 @@ def _build_ensemble_molecule(
 def _apply_highlight(
     cfg: "RenderConfig",
     *,
-    highlight: "str | list[int] | None" = None,
-    highlight_color: "str | None" = None,
+    highlight: "str | list[int] | list[list[int] | str] | list[tuple] | None" = None,
 ) -> None:
     """Apply highlight atom coloring to *cfg* (mutates in place).
 
-    *highlight* is either a 1-indexed string (``"1-5,8"``) matching the CLI
-    format, or a 0-indexed ``list[int]`` for the Python API.
-    """
-    if highlight is not None:
-        cfg.highlight_indices = parse_atom_indices(highlight)
-    if highlight_color is not None:
-        from xyzrender.types import resolve_color
+    Accepts multiple forms (all atom indices are 1-indexed):
 
-        cfg.highlight_color = resolve_color(highlight_color)
+    - ``str``: single group, auto-color — ``"1-5,8"``
+    - ``list[int]``: single group, auto-color — ``[1, 2, 3, 4, 5]``
+    - ``list[str | list[int]]``: multi-group, auto-color — ``["1-5", "10-15"]``
+    - ``list[tuple]``: multi-group with colors — ``[("1-5", "blue"), ...]``
+    """
+    if highlight is None:
+        return
+
+    from xyzrender.types import HighlightGroup, resolve_color
+
+    palette = cfg.highlight_colors
+    groups: list[HighlightGroup] = []
+
+    from typing import cast
+
+    # Normalise into list of (indices_spec, color_or_None)
+    raw_groups: list[tuple[str | list[int], str | None]]
+
+    if isinstance(highlight, str):
+        # Single group from string: "1-5,8"
+        raw_groups = [(highlight, None)]
+    elif isinstance(highlight, list) and highlight:
+        first = highlight[0]
+        if isinstance(first, int):
+            # Single group from list[int]: [1, 2, 3, 4, 5]
+            raw_groups = [(cast("list[int]", highlight), None)]
+        elif isinstance(first, str):
+            # Multi-group from list[str]: ["1-5", "10-15"]
+            raw_groups = [(cast("str", s), None) for s in highlight]
+        elif isinstance(first, list):
+            # Multi-group from list[list[int]]: [[1,2,3], [5,6,7,8]] — auto-color
+            raw_groups = [(cast("list[int]", sub), None) for sub in highlight]
+        elif isinstance(first, tuple):
+            # Multi-group from list[tuple]: [("1-5", "blue"), ([1,2,3], "red"), ...]
+            raw_groups = []
+            for entry in highlight:
+                if isinstance(entry, tuple):
+                    atoms_spec = entry[0]
+                    color_spec = entry[1] if len(entry) > 1 else None
+                    raw_groups.append((atoms_spec, color_spec))
+                else:
+                    msg = f"highlight entry must be a tuple, got {type(entry)}"
+                    raise TypeError(msg)
+        else:
+            msg = f"unexpected highlight element type: {type(first)}"
+            raise TypeError(msg)
+    else:
+        return
+
+    seen: set[int] = set()
+    auto_idx = 0
+    for atoms_spec, color_spec in raw_groups:
+        indices = parse_atom_indices(atoms_spec)
+
+        overlap = seen & set(indices)
+        if overlap:
+            examples = sorted(overlap)[:5]
+            msg = f"atom(s) {', '.join(str(i + 1) for i in examples)} appear in multiple highlight groups (1-indexed)"
+            raise ValueError(msg)
+        seen.update(indices)
+
+        if color_spec is not None:
+            color = resolve_color(color_spec)
+        else:
+            color = resolve_color(palette[auto_idx % len(palette)])
+            auto_idx += 1
+
+        groups.append(HighlightGroup(indices=indices, color=color))
+
+    cfg.highlight_groups = groups
 
 
 def _apply_style_regions(
@@ -1593,7 +1687,7 @@ def _apply_style_regions(
     """Apply style-region overrides to *cfg* (mutates in place).
 
     Each region is ``(atoms_spec, config_spec)`` where *atoms_spec* is a
-    1-indexed string (``"1-5,8"``) or 0-indexed ``list[int]``, and
+    1-indexed string (``"1-5,8"``) or 1-indexed ``list[int]``, and
     *config_spec* is a preset name or a pre-built :class:`RenderConfig`.
     """
     if regions is None:
@@ -1746,6 +1840,7 @@ def _apply_cell_config(
     *,
     no_cell: bool,
     axis: str | None,
+    supercell: tuple[int, int, int] = (1, 1, 1),
     ghosts: bool | None,
     cell_color: str | None,
     cell_width: float | None,
@@ -1777,12 +1872,41 @@ def _apply_cell_config(
         orient_hkl_to_view(mol.graph, cell_data, axis, cfg)
         cfg.auto_orient = False
 
+    # Supercell replication (must occur before adding ghost atoms)
+    _supercell_lattice = None
+    if supercell != (1, 1, 1):
+        lat = getattr(cell_data, "lattice", None)
+        if lat is None:
+            raise ValueError("supercell requires an input with a unit cell (lattice).")
+        lat = np.array(lat, dtype=float)
+        if lat.shape != (3, 3) or np.allclose(lat, 0.0):
+            raise ValueError("supercell requires a non-zero 3x3 lattice matrix.")
+        from xyzrender.crystal import build_supercell
+
+        mol.graph = build_supercell(mol.graph, cell_data, supercell)
+        # Scaled lattice for ghost generation (ghosts = periodic images of the
+        # supercell, not the unit cell).  cell_data stays as unit cell for the
+        # cell-box overlay.
+        _supercell_lattice = np.vstack(
+            [
+                supercell[0] * lat[0],
+                supercell[1] * lat[1],
+                supercell[2] * lat[2],
+            ]
+        )
+
     # Ghost (periodic image) atoms — default: on when cell_data is present
     _show_ghosts = ghosts if ghosts is not None else True
     if _show_ghosts:
         from xyzrender.crystal import add_crystal_images
+        from xyzrender.types import CellData as _CellData
 
-        add_crystal_images(mol.graph, cell_data)
+        ghost_cd = (
+            _CellData(lattice=_supercell_lattice, cell_origin=cell_data.cell_origin)
+            if _supercell_lattice is not None
+            else cell_data
+        )
+        add_crystal_images(mol.graph, ghost_cd)
 
     # Bond orders are not meaningful for periodic structures (xyzgraph bond
     # order assignment assumes isolated molecules).

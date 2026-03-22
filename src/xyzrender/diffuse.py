@@ -17,21 +17,14 @@ if TYPE_CHECKING:
 def parse_anchor(anchor: str | list[int] | None) -> set[int] | None:
     """Parse anchor specification to a set of 0-indexed atom indices.
 
-    Accepts a 1-indexed comma/range string (``"1-5,8"``) or a list of
-    0-indexed ints.  Returns ``None`` if *anchor* is ``None``.
+    Accepts a 1-indexed string (``"1-5,8"``) or 1-indexed ``list[int]``.
+    Returns ``None`` if *anchor* is ``None``.
     """
     if anchor is None:
         return None
-    if isinstance(anchor, str):
-        indices: list[int] = []
-        for part in anchor.split(","):
-            if "-" in part:
-                a, b = part.split("-")
-                indices.extend(range(int(a) - 1, int(b)))
-            else:
-                indices.append(int(part) - 1)
-        return set(indices)
-    return set(anchor)
+    from xyzrender.utils import parse_atom_indices
+
+    return set(parse_atom_indices(anchor))
 
 
 def diffuse_frames(

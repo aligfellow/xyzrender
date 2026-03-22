@@ -40,8 +40,8 @@ class TestParseAtomIndices:
     def test_mixed(self):
         assert parse_atom_indices("1-3,7,10-12") == [0, 1, 2, 6, 9, 10, 11]
 
-    def test_list_passthrough(self):
-        assert parse_atom_indices([0, 1, 2]) == [0, 1, 2]
+    def test_list_1indexed(self):
+        assert parse_atom_indices([1, 2, 3]) == [0, 1, 2]
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +209,7 @@ class TestOverlayIsolation:
         mol = load(STRUCTURES / "Hbond.xyz", nci_detect=True)
         n = mol.graph.number_of_nodes()
         dark = Color.from_str(resolve_color("orchid")).blend(Color(0, 0, 0), 0.3).hex
-        svg = str(render(mol, highlight=list(range(n)), fog=False, gradient=False, orient=False, hy=True))
+        svg = str(render(mol, highlight=list(range(1, n + 1)), fog=False, gradient=False, orient=False, hy=True))
         dotted_lines = [line for line in svg.split("\n") if "stroke-dasharray" in line and "<line" in line]
         for line in dotted_lines:
             if 'stroke-dasharray="0.' in line or 'stroke-dasharray="1.' in line:

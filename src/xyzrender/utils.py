@@ -16,11 +16,11 @@ if TYPE_CHECKING:
 def parse_atom_indices(spec: str | list[int]) -> list[int]:
     """Parse an atom specifier into a 0-indexed list of atom indices.
 
-    Accepts a 1-indexed string (``"1-5,8,12"``) or an already 0-indexed
-    ``list[int]``.  Used by the CLI, highlight, and style-region APIs.
+    Accepts a 1-indexed string (``"1-5,8,12"``) or a 1-indexed
+    ``list[int]``.  Both forms are converted to 0-indexed output.
     """
     if isinstance(spec, list):
-        return list(spec)
+        return [i - 1 for i in spec]
     if not isinstance(spec, str) or not spec.strip():
         return []
     indices: list[int] = []

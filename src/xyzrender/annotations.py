@@ -25,6 +25,7 @@ class AtomValueLabel:
 
     index: int  # 0-indexed
     text: str
+    on_atom: bool = False  # True = centered on atom, False = offset label
 
 
 @dataclass(frozen=True)
@@ -57,7 +58,15 @@ class DihedralLabel:
     text: str
 
 
-Annotation = AtomValueLabel | BondLabel | AngleLabel | DihedralLabel
+@dataclass(frozen=True)
+class CentroidLabel:
+    """Text label placed at the centroid of a set of atoms."""
+
+    atoms: tuple[int, ...]  # 0-indexed
+    text: str
+
+
+Annotation = AtomValueLabel | BondLabel | AngleLabel | DihedralLabel | CentroidLabel
 
 
 # ---------------------------------------------------------------------------

@@ -17,6 +17,7 @@ uv run bash examples/generate.sh
 - [Convex hull](examples/hull.md) — semi-transparent hull facets over selected atoms (rings, coordination spheres)
 - [Crystal Structures](examples/crystal.md) — unit cell rendering, VASP/QE periodic structures, and crystallographic axes
 - [Annotations](examples/annotations.md) — atom indices, SVG labels, measurements, and vector arrows
+- [Highlight & Molecule Color](examples/highlight.md) — multi-group atom highlighting and flat molecule coloring
 - [Style Regions](examples/style_regions.md) — render atom subsets with different presets (QM/MM, tube/wire, element-coloured bonds)
 - [Atom Colormap](examples/cmap.md) — per-atom scalar colormaps (charges, shifts, Fukui indices)
 
@@ -35,6 +36,7 @@ examples/nci_surf
 examples/hull
 examples/crystal
 examples/annotations
+examples/highlight
 examples/style_regions
 examples/cmap
 ```

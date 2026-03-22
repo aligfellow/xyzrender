@@ -229,17 +229,24 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     # Pre-extract ensemble_opacity per atom — avoids two dict lookups per atom inside the main loop.
     ens_opacities: list[float | None] = [graph.nodes[nid].get("ensemble_opacity") for nid in node_ids]
 
-    # Highlight: override colors for user-specified atom subset
-    hl_set: set[int] = set()
-    hl_bond_color: str | None = None
-    if cfg.highlight_indices is not None:
-        hl_set = set(cfg.highlight_indices)
-        hl_color = Color.from_str(cfg.highlight_color)
+    # Molecule color: override all atom + bond colors with a single color
+    mol_bond_color: str | None = None
+    if cfg.mol_color is not None:
+        flat = Color.from_str(cfg.mol_color)
         for ai in range(n):
-            if ai in hl_set:
-                colors[ai] = hl_color
-        # Pre-compute darkened highlight color for bonds between highlighted atoms
-        hl_bond_color = hl_color.blend(Color(0, 0, 0), 0.3).hex
+            colors[ai] = flat
+        mol_bond_color = flat.blend(Color(0, 0, 0), 0.3).hex
+
+    # Highlight: override colors for user-specified atom groups
+    hl_atom_group: dict[int, int] = {}  # atom_idx → group_id
+    hl_group_bond_color: list[str] = []  # group_id → darkened bond hex
+    if cfg.highlight_groups:
+        for gid, group in enumerate(cfg.highlight_groups):
+            gc = Color.from_str(group.color)
+            hl_group_bond_color.append(gc.blend(Color(0, 0, 0), 0.3).hex)
+            for ai in group._index_set:
+                colors[ai] = gc
+                hl_atom_group[ai] = gid
 
     # Bond lookup: (bond_order, style, color_override)
     bonds: dict[tuple[int, int], tuple[float, BondStyle, str | None]] = {}
@@ -262,19 +269,31 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         for i, j in cfg.nci_bonds:
             existing = bonds.get((i, j), (1.0, BondStyle.SOLID, None))
             bonds[(i, j)] = bonds[(j, i)] = (existing[0], BondStyle.DOTTED, existing[2])
-        # Highlight: color bonds between two highlighted atoms.
-        # Only SOLID covalent bonds — TS/NCI are structural overlays.
-        if hl_set and hl_bond_color is not None:
+        # Molecule color: paint all SOLID bonds with darkened mol_color
+        if mol_bond_color is not None:
             for (i, j), (bo, style, c_ov) in list(bonds.items()):
-                if i in hl_set and j in hl_set and c_ov is None and style == BondStyle.SOLID:
-                    bonds[(i, j)] = bonds[(j, i)] = (bo, style, hl_bond_color)
+                if c_ov is None and style == BondStyle.SOLID:
+                    bonds[(i, j)] = bonds[(j, i)] = (bo, style, mol_bond_color)
+        # Highlight: color bonds between two atoms in the SAME highlight group.
+        # Only SOLID covalent bonds — TS/NCI are structural overlays.
+        # Overrides mol_color bond coloring (but not explicit per-edge overrides).
+        if hl_atom_group:
+            for (i, j), (bo, style, c_ov) in list(bonds.items()):
+                gi, gj = hl_atom_group.get(i), hl_atom_group.get(j)
+                if (
+                    gi is not None
+                    and gi == gj
+                    and style == BondStyle.SOLID
+                    and (c_ov is None or c_ov == mol_bond_color)
+                ):
+                    bonds[(i, j)] = bonds[(j, i)] = (bo, style, hl_group_bond_color[gi])
 
     # Only hide C-H hydrogens (not O-H, N-H, free H, etc.)
     hidden = set()
     if cfg.hide_h:
         show = set(cfg.show_h_indices)
         for ai in range(n):
-            if symbols[ai] == "H" and ai not in show and not graph.nodes[ai].get("image", False):
+            if symbols[ai] == "H" and ai not in show:
                 neighbours = list(graph.neighbors(ai))
                 if neighbours and all(symbols[nb] == "C" for nb in neighbours):
                     hidden.add(ai)
@@ -1270,7 +1289,7 @@ def _annotations_svg(
     radii: np.ndarray,
 ) -> list[str]:
     """Render all annotation elements as a flat list of SVG strings."""
-    from xyzrender.annotations import AngleLabel, AtomValueLabel, BondLabel, DihedralLabel
+    from xyzrender.annotations import AngleLabel, AtomValueLabel, BondLabel, CentroidLabel, DihedralLabel
 
     svg: list[str] = []
     col = cfg.label_color
@@ -1280,7 +1299,12 @@ def _annotations_svg(
     for ann in cfg.annotations:
         if isinstance(ann, AtomValueLabel):
             xi, yi = _proj(pos[ann.index], scale, cx, cy, canvas_w, canvas_h)
-            svg.append(_text_svg(xi, yi + fs * cfg.label_offset, ann.text, fs, col))
+            if ann.on_atom:
+                # NB: overlaps with --idx labels which also render at (xi, yi);
+                # use on_atom=False (--stereo label) when combining with --idx.
+                svg.append(_text_svg(xi, yi, ann.text, fs, col))
+            else:
+                svg.append(_text_svg(xi, yi + fs * cfg.label_offset, ann.text, fs, col))
 
         elif isinstance(ann, BondLabel):
             mi = (pos[ann.i] + pos[ann.j]) / 2
@@ -1373,6 +1397,11 @@ def _annotations_svg(
             else:
                 dpx, dpy = 0.0, -doff
             svg.append(_text_svg(mx + dpx, my + dpy, ann.text, fs, col))
+
+        elif isinstance(ann, CentroidLabel):
+            centroid = pos[list(ann.atoms)].mean(axis=0)
+            cx2, cy2 = _proj(centroid, scale, cx, cy, canvas_w, canvas_h)
+            svg.append(_text_svg(cx2, cy2, ann.text, fs, col))
 
     return svg
 

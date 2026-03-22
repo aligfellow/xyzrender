@@ -22,6 +22,7 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 
 - **Bond orders and aromaticity** — double bonds, triple bonds, and aromatic ring notation detected automatically from geometry via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
 - **Transition state bonds** — forming/breaking bonds rendered as dashed lines, detected automatically from imaginary frequency vibrations via [`graphRC`](https://github.com/aligfellow/graphRC)
+- **Stereochemistry labels** — R/S, E/Z, axial, planar (metallocene and CIP), and helical chirality labels detected and annotated automatically via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
 - **Non-covalent interactions** — hydrogen bonds and other weak interactions shown as dotted lines, detected automatically via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
 - **GIF animations** — rotation, TS vibration, and trajectory animations for presentations
 - **Molecular orbitals** — render MO lobes from cube files with front/back depth cueing
@@ -141,11 +142,11 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |--------------|------------------|------------|----------|
 | ![benzene hull](examples/images/benzene_ring_hull.svg) | ![anthracene hull](examples/images/anthracene_hull.svg) | ![mnh hull](examples/images/mnh_hull_rings.svg) | ![anthracene rot](examples/images/anthracene_hull.gif) |
 
-### Highlight
+### Highlight & molecule color
 
-| Default (orchid) | Custom colour | Rotation |
-|------------------|---------------|----------|
-| ![hl](examples/images/caffeine_hl.svg) | ![hl custom](examples/images/caffeine_hl_custom.svg) | ![hl rot](examples/images/caffeine_hl.gif) |
+| Default (orchid) | Custom colour | Multi-group | Mol color + highlight |
+|------------------|---------------|-------------|-----------------------|
+| ![hl](examples/images/caffeine_hl.svg) | ![hl custom](examples/images/caffeine_hl_custom.svg) | ![multi hl](examples/images/caffeine_multi_hl.svg) | ![mol color hl](examples/images/caffeine_mol_color_hl_idx.svg) |
 
 ### Depth of field
 
@@ -171,6 +172,12 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |--------------------|--------|----------------|
 | ![dihedral](examples/images/caffeine_dihedral.svg) | ![labels](examples/images/caffeine_labels.svg) | ![sn2 labels](examples/images/sn2_ts_label.svg) |
 
+### Stereochemistry labels
+
+| Isothiocyanate (R/S, E/Z, planar)                      | TS with stereo (Mn-H₂, `--ts --stereo`)                    |
+| ------------------------------------------------------- | ----------------------------------------------------------- |
+| ![isothio stereo](examples/images/isothio_stereo.svg)   | ![mn-h2 ts stereo](examples/images/mn-h2_ts_stereo.svg)    |
+
 ### Atom property colormap
 
 | Mulliken charges (rotation) | Symmetric range | With colorbar |
@@ -194,9 +201,9 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### Crystal / periodic structures
 
-| Unit cell | Rotation | VASP | Viewing direction |
-|-----------|----------|------|-------------------|
-| ![cell](examples/images/caffeine_cell.svg) | ![cell rot](examples/images/caffeine_cell.gif) | ![vasp](examples/images/NV63_vasp.svg) | ![111](examples/images/NV63_111.gif) |
+| Unit cell | Rotation | VASP | Supercell 2×2×1 | Viewing direction |
+|-----------|----------|------|-----------------|-------------------|
+| ![cell](examples/images/caffeine_cell.svg) | ![cell rot](examples/images/caffeine_cell.gif) | ![vasp](examples/images/NV63_vasp.svg) | ![supercell](examples/images/NV63_cell_supercell_221.svg) | ![111](examples/images/NV63_111.gif) |
 
 ### GIF animations
 
@@ -260,7 +267,8 @@ Contributors:
 - [Ksenia Briling (@briling)](https://github.com/briling) — `vmol` integration and the [xyz2svg](https://github.com/briling/xyz2svg) foundation
 - [Sander Cohen-Janes (@scohenjanes5)](https://github.com/scohenjanes5) — crystal/periodic structure support (VASP, Quantum ESPRESSO, ghost atoms, crystallographic axes), vector annotations and gif parallelisation
 - [Rubén Laplaza (@rlaplaza)](https://github.com/rlaplaza) — convex hull facets
-- [Iñigo Iribarren Aguirre (@iribirii)](https://github.com/iribirii) — radial gradients respecting colour space (pseudo-3D), skeletal rendering, ensemble display
+- [Iñigo Iribarren Aguirre (@iribirii)](https://github.com/iribirii) — radial gradients respecting colour space (pseudo-3D), skeletal rendering, ensemble display, supercell projection
+- [James O'Brien (@JamesOBrien2)](https://github.com/JamesOBrien2) — stereochemistry detection and integration
 - [Vinicius Port (@caprilesport)](https://github.com/caprilesport) — `v` binary path discovery
 - [Lucas Attia (@lucasattia)](https://github.com/lucasattia) — `--transparent` background flag
 

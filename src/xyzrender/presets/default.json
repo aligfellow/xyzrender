@@ -38,7 +38,7 @@
   "periodic_image_opacity": 0.5,
   "axis_colors": ["firebrick", "forestgreen", "royalblue"],
   "axis_width_scale": 2.0,
-  "highlight_color": "orchid",
+  "highlight_colors": ["orchid", "mediumseagreen", "goldenrod", "coral", "mediumpurple", "hotpink"],
   "overlay_color": "mediumorchid",
   "vector_scale": 1.0,
   "vector_color": "firebrick",
