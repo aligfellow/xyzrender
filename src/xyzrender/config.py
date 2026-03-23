@@ -104,8 +104,8 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
     _color_fields = (
         "background",
         "bond_color",
-        "ts_bond_color",
-        "nci_bond_color",
+        "ts_color",
+        "nci_color",
         "atom_stroke_color",
         "label_color",
         "cmap_unlabeled",
@@ -113,13 +113,16 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
         "mo_pos_color",
         "mo_neg_color",
         "dens_color",
-        "nci_color",
         "overlay_color",
         "mol_color",
     )
     for key in _color_fields:
         if key in merged and merged[key] is not None:
             merged[key] = resolve_color(merged[key])
+
+    # nci_mode can be a mode name ("avg", "pixel", "uniform") or a color — resolve if color
+    if "nci_mode" in merged and merged["nci_mode"] not in ("avg", "pixel", "uniform", None):
+        merged["nci_mode"] = resolve_color(merged["nci_mode"])
 
     # axis_colors comes from JSON as a list of 3 strings; convert to tuple and resolve
     if "axis_colors" in merged:
@@ -166,8 +169,8 @@ def build_config(
     bond_width=None,
     atom_stroke_width=None,
     bond_color=None,
-    ts_bond_color=None,
-    nci_bond_color=None,
+    ts_color=None,
+    nci_color=None,
     background=None,
     transparent: bool = False,
     gradient=None,
@@ -243,8 +246,8 @@ def build_config(
         ("bond_width", bond_width),
         ("atom_stroke_width", atom_stroke_width),
         ("bond_color", bond_color),
-        ("ts_bond_color", ts_bond_color),
-        ("nci_bond_color", nci_bond_color),
+        ("ts_color", ts_color),
+        ("nci_color", nci_color),
         ("background", background),
         ("gradient", gradient),
         ("hue_shift_factor", hue_shift_factor),
@@ -312,14 +315,14 @@ def collect_surf_overrides(
     mo_upsample=None,
     flat_mo: bool = False,
     dens_color=None,
-    nci_color=None,
-    nci_coloring=None,
+    nci_mode=None,
     nci_cutoff=None,
 ) -> dict:
     """Collect surface param overrides into a dict for ``build_surface_params``.
 
-    ``nci_coloring`` maps to the internal key ``nci_color_mode`` (matches
-    ``--nci-coloring`` CLI flag). ``flat_mo=True`` overrides the config default.
+    ``nci_mode`` accepts ``'avg'``, ``'pixel'``, ``'uniform'``, or a colour
+    name/hex (implying uniform mode).  ``flat_mo=True`` overrides the config
+    default.
     """
     overrides: dict = {}
     for key, val in [
@@ -330,8 +333,7 @@ def collect_surf_overrides(
         ("mo_upsample", mo_upsample),
         ("flat_mo", flat_mo or None),  # False → don't override; True → set
         ("dens_color", dens_color),
-        ("nci_color", nci_color),
-        ("nci_color_mode", nci_coloring),
+        ("nci_mode", nci_mode),
         ("nci_cutoff", nci_cutoff),
     ]:
         if val is not None:
@@ -394,10 +396,20 @@ def build_surface_params(
         )
 
     if has_nci:
+        nci_mode = cli_overrides.get("nci_mode") or cfg.nci_mode
+        if nci_mode in ("avg", "pixel"):
+            _nci_color_mode = nci_mode
+            _nci_color = "forestgreen"
+        elif nci_mode == "uniform":
+            _nci_color_mode = "uniform"
+            _nci_color = "forestgreen"
+        else:
+            _nci_color_mode = "uniform"
+            _nci_color = resolve_color(nci_mode)
         nci_params = NCIParams(
             isovalue=iso_override if iso_override is not None else cfg.nci_isovalue,
-            color=cli_overrides.get("nci_color") or cfg.nci_color,
-            color_mode=cli_overrides.get("nci_color_mode") or cfg.nci_color_mode,
+            color=_nci_color,
+            color_mode=_nci_color_mode,
             dens_cutoff=cli_overrides.get("nci_cutoff"),
         )
 

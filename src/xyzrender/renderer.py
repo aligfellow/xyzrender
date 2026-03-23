@@ -733,10 +733,10 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             _bw = min(_bw, 20.0 * scale_ratio)
         _gap = bcfg.bond_gap * _bw
         _bond_color = bcfg.bond_color
-        if style == BondStyle.DASHED and bcfg.ts_bond_color is not None:
-            _bond_color = bcfg.ts_bond_color
-        if style == BondStyle.DOTTED and bcfg.nci_bond_color is not None:
-            _bond_color = bcfg.nci_bond_color
+        if style == BondStyle.DASHED and bcfg.ts_color is not None:
+            _bond_color = bcfg.ts_color
+        if style == BondStyle.DOTTED and bcfg.nci_color is not None:
+            _bond_color = bcfg.nci_color
 
         if bcfg.skeletal_style:
             skeletal_bond_svg(

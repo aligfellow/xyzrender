@@ -25,7 +25,7 @@
   "dens_iso": 0.001,
   "dens_color": "steelblue",
   "nci_iso": 0.3,
-  "nci_color": "forestgreen",
+  "nci_mode": "avg",
   "colors": {
     "C": "#AAAAAA"
   },

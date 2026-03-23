@@ -80,7 +80,7 @@ class TestElementColouredBonds:
             assert "url(#" not in line
 
     def test_nci_bond_color_override(self):
-        """nci_bond_color should control dotted NCI bond color."""
+        """nci_color should control dotted NCI bond color."""
         import networkx as nx
 
         from xyzrender.renderer import render_svg
@@ -96,7 +96,7 @@ class TestElementColouredBonds:
             fog=False,
             gradient=False,
             auto_orient=False,
-            nci_bond_color="#ff00ff",
+            nci_color="#ff00ff",
         )
         svg = render_svg(g, cfg, _unique_ids=False)
         dotted = [line for line in svg.split("\n") if "stroke-dasharray" in line and "<line" in line]
