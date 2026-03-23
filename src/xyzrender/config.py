@@ -104,6 +104,8 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
     _color_fields = (
         "background",
         "bond_color",
+        "ts_bond_color",
+        "nci_bond_color",
         "atom_stroke_color",
         "label_color",
         "cmap_unlabeled",
@@ -116,7 +118,7 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
         "mol_color",
     )
     for key in _color_fields:
-        if key in merged:
+        if key in merged and merged[key] is not None:
             merged[key] = resolve_color(merged[key])
 
     # axis_colors comes from JSON as a list of 3 strings; convert to tuple and resolve
@@ -164,6 +166,8 @@ def build_config(
     bond_width=None,
     atom_stroke_width=None,
     bond_color=None,
+    ts_bond_color=None,
+    nci_bond_color=None,
     background=None,
     transparent: bool = False,
     gradient=None,
@@ -239,6 +243,8 @@ def build_config(
         ("bond_width", bond_width),
         ("atom_stroke_width", atom_stroke_width),
         ("bond_color", bond_color),
+        ("ts_bond_color", ts_bond_color),
+        ("nci_bond_color", nci_bond_color),
         ("background", background),
         ("gradient", gradient),
         ("hue_shift_factor", hue_shift_factor),

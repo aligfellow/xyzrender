@@ -162,9 +162,9 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### Transition states & NCI
 
-| Auto TS | Manual TS | Auto NCI | QM output |
-|---------|-----------|----------|-----------|
-| ![ts](examples/images/sn2_ts.svg) | ![ts man](examples/images/sn2_ts_man.svg) | ![nci](examples/images/nci.svg) | ![bimp](examples/images/bimp_qm.svg) |
+| Auto TS | Manual TS | Auto NCI | TS + NCI custom colours | QM output |
+|---------|-----------|----------|-------------------------|-----------|
+| ![ts](examples/images/sn2_ts.svg) | ![ts man](examples/images/sn2_ts_man.svg) | ![nci](examples/images/nci.svg) | ![ts nci custom](examples/images/bimp_ts_nci_custom.svg) | ![bimp](examples/images/bimp_qm.svg) |
 
 ### Annotations & labels
 

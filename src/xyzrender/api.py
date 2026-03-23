@@ -426,6 +426,8 @@ def render(
     bond_width: float | None = None,
     atom_stroke_width: float | None = None,
     bond_color: str | None = None,
+    ts_bond_color: str | None = None,
+    nci_bond_color: str | None = None,
     background: str | None = None,
     transparent: bool = False,
     gradient: bool | None = None,
@@ -648,6 +650,8 @@ def render(
             bond_width=bond_width,
             atom_stroke_width=atom_stroke_width,
             bond_color=bond_color,
+            ts_bond_color=ts_bond_color,
+            nci_bond_color=nci_bond_color,
             background=background,
             transparent=transparent,
             gradient=gradient,
@@ -693,6 +697,10 @@ def render(
     _apply_style_regions(cfg, regions=regions)
 
     # --- Bond coloring ---
+    if ts_bond_color is not None:
+        cfg.ts_bond_color = resolve_color(ts_bond_color)
+    if nci_bond_color is not None:
+        cfg.nci_bond_color = resolve_color(nci_bond_color)
     if bond_color_by_element is not None:
         cfg.bond_color_by_element = bond_color_by_element
     if bond_gradient is not None:
@@ -960,6 +968,8 @@ def render_gif(
     bond_width: float | None = None,
     atom_stroke_width: float | None = None,
     bond_color: str | None = None,
+    ts_bond_color: str | None = None,
+    nci_bond_color: str | None = None,
     background: str | None = None,
     transparent: bool = False,
     gradient: bool | None = None,
@@ -1128,6 +1138,8 @@ def render_gif(
             bond_width=bond_width,
             atom_stroke_width=atom_stroke_width,
             bond_color=bond_color,
+            ts_bond_color=ts_bond_color,
+            nci_bond_color=nci_bond_color,
             background=background,
             transparent=transparent,
             gradient=gradient,
@@ -1159,6 +1171,10 @@ def render_gif(
     _apply_style_regions(cfg, regions=regions)
 
     # --- Bond coloring ---
+    if ts_bond_color is not None:
+        cfg.ts_bond_color = resolve_color(ts_bond_color)
+    if nci_bond_color is not None:
+        cfg.nci_bond_color = resolve_color(nci_bond_color)
     if bond_color_by_element is not None:
         cfg.bond_color_by_element = bond_color_by_element
     if bond_gradient is not None:

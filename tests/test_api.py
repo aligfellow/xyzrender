@@ -193,6 +193,34 @@ def test_render_preset_paton(caffeine):
     assert str(result).startswith("<svg")
 
 
+def test_render_ts_bond_color_integration():
+    import networkx as nx
+
+    g = nx.Graph()
+    g.add_node(0, symbol="*", position=[0.0, 0.0, 0.0])
+    g.add_node(1, symbol="*", position=[1.2, 0.0, 0.0])
+    g.add_edge(0, 1, bond_order=1.0)
+    mol = Molecule(graph=g)
+    svg = str(render(mol, ts_bonds=[(1, 2)], ts_bond_color="cyan", fog=False, gradient=False, orient=False))
+    dashed = [line for line in svg.split("\n") if "stroke-dasharray" in line and "<line" in line]
+    assert len(dashed) > 0
+    assert any("#00ffff" in line for line in dashed)
+
+
+def test_render_nci_bond_color_integration():
+    import networkx as nx
+
+    g = nx.Graph()
+    g.add_node(0, symbol="*", position=[0.0, 0.0, 0.0])
+    g.add_node(1, symbol="*", position=[1.2, 0.0, 0.0])
+    g.add_edge(0, 1, bond_order=1.0)
+    mol = Molecule(graph=g)
+    svg = str(render(mol, nci_bonds=[(1, 2)], nci_bond_color="magenta", fog=False, gradient=False, orient=False))
+    dotted = [line for line in svg.split("\n") if "stroke-dasharray" in line and "<line" in line]
+    assert len(dotted) > 0
+    assert any("#ff00ff" in line for line in dotted)
+
+
 # ---------------------------------------------------------------------------
 # render() — pre-built RenderConfig
 # ---------------------------------------------------------------------------
@@ -270,6 +298,16 @@ def test_build_config_ts_and_nci_bonds():
     cfg = build_config("default", ts_bonds=[(0, 4)], nci_bonds=[(1, 6)])
     assert cfg.ts_bonds == [(0, 4)]
     assert cfg.nci_bonds == [(1, 6)]
+
+
+def test_build_config_nci_bond_color():
+    cfg = build_config("default", nci_bond_color="magenta")
+    assert cfg.nci_bond_color == "#ff00ff"
+
+
+def test_build_config_ts_bond_color():
+    cfg = build_config("default", ts_bond_color="cyan")
+    assert cfg.ts_bond_color == "#00ffff"
 
 
 def test_build_config_vdw_indices():

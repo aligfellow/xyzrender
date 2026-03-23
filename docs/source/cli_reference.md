@@ -73,8 +73,10 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--ts` | Auto-detect TS bonds via graphRC |
 | `--ts-frame` | TS reference frame (0-indexed) |
 | `--ts-bond` | Manual TS bond pair(s) (1-indexed, e.g. `1-2`) |
+| `--ts-bond-color` | Color for dashed TS bonds (hex or named) |
 | `--nci` | Auto-detect NCI interactions |
 | `--nci-bond` | Manual NCI bond pair(s) (1-indexed) |
+| `--nci-bond-color` | Color for dotted NCI bonds (hex or named) |
 
 ## Surfaces
 

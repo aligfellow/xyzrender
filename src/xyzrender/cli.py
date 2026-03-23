@@ -265,6 +265,7 @@ def main() -> None:
     ts_g.add_argument("--ts", action="store_true", dest="ts_detect", help="Auto-detect TS bonds via graphRC")
     ts_g.add_argument("--ts-frame", type=int, default=0, help="TS reference frame for graphRC (0-indexed)")
     ts_g.add_argument("--ts-bond", default="", help='Manual TS bond pair(s), 1-indexed: "1-6,3-4"')
+    ts_g.add_argument("--ts-bond-color", default=None, help="Color for dashed TS bonds (hex or named)")
     ts_g.add_argument(
         "--nci",
         action="store_true",
@@ -272,6 +273,7 @@ def main() -> None:
         help="Auto-detect NCI interactions via xyzgraph",
     )
     ts_g.add_argument("--nci-bond", default="", help='Manual NCI bond pair(s), 1-indexed: "1-5,2-8"')
+    ts_g.add_argument("--nci-bond-color", default=None, help="Color for dotted NCI bonds (hex or named)")
 
     # --- GIF animation ---
     gif_g = p.add_argument_group("GIF animation")
@@ -556,6 +558,8 @@ def main() -> None:
         bond_width=args.bond_width,
         atom_stroke_width=args.atom_stroke_width,
         bond_color=args.bond_color,
+        ts_bond_color=args.ts_bond_color,
+        nci_bond_color=args.nci_bond_color,
         background=args.background,
         transparent=args.transparent,
         gradient=args.grad,

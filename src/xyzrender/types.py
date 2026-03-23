@@ -385,6 +385,8 @@ class RenderConfig:
     atom_stroke_color: str = "black"
     bond_width: float = 5.0
     bond_color: str = "#333333"
+    ts_bond_color: str | None = None  # dashed TS bonds; None -> use bond_color
+    nci_bond_color: str | None = None  # dotted NCI bonds; None -> use bond_color
     bond_gap: float = 0.6  # multi-bond spacing as fraction of bond_width
     bond_color_by_element: bool = False  # color bonds by endpoint atom colors
     bond_gradient: bool = False  # cylinder shading on bonds (perpendicular gradient for 3D tube look)
