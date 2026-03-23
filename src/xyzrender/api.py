@@ -285,6 +285,8 @@ def load(
         graph = graph_from_moldata(
             data, charge=charge, multiplicity=multiplicity, kekule=kekule, rebuild=rebuild, quick=quick
         )
+    elif not Path(mol_path).is_file():
+        raise FileNotFoundError(f"[Errno 2] No such file or directory: '{mol_path}'")
 
     elif crystal:
         interface_mode = _resolve_crystal_interface(mol_path, crystal)

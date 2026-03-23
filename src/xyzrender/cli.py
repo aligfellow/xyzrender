@@ -530,6 +530,11 @@ def main() -> None:
     )
 
     args = p.parse_args()
+
+    from_stdin = not args.input and not sys.stdin.isatty()
+    if not Path(args.input).is_file() and not args.smi and not from_stdin:
+        p.error(f"No such file or directory: {args.input!r}")
+
     from xyzrender import configure_logging
 
     configure_logging(verbose=True, debug=args.debug)
