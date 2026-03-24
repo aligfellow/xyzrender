@@ -1,7 +1,7 @@
 {
-  "atom_scale": 0.45,
-  "atom_stroke_width": 3.0,
-  "bond_width": 6,
+  "atom_scale": 0.27,
+  "atom_stroke_width": 2.2,
+  "bond_width": 2.8,
   "bond_color": "#2c9fa3",
   "bond_orders": false,
   "gradient": false,
@@ -12,6 +12,14 @@
   "graph_node_fill_color": "white",
   "colors": {
     "C": "#1f1f1f",
-    "H": "#1f1f1f"
+    "H": "#1f1f1f",
+    "N": "#3f65c6",
+    "O": "#b84f9e",
+    "S": "#c57e2b",
+    "P": "#a8742c",
+    "F": "#8f8f8f",
+    "Cl": "#8f8f8f",
+    "Br": "#8f8f8f",
+    "I": "#8f8f8f"
   }
 }

@@ -794,6 +794,20 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             cj_hex = colors[aj].hex
         else:
             color = color_override if color_override is not None else _bond_color
+            # Graph style: keep C/H backbone in a uniform teal while using subtle
+            # hetero-atom accents for hetero-connected bonds.
+            if bcfg.graph_style and style == BondStyle.SOLID and color_override is None:
+                base = Color.from_str(_bond_color)
+                si, sj = symbols[ai], symbols[aj]
+                is_ch_i = si in {"C", "H"}
+                is_ch_j = sj in {"C", "H"}
+                if is_ch_i and not is_ch_j:
+                    color = base.blend(colors[aj], 0.45).hex
+                elif is_ch_j and not is_ch_i:
+                    color = base.blend(colors[ai], 0.45).hex
+                elif not is_ch_i and not is_ch_j:
+                    mid = colors[ai].blend(colors[aj], 0.5)
+                    color = base.blend(mid, 0.45).hex
             if cfg.fog:
                 avg_fog = (fog_f[ai] + fog_f[aj]) / 2 * 0.75  # bonds fog less than atoms
                 color = blend_fog(color, fog_rgb, avg_fog)
