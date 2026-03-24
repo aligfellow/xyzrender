@@ -12,8 +12,9 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--rebuild` | Ignore file connectivity; re-detect bonds with xyzgraph |
 | `-c`, `--charge` | Molecular charge |
 | `-m`, `--multiplicity` | Spin multiplicity |
-| `--config` | Config preset (`default`, `flat`, `paton`, `skeletal`) or path to JSON file |
+| `--config` | Config preset (`default`, `flat`, `paton`, `pymol`, `skeletal`) or path to JSON file |
 | `-d`, `--debug` | Debug logging |
+| `--version` | Print installed xyzrender version and exit |
 
 ## Styling
 

@@ -24,6 +24,13 @@ def test_paton_preset_has_no_bond_orders():
     assert cfg.bond_orders is False
 
 
+def test_pymol_preset_enables_element_colored_bonds():
+    cfg = build_config("pymol")
+    assert cfg.bond_color_by_element is True
+    assert cfg.bond_gradient is True
+    assert cfg.bond_orders is False
+
+
 def test_nonexistent_preset_raises():
     with pytest.raises(FileNotFoundError):
         build_config("nonexistent_preset_xyz")

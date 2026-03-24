@@ -51,12 +51,16 @@ See web app by [@BNNLab](https://github.com/bnnlab) [**xyzrender-web.streamlit.a
 
 ```bash
 pip install xyzrender
+# latest development version (recommended for newest flags/fixes):
+pip install --upgrade git+https://github.com/aligfellow/xyzrender.git
 ```
 
 Or with [uv](https://docs.astral.sh/uv/):
 
 ```bash
 uv tool install xyzrender
+# latest development version:
+uv tool install git+https://github.com/aligfellow/xyzrender.git
 ```
 
 To test without installing, you can use [uvx](https://docs.astral.sh/uv/guides/tools/#running-tools)
@@ -87,6 +91,7 @@ xyzrender caffeine.xyz                                    # render XYZ → SVG
 xyzrender calc.out                                        # QM output (ORCA, Gaussian, etc.)
 xyzrender caffeine.xyz -o render.png                      # explicit output path/format
 xyzrender caffeine.xyz --config paton --hy -o styled.svg  # preset + show hydrogens
+xyzrender caffeine.xyz --config pymol --hy -o pymol.svg   # ball-and-stick + element-coloured bonds
 xyzrender sn2.out --ts --hy -o ts.svg                     # auto-detect TS bonds
 xyzrender caffeine.xyz --gif-rot -go caffeine.gif         # rotation GIF
 ```

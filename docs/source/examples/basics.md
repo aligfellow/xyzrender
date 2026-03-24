@@ -14,12 +14,15 @@
 xyzrender caffeine.xyz                        # default
 xyzrender caffeine.xyz --config flat          # flat: no gradient
 xyzrender caffeine.xyz --config paton         # paton: PyMOL-style
+xyzrender caffeine.xyz --config pymol         # pymol: ball-and-stick + element-coloured bonds
 xyzrender caffeine.xyz --config bubble --hy   # space-filling-like
 xyzrender caffeine.xyz --config tube          # tube: cylinder-shaded sticks
 xyzrender caffeine.xyz --config wire          # wire: thin element-coloured lines
 ```
 
 The `paton` style is inspired by the clean styling used by [Rob Paton](https://github.com/patonlab) through PyMOL.
+
+The `pymol` preset keeps atoms visible and adds split element-coloured bonds with cylinder shading.
 
 The `tube` and `wire` presets hide atom circles and colour each bond by its endpoint atoms, with a cylinder shading gradient for a 3D look. The `tube` preset uses thick bonds; `wire` uses thin bonds.
 
