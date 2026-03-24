@@ -198,6 +198,10 @@ def test_render_preset_graph(caffeine):
     assert svg.startswith("<svg")
     assert 'fill="#ffffff"' in svg
     assert 'stroke="#202124"' in svg
+    first_line = svg.find("<line")
+    first_circle = svg.find("<circle")
+    assert first_line != -1 and first_circle != -1
+    assert first_line < first_circle
 
 
 # ---------------------------------------------------------------------------
