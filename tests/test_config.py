@@ -38,10 +38,12 @@ def test_graph_preset_does_not_mutate_default_colors():
     after = build_config("default")
     tube_cfg = build_config("tube")
 
-    assert graph_cfg.color_overrides is not None and "O" in graph_cfg.color_overrides
+    assert graph_cfg.color_overrides is not None
+    assert "O" in graph_cfg.color_overrides
     assert baseline.color_overrides == {"C": "#aaaaaa"}
     assert after.color_overrides == {"C": "#aaaaaa"}
-    assert tube_cfg.color_overrides is not None and "O" not in tube_cfg.color_overrides
+    assert tube_cfg.color_overrides is not None
+    assert "O" not in tube_cfg.color_overrides
 
 
 def test_nonexistent_preset_raises():
