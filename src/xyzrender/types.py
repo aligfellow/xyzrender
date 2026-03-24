@@ -268,8 +268,7 @@ _DEFAULT_DENS_COLOR: str = "steelblue"
 _DEFAULT_ESP_ISOVALUE: float = 0.001
 
 _DEFAULT_NCI_ISOVALUE: float = 0.3
-_DEFAULT_NCI_COLOR: str = "forestgreen"
-_DEFAULT_NCI_COLOR_MODE: str = "avg"
+_DEFAULT_NCI_MODE: str = "avg"
 
 
 # ---------------------------------------------------------------------------
@@ -356,8 +355,8 @@ class NCIParams:
     """
 
     isovalue: float = _DEFAULT_NCI_ISOVALUE
-    color: str = _DEFAULT_NCI_COLOR
-    color_mode: str = _DEFAULT_NCI_COLOR_MODE
+    color: str = "forestgreen"
+    color_mode: str = "avg"
     dens_cutoff: float | None = None
 
 
@@ -385,6 +384,8 @@ class RenderConfig:
     atom_stroke_color: str = "black"
     bond_width: float = 5.0
     bond_color: str = "#333333"
+    ts_color: str | None = None  # dashed TS bonds; None -> use bond_color
+    nci_color: str | None = None  # dotted NCI bonds; None -> use bond_color
     bond_gap: float = 0.6  # multi-bond spacing as fraction of bond_width
     bond_color_by_element: bool = False  # color bonds by endpoint atom colors
     bond_gradient: bool = False  # cylinder shading on bonds (perpendicular gradient for 3D tube look)
@@ -442,8 +443,7 @@ class RenderConfig:
     dens_isovalue: float = _DEFAULT_DENS_ISOVALUE
     dens_color: str = _DEFAULT_DENS_COLOR
     nci_isovalue: float = _DEFAULT_NCI_ISOVALUE
-    nci_color: str = _DEFAULT_NCI_COLOR
-    nci_color_mode: str = _DEFAULT_NCI_COLOR_MODE
+    nci_mode: str = _DEFAULT_NCI_MODE
     # Highlight (atom group coloring)
     highlight_groups: list[HighlightGroup] = field(default_factory=list)
     highlight_colors: list[str] = field(

@@ -18,27 +18,30 @@ xyzrender base-pair-dens.cube --nci-surf base-pair-grad.cube -o base-pair-nci_su
 xyzrender phenol_di-dens.cube --nci-surf phenol_di-grad.cube -o phenol_di-nci_surf.svg
 
 # per-pixel (more detail)
-xyzrender base-pair-dens.cube --nci-surf base-pair-grad.cube --nci-coloring pixel
+xyzrender base-pair-dens.cube --nci-surf base-pair-grad.cube --nci-mode pixel
 
-# flat color
-xyzrender base-pair-dens.cube --nci-surf base-pair-grad.cube --nci-coloring uniform
+# flat color (default: forestgreen)
+xyzrender base-pair-dens.cube --nci-surf base-pair-grad.cube --nci-mode uniform
+
+# flat color with custom colour
+xyzrender base-pair-dens.cube --nci-surf base-pair-grad.cube --nci-mode teal
 ```
 
-Coloring modes (`--nci-coloring`):
+Coloring modes (`--nci-mode`):
 
 | Mode | Description |
 |------|-------------|
 | `avg` (default) | Each NCI lobe filled with its mean `sign(λ₂)·ρ`: **blue** = H-bond, **green** = vdW, **red** = steric |
 | `pixel` | Per-pixel `sign(λ₂)·ρ` raster — shows intra-lobe variation (not a very nice render styling at the moment) |
-| `uniform` | Flat single color for all NCI regions (see `--nci-color`, default: `forestgreen`) |
+| `uniform` | Flat single color for all NCI regions (default: `forestgreen`) |
+| *colour* | Any colour name or hex — shorthand for uniform mode with that colour |
 
 All NCI surface flags:
 
 | Flag | Description |
 |------|-------------|
 | `--nci-surf GRAD_CUBE` | Reduced density gradient cube file (enables NCI surface rendering) |
-| `--nci-coloring MODE` | Coloring mode: `avg`, `pixel`, or `uniform` (default: `avg`) |
-| `--nci-color COLOR` | Color for `uniform` mode (default: `forestgreen`) |
+| `--nci-mode MODE` | Coloring: `avg` (default), `pixel`, `uniform`, or a colour name/hex |
 | `--iso` | RDG isovalue threshold (default: 0.5 — larger value = more surface) |
 | `--opacity` | Surface opacity multiplier (default: 1.0) |
 | `--nci-cutoff CUTOFF` | Density magnitude cutoff (advanced — not needed for standard NCIPLOT output) |

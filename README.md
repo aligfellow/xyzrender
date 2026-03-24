@@ -163,9 +163,9 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### Transition states & NCI
 
-| Auto TS | Manual TS | Auto NCI | QM output |
-|---------|-----------|----------|-----------|
-| ![ts](examples/images/sn2_ts.svg) | ![ts man](examples/images/sn2_ts_man.svg) | ![nci](examples/images/nci.svg) | ![bimp](examples/images/bimp_qm.svg) |
+| Auto TS | Manual TS | Auto NCI | TS + NCI custom colours | QM output |
+|---------|-----------|----------|-------------------------|-----------|
+| ![ts](examples/images/sn2_ts.svg) | ![ts man](examples/images/sn2_ts_man.svg) | ![nci](examples/images/nci.svg) | ![ts nci custom](examples/images/bimp_ts_nci_custom.svg) | ![bimp](examples/images/bimp_qm.svg) |
 
 ### Annotations & labels
 
@@ -269,7 +269,7 @@ Contributors:
 - [Sander Cohen-Janes (@scohenjanes5)](https://github.com/scohenjanes5) — crystal/periodic structure support (VASP, Quantum ESPRESSO, ghost atoms, crystallographic axes), vector annotations and gif parallelisation
 - [Rubén Laplaza (@rlaplaza)](https://github.com/rlaplaza) — convex hull facets
 - [Iñigo Iribarren Aguirre (@iribirii)](https://github.com/iribirii) — radial gradients respecting colour space (pseudo-3D), skeletal rendering, ensemble display, supercell projection
-- [James O'Brien (@JamesOBrien2)](https://github.com/JamesOBrien2) — stereochemistry detection and integration
+- [James O'Brien (@JamesOBrien2)](https://github.com/JamesOBrien2) — stereochemistry detection and integration, nci and ts colour control
 - [Vinicius Port (@caprilesport)](https://github.com/caprilesport) — `v` binary path discovery
 - [Lucas Attia (@lucasattia)](https://github.com/lucasattia) — `--transparent` background flag
 

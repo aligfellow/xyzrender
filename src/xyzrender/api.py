@@ -285,6 +285,8 @@ def load(
         graph = graph_from_moldata(
             data, charge=charge, multiplicity=multiplicity, kekule=kekule, rebuild=rebuild, quick=quick
         )
+    elif not Path(mol_path).is_file():
+        raise FileNotFoundError(f"[Errno 2] No such file or directory: '{mol_path}'")
 
     elif crystal:
         interface_mode = _resolve_crystal_interface(mol_path, crystal)
@@ -426,6 +428,8 @@ def render(
     bond_width: float | None = None,
     atom_stroke_width: float | None = None,
     bond_color: str | None = None,
+    ts_color: str | None = None,
+    nci_color: str | None = None,
     background: str | None = None,
     transparent: bool = False,
     gradient: bool | None = None,
@@ -484,8 +488,7 @@ def render(
     mo_upsample: int | None = None,
     flat_mo: bool = False,
     dens_color: str | None = None,
-    nci_color: str | None = None,
-    nci_coloring: str | None = None,
+    nci_mode: str | None = None,
     nci_cutoff: float | None = None,
     # --- Convex hull ---
     hull: bool | str | list[int] | list[list[int]] | None = None,
@@ -648,6 +651,8 @@ def render(
             bond_width=bond_width,
             atom_stroke_width=atom_stroke_width,
             bond_color=bond_color,
+            ts_color=ts_color,
+            nci_color=nci_color,
             background=background,
             transparent=transparent,
             gradient=gradient,
@@ -693,6 +698,10 @@ def render(
     _apply_style_regions(cfg, regions=regions)
 
     # --- Bond coloring ---
+    if ts_color is not None:
+        cfg.ts_color = resolve_color(ts_color)
+    if nci_color is not None:
+        cfg.nci_color = resolve_color(nci_color)
     if bond_color_by_element is not None:
         cfg.bond_color_by_element = bond_color_by_element
     if bond_gradient is not None:
@@ -888,8 +897,7 @@ def render(
         mo_upsample=mo_upsample,
         flat_mo=flat_mo,
         dens_color=dens_color,
-        nci_color=nci_color,
-        nci_coloring=nci_coloring,
+        nci_mode=nci_mode,
         nci_cutoff=nci_cutoff,
     )
 
@@ -960,6 +968,8 @@ def render_gif(
     bond_width: float | None = None,
     atom_stroke_width: float | None = None,
     bond_color: str | None = None,
+    ts_color: str | None = None,
+    nci_color: str | None = None,
     background: str | None = None,
     transparent: bool = False,
     gradient: bool | None = None,
@@ -1128,6 +1138,8 @@ def render_gif(
             bond_width=bond_width,
             atom_stroke_width=atom_stroke_width,
             bond_color=bond_color,
+            ts_color=ts_color,
+            nci_color=nci_color,
             background=background,
             transparent=transparent,
             gradient=gradient,
@@ -1159,6 +1171,10 @@ def render_gif(
     _apply_style_regions(cfg, regions=regions)
 
     # --- Bond coloring ---
+    if ts_color is not None:
+        cfg.ts_color = resolve_color(ts_color)
+    if nci_color is not None:
+        cfg.nci_color = resolve_color(nci_color)
     if bond_color_by_element is not None:
         cfg.bond_color_by_element = bond_color_by_element
     if bond_gradient is not None:

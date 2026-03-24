@@ -79,6 +79,30 @@ class TestElementColouredBonds:
         for line in dotted:
             assert "url(#" not in line
 
+    def test_nci_bond_color_override(self):
+        """nci_color should control dotted NCI bond color."""
+        import networkx as nx
+
+        from xyzrender.renderer import render_svg
+
+        g = nx.Graph()
+        # Use centroid dummy nodes ("*") so this test is independent of
+        # element-radius tables from optional xyzgraph versions.
+        g.add_node(0, symbol="*", position=[0.0, 0.0, 0.0])
+        g.add_node(1, symbol="*", position=[1.2, 0.0, 0.0])
+        g.add_edge(0, 1, bond_order=1.0, bond_type="NCI")
+
+        cfg = RenderConfig(
+            fog=False,
+            gradient=False,
+            auto_orient=False,
+            nci_color="#ff00ff",
+        )
+        svg = render_svg(g, cfg, _unique_ids=False)
+        dotted = [line for line in svg.split("\n") if "stroke-dasharray" in line and "<line" in line]
+        assert len(dotted) > 0
+        assert any("#ff00ff" in line for line in dotted)
+
 
 # ---------------------------------------------------------------------------
 # Cylinder shading (bond_gradient)

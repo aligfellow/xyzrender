@@ -48,6 +48,8 @@ All available keys:
   "atom_scale": 2.5,
   "bond_width": 20,
   "bond_color": "#000000",
+  "ts_color": "#1E90FF",
+  "nci_color": "#228B22",
   "atom_stroke_width": 3,
   "gradient": true,
   "gradient_strength": 1.5,
@@ -61,6 +63,7 @@ All available keys:
   "surface_opacity": 1.0,
   "mo_pos_color": "steelblue",
   "mo_neg_color": "maroon",
+  "nci_mode": "avg",
   "dens_iso": 0.001,
   "dens_color": "steelblue",
   "label_font_size": 30,
@@ -106,6 +109,8 @@ If no `-o` is given, output defaults to `{input_basename}.svg`.
 | `-b`, `--bond-width` | Bond line width |
 | `-s`, `--atom-stroke-width` | Atom outline width |
 | `--bond-color` | Bond color (hex or named) |
+| `--ts-color` | Color for dashed TS bonds (hex or named) |
+| `--nci-color` | Color for dotted NCI bonds (hex or named) |
 | `-S`, `--canvas-size` | Canvas size in pixels (default: 800) |
 | `-B`, `--background` | Background color (hex or named, default: `#ffffff`) |
 | `-t`, `--transparent` | Transparent background |

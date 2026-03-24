@@ -73,8 +73,10 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--ts` | Auto-detect TS bonds via graphRC |
 | `--ts-frame` | TS reference frame (0-indexed) |
 | `--ts-bond` | Manual TS bond pair(s) (1-indexed, e.g. `1-2`) |
+| `--ts-color` | Color for dashed TS bonds (hex or named) |
 | `--nci` | Auto-detect NCI interactions |
 | `--nci-bond` | Manual NCI bond pair(s) (1-indexed) |
+| `--nci-color` | Color for dotted NCI bonds (hex or named) |
 
 ## Surfaces
 
@@ -89,8 +91,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--dens-color` | Density surface color (default: `steelblue`) |
 | `--esp CUBE` | ESP cube file for potential coloring (implies `--dens`) |
 | `--nci-surf CUBE` | NCI gradient (RDG) cube — render NCI surface lobes |
-| `--nci-coloring MODE` | NCI coloring: `avg` (default), `pixel`, `uniform` |
-| `--nci-color COLOR` | NCI lobe color for `uniform` mode (default: `forestgreen`) |
+| `--nci-mode MODE` | NCI surface coloring: `avg` (default), `pixel`, `uniform`, or a colour name/hex |
 | `--iso` | Isosurface threshold (MO default: 0.05, density/ESP: 0.001, NCI: 0.3) |
 | `--opacity` | Surface opacity multiplier (default: 1.0) |
 

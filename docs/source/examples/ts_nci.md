@@ -15,6 +15,7 @@ Transition state analysis uses [graphRC](https://github.com/aligfellow/graphRC) 
 ```bash
 xyzrender sn2.out --ts --hy -o sn2_ts.svg
 xyzrender sn2.out --ts-bond "1-2" -o sn2_ts_man.svg    # specific bond only
+xyzrender sn2.out --ts --ts-color dodgerblue -o sn2_ts_blue.svg
 ```
 
 ## QM output files
@@ -41,15 +42,16 @@ For pi-system interactions (e.g. pi-stacking, cation-pi), centroid dummy nodes a
 ```bash
 xyzrender Hbond.xyz --hy --nci -o nci.svg                 # auto-detect all NCI
 xyzrender Hbond.xyz --hy --nci-bond "8-9" -o nci_man.svg  # specific bond only
+xyzrender Hbond.xyz --hy --nci --nci-color teal -o nci_teal.svg
 ```
 
 ## NCI + TS combined
 
-```{image} ../../../examples/images/bimp_ts_nci.svg
-:width: 50%
-:alt: NCI + TS combined
-```
+| Default colours | Custom colours |
+|-----------------|---------------|
+| ![Default](../../../examples/images/bimp_ts_nci.svg) | ![Custom](../../../examples/images/bimp_ts_nci_custom.svg) |
 
 ```bash
 xyzrender bimp.out --ts --nci --vdw 84-169 -o bimp_ts_nci.svg
+xyzrender bimp.out --ts --nci -vdw 84-169 --ts-color magenta --nci-color teal -o bimp_ts_nci_custom.svg
 ```
