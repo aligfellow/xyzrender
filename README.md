@@ -115,9 +115,9 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |---------|------|--------------------|----------|
 | ![default](examples/images/caffeine_default.svg) | ![flat](examples/images/caffeine_flat.svg) | ![paton](examples/images/caffeine_paton.svg) | ![skeletal](examples/images/caffeine_skeletal.svg) | 
 
-| Bubble | Tube | Wire |
-|--------|------|------|
-| ![bubble](examples/images/caffeine_bubble.svg) | ![tube](examples/images/caffeine_tube.svg) | ![wire](examples/images/caffeine_wire.svg) |
+| Bubble | Tube | Wire | Graph |
+|--------|------|------|-------|
+| ![bubble](examples/images/caffeine_bubble.svg) | ![tube](examples/images/caffeine_tube.svg) | ![wire](examples/images/caffeine_wire.svg) | ![graph](examples/images/caffeine_graph.svg) |
 
 ### Style regions
 
