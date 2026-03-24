@@ -32,6 +32,18 @@ def test_graph_preset_enables_graph_style():
     assert cfg.bond_color == "#27a8ad"
 
 
+def test_graph_preset_does_not_mutate_default_colors():
+    baseline = build_config("default")
+    graph_cfg = build_config("graph")
+    after = build_config("default")
+    tube_cfg = build_config("tube")
+
+    assert graph_cfg.color_overrides is not None and "O" in graph_cfg.color_overrides
+    assert baseline.color_overrides == {"C": "#aaaaaa"}
+    assert after.color_overrides == {"C": "#aaaaaa"}
+    assert tube_cfg.color_overrides is not None and "O" not in tube_cfg.color_overrides
+
+
 def test_nonexistent_preset_raises():
     with pytest.raises(FileNotFoundError):
         build_config("nonexistent_preset_xyz")
