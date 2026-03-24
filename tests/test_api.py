@@ -194,10 +194,15 @@ def test_render_preset_paton(caffeine):
 
 
 def test_render_preset_graph(caffeine):
+    import re
+
     svg = str(render(caffeine, config="graph", orient=False))
     assert svg.startswith("<svg")
     assert 'fill="#ffffff"' in svg
     assert 'stroke="#202124"' in svg
+    line_strokes = re.findall(r'<line[^>]*stroke="([^"]+)"', svg)
+    assert line_strokes
+    assert set(line_strokes) == {"#27a8ad"}
     first_line = svg.find("<line")
     first_circle = svg.find("<circle")
     assert first_line != -1 and first_circle != -1
