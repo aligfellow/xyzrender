@@ -777,8 +777,11 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         ri = radii[ai]
         rj = radii[aj]
 
-        start = pos[ai] + d * ri * 0.9
-        end = pos[aj] - d * rj * 0.9
+        # Graph style uses thicker node outlines with node-on-top layering.
+        # Trim bonds a bit less so ring edges don't look overly compact.
+        trim = 0.72 if bcfg.graph_style else 0.9
+        start = pos[ai] + d * ri * trim
+        end = pos[aj] - d * rj * trim
         if np.dot(end - start, d) <= 0:
             return
 
@@ -848,9 +851,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             # the dashed companion further inward toward the ring center.
             side = _ring_side(pos, ai, aj, aromatic_rings, x1, y1, x2, y2, px, py, scale, cx, cy, canvas_w, canvas_h)
             if bcfg.graph_style:
-                inner_off = _gap * 1.45
-                inner_w = _bw * 0.62
-                _emit(x1, y1, x2, y2, _bw * 0.72, _scfg)
+                inner_off = _gap * 0.95
+                inner_w = _bw * 0.58
+                _emit(x1, y1, x2, y2, _bw * 0.68, _scfg)
                 ox, oy = px * side * inner_off, py * side * inner_off
                 dash = f' stroke-dasharray="{inner_w * 1.0:.1f},{inner_w * 2.0:.1f}"'
                 _emit(x1 + ox, y1 + oy, x2 + ox, y2 + oy, inner_w, None, dash)
@@ -870,8 +873,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     side = _ring_side(
                         pos, ai, aj, aromatic_rings, x1, y1, x2, y2, px, py, scale, cx, cy, canvas_w, canvas_h
                     )
-                    inner_off = _gap * 1.45
-                    inner_w = _bw * 0.62
+                    inner_off = _gap * 0.95
+                    inner_w = _bw * 0.58
                     _emit(x1, y1, x2, y2, _bw, _scfg)
                     ox, oy = px * side * inner_off, py * side * inner_off
                     _emit(x1 + ox, y1 + oy, x2 + ox, y2 + oy, inner_w, _scfg)
