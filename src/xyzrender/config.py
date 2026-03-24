@@ -105,6 +105,7 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
         "background",
         "bond_color",
         "atom_stroke_color",
+        "graph_node_fill_color",
         "label_color",
         "cmap_unlabeled",
         "cell_color",

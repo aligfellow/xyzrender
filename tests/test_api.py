@@ -193,6 +193,13 @@ def test_render_preset_paton(caffeine):
     assert str(result).startswith("<svg")
 
 
+def test_render_preset_graph(caffeine):
+    svg = str(render(caffeine, config="graph", orient=False))
+    assert svg.startswith("<svg")
+    assert 'fill="#ffffff"' in svg
+    assert 'stroke="#1f1f1f"' in svg
+
+
 # ---------------------------------------------------------------------------
 # render() — pre-built RenderConfig
 # ---------------------------------------------------------------------------

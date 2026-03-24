@@ -343,11 +343,13 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     # Per-atom gradient and skeletal flags (style-region aware)
     _atom_use_grad: list[bool] | None = None
     if _acfg is not None:
-        _atom_use_grad = [_acfg[ai].gradient and not _acfg[ai].skeletal_style for ai in range(n)]
+        _atom_use_grad = [
+            _acfg[ai].gradient and not _acfg[ai].skeletal_style and not _acfg[ai].graph_style for ai in range(n)
+        ]
         use_grad = any(_atom_use_grad)
         any_skeletal = any(_acfg[ai].skeletal_style for ai in range(n))
     else:
-        use_grad = cfg.gradient and not cfg.skeletal_style
+        use_grad = cfg.gradient and not cfg.skeletal_style and not cfg.graph_style
         any_skeletal = cfg.skeletal_style
     if any_skeletal:
         from xyzrender.skeletal import skeletal_atom_svg, skeletal_bond_svg
@@ -916,6 +918,30 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     fog_f=fog_f,
                     label_color_override=acfg.skeletal_label_color,
                 )
+        elif acfg.graph_style:
+            _sw_ai = _atom_sw[ai] if _atom_sw is not None else sw
+            dof_attr = f' filter="url(#dof{dof_buckets[ai]})"' if cfg.dof else ""
+            fill = acfg.graph_node_fill_color
+            stroke = colors[ai].hex
+            if cfg.fog:
+                fill = blend_fog(fill, fog_rgb, fog_f[ai])
+                stroke = blend_fog(stroke, fog_rgb, fog_f[ai])
+            svg.append(
+                f'  <circle cx="{xi:.1f}" cy="{yi:.1f}" r="{radii[ai] * scale:.1f}" '
+                f'fill="{fill}" stroke="{stroke}" stroke-width="{_sw_ai:.1f}"{op_attr_atom}{dof_attr}/>'
+            )
+            # Atom index label — depth-sorted with atom so nearer atoms occlude it
+            # (skip for image atoms — labels would be confusing)
+            if cfg.show_indices and not is_image:
+                fmt = cfg.idx_format
+                sym = symbols[ai]
+                if fmt == "sn":
+                    idx_text = f"{sym}{ai + 1}"
+                elif fmt == "s":
+                    idx_text = sym
+                else:  # "n"
+                    idx_text = str(ai + 1)
+                svg.append(_text_svg(xi, yi, idx_text, fs_label, cfg.label_color, halo=False))
         else:
             # Atom circle (gradient or flat fill)
             _sw_ai = _atom_sw[ai] if _atom_sw is not None else sw

@@ -1,0 +1,17 @@
+{
+  "atom_scale": 0.45,
+  "atom_stroke_width": 3.0,
+  "bond_width": 6,
+  "bond_color": "#2c9fa3",
+  "bond_orders": false,
+  "gradient": false,
+  "fog": false,
+  "bond_color_by_element": false,
+  "bond_gradient": false,
+  "graph_style": true,
+  "graph_node_fill_color": "white",
+  "colors": {
+    "C": "#1f1f1f",
+    "H": "#1f1f1f"
+  }
+}
