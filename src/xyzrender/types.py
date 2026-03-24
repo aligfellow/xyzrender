@@ -466,9 +466,10 @@ class RenderConfig:
     # Skeletal formula line rendering
     skeletal_style: bool = False
     skeletal_label_color: str | None = None  # override all element labels (None = per-element CPK)
-    # Graph-style rendering: tiny white nodes with element-colored outlines
+    # Graph-style rendering: minimalist nodes with element-colored outlines
     graph_style: bool = False
     graph_node_fill_color: str = "#ffffff"
+    graph_node_auto_tint: bool = True  # derive a light fill tint from the node outline color
     # Crystal / periodic structure
     cell_data: CellData | None = None
     show_cell: bool = True

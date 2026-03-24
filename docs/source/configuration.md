@@ -13,7 +13,7 @@ Use `--config` to load a styling preset. Built-in options: `default`, `flat`, `p
 | `bubble` | Space-filling (CPK) — large atoms, no bonds |
 | `tube` | Tube/stick model — no atoms, thick element-coloured bonds with cylinder shading |
 | `wire` | Wireframe — no atoms, thin element-coloured bonds with cylinder shading |
-| `graph` | Minimal graph look — thin teal bonds, tiny white nodes with element-coloured outlines |
+| `graph` | Minimal graph look — teal bonds, bold outlined nodes with light tinted centers |
 
 ```bash
 xyzrender caffeine.xyz --config flat
@@ -71,6 +71,7 @@ All available keys:
   "bond_gradient": false,
   "graph_style": false,
   "graph_node_fill_color": "#ffffff",
+  "graph_node_auto_tint": true,
   "colors": {
     "C": "silver",
     "H": "whitesmoke",
@@ -83,6 +84,7 @@ All available keys:
 The `colors` key maps element symbols to hex values (`#D9D9D9`) or [CSS4 named colors](https://matplotlib.org/stable/gallery/color/named_colors.html) (`steelblue`), overriding the default CPK palette.
 
 Surface-related keys (`mo_pos_color`, `mo_neg_color`, `dens_iso`, `dens_color`) are only used when `--mo`, `--dens`, or `--esp` is active.
+For graph style, set `graph_node_auto_tint` to `false` to use `graph_node_fill_color` exactly as provided.
 
 ## Output formats
 

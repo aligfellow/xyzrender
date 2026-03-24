@@ -27,6 +27,7 @@ def test_paton_preset_has_no_bond_orders():
 def test_graph_preset_enables_graph_style():
     cfg = build_config("graph")
     assert cfg.graph_style is True
+    assert cfg.graph_node_auto_tint is True
     assert cfg.graph_node_fill_color == "#ffffff"
     assert cfg.bond_color == "#27a8ad"
 

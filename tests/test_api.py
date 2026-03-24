@@ -207,8 +207,17 @@ def test_render_preset_graph(caffeine):
     assert set(line_strokes) == {"#27a8ad"}
     first_line = svg.find("<line")
     first_circle = svg.find("<circle")
-    assert first_line != -1 and first_circle != -1
+    assert first_line != -1
+    assert first_circle != -1
     assert first_line < first_circle
+
+
+def test_render_preset_graph_disable_auto_tint(caffeine):
+    cfg = build_config("graph")
+    cfg.graph_node_auto_tint = False
+    cfg.graph_node_fill_color = "#ffffff"
+    svg = str(render(caffeine, config=cfg, orient=False))
+    assert 'fill="#ffffff"' in svg
 
 
 # ---------------------------------------------------------------------------

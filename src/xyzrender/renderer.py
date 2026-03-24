@@ -661,7 +661,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     # Graph preset: draw all edges first, then place nodes on top for a clean
     # diagram-like aesthetic.
     _graph_atom_layers: list[str] = []
-    _global_graph_style = _acfg is None and cfg.graph_style
+    _graph_layering_enabled = cfg.graph_style if _acfg is None else any(c.graph_style for c in _acfg)
 
     def _shaded_stroke(color_hex, lx1, ly1, lx2, ly2, w, lpx, lpy, shade_cfg):
         """Return an SVG stroke value — flat colour or perpendicular gradient.
@@ -928,9 +928,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             dof_attr = f' filter="url(#dof{dof_buckets[ai]})"' if cfg.dof else ""
             fill = acfg.graph_node_fill_color
             stroke = colors[ai].hex
-            # Graph style default: if fill is left as white, derive a light tint
-            # from the node outline colour for a cleaner minimalist look.
-            if fill == "#ffffff":
+            # Optional auto-tint for graph nodes: derive a light fill tint from
+            # the node outline colour to keep a cohesive palette.
+            if acfg.graph_node_auto_tint:
                 fill = colors[ai].blend(WHITE, 0.78).hex
             if cfg.fog:
                 fill = blend_fog(fill, fog_rgb, fog_f[ai])
@@ -951,9 +951,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 else:  # "n"
                     idx_text = str(ai + 1)
                 svg.append(_text_svg(xi, yi, idx_text, fs_label, cfg.label_color, halo=False))
-        if _global_graph_style and len(svg) > _atom_layer_start:
-            _graph_atom_layers.extend(svg[_atom_layer_start:])
-            del svg[_atom_layer_start:]
+            if _graph_layering_enabled and len(svg) > _atom_layer_start:
+                _graph_atom_layers.extend(svg[_atom_layer_start:])
+                del svg[_atom_layer_start:]
         else:
             # Atom circle (gradient or flat fill)
             _sw_ai = _atom_sw[ai] if _atom_sw is not None else sw

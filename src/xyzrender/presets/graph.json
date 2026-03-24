@@ -10,6 +10,7 @@
   "bond_gradient": false,
   "graph_style": true,
   "graph_node_fill_color": "white",
+  "graph_node_auto_tint": true,
   "colors": {
     "C": "#202124",
     "H": "#202124",
