@@ -844,16 +844,38 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
 
         is_aromatic = 1.3 < bo < 1.7
         if is_aromatic:
-            # Solid + dashed parallel lines, dashed toward ring center
+            # Aromatic rings in graph mode: keep the main bond on-axis and place
+            # the dashed companion further inward toward the ring center.
             side = _ring_side(pos, ai, aj, aromatic_rings, x1, y1, x2, y2, px, py, scale, cx, cy, canvas_w, canvas_h)
-            w = _bw * 0.7
-            for ib in [-1, 1]:
-                ox, oy = px * ib * _gap, py * ib * _gap
-                dash = f' stroke-dasharray="{w * 1.0:.1f},{w * 2.0:.1f}"' if ib == side else ""
-                _emit(x1 + ox, y1 + oy, x2 + ox, y2 + oy, w, _scfg if not dash else None, dash)
+            if bcfg.graph_style:
+                inner_off = _gap * 1.45
+                inner_w = _bw * 0.62
+                _emit(x1, y1, x2, y2, _bw * 0.72, _scfg)
+                ox, oy = px * side * inner_off, py * side * inner_off
+                dash = f' stroke-dasharray="{inner_w * 1.0:.1f},{inner_w * 2.0:.1f}"'
+                _emit(x1 + ox, y1 + oy, x2 + ox, y2 + oy, inner_w, None, dash)
+            else:
+                # Solid + dashed parallel lines, dashed toward ring center
+                w = _bw * 0.7
+                for ib in [-1, 1]:
+                    ox, oy = px * ib * _gap, py * ib * _gap
+                    dash = f' stroke-dasharray="{w * 1.0:.1f},{w * 2.0:.1f}"' if ib == side else ""
+                    _emit(x1 + ox, y1 + oy, x2 + ox, y2 + oy, w, _scfg if not dash else None, dash)
         else:
             nb = max(1, round(bo))
             w = _bw if nb == 1 else _bw * 0.7
+            if bcfg.graph_style and nb == 2:
+                in_ring = any(ai in ring and aj in ring for ring in aromatic_rings)
+                if in_ring:
+                    side = _ring_side(
+                        pos, ai, aj, aromatic_rings, x1, y1, x2, y2, px, py, scale, cx, cy, canvas_w, canvas_h
+                    )
+                    inner_off = _gap * 1.45
+                    inner_w = _bw * 0.62
+                    _emit(x1, y1, x2, y2, _bw, _scfg)
+                    ox, oy = px * side * inner_off, py * side * inner_off
+                    _emit(x1 + ox, y1 + oy, x2 + ox, y2 + oy, inner_w, _scfg)
+                    return
             for ib in range(-nb + 1, nb, 2):
                 ox, oy = px * ib * _gap, py * ib * _gap
                 _emit(x1 + ox, y1 + oy, x2 + ox, y2 + oy, w, _scfg)
