@@ -851,7 +851,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             # the dashed companion further inward toward the ring center.
             side = _ring_side(pos, ai, aj, aromatic_rings, x1, y1, x2, y2, px, py, scale, cx, cy, canvas_w, canvas_h)
             if bcfg.graph_style:
-                inner_off = _gap * 0.95
+                inner_off = _gap * 2.2
                 inner_w = _bw * 0.58
                 _emit(x1, y1, x2, y2, _bw * 0.68, _scfg)
                 ox, oy = px * side * inner_off, py * side * inner_off
@@ -873,7 +873,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     side = _ring_side(
                         pos, ai, aj, aromatic_rings, x1, y1, x2, y2, px, py, scale, cx, cy, canvas_w, canvas_h
                     )
-                    inner_off = _gap * 0.95
+                    inner_off = _gap * 2.2
                     inner_w = _bw * 0.58
                     _emit(x1, y1, x2, y2, _bw, _scfg)
                     ox, oy = px * side * inner_off, py * side * inner_off
