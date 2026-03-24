@@ -928,6 +928,10 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             dof_attr = f' filter="url(#dof{dof_buckets[ai]})"' if cfg.dof else ""
             fill = acfg.graph_node_fill_color
             stroke = colors[ai].hex
+            # Graph style default: if fill is left as white, derive a light tint
+            # from the node outline colour for a cleaner minimalist look.
+            if fill == "#ffffff":
+                fill = colors[ai].blend(WHITE, 0.78).hex
             if cfg.fog:
                 fill = blend_fog(fill, fog_rgb, fog_f[ai])
                 stroke = blend_fog(stroke, fog_rgb, fog_f[ai])

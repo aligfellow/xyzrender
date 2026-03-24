@@ -198,8 +198,10 @@ def test_render_preset_graph(caffeine):
 
     svg = str(render(caffeine, config="graph", orient=False))
     assert svg.startswith("<svg")
-    assert 'fill="#ffffff"' in svg
     assert 'stroke="#202124"' in svg
+    circle_fills = re.findall(r'<circle[^>]*fill="([^"]+)"', svg)
+    assert circle_fills
+    assert "#ffffff" not in set(circle_fills)
     line_strokes = re.findall(r'<line[^>]*stroke="([^"]+)"', svg)
     assert line_strokes
     assert set(line_strokes) == {"#27a8ad"}
