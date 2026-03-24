@@ -115,9 +115,9 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### Presets
 
-| Default | Flat | Paton (pymol-like) | Skeletal | 
-|---------|------|--------------------|----------|
-| ![default](examples/images/caffeine_default.svg) | ![flat](examples/images/caffeine_flat.svg) | ![paton](examples/images/caffeine_paton.svg) | ![skeletal](examples/images/caffeine_skeletal.svg) | 
+| Default | Flat | Paton (pymol-like) | Pymol | Skeletal | 
+|---------|------|--------------------|-------|----------|
+| ![default](examples/images/caffeine_default.svg) | ![flat](examples/images/caffeine_flat.svg) | ![paton](examples/images/caffeine_paton.svg) | ![pymol](examples/images/caffeine_pymol.svg) | ![skeletal](examples/images/caffeine_skeletal.svg) | 
 
 | Bubble | Tube | Wire |
 |--------|------|------|
