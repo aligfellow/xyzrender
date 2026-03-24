@@ -197,7 +197,7 @@ def test_render_preset_graph(caffeine):
     svg = str(render(caffeine, config="graph", orient=False))
     assert svg.startswith("<svg")
     assert 'fill="#ffffff"' in svg
-    assert 'stroke="#1f1f1f"' in svg
+    assert 'stroke="#202124"' in svg
 
 
 # ---------------------------------------------------------------------------

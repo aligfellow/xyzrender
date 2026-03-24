@@ -28,7 +28,7 @@ def test_graph_preset_enables_graph_style():
     cfg = build_config("graph")
     assert cfg.graph_style is True
     assert cfg.graph_node_fill_color == "#ffffff"
-    assert cfg.bond_color == "#2c9fa3"
+    assert cfg.bond_color == "#27a8ad"
 
 
 def test_nonexistent_preset_raises():

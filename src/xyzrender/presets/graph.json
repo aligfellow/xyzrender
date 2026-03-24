@@ -1,8 +1,8 @@
 {
-  "atom_scale": 0.27,
-  "atom_stroke_width": 2.2,
-  "bond_width": 2.8,
-  "bond_color": "#2c9fa3",
+  "atom_scale": 0.70,
+  "atom_stroke_width": 4.8,
+  "bond_width": 3.1,
+  "bond_color": "#27a8ad",
   "bond_orders": false,
   "gradient": false,
   "fog": false,
@@ -11,15 +11,15 @@
   "graph_style": true,
   "graph_node_fill_color": "white",
   "colors": {
-    "C": "#1f1f1f",
-    "H": "#1f1f1f",
-    "N": "#3f65c6",
-    "O": "#b84f9e",
-    "S": "#c57e2b",
-    "P": "#a8742c",
-    "F": "#8f8f8f",
-    "Cl": "#8f8f8f",
-    "Br": "#8f8f8f",
-    "I": "#8f8f8f"
+    "C": "#202124",
+    "H": "#202124",
+    "N": "#4f6fd8",
+    "O": "#c458a5",
+    "S": "#c58c33",
+    "P": "#ab7c2b",
+    "F": "#a5a5a5",
+    "Cl": "#a5a5a5",
+    "Br": "#a5a5a5",
+    "I": "#a5a5a5"
   }
 }

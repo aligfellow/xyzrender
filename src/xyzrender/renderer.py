@@ -802,12 +802,12 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 is_ch_i = si in {"C", "H"}
                 is_ch_j = sj in {"C", "H"}
                 if is_ch_i and not is_ch_j:
-                    color = base.blend(colors[aj], 0.45).hex
+                    color = base.blend(colors[aj], 0.65).hex
                 elif is_ch_j and not is_ch_i:
-                    color = base.blend(colors[ai], 0.45).hex
+                    color = base.blend(colors[ai], 0.65).hex
                 elif not is_ch_i and not is_ch_j:
                     mid = colors[ai].blend(colors[aj], 0.5)
-                    color = base.blend(mid, 0.45).hex
+                    color = base.blend(mid, 0.60).hex
             if cfg.fog:
                 avg_fog = (fog_f[ai] + fog_f[aj]) / 2 * 0.75  # bonds fog less than atoms
                 color = blend_fog(color, fog_rgb, avg_fog)
