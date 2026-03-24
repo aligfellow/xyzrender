@@ -2,11 +2,13 @@
 
 PNG rendering prefers **resvg-py** — it supports SVG filter primitives
 (``feGaussianBlur``, ``feTurbulence``, etc.) that cairosvg silently ignores.
-PDF rendering uses cairosvg (resvg-py has no PDF support).
+PDF rendering defaults to cairosvg (vector output). For filtered SVGs (for
+example ``--dof``), a PNG->PDF fallback is available to preserve filters.
 """
 
 from __future__ import annotations
 
+from io import BytesIO
 from functools import lru_cache
 
 _SVG_BASE_DPI = 96  # CSS/SVG spec: 1px = 1/96 inch
@@ -55,8 +57,49 @@ def svg_to_png(svg: str, output: str, *, size: int = 800, dpi: int = 300) -> Non
         f.write(data)
 
 
-def svg_to_pdf(svg: str, output: str) -> None:
-    """Convert SVG string to PDF file via cairosvg."""
-    import cairosvg
+def svg_to_pdf(
+    svg: str, output: str, *, preserve_filters: bool = False, size: int = 800, dpi: int = 300
+) -> None:
+    """Convert SVG string to a PDF file.
 
-    cairosvg.svg2pdf(bytestring=svg.encode(), write_to=output)
+    Parameters
+    ----------
+    svg:
+        SVG source.
+    output:
+        Output PDF path.
+    preserve_filters:
+        If ``True``, rasterize SVG to PNG first (via :func:`svg_to_png`) and
+        then embed into PDF so SVG filter effects (e.g. Gaussian blur) are kept.
+        This produces a raster PDF page instead of vector graphics.
+    size:
+        Canvas size in pixels for the raster fallback.
+    dpi:
+        Rasterization resolution for the fallback path.
+    """
+    if not preserve_filters:
+        import cairosvg
+
+        cairosvg.svg2pdf(bytestring=svg.encode(), write_to=output)
+        return
+
+    # Preserve SVG filters by rasterizing first, then writing a single-page PDF.
+    if _has_resvg():
+        from resvg_py import svg_to_bytes
+
+        zoom = max(1, round(dpi / _SVG_BASE_DPI))
+        png_data = svg_to_bytes(svg_string=svg, zoom=zoom)
+    else:
+        import cairosvg
+
+        png_data = cairosvg.svg2png(bytestring=svg.encode(), output_width=size, output_height=size, dpi=dpi)
+    from PIL import Image
+
+    with Image.open(BytesIO(png_data)) as im:
+        if "A" in im.getbands():
+            bg = Image.new("RGB", im.size, "white")
+            bg.paste(im, mask=im.getchannel("A"))
+            rgb = bg
+        else:
+            rgb = im.convert("RGB")
+        rgb.save(output, "PDF", resolution=float(dpi))

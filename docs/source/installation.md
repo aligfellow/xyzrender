@@ -4,12 +4,16 @@
 
 ```bash
 pip install xyzrender
+# latest development version (recommended for newest flags/fixes):
+pip install --upgrade git+https://github.com/aligfellow/xyzrender.git
 ```
 
 Or with [uv](https://docs.astral.sh/uv/):
 
 ```bash
 uv tool install xyzrender
+# latest development version:
+uv tool install git+https://github.com/aligfellow/xyzrender.git
 ```
 
 To test without installing:

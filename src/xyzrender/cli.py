@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -60,9 +61,15 @@ def _parse_atom_spec(s: str) -> list[int]:
 
 def main() -> None:
     """Entry point for the CLI."""
+    try:
+        _version = version("xyzrender")
+    except PackageNotFoundError:
+        _version = "dev"
+
     p = argparse.ArgumentParser(
         prog="xyzrender", description="Publication-quality molecular graphics from the command line."
     )
+    p.add_argument("--version", action="version", version=f"%(prog)s {_version}")
 
     # --- Input / Output ---
     io_g = p.add_argument_group("input/output")
