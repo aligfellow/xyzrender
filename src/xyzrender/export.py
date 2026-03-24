@@ -8,8 +8,8 @@ example ``--dof``), a PNG->PDF fallback is available to preserve filters.
 
 from __future__ import annotations
 
-from io import BytesIO
 from functools import lru_cache
+from io import BytesIO
 
 _SVG_BASE_DPI = 96  # CSS/SVG spec: 1px = 1/96 inch
 
