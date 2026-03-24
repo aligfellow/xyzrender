@@ -24,6 +24,14 @@ def test_paton_preset_has_no_bond_orders():
     assert cfg.bond_orders is False
 
 
+def test_graph_preset_enables_graph_style():
+    cfg = build_config("graph")
+    assert cfg.graph_style is True
+    assert cfg.graph_node_auto_tint is True
+    assert cfg.graph_node_fill_color == "#ffffff"
+    assert cfg.bond_color == "#27a8ad"
+
+
 def test_nonexistent_preset_raises():
     with pytest.raises(FileNotFoundError):
         build_config("nonexistent_preset_xyz")

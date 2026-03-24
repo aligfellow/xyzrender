@@ -1,0 +1,26 @@
+{
+  "atom_scale": 0.70,
+  "atom_stroke_width": 4.8,
+  "bond_width": 5.49,
+  "bond_color": "#27a8ad",
+  "bond_orders": false,
+  "gradient": false,
+  "fog": false,
+  "bond_color_by_element": false,
+  "bond_gradient": false,
+  "graph_style": true,
+  "graph_node_fill_color": "white",
+  "graph_node_auto_tint": true,
+  "colors": {
+    "C": "#202124",
+    "H": "#202124",
+    "N": "#4f6fd8",
+    "O": "#c458a5",
+    "S": "#c58c33",
+    "P": "#ab7c2b",
+    "F": "#a5a5a5",
+    "Cl": "#a5a5a5",
+    "Br": "#a5a5a5",
+    "I": "#a5a5a5"
+  }
+}
