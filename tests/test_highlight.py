@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from xyzrender import load, render
-from xyzrender.types import Color, resolve_color
+from xyzrender.colors import Color, resolve_color
 
 STRUCTURES = Path(__file__).parent.parent / "examples" / "structures"
 

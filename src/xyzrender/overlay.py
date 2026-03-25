@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from xyzrender.types import Color
+from xyzrender.colors import Color
 from xyzrender.utils import kabsch_align
 
 if TYPE_CHECKING:

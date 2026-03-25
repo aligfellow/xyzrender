@@ -1,10 +1,189 @@
-"""CPK colors and fog blending for xyzrender."""
+"""CPK colors, Color type, and fog blending for xyzrender."""
 
 from __future__ import annotations
 
+import colorsys
+import json
+from dataclasses import dataclass
+from pathlib import Path
+
 import numpy as np
 
-from xyzrender.types import Color, RenderConfig, resolve_color
+from xyzrender.types import RenderConfig
+
+# ---------------------------------------------------------------------------
+# Color type
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Color:
+    """RGB color (0-255).
+
+    Examples
+    --------
+    >>> Color(255, 0, 0).hex
+    '#ff0000'
+    >>> Color(100, 100, 100).blend(Color(200, 200, 200), 0.5)
+    Color(r=150, g=150, b=150)
+    """
+
+    r: int
+    g: int
+    b: int
+
+    # ---------- conversions ----------
+
+    def to_hls(self) -> tuple[float, float, float]:
+        """Convert to (hue 0-360, lightness 0-1, saturation 0-1)."""
+        r, g, b = self.r / 255, self.g / 255, self.b / 255
+        h_val, l_val, s_val = colorsys.rgb_to_hls(r, g, b)
+        return h_val * 360, l_val, s_val
+
+    @staticmethod
+    def from_hls(h_val: float, l_val: float, s_val: float) -> "Color":
+        """Create from (hue 0-360, lightness 0-1, saturation 0-1)."""
+        r, g, b = colorsys.hls_to_rgb((h_val % 360) / 360, l_val, s_val)
+        return Color(int(r * 255), int(g * 255), int(b * 255))
+
+    @property
+    def hex(self) -> str:
+        """CSS hex string."""
+        return f"#{self.r:02x}{self.g:02x}{self.b:02x}"
+
+    def blend(self, other: Color, t: float) -> Color:
+        """Lerp toward ``other`` by ``t`` (0=self, 1=other), clamped to 0-255."""
+        return Color(
+            min(255, max(0, int(self.r + t * (other.r - self.r)))),
+            min(255, max(0, int(self.g + t * (other.g - self.g)))),
+            min(255, max(0, int(self.b + t * (other.b - self.b)))),
+        )
+
+    def darken(
+        self,
+        strength: float = 1.0,
+        hue_shift_factor: float = 0.2,
+        light_shift_factor: float = 0.2,
+        saturation_shift_factor: float = 0.2,
+    ) -> "Color":
+        """Darken toward blue, scaled by *strength*."""
+        h_val, l_val, s_val = self.to_hls()
+
+        # decrease lightness
+        new_l = l_val * (1 - light_shift_factor * strength * 3)
+        new_l = max(0.0, min(1.0, new_l))
+
+        # hue shift toward blue (240°)
+        d = ((240 - h_val + 180) % 360) - 180
+        new_h = (h_val + d * hue_shift_factor * strength) % 360
+
+        # increase saturation
+        new_s = s_val + (1 - s_val) * saturation_shift_factor * strength
+        new_s = max(0.0, min(1.0, new_s))
+
+        return Color.from_hls(new_h, new_l, new_s)
+
+    def lighten(
+        self,
+        strength: float = 1.0,
+        hue_shift_factor: float = 0.2,
+        light_shift_factor: float = 0.2,
+        saturation_shift_factor: float = 0.2,
+    ) -> "Color":
+        """Lighten toward yellow, scaled by *strength*."""
+        h_val, l_val, s_val = self.to_hls()
+
+        # increase lightness
+        new_l = l_val + light_shift_factor * strength * (1 - l_val)
+        new_l = max(0.0, min(1.0, new_l))
+
+        # hue shift toward yellow (60°)
+        d = ((60 - h_val + 180) % 360) - 180  # shortest direction
+        new_h = (h_val + d * hue_shift_factor * strength) % 360
+
+        # decrease saturation
+        new_s = s_val * (1 - saturation_shift_factor * strength)
+        new_s = max(0.0, min(1.0, new_s))
+
+        return Color.from_hls(new_h, new_l, new_s)
+
+    @classmethod
+    def from_hex(cls, hex_str: str) -> Color:
+        """From ``'#ff0000'`` or ``'ff0000'``.
+
+        Examples
+        --------
+        >>> Color.from_hex("#ff0000")
+        Color(r=255, g=0, b=0)
+        """
+        h = hex_str.lstrip("#")
+        return cls(int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+
+    @classmethod
+    def from_str(cls, color: str) -> Color:
+        """From hex (``'#ff0000'``) or CSS4 name (``'red'``).
+
+        Examples
+        --------
+        >>> Color.from_str("#ff0000")
+        Color(r=255, g=0, b=0)
+        """
+        return cls.from_hex(resolve_color(color))
+
+    @classmethod
+    def from_int(cls, value: int) -> Color:
+        """From ``0xff0000``.
+
+        Examples
+        --------
+        >>> Color.from_int(0xFF0000)
+        Color(r=255, g=0, b=0)
+        """
+        return cls((value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF)
+
+
+# ---------------------------------------------------------------------------
+# Named color resolution
+# ---------------------------------------------------------------------------
+
+_NAMED_COLORS: dict[str, str] | None = None
+
+
+def _load_named_colors() -> dict[str, str]:
+    """Load CSS4 named colors from bundled JSON (cached on first call)."""
+    global _NAMED_COLORS  # noqa: PLW0603
+    if _NAMED_COLORS is None:
+        path = Path(__file__).parent / "presets" / "named_colors.json"
+        with path.open() as f:
+            _NAMED_COLORS = json.load(f)
+    return _NAMED_COLORS
+
+
+def resolve_color(color: str) -> str:
+    """Resolve hex (``'#FF0000'``) or CSS4 name (``'red'``) to ``'#rrggbb'``.
+
+    Examples
+    --------
+    >>> resolve_color("#FF0000")
+    '#ff0000'
+    >>> resolve_color("FF0000")
+    '#ff0000'
+    >>> resolve_color("red")
+    '#ff0000'
+    """
+    s = color.strip()
+    h = s.lstrip("#")
+    # Fast path: already a 6-digit hex string
+    if len(h) == 6 and all(c in "0123456789abcdefABCDEF" for c in h):
+        return f"#{h.lower()}"
+    # Named color lookup
+    named = _load_named_colors()
+    key = s.lower()
+    if key in named:
+        return named[key]
+    msg = f"Unknown color {color!r}. Use hex (#rrggbb) or a named color (e.g. 'steelblue')."
+    raise ValueError(msg)
+
 
 WHITE = Color(255, 255, 255)
 

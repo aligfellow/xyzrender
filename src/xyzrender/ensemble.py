@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from xyzrender.colors import Color
 from xyzrender.overlay import _node_list
-from xyzrender.types import Color
 from xyzrender.utils import kabsch_align
 
 if TYPE_CHECKING:

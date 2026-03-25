@@ -84,7 +84,7 @@ ESP_COLORMAP: list[tuple[float, str]] = [
 
 def _build_lut(cmap: list[tuple[float, str]]) -> np.ndarray:
     """Build a 256-entry RGB LUT from a named-color colormap."""
-    from xyzrender.types import Color
+    from xyzrender.colors import Color
 
     stops = [(t, Color.from_str(name)) for t, name in cmap]
 

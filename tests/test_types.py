@@ -2,7 +2,7 @@
 
 import pytest
 
-from xyzrender.types import Color, resolve_color
+from xyzrender.colors import Color, resolve_color
 
 
 def test_hex_roundtrip():

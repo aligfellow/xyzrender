@@ -11,7 +11,7 @@ from xyzgraph import DATA
 
 from xyzrender.cmap import atom_colors as cmap_atom_colors
 from xyzrender.cmap import colorbar_extra_width, colorbar_svg
-from xyzrender.colors import _FOG_NEAR, WHITE, blend_fog, get_color, get_gradient_colors
+from xyzrender.colors import _FOG_NEAR, WHITE, Color, blend_fog, get_color, get_gradient_colors, resolve_color
 from xyzrender.dens import dens_layers_svg
 from xyzrender.hull import (
     get_convex_hull_edges_silhouette,
@@ -24,7 +24,7 @@ from xyzrender.mo import (
     mo_back_lobes_svg,
     mo_front_lobes_svg,
 )
-from xyzrender.types import BondStyle, Color, RenderConfig, resolve_color
+from xyzrender.types import BondStyle, RenderConfig
 from xyzrender.utils import pca_orient
 
 logger = logging.getLogger(__name__)
@@ -373,7 +373,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 hi, me, lo = get_gradient_colors(colors[ai], acfg)
                 t = min(fog_f[ai] ** 2 * 0.7, 0.70)
                 hi, me, lo = hi.blend(WHITE, t), me.blend(WHITE, t), lo.blend(WHITE, t)
-                atom_fog_stroke[ai] = blend_fog(acfg.atom_stroke_color, fog_rgb, fog_f[ai])
+                _base_stroke = colors[ai].hex if acfg.atom_stroke_color == "atom" else acfg.atom_stroke_color
+                atom_fog_stroke[ai] = blend_fog(_base_stroke, fog_rgb, fog_f[ai])
                 svg.append(
                     f'    <radialGradient id="g{ai}" cx=".5" cy=".5" fx=".33" fy=".33" r=".66">'
                     f'<stop offset="0%" stop-color="{hi.hex}"/>'
@@ -656,6 +657,10 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     # Cylinder shading: cache gradient colours and counter for unique IDs
     _bs_counter = itertools.count()
     _shade_color_cache: dict[str, tuple[str, str, str]] = {}
+    # Deferred atom layers: draw all edges first, then place nodes on top for a
+    # clean diagram-like aesthetic (enabled by atoms_above_bonds).
+    _deferred_atom_layers: list[str] = []
+    _atoms_above = cfg.atoms_above_bonds if _acfg is None else any(c.atoms_above_bonds for c in _acfg)
 
     def _shaded_stroke(color_hex, lx1, ly1, lx2, ly2, w, lpx, lpy, shade_cfg):
         """Return an SVG stroke value — flat colour or perpendicular gradient.
@@ -905,6 +910,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         # NCI centroid nodes ("*") are structural overlays — always use the
         # base config so they stay visible regardless of region styling.
         acfg = cfg if symbols[ai] == "*" else (_acfg[ai] if _acfg is not None else cfg)
+        _atom_layer_start = len(svg)
         if acfg.skeletal_style:
             if not is_image:
                 skeletal_atom_svg(
@@ -924,6 +930,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             # Atom circle (gradient or flat fill)
             _sw_ai = _atom_sw[ai] if _atom_sw is not None else sw
             _grad_ai = _atom_use_grad[ai] if _atom_use_grad is not None else use_grad
+            _stroke_atom = colors[ai].hex if acfg.atom_stroke_color == "atom" else acfg.atom_stroke_color
             dof_attr = f' filter="url(#dof{dof_buckets[ai]})"' if cfg.dof else ""
             if _grad_ai:
                 if use_per_atom_grad:
@@ -934,13 +941,14 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     if _acfg is not None:
                         gid_suffix += f"_{id(acfg) & 0xFFFF:04x}"
                     grad_id = f"g{gid_suffix}"
-                    fs_atom = acfg.atom_stroke_color
+                    fs_atom = _stroke_atom
                 svg.append(
                     f'  <circle cx="{xi:.1f}" cy="{yi:.1f}" r="{radii[ai] * scale:.1f}" '
                     f'fill="url(#{grad_id})" stroke="{fs_atom}" stroke-width="{_sw_ai:.1f}"{op_attr_atom}{dof_attr}/>'
                 )
             else:
-                fill, stroke = colors[ai].hex, acfg.atom_stroke_color
+                fill = colors[ai].blend(WHITE, acfg.atom_wash).hex if acfg.atom_wash > 0 else colors[ai].hex
+                stroke = _stroke_atom
                 if cfg.fog:
                     fill = blend_fog(fill, fog_rgb, fog_f[ai])
                     stroke = blend_fog(stroke, fog_rgb, fog_f[ai])
@@ -961,6 +969,10 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 else:  # "n"
                     idx_text = str(ai + 1)
                 svg.append(_text_svg(xi, yi, idx_text, fs_label, cfg.label_color, halo=False))
+            # Defer this atom's layers when its config has atoms_above_bonds
+            if acfg.atoms_above_bonds and len(svg) > _atom_layer_start:
+                _deferred_atom_layers.extend(svg[_atom_layer_start:])
+                del svg[_atom_layer_start:]
 
         # Bonds to deeper atoms
         if not cfg.hide_bonds and bw > 0:
@@ -1003,6 +1015,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 svg, _vec_tail3d[vi], _vec_tip3d[vi], va.color, va.label, _lw, _fs, scale, cx, cy, canvas_w, canvas_h
             )
         _pv_pos += 1
+    if _deferred_atom_layers:
+        svg.extend(_deferred_atom_layers)
 
     # --- Second pass: redraw arrowheads that protrude in front of their host atom ---
     # These were skipped in the first pass (_draw_vector_arrow) so that the shaft

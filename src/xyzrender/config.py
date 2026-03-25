@@ -4,15 +4,16 @@ from __future__ import annotations
 
 import json
 import logging
+from copy import deepcopy
 from pathlib import Path
 
+from xyzrender.colors import resolve_color
 from xyzrender.types import (
     DensParams,
     ESPParams,
     MOParams,
     NCIParams,
     RenderConfig,
-    resolve_color,
 )
 
 logger = logging.getLogger(__name__)
@@ -26,8 +27,9 @@ def _load_default() -> dict:
     global _DEFAULT_CONFIG  # noqa: PLW0603
     if _DEFAULT_CONFIG is None:
         _DEFAULT_CONFIG = json.loads((_PRESET_DIR / "default.json").read_text())
-    # Always return a fresh copy so callers can mutate safely.
-    return dict(_DEFAULT_CONFIG)
+    # Always return a deep copy so nested mappings (e.g. "colors") cannot
+    # leak mutations between preset loads.
+    return deepcopy(_DEFAULT_CONFIG)
 
 
 def _merge_onto_default(overrides: dict) -> dict:
@@ -116,8 +118,11 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
         "overlay_color",
         "mol_color",
     )
+    _passthrough_colors = {"atom"}
     for key in _color_fields:
         if key in merged and merged[key] is not None:
+            if merged[key] in _passthrough_colors:
+                continue
             merged[key] = resolve_color(merged[key])
 
     # nci_mode can be a mode name ("avg", "pixel", "uniform") or a color — resolve if color

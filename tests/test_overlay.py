@@ -88,7 +88,7 @@ def test_render_overlay_produces_svg(caffeine):
 
 
 def test_render_overlay_color_appears_in_svg(caffeine):
-    from xyzrender.types import resolve_color
+    from xyzrender.colors import resolve_color
 
     svg = str(render(caffeine, overlay=caffeine, overlay_color="steelblue", gradient=False, fog=False, orient=False))
     assert resolve_color("steelblue") in svg

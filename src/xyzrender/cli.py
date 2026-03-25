@@ -93,7 +93,11 @@ def main() -> None:
 
     # --- Styling ---
     style_g = p.add_argument_group("styling")
-    style_g.add_argument("--config", default=None, help="Config preset or JSON path (default, flat, custom)")
+    style_g.add_argument(
+        "--config",
+        default=None,
+        help=("Config preset or JSON path (default, flat, paton, skeletal, bubble, tube, wire, graph, custom)"),
+    )
     style_g.add_argument("-S", "--canvas-size", type=int, default=None)
     style_g.add_argument("-a", "--atom-scale", type=float, default=None)
     style_g.add_argument("-b", "--bond-width", type=float, default=None)

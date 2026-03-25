@@ -44,7 +44,8 @@ if TYPE_CHECKING:
     from xyzrender.cube import CubeData
     from xyzrender.types import CellData, VectorArrow
 
-from xyzrender.types import GIFResult, RenderConfig, SVGResult, resolve_color
+from xyzrender.colors import resolve_color
+from xyzrender.types import GIFResult, RenderConfig, SVGResult
 from xyzrender.utils import parse_atom_indices
 
 logger = logging.getLogger(__name__)
@@ -685,7 +686,7 @@ def render(
         opacity=opacity,
     )
 
-    from xyzrender.types import resolve_color
+    from xyzrender.colors import resolve_color
 
     # --- Molecule color ---
     if mol_color is not None:
@@ -1158,7 +1159,7 @@ def render_gif(
             orient=orient,
         )
 
-    from xyzrender.types import resolve_color
+    from xyzrender.colors import resolve_color
 
     # --- Molecule color ---
     if mol_color is not None:
@@ -1631,7 +1632,8 @@ def _apply_highlight(
     if highlight is None:
         return
 
-    from xyzrender.types import HighlightGroup, resolve_color
+    from xyzrender.colors import resolve_color
+    from xyzrender.types import HighlightGroup
 
     palette = cfg.highlight_colors
     groups: list[HighlightGroup] = []
@@ -1873,7 +1875,7 @@ def _apply_cell_config(
         cfg.auto_orient = False
 
     if cell_color is not None:
-        from xyzrender.types import resolve_color
+        from xyzrender.colors import resolve_color
 
         cfg.cell_color = resolve_color(cell_color)
     if cell_width is not None:

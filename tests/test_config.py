@@ -31,6 +31,28 @@ def test_pymol_preset_enables_element_colored_bonds():
     assert cfg.bond_orders is False
 
 
+def test_graph_preset_config():
+    cfg = build_config("graph")
+    assert cfg.atom_stroke_color == "atom"
+    assert cfg.atom_wash == 0.78
+    assert cfg.atoms_above_bonds is True
+    assert cfg.bond_color == "#27a8ad"
+
+
+def test_graph_preset_does_not_mutate_default_colors():
+    baseline = build_config("default")
+    graph_cfg = build_config("graph")
+    after = build_config("default")
+    tube_cfg = build_config("tube")
+
+    assert graph_cfg.color_overrides is not None
+    assert "O" in graph_cfg.color_overrides
+    assert baseline.color_overrides == {"C": "#aaaaaa"}
+    assert after.color_overrides == {"C": "#aaaaaa"}
+    assert tube_cfg.color_overrides is not None
+    assert "O" not in tube_cfg.color_overrides
+
+
 def test_nonexistent_preset_raises():
     with pytest.raises(FileNotFoundError):
         build_config("nonexistent_preset_xyz")

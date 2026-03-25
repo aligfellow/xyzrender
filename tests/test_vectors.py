@@ -314,7 +314,7 @@ def test_render_user_vector_appears_with_crystal_axes():
     jf = _write_json([{"origin": "com", "vector": [2.0, 0.0, 0.0], "color": user_color, "label": "dipole"}])
     svg = str(render(mol, vector=str(jf), axes=True))
     # Axis colors must be present (firebrick → #b22222, forestgreen → #228b22, royalblue → #4169e1)
-    from xyzrender.types import resolve_color
+    from xyzrender.colors import resolve_color
 
     assert resolve_color("firebrick") in svg, "a-axis (firebrick) must appear"
     assert resolve_color("forestgreen") in svg, "b-axis (forestgreen) must appear"

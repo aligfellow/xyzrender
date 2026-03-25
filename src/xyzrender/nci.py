@@ -433,7 +433,7 @@ def build_nci_contours(
     NCIContours
         Contour loops and coloring data ready for SVG rendering.
     """
-    from xyzrender.types import resolve_color
+    from xyzrender.colors import resolve_color
 
     isovalue = params.isovalue
     color = resolve_color(params.color)

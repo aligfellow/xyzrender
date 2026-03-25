@@ -2,7 +2,7 @@
 
 ## Built-in presets
 
-Use `--config` to load a styling preset. Built-in options: `default`, `flat`, `paton`, `pymol`, `skeletal`, `bubble`, `tube`, `wire`.
+Use `--config` to load a styling preset. Built-in options: `default`, `flat`, `paton`, `pymol`, `skeletal`, `bubble`, `tube`, `wire`, `graph`.
 
 | Preset | Description |
 |--------|-------------|
@@ -14,6 +14,7 @@ Use `--config` to load a styling preset. Built-in options: `default`, `flat`, `p
 | `bubble` | Space-filling (CPK) — large atoms, no bonds |
 | `tube` | Tube/stick model — no atoms, thick element-coloured bonds with cylinder shading |
 | `wire` | Wireframe — no atoms, thin element-coloured bonds with cylinder shading |
+| `graph` | Minimal graph look — teal bonds, bold outlined nodes with light tinted centers |
 
 ```bash
 xyzrender caffeine.xyz --config flat
@@ -23,6 +24,7 @@ xyzrender caffeine.xyz --config skeletal
 xyzrender caffeine.xyz --config bubble --hy
 xyzrender caffeine.xyz --config tube
 xyzrender caffeine.xyz --config wire
+xyzrender caffeine.xyz --config graph
 ```
 
 CLI flags override preset values:
@@ -72,6 +74,8 @@ All available keys:
   "cmap_unlabeled": "#ffffff",
   "bond_color_by_element": false,
   "bond_gradient": false,
+  "atom_wash": 0.0,
+  "atoms_above_bonds": false,
   "colors": {
     "C": "silver",
     "H": "whitesmoke",

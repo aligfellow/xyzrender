@@ -80,8 +80,8 @@ def compute_dens_surface(
     params:
         Density surface parameters (isovalue, color).
     """
+    from xyzrender.colors import resolve_color
     from xyzrender.dens import build_density_contours
-    from xyzrender.types import resolve_color
     from xyzrender.utils import resolve_orientation
 
     rot, atom_centroid, curr_centroid = resolve_orientation(graph, cube, cfg)

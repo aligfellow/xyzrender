@@ -377,7 +377,8 @@ def load_vectors(
     import json
     import logging
 
-    from xyzrender.types import VectorArrow, resolve_color
+    from xyzrender.colors import resolve_color
+    from xyzrender.types import VectorArrow
 
     _log = logging.getLogger(__name__)
 

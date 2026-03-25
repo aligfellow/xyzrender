@@ -193,6 +193,33 @@ def test_render_preset_paton(caffeine):
     assert str(result).startswith("<svg")
 
 
+def test_render_preset_graph(caffeine):
+    import re
+
+    svg = str(render(caffeine, config="graph", orient=False))
+    assert svg.startswith("<svg")
+    assert 'stroke="#202124"' in svg
+    circle_fills = re.findall(r'<circle[^>]*fill="([^"]+)"', svg)
+    assert circle_fills
+    assert "#ffffff" not in set(circle_fills)
+    line_strokes = re.findall(r'<line[^>]*stroke="([^"]+)"', svg)
+    assert line_strokes
+    assert set(line_strokes) == {"#27a8ad"}
+    first_line = svg.find("<line")
+    first_circle = svg.find("<circle")
+    assert first_line != -1
+    assert first_circle != -1
+    assert first_line < first_circle
+
+
+def test_render_preset_graph_no_wash(caffeine):
+    cfg = build_config("graph")
+    cfg.atom_wash = 0.0
+    svg = str(render(caffeine, config=cfg, orient=False))
+    # With wash=0, fills are the raw element colors (e.g. "#202124" for C/H)
+    assert 'fill="#202124"' in svg
+
+
 def test_render_ts_bond_color_integration():
     import networkx as nx
 

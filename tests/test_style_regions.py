@@ -11,8 +11,8 @@ from pathlib import Path
 import pytest
 
 from xyzrender import load, render
-from xyzrender.colors import get_color
-from xyzrender.types import Color, RenderConfig, StyleRegion, resolve_color
+from xyzrender.colors import Color, get_color, resolve_color
+from xyzrender.types import RenderConfig, StyleRegion
 from xyzrender.utils import parse_atom_indices
 
 STRUCTURES = Path(__file__).parent.parent / "examples" / "structures"

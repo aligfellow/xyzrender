@@ -235,7 +235,7 @@ def recompute_dens(
 
     rot = kabsch_rotation(orig, curr)
 
-    from xyzrender.types import resolve_color
+    from xyzrender.colors import resolve_color
 
     config.dens_contours = build_density_contours(
         cube,

@@ -235,7 +235,7 @@ def build_mo_contours(
     SurfaceContours
         Projection data and contour loops ready for SVG rendering.
     """
-    from xyzrender.types import resolve_color
+    from xyzrender.colors import resolve_color
 
     isovalue = params.isovalue
     pos_color = resolve_color(params.pos_color)
