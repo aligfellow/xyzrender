@@ -130,6 +130,11 @@ def load_molecule(
         graph = build_graph(data.atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=True)
         assert data.pbc_cell is not None
         crystal = CellData(lattice=data.pbc_cell)
+    elif p.endswith((".com", ".gjf")):
+        atoms, file_charge, file_mult = _parse_gaussian_input(p)
+        c = charge if charge != 0 else file_charge
+        m = multiplicity if multiplicity is not None else file_mult
+        graph = build_graph(atoms, charge=c, multiplicity=m, kekule=kekule, quick=quick)
     else:
         atoms, file_charge, file_mult = _parse_qm_output(p)
         c = charge if charge != 0 else file_charge
@@ -478,6 +483,51 @@ def _parse_qm_output(path: str) -> tuple[_Atoms, int, int | None]:
         atoms.append((DATA.n2s[int(z)], (float(x), float(y), float(zc))))
 
     return atoms, getattr(data, "charge", 0), getattr(data, "mult", None)
+
+
+def _parse_gaussian_input(path: str) -> tuple[_Atoms, int, int]:
+    """Parse a Gaussian input file (.com, .gjf) to extract atoms, charge, and multiplicity."""
+    block = 0
+    atoms: _Atoms = []
+    trailing_blank_line = False
+
+    with open(path) as f:
+        for line in f:
+            stripped = line.strip()
+            if block < 2 and not stripped:  # skip calculation type and title
+                block += 1
+            elif block == 2:
+                parts = stripped.split()
+                try:
+                    charge = int(parts[0])
+                    mult = int(parts[1])
+                except IndexError:
+                    raise ValueError(f"Missing charge or multiplicity in {path}") from None
+                except ValueError:
+                    raise ValueError(f"Invalid charge or multiplicity in {path}: {parts[0]}, {parts[1]}") from None
+                block = 3
+            elif block == 3:
+                if not stripped:  # End of molecule
+                    trailing_blank_line = True
+                    break
+                parts = stripped.split()
+                if len(parts) >= 4:
+                    sym, x, y, z = parts[0], parts[1], parts[2], parts[3]
+                    atoms.append((sym, (float(x), float(y), float(z))))
+                else:
+                    raise ValueError(f"Invalid atom line in {path}: {line}")
+
+    if not atoms:
+        raise ValueError(f"No atoms found or malformed sections in {path}")
+
+    if block == 3 and not trailing_blank_line:
+        logger.warning(
+            "Gaussian input file %s is missing a trailing blank line after the geometry. "
+            "This will cause an error in a calculation using this file.",
+            path,
+        )
+
+    return atoms, charge, mult
 
 
 def _load_xyz_frames(path: str) -> list[dict]:

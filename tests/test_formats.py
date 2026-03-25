@@ -318,6 +318,68 @@ class TestLoaders:
         # Cubic 10 Å cell — diagonal should be ~10 after round-trip through CellData
         np.testing.assert_allclose(np.diag(crystal.lattice), [10.0, 10.0, 10.0], atol=1e-2)
 
+    def test_load_gaussian_com(self):
+        from xyzrender.readers import load_molecule
+
+        path = Path(__file__).parent.parent / "examples" / "structures" / "caffeine.com"
+        g, crystal = load_molecule(path)
+        assert g.number_of_nodes() == _CAFFEINE_ATOMS
+        assert crystal is None
+
+    def test_load_gaussian_com_malformed_no_atoms(self, tmp_path):
+        from xyzrender.readers import load_molecule
+
+        path = tmp_path / "malformed.com"
+        path.write_text("%chk=file.chk\n# opt\n\nTitle\n\n0 1\n\n")
+        with pytest.raises(ValueError, match="No atoms found or malformed sections"):
+            load_molecule(path)
+
+    def test_load_gaussian_com_malformed_no_blank_lines(self, tmp_path):
+        from xyzrender.readers import load_molecule
+
+        path = tmp_path / "malformed.com"
+        path.write_text("%chk=file.chk\n# opt\nTitle\n0 1\nC 0 0 0\n")
+        with pytest.raises(ValueError, match="No atoms found or malformed sections"):
+            load_molecule(path)
+
+    def test_load_gaussian_com_malformed_missing_charge(self, tmp_path):
+        from xyzrender.readers import load_molecule
+
+        path = tmp_path / "malformed.com"
+        path.write_text("%chk=file.chk\n# opt\n\nTitle\n\n\nC 0 0 0\n")
+        with pytest.raises(ValueError, match="Missing charge or multiplicity in"):
+            load_molecule(path)
+
+    def test_load_gaussian_com_malformed_invalid_charge(self, tmp_path):
+        from xyzrender.readers import load_molecule
+
+        path = tmp_path / "malformed.com"
+        path.write_text("%chk=file.chk\n# opt\n\nTitle\n\nX Y\nC 0 0 0\n")
+        with pytest.raises(ValueError, match="Invalid charge or multiplicity in"):
+            load_molecule(path)
+
+    def test_load_gaussian_com_malformed_atom_line(self, tmp_path):
+        from xyzrender.readers import load_molecule
+
+        path = tmp_path / "malformed.com"
+        path.write_text("%chk=file.chk\n# opt\n\nTitle\n\n0 1\nC 0.0\n\n")
+        with pytest.raises(ValueError, match="Invalid atom line in"):
+            load_molecule(path)
+
+    def test_load_gaussian_com_warning_missing_blank_line(self, tmp_path, caplog):
+        import logging
+
+        from xyzrender.readers import load_molecule
+
+        path = tmp_path / "warning.com"
+        path.write_text("%chk=file.chk\n# opt\n\nTitle\n\n0 1\nC 0.0 0.0 0.0")
+
+        with caplog.at_level(logging.WARNING):
+            g, _ = load_molecule(path)
+
+        assert "is missing a trailing blank line after the geometry" in caplog.text
+        assert g.number_of_nodes() == 1
+
     def test_node_attributes(self, caffeine_mol):
         from xyzrender.readers import load_molecule
 
