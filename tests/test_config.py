@@ -24,11 +24,11 @@ def test_paton_preset_has_no_bond_orders():
     assert cfg.bond_orders is False
 
 
-def test_graph_preset_enables_graph_style():
+def test_graph_preset_config():
     cfg = build_config("graph")
-    assert cfg.graph_style is True
-    assert cfg.graph_node_auto_tint is True
-    assert cfg.graph_node_fill_color == "#ffffff"
+    assert cfg.atom_stroke_color == "atom"
+    assert cfg.atom_wash == 0.78
+    assert cfg.atoms_above_bonds is True
     assert cfg.bond_color == "#27a8ad"
 
 

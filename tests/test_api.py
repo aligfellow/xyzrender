@@ -212,12 +212,12 @@ def test_render_preset_graph(caffeine):
     assert first_line < first_circle
 
 
-def test_render_preset_graph_disable_auto_tint(caffeine):
+def test_render_preset_graph_no_wash(caffeine):
     cfg = build_config("graph")
-    cfg.graph_node_auto_tint = False
-    cfg.graph_node_fill_color = "#ffffff"
+    cfg.atom_wash = 0.0
     svg = str(render(caffeine, config=cfg, orient=False))
-    assert 'fill="#ffffff"' in svg
+    # With wash=0, fills are the raw element colors (e.g. "#202124" for C/H)
+    assert 'fill="#202124"' in svg
 
 
 def test_render_ts_bond_color_integration():

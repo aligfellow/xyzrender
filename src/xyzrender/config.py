@@ -109,7 +109,6 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
         "ts_color",
         "nci_color",
         "atom_stroke_color",
-        "graph_node_fill_color",
         "label_color",
         "cmap_unlabeled",
         "cell_color",
@@ -119,8 +118,11 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
         "overlay_color",
         "mol_color",
     )
+    _passthrough_colors = {"atom"}
     for key in _color_fields:
         if key in merged and merged[key] is not None:
+            if merged[key] in _passthrough_colors:
+                continue
             merged[key] = resolve_color(merged[key])
 
     # nci_mode can be a mode name ("avg", "pixel", "uniform") or a color — resolve if color
