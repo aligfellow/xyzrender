@@ -51,7 +51,7 @@ See web app by [@BNNLab](https://github.com/bnnlab) [**xyzrender-web.streamlit.a
 
 ```bash
 pip install xyzrender
-# latest development version (recommended for newest flags/fixes):
+# latest development version:
 pip install --upgrade git+https://github.com/aligfellow/xyzrender.git
 ```
 

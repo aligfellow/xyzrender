@@ -14,7 +14,6 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `-m`, `--multiplicity` | Spin multiplicity |
 | `--config` | Config preset (`default`, `flat`, `paton`, `pymol`, `skeletal`) or path to JSON file |
 | `-d`, `--debug` | Debug logging |
-| `--version` | Print installed xyzrender version and exit |
 
 ## Styling
 
