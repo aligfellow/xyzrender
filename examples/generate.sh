@@ -18,7 +18,7 @@ xyzrender "$DIR/caffeine.xyz" --config skeletal -o "$IMG/caffeine_skeletal.svg"
 xyzrender "$DIR/caffeine.xyz" --config bubble --hy -o "$IMG/caffeine_bubble.svg"
 xyzrender "$DIR/caffeine.xyz" --config tube -o "$IMG/caffeine_tube.svg"
 xyzrender "$DIR/caffeine.xyz" --config wire -o "$IMG/caffeine_wire.svg"
-xyzrender "$DIR/caffeine.xyz" --config pymol -o "$IMG/caffeine_pymol.svg"
+xyzrender "$DIR/caffeine.xyz" --config pmol -o "$IMG/caffeine_pmol.svg"
 
 echo "=== Style regions ==="
 xyzrender "$DIR/caffeine.xyz" --region "1-3,5,10,11" tube -o "$IMG/caffeine_region.svg"

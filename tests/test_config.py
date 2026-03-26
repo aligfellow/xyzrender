@@ -24,8 +24,8 @@ def test_paton_preset_has_no_bond_orders():
     assert cfg.bond_orders is False
 
 
-def test_pymol_preset_enables_element_colored_bonds():
-    cfg = build_config("pymol")
+def test_pmol_preset_enables_element_colored_bonds():
+    cfg = build_config("pmol")
     assert cfg.bond_color_by_element is True
     assert cfg.bond_gradient is True
     assert cfg.bond_orders is False

@@ -2,14 +2,14 @@
 
 ## Built-in presets
 
-Use `--config` to load a styling preset. Built-in options: `default`, `flat`, `paton`, `pymol`, `skeletal`, `bubble`, `tube`, `wire`, `graph`.
+Use `--config` to load a styling preset. Built-in options: `default`, `flat`, `paton`, `pmol`, `skeletal`, `bubble`, `tube`, `wire`, `graph`.
 
 | Preset | Description |
 |--------|-------------|
 | `default` | Radial gradients, depth fog, CPK colors |
 | `flat` | No gradients, no fog — clean flat look |
 | `paton` | PyMOL-inspired style (see [Rob Paton](https://github.com/patonlab)) |
-| `pymol` | Ball-and-stick with element-coloured split bonds and tube shading |
+| `pmol` | Ball-and-stick with element-coloured split bonds and tube shading (PyMOL-inspired) |
 | `skeletal` | Skeletal formula diagram — thin bonds, minimal atoms |
 | `bubble` | Space-filling (CPK) — large atoms, no bonds |
 | `tube` | Tube/stick model — no atoms, thick element-coloured bonds with cylinder shading |
@@ -19,7 +19,7 @@ Use `--config` to load a styling preset. Built-in options: `default`, `flat`, `p
 ```bash
 xyzrender caffeine.xyz --config flat
 xyzrender caffeine.xyz --config paton
-xyzrender caffeine.xyz --config pymol
+xyzrender caffeine.xyz --config pmol
 xyzrender caffeine.xyz --config skeletal
 xyzrender caffeine.xyz --config bubble --hy
 xyzrender caffeine.xyz --config tube
