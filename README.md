@@ -25,11 +25,12 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Stereochemistry labels** — R/S, E/Z, axial, planar (metallocene and CIP), and helical chirality labels detected and annotated automatically via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
 - **Non-covalent interactions** — hydrogen bonds and other weak interactions shown as dotted lines, detected automatically via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
 - **GIF animations** — rotation, TS vibration, and trajectory animations for presentations
-- **Molecular orbitals** — render MO lobes from cube files with front/back depth cueing
-- **Electron density surfaces** — depth-graded translucent isosurfaces from density cube files
+- **Molecular orbitals** — render MO lobes from cube files with front/back depth cueing; multiple surface styles (solid, mesh, contour, wire, dot)
+- **Electron density surfaces** — depth-graded translucent isosurfaces from density cube files; contour and dot styles available
 - **Electrostatic potential (ESP)** — ESP colormapped onto the density surface from paired cube files
 - **vdW surface overlays** — van der Waals spheres on all or selected atoms
-- **Structural overlay** — RMSD-align two conformers and render in contrasting colours
+- **Structural overlay** — RMSD-align two structures and render in contrasting colours; works across molecules with different substituents or atom counts via automatic scaffold detection
+- **Orientation reference** — `--ref` saves an orientation and reuses it across a series of derivatives with different substitution patterns, giving consistent figure panels
 - **Conformer ensemble** — overlay all frames from a multi-frame XYZ trajectory, with palette colouring and opacity control
 - **Convex hull** — semi-transparent facets over selected atoms (e.g. aromatic ring carbons, coordination spheres); optional hull-edge lines
 - **Depth fog and gradients** — 3D depth cues without needing a 3D viewer
@@ -162,9 +163,13 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### Structural overlay & ensemble
 
-| Overlay | Custom colour | Ensemble (CPK) | Ensemble (spectral) |
-|---------|---------------|----------------|---------------------|
-| ![overlay](examples/images/isothio_overlay.svg) | ![overlay custom](examples/images/isothio_overlay_custom.svg) | ![ensemble](examples/images/triphenylbenzol_ensemble.svg) | ![ensemble custom](examples/images/triphenylbenzol_ensemble_custom.svg) |
+| Overlay | Custom colour | Cross-molecule |
+|---------|---------------|----------------|
+| ![overlay](examples/images/isothio_overlay.svg) | ![overlay custom](examples/images/isothio_overlay_custom.svg) | ![cross-molecule overlay](examples/images/isothio_overlay_cross.svg) |
+
+| Ensemble (CPK) | Ensemble (spectral) |
+|----------------|---------------------|
+| ![ensemble](examples/images/triphenylbenzol_ensemble.svg) | ![ensemble custom](examples/images/triphenylbenzol_ensemble_custom.svg) |
 
 ### Transition states & NCI
 
@@ -196,9 +201,14 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |-----------|-----------|---------|-----|
 | ![homo](examples/images/caffeine_homo.svg) | ![lumo](examples/images/caffeine_lumo.svg) | ![dens](examples/images/caffeine_dens.svg) | ![esp](examples/images/caffeine_esp.svg) |
 
-| NCI surface (H-bond) | NCI surface (pi-stack) | Vector arrows | 
-|-----------------------|------------------------|---------------|
-| ![nci surf](examples/images/base-pair-nci_surf.svg) | ![nci pi](examples/images/phenol_di-nci_surf.svg) | ![vectors](examples/images/ethanol_dip.svg) | 
+| MO mesh | MO contour | MO dot | Density contour |
+|---------|------------|--------|-----------------|
+| ![mesh](examples/images/caffeine_homo_mesh.svg) | ![contour](examples/images/caffeine_homo_contour.svg) | ![dot](examples/images/caffeine_homo_dot.svg) | ![dens contour](examples/images/caffeine_dens_contour.svg) |
+
+| NCI surface (H-bond) | NCI surface (pi-stack) | NCI mesh | Vector arrows |
+|-----------------------|------------------------|----------|---------------|
+| ![nci surf](examples/images/base-pair-nci_surf.svg) | ![nci pi](examples/images/phenol_di-nci_surf.svg) | ![nci mesh](examples/images/base-pair-nci_mesh.svg) | ![vectors](examples/images/ethanol_dip.svg) |
+
 ### File formats
 
 | PDB | SMILES |

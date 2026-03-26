@@ -25,12 +25,26 @@ xyzrender caffeine_dens.cube --dens --dens-color teal --opacity 0.75 -o caffeine
 xyzrender caffeine_dens.cube --dens --gif-rot -go caffeine_dens.gif
 ```
 
+| Contour | Dot |
+|---------|-----|
+| ![Contour](../../../examples/images/caffeine_dens_contour.svg) | ![Dot](../../../examples/images/caffeine_dens_dot.svg) |
+
+```bash
+xyzrender caffeine_dens.cube --dens --surface-style contour -o caffeine_dens_contour.svg
+xyzrender caffeine_dens.cube --dens --surface-style dot -o caffeine_dens_dot.svg
+```
+
 | Flag | Description |
 |------|-------------|
 | `--dens` | Enable electron density surface rendering |
 | `--iso` | Isosurface threshold (default: 0.05 — smaller value = larger surface) |
 | `--opacity` | Surface opacity multiplier (default: 1.0) |
+| `--surface-style STYLE` | `solid`, `contour`, `dot` (density ignores `mesh` — uses `contour` instead) |
 | `--dens-color COLOR` | Surface color as hex or [named color](https://matplotlib.org/stable/gallery/color/named_colors.html) (default: `steelblue`) |
+
+```{note}
+For density surfaces, `mesh` falls back to `contour` automatically (the molecular envelope is too smooth for grid-based warping). ESP surfaces use raster rendering and ignore `--surface-style`.
+```
 
 ## Electrostatic potential (ESP) surface
 

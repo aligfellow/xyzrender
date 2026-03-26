@@ -172,6 +172,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     bw = cfg.bond_width * scale_ratio
     sw = cfg.atom_stroke_width * scale_ratio
     fs_label = cfg.label_font_size * scale_ratio
+    # Mesh/wire surface stroke widths (scaled with canvas like bond widths)
+    _mesh_sw = max(2.0, 6.0 * scale_ratio)
+    _mesh_inner_sw = max(1.5, 3.5 * scale_ratio)
 
     # Per-atom stroke width overrides for style regions
     _atom_sw: np.ndarray | None = None
@@ -451,7 +454,19 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     if cfg.mo_contours is not None:
         assert mo_is_front is not None
         svg.extend(
-            mo_back_lobes_svg(cfg.mo_contours, mo_is_front, cfg.surface_opacity, scale, cx, cy, canvas_w, canvas_h)
+            mo_back_lobes_svg(
+                cfg.mo_contours,
+                mo_is_front,
+                cfg.surface_opacity,
+                scale,
+                cx,
+                cy,
+                canvas_w,
+                canvas_h,
+                surface_style=cfg.surface_style,
+                stroke_width=_mesh_sw,
+                mesh_inner_width=_mesh_inner_sw,
+            )
         )
 
     # --- Convex hull facets (low-alpha plane behind molecule) ---
@@ -637,7 +652,18 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
 
         if cfg.nci_contours.raster_png:
             svg.extend(nci_static_svg_defs(cfg.nci_contours, scale, cx, cy, canvas_w, canvas_h))
-        nci_lobes_flat = nci_lobe_svg_items(cfg.nci_contours, cfg.surface_opacity, scale, cx, cy, canvas_w, canvas_h)
+        nci_lobes_flat = nci_lobe_svg_items(
+            cfg.nci_contours,
+            cfg.surface_opacity,
+            scale,
+            cx,
+            cy,
+            canvas_w,
+            canvas_h,
+            surface_style=cfg.surface_style,
+            stroke_width=_mesh_sw,
+            mesh_inner_width=_mesh_inner_sw,
+        )
 
     def _drain_nci(next_z: float) -> None:
         nonlocal nci_lobe_idx
@@ -1047,12 +1073,37 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     if cfg.mo_contours is not None:
         assert mo_is_front is not None
         svg.extend(
-            mo_front_lobes_svg(cfg.mo_contours, mo_is_front, cfg.surface_opacity, scale, cx, cy, canvas_w, canvas_h)
+            mo_front_lobes_svg(
+                cfg.mo_contours,
+                mo_is_front,
+                cfg.surface_opacity,
+                scale,
+                cx,
+                cy,
+                canvas_w,
+                canvas_h,
+                surface_style=cfg.surface_style,
+                stroke_width=_mesh_sw,
+                mesh_inner_width=_mesh_inner_sw,
+            )
         )
 
     # --- Density surface (stacked z-layers on top of molecule) ---
     if cfg.dens_contours is not None:
-        svg.extend(dens_layers_svg(cfg.dens_contours, cfg.surface_opacity, scale, cx, cy, canvas_w, canvas_h))
+        svg.extend(
+            dens_layers_svg(
+                cfg.dens_contours,
+                cfg.surface_opacity,
+                scale,
+                cx,
+                cy,
+                canvas_w,
+                canvas_h,
+                surface_style=cfg.surface_style,
+                stroke_width=_mesh_sw,
+                mesh_inner_width=_mesh_inner_sw,
+            )
+        )
 
     # --- ESP surface (embedded heatmap on top of molecule) ---
     if cfg.esp_surface is not None:

@@ -32,6 +32,8 @@ mol = load("CC(=O)O", smiles=True)              # SMILES → 3D (requires rdkit)
 mol = load("POSCAR", crystal=True)              # VASP/QE structure (requires phonopy)
 mol = load("caffeine_cell.xyz", cell=True)      # extXYZ Lattice= header
 mol = load("mol.xyz", quick=True)               # skip BO detection (faster, use with bo=False)
+mol = load("mol.xyz", threshold=1.3)           # more permissive bond detection (detect longer bonds)
+mol = load("mol.xyz", threshold=0.8)           # stricter bond detection (detect fewer bonds)
 ```
 
 ## Render options
@@ -190,6 +192,20 @@ render(mol)        # renders in the manually chosen orientation
 ```
 
 Requires `pip install xyzrender[v]` (Linux only).
+
+## Orientation reference
+
+Use `ref=` to save or load a reference orientation for consistent batch rendering:
+
+```python
+mol1 = load("homo.cube")
+render(mol1, mo=True, ref="reference.xyz")   # first call saves oriented positions
+
+mol2 = load("lumo.cube")
+render(mol2, mo=True, ref="reference.xyz")   # subsequent calls Kabsch-align to the reference
+```
+
+When the reference file exists, `orient=True` is ignored — the reference is the orientation.
 
 ## GIF animations
 

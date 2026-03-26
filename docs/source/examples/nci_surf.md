@@ -36,6 +36,16 @@ Coloring modes (`--nci-mode`):
 | `uniform` | Flat single color for all NCI regions (default: `forestgreen`) |
 | *colour* | Any colour name or hex — shorthand for uniform mode with that colour |
 
+Surface styles also work on NCI patches:
+
+| Mesh |
+|------|
+| ![Mesh](../../../examples/images/base-pair-nci_mesh.svg) |
+
+```bash
+xyzrender base-pair-dens.cube --nci-surf base-pair-grad.cube --surface-style mesh
+```
+
 All NCI surface flags:
 
 | Flag | Description |
@@ -44,6 +54,7 @@ All NCI surface flags:
 | `--nci-mode MODE` | Coloring: `avg` (default), `pixel`, `uniform`, or a colour name/hex |
 | `--iso` | RDG isovalue threshold (default: 0.5 — larger value = more surface) |
 | `--opacity` | Surface opacity multiplier (default: 1.0) |
+| `--surface-style STYLE` | `solid` or `mesh` recommended; `contour`, `dot` also available. These use avg lobe colour |
 | `--nci-cutoff CUTOFF` | Density magnitude cutoff (advanced — not needed for standard NCIPLOT output) |
 
 Sample structures from [NCIPlot](https://github.com/juliacontrerasgarcia/NCIPLOT-4.2/tree/master/tests).

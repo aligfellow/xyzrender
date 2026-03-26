@@ -56,6 +56,7 @@ def compute_mo_surface(
         rot=rot,
         atom_centroid=atom_centroid,
         target_centroid=curr_centroid,
+        surface_style=cfg.surface_style,
     )
     cfg.flat_mo = params.flat
 
@@ -92,6 +93,7 @@ def compute_dens_surface(
         rot=rot,
         atom_centroid=atom_centroid,
         target_centroid=curr_centroid,
+        surface_style=cfg.surface_style,
     )
 
 
@@ -170,4 +172,5 @@ def compute_nci_surface(
         rot=rot,
         atom_centroid=atom_centroid,
         target_centroid=curr_centroid,
+        surface_style=cfg.surface_style,
     )

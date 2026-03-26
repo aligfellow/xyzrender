@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, cast
 import numpy as np
 
 from xyzrender.contours import (
+    _MESH_N_ISO_LEVELS,
     BLUR_SIGMA,
     MIN_LOBE_VOLUME_BOHR3,
     MIN_LOOP_PERIMETER,
@@ -18,12 +19,13 @@ from xyzrender.contours import (
     MOContours,
     SurfaceContours,
     chain_segments,
-    combined_path_d,
     compute_grid_positions,
     cube_corners_ang,
+    extract_mesh_geometry,
     gaussian_blur_2d,
     loop_perimeter,
     marching_squares,
+    render_lobe_svg,
     resample_loop,
     upsample_2d,
 )
@@ -118,6 +120,7 @@ def _project_lobe_2d(
     target_centroid: np.ndarray | None = None,
     blur_sigma: float = BLUR_SIGMA,
     upsample_factor: int = UPSAMPLE_FACTOR,
+    surface_style: str = "solid",
 ) -> LobeContour2D | None:
     """Project one 3D lobe to 2D, blur, upsample, and extract contours."""
     lobe_pos = pos_flat_ang[lobe.flat_indices].copy()
@@ -180,7 +183,22 @@ def _project_lobe_2d(
     if not loops:
         return None
     cent_3d = (float(lobe_pos[:, 0].mean()), float(lobe_pos[:, 1].mean()), z_depth)
-    return LobeContour2D(loops=loops, phase=lobe.phase, z_depth=z_depth, centroid_3d=cent_3d)
+    lc = LobeContour2D(loops=loops, phase=lobe.phase, z_depth=z_depth, centroid_3d=cent_3d)
+
+    # Extract mesh geometry when style is "mesh"
+    if surface_style in ("mesh", "contour", "dot"):
+        _n_iso = 10 if surface_style == "dot" else _MESH_N_ISO_LEVELS
+        iso_loops, grid_lines = extract_mesh_geometry(
+            upsampled,
+            isovalue,
+            offset,
+            is_negative=(lobe.phase == "neg"),
+            n_iso_levels=_n_iso,
+        )
+        lc.mesh_iso_loops = iso_loops
+        lc.mesh_grid_lines = grid_lines
+
+    return lc
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +217,7 @@ def build_mo_contours(
     lobes_3d: list[Lobe3D] | None = None,
     pos_flat_ang: np.ndarray | None = None,
     fixed_bounds: tuple[float, float, float, float] | None = None,
+    surface_style: str = "solid",
 ) -> SurfaceContours:
     """Build MO contour data from a parsed cube file.
 
@@ -293,6 +312,7 @@ def build_mo_contours(
             target_centroid=target_centroid,
             blur_sigma=blur_sigma,
             upsample_factor=upsample_factor,
+            surface_style=surface_style,
         )
         if lc is not None:
             lobe_contours.append(lc)
@@ -416,6 +436,10 @@ def mo_back_lobes_svg(
     cy: float,
     canvas_w: int,
     canvas_h: int,
+    *,
+    surface_style: str = "solid",
+    stroke_width: float = 1.5,
+    mesh_inner_width: float = 0.8,
 ) -> list[str]:
     """Return SVG lines for back MO lobes (faded flat fill, behind molecule)."""
     opacity = _MO_BASE_OPACITY * _MO_BACK_FADE * surface_opacity
@@ -424,11 +448,22 @@ def mo_back_lobes_svg(
         if mo_is_front[idx_l]:
             continue
         color_hex = mo.pos_color if lobe.phase == "pos" else mo.neg_color
-        d_all = combined_path_d(lobe.loops, mo, scale, cx, cy, canvas_w, canvas_h)
-        if d_all:
-            lines.append(f'  <g opacity="{opacity:.2f}">')
-            lines.append(f'    <path d="{d_all}" fill="{color_hex}" fill-rule="evenodd" stroke="none"/>')
-            lines.append("  </g>")
+        lines.extend(
+            render_lobe_svg(
+                lobe,
+                mo,
+                color_hex,
+                opacity,
+                scale,
+                cx,
+                cy,
+                canvas_w,
+                canvas_h,
+                surface_style=surface_style,
+                stroke_width=stroke_width,
+                mesh_inner_width=mesh_inner_width,
+            )
+        )
     return lines
 
 
@@ -441,6 +476,10 @@ def mo_front_lobes_svg(
     cy: float,
     canvas_w: int,
     canvas_h: int,
+    *,
+    surface_style: str = "solid",
+    stroke_width: float = 1.5,
+    mesh_inner_width: float = 0.8,
 ) -> list[str]:
     """Return SVG lines for front MO lobes (flat fill, on top of molecule)."""
     opacity = _MO_BASE_OPACITY * surface_opacity
@@ -449,11 +488,22 @@ def mo_front_lobes_svg(
         if not mo_is_front[idx_l]:
             continue
         color_hex = mo.pos_color if lobe.phase == "pos" else mo.neg_color
-        d_all = combined_path_d(lobe.loops, mo, scale, cx, cy, canvas_w, canvas_h)
-        if d_all:
-            lines.append(f'  <g opacity="{opacity:.2f}">')
-            lines.append(f'    <path d="{d_all}" fill="{color_hex}" fill-rule="evenodd" stroke="none"/>')
-            lines.append("  </g>")
+        lines.extend(
+            render_lobe_svg(
+                lobe,
+                mo,
+                color_hex,
+                opacity,
+                scale,
+                cx,
+                cy,
+                canvas_w,
+                canvas_h,
+                surface_style=surface_style,
+                stroke_width=stroke_width,
+                mesh_inner_width=mesh_inner_width,
+            )
+        )
     return lines
 
 
@@ -530,5 +580,6 @@ def recompute_mo(
         lobes_3d=_cache["lobes_3d"],
         pos_flat_ang=_cache["pos_flat_ang"],
         fixed_bounds=fixed_bounds,
+        surface_style=config.surface_style,
     )
     config.surface_opacity = surface_opacity

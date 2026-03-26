@@ -25,7 +25,7 @@ class BondStyle(Enum):
 
     SOLID = "solid"
     DASHED = "dashed"  # TS bonds
-    DOTTED = "dotted"  # NCI bonds
+    DOTTED = "dot"  # NCI bonds
 
 
 @dataclass
@@ -255,6 +255,7 @@ class RenderConfig:
     nci_contours: NCIContours | None = None
     surface_opacity: float = 1.0
     flat_mo: bool = False
+    surface_style: str = "solid"  # "solid" | "mesh" | "contour" | "dot"
     # Annotations and measurements
     annotations: list[Annotation] = field(default_factory=list)
     show_indices: bool = False

@@ -5,8 +5,9 @@ onto mol1 in its coordinate frame.  The merged graph is rendered with the overla
 color (default: mediumorchid); mol1 atoms use the standard CPK palette and are
 always on top when depths are equal (drawn last in SVG order).
 
-Atom pairing is index-based: atom *i* in mol1 corresponds to atom *i* in mol2.
-Both molecules must have the same number of atoms.
+When both molecules have the same atoms in the same order, alignment is direct
+(index-based Kabsch).  When atom counts or elements differ, the Maximum Common
+Substructure (MCS) is found automatically and used as the alignment basis.
 
 This module also exposes :func:`kabsch_align`, the shared Kabsch helper used by
 both overlay and ensemble alignment.
@@ -44,6 +45,13 @@ def _positions(graph: nx.Graph) -> tuple[np.ndarray, list]:
     return pos, nodes
 
 
+def _elements_match(g1: nx.Graph, g2: nx.Graph) -> bool:
+    """Check if both graphs have the same element sequence (ignoring ghosts)."""
+    syms1 = [g1.nodes[n]["symbol"] for n in g1.nodes() if g1.nodes[n].get("symbol", "") != "*"]
+    syms2 = [g2.nodes[n]["symbol"] for n in g2.nodes() if g2.nodes[n].get("symbol", "") != "*"]
+    return syms1 == syms2
+
+
 # kabsch_align is implemented in utils and re-exported here for backward compat.
 __all__ = ["align", "kabsch_align", "merge_graphs"]
 
@@ -58,19 +66,19 @@ def align(
     mol2_graph: nx.Graph,
     align_atoms: list[int] | None = None,
 ) -> np.ndarray:
-    """Align mol2 onto mol1 by index; return aligned positions for mol2 nodes.
+    """Align mol2 onto mol1; return aligned positions for mol2 nodes.
 
-    Atom *i* in mol1 is paired with atom *i* in mol2 — both molecules must
-    have the same number of atoms.
+    When both molecules have the same atoms in the same order, alignment is
+    direct (index-based Kabsch).  Otherwise the Maximum Common Substructure
+    is found automatically and used as the alignment basis.
 
     Parameters
     ----------
     mol1_graph, mol2_graph:
         NetworkX graphs.  This function does not mutate them.
     align_atoms:
-        Optional 0-indexed atom indices to fit on (min 3).  When given, only
-        these atoms contribute to the Kabsch fit; the rotation is applied to
-        all atoms.
+        Optional 0-indexed atom indices to fit on (min 3).  Only used when
+        both molecules have the same number of atoms.
 
     Returns
     -------
@@ -78,14 +86,36 @@ def align(
         Aligned 3-D positions for mol2 nodes in their original graph order.
     """
     pos1, nodes1 = _positions(mol1_graph)
-    pos2, _nodes2 = _positions(mol2_graph)
+    pos2, nodes2 = _positions(mol2_graph)
     n1, n2 = len(nodes1), len(pos2)
 
-    if n1 != n2:
-        msg = f"overlay: mol1 has {n1} atoms, mol2 has {n2} — counts must match."
+    # Fast path: same molecule, same ordering
+    if n1 == n2 and (align_atoms is not None or _elements_match(mol1_graph, mol2_graph)):
+        return kabsch_align(pos1, pos2, align_atoms=align_atoms)
+
+    # Different molecules — MCS alignment
+    import logging
+
+    from xyzrender.mcs import find_mcs_mapping
+    from xyzrender.utils import mcs_kabsch_align
+
+    mapping = find_mcs_mapping(mol1_graph, mol2_graph)
+    if mapping is None:
+        msg = f"overlay: no common substructure (>= 3 atoms) between mol1 ({n1} atoms) and mol2 ({n2} atoms)"
         raise ValueError(msg)
 
-    return kabsch_align(pos1, pos2, align_atoms=align_atoms)
+    g1_ids, g2_ids = mapping
+    matched_frac = len(g1_ids) / min(n1, n2)
+    if matched_frac < 0.25:
+        logging.getLogger(__name__).warning(
+            "overlay: only %d/%d atoms matched (%.0f%%) — alignment may be poor",
+            len(g1_ids),
+            min(n1, n2),
+            matched_frac * 100,
+        )
+    g1_idx = [nodes1.index(n) for n in g1_ids]
+    g2_idx = [nodes2.index(n) for n in g2_ids]
+    return mcs_kabsch_align(pos1, pos2, g1_idx, g2_idx)
 
 
 def merge_graphs(

@@ -328,3 +328,36 @@ def kabsch_align(
     # kabsch_rotation(mobile, ref) → h = mobile_centered.T @ ref_centered → R s.t. mobile @ R.T ≈ ref
     rot = kabsch_rotation(mob_sub, ref_sub)
     return (mobile_positions - c_mob) @ rot.T + c_ref
+
+
+def mcs_kabsch_align(
+    ref_positions: np.ndarray,
+    mobile_positions: np.ndarray,
+    ref_indices: list[int],
+    mobile_indices: list[int],
+) -> np.ndarray:
+    """Kabsch alignment using a matched subset (MCS) of atoms.
+
+    Unlike :func:`kabsch_align`, the two position arrays may have different
+    shapes.  The rotation is fitted on the paired subset and applied to all
+    of *mobile_positions*.
+
+    Parameters
+    ----------
+    ref_positions:
+        (N1, 3) reference positions.
+    mobile_positions:
+        (N2, 3) mobile positions.
+    ref_indices, mobile_indices:
+        Paired indices into the respective position arrays (same length, >= 3).
+
+    Returns
+    -------
+    np.ndarray, shape (N2, 3)
+    """
+    ref_sub = ref_positions[ref_indices]
+    mob_sub = mobile_positions[mobile_indices]
+    c_ref = ref_sub.mean(axis=0)
+    c_mob = mob_sub.mean(axis=0)
+    rot = kabsch_rotation(mob_sub, ref_sub)
+    return (mobile_positions - c_mob) @ rot.T + c_ref

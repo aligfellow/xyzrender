@@ -10,6 +10,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--smi SMILES` | Embed a SMILES string into 3D (requires rdkit) |
 | `--mol-frame N` | Record index in multi-molecule SDF (default: 0) |
 | `--rebuild` | Ignore file connectivity; re-detect bonds with xyzgraph |
+| `--threshold SCALE` | Global bond-distance scaling factor (default: 1.0). Values > 1.0 detect longer bonds, < 1.0 detect fewer |
 | `-c`, `--charge` | Molecular charge |
 | `-m`, `--multiplicity` | Spin multiplicity |
 | `--config` | Config preset (`default`, `flat`, `paton`, `pymol`, `skeletal`) or path to JSON file |
@@ -52,7 +53,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 
 | Flag | Description |
 |------|-------------|
-| `--overlay FILE` | Second structure to overlay (RMSD-aligned onto the primary) |
+| `--overlay FILE` | Second structure to overlay (RMSD-aligned onto the primary). Different atom counts are handled automatically via shared-scaffold alignment |
 | `--overlay-color COLOR` | Color for the overlay structure (hex or named) |
 | `--ensemble` | Ensemble overlay for multi-frame XYZ trajectories; conformers default to CPK atom colours |
 | `--ensemble-color VALUE` | Palette name (`viridis`, `spectral`, `coolwarm`), a single colour, or comma-separated colours |
@@ -65,6 +66,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 |------|-------------|
 | `-I`, `--interactive` | Interactive rotation via `v` viewer |
 | `--orient` / `--no-orient` | Auto-orientation toggle |
+| `--ref [FILE]` | Save/load orientation reference (`reference.xyz` by default) |
 
 ## TS / NCI
 

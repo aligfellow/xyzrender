@@ -22,6 +22,7 @@
   "mo_blur": 0.8,
   "mo_upsample": 3,
   "flat_mo": false,
+  "surface_style": "solid",
   "dens_iso": 0.001,
   "dens_color": "steelblue",
   "nci_iso": 0.3,

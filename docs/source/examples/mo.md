@@ -21,11 +21,35 @@ xyzrender caffeine_homo.cube --mo --hy --iso 0.03 -o homo_iso_hy.svg
 xyzrender caffeine_homo.cube --mo --gif-rot -go caffeine_homo.gif
 ```
 
+## Surface styles
+
+All contour-based surfaces (MO, density, NCI) support alternative rendering styles via `--surface-style`:
+
+| Mesh | Contour | Dot |
+|------|---------|-----|
+| ![Mesh](../../../examples/images/caffeine_homo_mesh.svg) | ![Contour](../../../examples/images/caffeine_homo_contour.svg) | ![Dot](../../../examples/images/caffeine_homo_dot.svg) |
+
+```bash
+xyzrender caffeine_homo.cube --mo --surface-style mesh
+xyzrender caffeine_homo.cube --mo --surface-style contour
+xyzrender caffeine_homo.cube --mo --surface-style dot
+```
+
+| Style | Description |
+|-------|-------------|
+| `solid` (default) | Filled surfaces with depth cueing |
+| `mesh` | Warped grid lines emulating a 3D wireframe |
+| `contour` | Iso-value contour rings showing surface depth |
+| `dot` | Stippled contour rings (dots denser toward centre) |
+
+## MO flags
+
 | Flag | Description |
 |------|-------------|
 | `--mo` | Enable MO lobe rendering (required for `.cube` input) |
 | `--iso` | Isosurface threshold (default: 0.05 — smaller value = larger lobes) |
 | `--opacity` | Surface opacity multiplier (default: 1.0) |
+| `--surface-style STYLE` | Surface rendering style: `solid`, `mesh`, `contour`, `dot` |
 | `--mo-colors POS NEG` | Lobe colors as hex or [named color](https://matplotlib.org/stable/gallery/color/named_colors.html) (default: `steelblue` `maroon`) |
 | `--flat-mo` | Disable depth classification — render all lobes as front-facing |
 | `--mo-blur SIGMA` | Gaussian blur sigma for lobe smoothing (default: 0.8, ADVANCED) |

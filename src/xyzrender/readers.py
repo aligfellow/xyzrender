@@ -39,6 +39,7 @@ def load_molecule(
     kekule: bool = False,
     rebuild: bool = False,
     quick: bool = False,
+    threshold: float = 1.0,
 ) -> tuple[nx.Graph, CellData | None]:
     """Read a molecular structure file and build a graph.
 
@@ -83,9 +84,13 @@ def load_molecule(
     crystal: CellData | None = None
 
     if p.endswith(".cube"):
-        graph, _cube = load_cube(p, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick)
+        graph, _cube = load_cube(
+            p, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick, threshold=threshold
+        )
     elif p.endswith(".xyz"):
-        graph = build_graph(read_xyz_file(p), charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick)
+        graph = build_graph(
+            read_xyz_file(p), charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick, threshold=threshold
+        )
         try:
             with open(p) as _f:
                 _f.readline()
@@ -102,14 +107,26 @@ def load_molecule(
     elif p.endswith((".mol", ".sdf", ".mol2")):
         data = fmt.parse(p, frame=frame)
         graph = graph_from_moldata(
-            data, charge=charge, multiplicity=multiplicity, kekule=kekule, rebuild=rebuild, quick=quick
+            data,
+            charge=charge,
+            multiplicity=multiplicity,
+            kekule=kekule,
+            rebuild=rebuild,
+            quick=quick,
+            threshold=threshold,
         )
     elif p.endswith(".pdb"):
         data = fmt.parse_pdb(p)
         # PDB with periodic cell → bond orders will always be suppressed
         _pdb_quick = quick or data.pbc_cell is not None
         graph = graph_from_moldata(
-            data, charge=charge, multiplicity=multiplicity, kekule=kekule, rebuild=rebuild, quick=_pdb_quick
+            data,
+            charge=charge,
+            multiplicity=multiplicity,
+            kekule=kekule,
+            rebuild=rebuild,
+            quick=_pdb_quick,
+            threshold=threshold,
         )
         if data.pbc_cell is not None:
             # Position cell so it's centred on the molecular centroid.
@@ -122,19 +139,27 @@ def load_molecule(
         smi = Path(p).read_text(encoding="utf-8").splitlines()[0].strip()
         data = fmt.parse_smiles(smi, kekule=kekule)
         graph = graph_from_moldata(
-            data, charge=charge, multiplicity=multiplicity, kekule=kekule, rebuild=rebuild, quick=quick
+            data,
+            charge=charge,
+            multiplicity=multiplicity,
+            kekule=kekule,
+            rebuild=rebuild,
+            quick=quick,
+            threshold=threshold,
         )
     elif p.endswith(".cif"):
         data = fmt.parse_cif(p)
         # CIF is always periodic — bond orders are always suppressed at render time
-        graph = build_graph(data.atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=True)
+        graph = build_graph(
+            data.atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=True, threshold=threshold
+        )
         assert data.pbc_cell is not None
         crystal = CellData(lattice=data.pbc_cell)
     else:
         atoms, file_charge, file_mult = _parse_qm_output(p)
         c = charge if charge != 0 else file_charge
         m = multiplicity if multiplicity is not None else file_mult
-        graph = build_graph(atoms, charge=c, multiplicity=m, kekule=kekule, quick=quick)
+        graph = build_graph(atoms, charge=c, multiplicity=m, kekule=kekule, quick=quick, threshold=threshold)
 
     logger.info("Built graph: %d atoms, %d bonds", graph.number_of_nodes(), graph.number_of_edges())
     return graph, crystal
@@ -146,6 +171,7 @@ def load_cube(
     multiplicity: int | None = None,
     kekule: bool = False,
     quick: bool = False,
+    threshold: float = 1.0,
 ) -> tuple[nx.Graph, CubeData]:
     """Load molecular structure and orbital data from a Gaussian cube file.
 
@@ -173,7 +199,9 @@ def load_cube(
 
     logger.info("Loading %s", path)
     cube = parse_cube(path)
-    graph = build_graph(cube.atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick)
+    graph = build_graph(
+        cube.atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick, threshold=threshold
+    )
     logger.info(
         "Cube graph: %d atoms, %d bonds, MO %s", graph.number_of_nodes(), graph.number_of_edges(), cube.mo_index
     )
@@ -187,6 +215,7 @@ def graph_from_moldata(
     kekule: bool = False,
     rebuild: bool = False,
     quick: bool = False,
+    threshold: float = 1.0,
 ) -> nx.Graph:
     """Build a graph from MolData, using file bonds or xyzgraph detection.
 
@@ -243,6 +272,7 @@ def graph_from_moldata(
         multiplicity=multiplicity,
         kekule=kekule,
         quick=quick,
+        threshold=threshold,
     )
     logger.info(
         "Graph rebuilt via xyzgraph: %d atoms, %d bonds",
@@ -259,6 +289,7 @@ def load_ts_molecule(
     mode: int = 0,
     ts_frame: int = 0,
     kekule: bool = False,
+    threshold: float = 1.0,
 ) -> tuple[nx.Graph, list[dict]]:
     """Load TS and detect forming/breaking bonds via graphRC.
 
@@ -311,7 +342,7 @@ def load_ts_molecule(
     if kekule:
         ts_frame_data = frames[ts_frame]
         atoms = list(zip(ts_frame_data["symbols"], [tuple(p) for p in ts_frame_data["positions"]], strict=True))
-        kekule_graph = build_graph(atoms, charge=charge, multiplicity=multiplicity, kekule=True)
+        kekule_graph = build_graph(atoms, charge=charge, multiplicity=multiplicity, kekule=True, threshold=threshold)
         for i, j, d in graph.edges(data=True):
             if d.get("TS", False):
                 if kekule_graph.has_edge(i, j):
@@ -387,7 +418,9 @@ def load_trajectory_frames(path: str | Path) -> list[dict]:
     return frames
 
 
-def load_stdin(charge: int = 0, multiplicity: int | None = None, kekule: bool = False) -> nx.Graph:
+def load_stdin(
+    charge: int = 0, multiplicity: int | None = None, kekule: bool = False, threshold: float = 1.0
+) -> nx.Graph:
     """Read atoms from stdin — auto-detects XYZ and line-by-line formats.
 
     Parameters
@@ -404,7 +437,9 @@ def load_stdin(charge: int = 0, multiplicity: int | None = None, kekule: bool = 
     networkx.Graph
         Molecular graph.
     """
-    return build_graph(_parse_auto(sys.stdin.read()), charge=charge, multiplicity=multiplicity, kekule=kekule)
+    return build_graph(
+        _parse_auto(sys.stdin.read()), charge=charge, multiplicity=multiplicity, kekule=kekule, threshold=threshold
+    )
 
 
 def _parse_auto(text: str) -> list[tuple[str, tuple[float, float, float]]]:

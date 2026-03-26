@@ -22,6 +22,64 @@ and close the window with `q` or `esc`.
 xyzrender molecule.xyz -I
 ```
 
+## Orientation reference (`--ref`)
+
+The `--ref` flag saves or loads a reference orientation for consistent rendering across multiple files (e.g. a batch of MO cube files).
+
+**First render** — file does not exist yet, PCA-oriented positions are saved:
+```bash
+xyzrender homo.cube --mo --ref              # saves reference.xyz
+xyzrender homo.cube --mo --ref custom.xyz   # saves custom.xyz
+```
+
+**Subsequent renders** — file exists, molecule is Kabsch-aligned to it:
+```bash
+xyzrender lumo.cube --mo --ref              # loads reference.xyz, same orientation
+xyzrender lumo.cube --mo --ref custom.xyz   # loads custom.xyz
+```
+
+When loading an existing reference, `--orient` is ignored — the reference file IS the orientation.
+
+### Combined with `-I`
+
+Orient interactively once, then reuse:
+```bash
+xyzrender homo.cube --mo -I --ref           # orient in viewer, save
+xyzrender lumo.cube --mo --ref              # load, same orientation
+```
+
+If the reference file already exists, `-I` is skipped (the viewer is not opened).
+
+### Python API
+
+```python
+from xyzrender import render, load
+
+mol1 = load("homo.cube")
+render(mol1, mo=True, ref="reference.xyz")   # save
+
+mol2 = load("lumo.cube")
+render(mol2, mo=True, ref="reference.xyz")   # load, same orientation
+```
+
+### Consistent orientation across a chemical series
+
+`--ref` works across related compounds with different substituents, atom counts, or conformations. The shared scaffold is detected automatically — molecules are aligned on their largest common connected substructure. This gives consistent orientations across a series of derivatives, useful for comparing substituent effects or building figure panels:
+
+```bash
+# Orient the first compound interactively and save the reference
+xyzrender catalyst_a.xyz -I --ref series.xyz
+
+# All derivatives align to the same scaffold, regardless of substitution
+xyzrender catalyst_b.xyz --ref series.xyz   # different R-group
+xyzrender catalyst_c.xyz --ref series.xyz   # different atom count
+xyzrender catalyst_d.xyz --ref series.xyz   # different heterocycle
+```
+
+```{note}
+`--ref` is not supported for periodic structures (inputs loaded with `cell=True` or crystal formats). Use `-I` for interactive orientation of crystals.
+```
+
 ## Piping from v
 
 We can also pipe from `v` (or `vmol`) directly when working with `.xyz` files:

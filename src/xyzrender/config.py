@@ -146,6 +146,11 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
     if "highlight_colors" in merged and merged["highlight_colors"] is not None:
         merged["highlight_colors"] = [resolve_color(c) for c in merged["highlight_colors"]]
 
+    # Validate surface_style
+    if "surface_style" in merged and merged["surface_style"] not in ("solid", "mesh", "contour", "dot"):
+        msg = f"Invalid surface_style: {merged['surface_style']!r} (must be 'solid', 'mesh', 'contour', or 'dot')"
+        raise ValueError(msg)
+
     return RenderConfig(**merged)
 
 
@@ -322,6 +327,7 @@ def collect_surf_overrides(
     dens_color=None,
     nci_mode=None,
     nci_cutoff=None,
+    surface_style=None,
 ) -> dict:
     """Collect surface param overrides into a dict for ``build_surface_params``.
 
@@ -340,6 +346,7 @@ def collect_surf_overrides(
         ("dens_color", dens_color),
         ("nci_mode", nci_mode),
         ("nci_cutoff", nci_cutoff),
+        ("surface_style", surface_style),
     ]:
         if val is not None:
             overrides[key] = val

@@ -41,6 +41,9 @@ class LobeContour2D:
     z_depth: float  # average z-coordinate (for front/back ordering)
     centroid_3d: tuple[float, float, float] = (0.0, 0.0, 0.0)  # for pairing
     lobe_color: str | None = None  # per-lobe color override (NCI avg coloring)
+    # Mesh geometry (populated only when surface_style == "mesh")
+    mesh_iso_loops: list[np.ndarray] = field(default_factory=list)  # closed inner contour rings
+    mesh_grid_lines: list[np.ndarray] = field(default_factory=list)  # open grid scan lines (H + V clipped to surface)
 
 
 @runtime_checkable
@@ -452,3 +455,389 @@ def combined_path_d(
         if d:
             parts.append(d)
     return " ".join(parts) if parts else None
+
+
+def open_path_to_d(
+    points: np.ndarray,
+    grid: ContourGrid,
+    scale: float,
+    cx: float,
+    cy: float,
+    canvas_w: int,
+    canvas_h: int,
+) -> str | None:
+    """Convert an open polyline to a smooth SVG path (Catmull-Rom, no Z closure).
+
+    Uses reflected phantom points at the two endpoints so the curve
+    starts and ends tangent to the first/last segment.
+    """
+    n = len(points)
+    if n < 2:
+        return None
+    res = max(grid.resolution - 1, 1)
+
+    # Grid → SVG coordinate transform (same as loop_to_path_d)
+    x_ang = grid.x_min + (points[:, 1] / res) * (grid.x_max - grid.x_min)
+    y_ang = grid.y_min + (points[:, 0] / res) * (grid.y_max - grid.y_min)
+    sx = canvas_w / 2 + scale * (x_ang - cx)
+    sy = canvas_h / 2 - scale * (y_ang - cy)
+
+    if n == 2:
+        return f"M {sx[0]:.1f} {sy[0]:.1f} L {sx[1]:.1f} {sy[1]:.1f}"
+
+    # Build extended arrays with reflected phantom endpoints
+    ex = np.empty(n + 2)
+    ey = np.empty(n + 2)
+    ex[1:-1] = sx
+    ey[1:-1] = sy
+    ex[0] = 2 * sx[0] - sx[1]  # phantom start
+    ey[0] = 2 * sy[0] - sy[1]
+    ex[-1] = 2 * sx[-1] - sx[-2]  # phantom end
+    ey[-1] = 2 * sy[-1] - sy[-2]
+
+    # Catmull-Rom → cubic Bezier for segments 1..n-1 in the extended array
+    parts = [f"M {sx[0]:.1f} {sy[0]:.1f}"]
+    for i in range(1, n):
+        p0x, p0y = ex[i - 1], ey[i - 1]
+        p1x, p1y = ex[i], ey[i]
+        p2x, p2y = ex[i + 1], ey[i + 1]
+        p3x, p3y = ex[i + 2] if i + 2 < n + 2 else ex[i + 1], ey[i + 2] if i + 2 < n + 2 else ey[i + 1]
+        cp1x = p1x + (p2x - p0x) / 6
+        cp1y = p1y + (p2y - p0y) / 6
+        cp2x = p2x - (p3x - p1x) / 6
+        cp2y = p2y - (p3y - p1y) / 6
+        parts.append(f"C {cp1x:.1f} {cp1y:.1f} {cp2x:.1f} {cp2y:.1f} {p2x:.1f} {p2y:.1f}")
+    return " ".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# Mesh geometry extraction (shared by MO, density, NCI)
+# ---------------------------------------------------------------------------
+
+_MESH_N_ISO_LEVELS = 5  # number of intermediate iso-contour rings (contour style)
+_MESH_N_LINES = 20  # number of lines per direction (mesh style)
+_MESH_MIN_SEGMENT = 5  # minimum segment span (grid cells)
+_MESH_N_PTS = 24  # points sampled per mesh line for SVG rendering
+_MESH_WARP_STRENGTH = 0.25  # perpendicular warp amplitude
+_MESH_SMOOTH_SIGMA = 3.0  # 1D Gaussian sigma for warp smoothing
+
+
+def _smooth_1d(values: np.ndarray, sigma: float = _MESH_SMOOTH_SIGMA) -> np.ndarray:
+    """Apply 1-D Gaussian smoothing to an array."""
+    if len(values) < 3 or sigma < 0.5:
+        return values
+    size = int(4 * sigma + 0.5) * 2 + 1
+    x = np.arange(size) - size // 2
+    kernel = np.exp(-0.5 * (x / sigma) ** 2)
+    kernel /= kernel.sum()
+    padded = np.pad(values, size // 2, mode="edge")
+    return np.convolve(padded, kernel, mode="valid")[: len(values)]
+
+
+def _find_iso_crossing(field_1d: np.ndarray, isovalue: float, from_start: bool) -> float:
+    """Find fractional index where *field_1d* crosses *isovalue*.
+
+    Scans from the start or end and linearly interpolates the exact crossing.
+    Returns a fractional index into *field_1d*.
+    """
+    n = len(field_1d)
+    if from_start:
+        for i in range(n - 1):
+            if field_1d[i] < isovalue <= field_1d[i + 1]:
+                t = (isovalue - field_1d[i]) / max(field_1d[i + 1] - field_1d[i], 1e-12)
+                return i + t
+        return 0.0
+    else:
+        for i in range(n - 1, 0, -1):
+            if field_1d[i] < isovalue <= field_1d[i - 1]:
+                t = (isovalue - field_1d[i]) / max(field_1d[i - 1] - field_1d[i], 1e-12)
+                return i - t
+        return float(n - 1)
+
+
+def _bilinear_sample(field: np.ndarray, rows: np.ndarray, cols: np.ndarray) -> np.ndarray:
+    """Sample *field* at fractional (row, col) positions with bilinear interpolation."""
+    nr, nc = field.shape
+    r0 = np.clip(np.floor(rows).astype(int), 0, nr - 2)
+    c0 = np.clip(np.floor(cols).astype(int), 0, nc - 2)
+    dr = rows - r0
+    dc = cols - c0
+    return (
+        field[r0, c0] * (1 - dr) * (1 - dc)
+        + field[r0, c0 + 1] * (1 - dr) * dc
+        + field[r0 + 1, c0] * dr * (1 - dc)
+        + field[r0 + 1, c0 + 1] * dr * dc
+    )
+
+
+def _warped_scan_lines(
+    work: np.ndarray,
+    isovalue: float,
+    n_lines: int,
+    axis: int,
+    *,
+    warp: float = _MESH_WARP_STRENGTH,
+    n_pts: int = _MESH_N_PTS,
+    min_segment: int = _MESH_MIN_SEGMENT,
+) -> list[np.ndarray]:
+    """Extract scan-line segments warped to emulate 3D surface curvature.
+
+    Each scan line starts as a straight horizontal (*axis* = 0) or vertical
+    (*axis* = 1) line.  Endpoints are interpolated to the exact isovalue
+    crossing so the line starts and ends precisely on the outer contour.
+
+    The warp basis is a **heavily-blurred binary mask** (not the raw scalar
+    field).  This is smooth everywhere — no nuclear cusps or field spikes —
+    and naturally peaks in the geometric center of the surface, creating a
+    uniform 3D-curvature impression for any surface type (MO, density, NCI).
+
+    Returns open polylines as ``(M, 2)`` arrays in ``[row, col]`` coords.
+    """
+    nr, nc = work.shape
+    mask = work >= isovalue
+    if not mask.any():
+        return []
+
+    peak = float(work.max())
+    if peak <= isovalue:
+        return []
+
+    lines: list[np.ndarray] = []
+
+    if axis == 0:
+        # Horizontal lines: fixed row, sweep columns, warp in row direction
+        active_rows = np.nonzero(mask.any(axis=1))[0]
+        if len(active_rows) < 2:
+            return []
+        r_min, r_max = int(active_rows[0]), int(active_rows[-1])
+        span = r_max - r_min
+        positions = np.linspace(r_min, r_max, n_lines + 2, dtype=int)[1:-1]
+
+        for ri in positions:
+            row_field = work[ri, :]
+            above = row_field >= isovalue
+            changes = np.diff(above.astype(np.int8))
+            entries = np.where(changes == 1)[0]
+            exits = np.where(changes == -1)[0] + 1
+            if above[0]:
+                entries = np.concatenate([[0], entries])
+            if above[-1]:
+                exits = np.concatenate([exits, [nc - 1]])
+
+            for ei, xi in zip(entries, exits, strict=False):
+                if xi - ei < min_segment:
+                    continue
+                c_start = _find_iso_crossing(row_field[ei : xi + 1], isovalue, from_start=True) + ei
+                c_end = _find_iso_crossing(row_field[ei : xi + 1], isovalue, from_start=False) + ei
+
+                n_dense = max(xi - ei, 40)
+                cols_dense = np.linspace(c_start, c_end, n_dense)
+                rows_dense = np.full(n_dense, float(ri))
+
+                # Bilinear field sample + smooth for warp
+                f_vals = _bilinear_sample(work, rows_dense, cols_dense)
+                f_norm = np.clip((f_vals - isovalue) / (peak - isovalue), 0.0, 1.0)
+                f_smooth = _smooth_1d(f_norm)
+                f_smooth[0] = 0.0
+                f_smooth[-1] = 0.0
+
+                displacement = f_smooth * warp * span
+                warped_rows = ri + displacement
+
+                idx = np.linspace(0, n_dense - 1, n_pts, dtype=int)
+                pts = np.column_stack([warped_rows[idx], cols_dense[idx]])
+                lines.append(pts)
+    else:
+        # Vertical lines: fixed column, sweep rows, warp in col direction
+        active_cols = np.nonzero(mask.any(axis=0))[0]
+        if len(active_cols) < 2:
+            return []
+        c_min, c_max = int(active_cols[0]), int(active_cols[-1])
+        span = c_max - c_min
+        positions = np.linspace(c_min, c_max, n_lines + 2, dtype=int)[1:-1]
+
+        for ci in positions:
+            col_field = work[:, ci]
+            above = col_field >= isovalue
+            changes = np.diff(above.astype(np.int8))
+            entries = np.where(changes == 1)[0]
+            exits = np.where(changes == -1)[0] + 1
+            if above[0]:
+                entries = np.concatenate([[0], entries])
+            if above[-1]:
+                exits = np.concatenate([exits, [nr - 1]])
+
+            for ei, xi in zip(entries, exits, strict=False):
+                if xi - ei < min_segment:
+                    continue
+                r_start = _find_iso_crossing(col_field[ei : xi + 1], isovalue, from_start=True) + ei
+                r_end = _find_iso_crossing(col_field[ei : xi + 1], isovalue, from_start=False) + ei
+
+                n_dense = max(xi - ei, 40)
+                rows_dense = np.linspace(r_start, r_end, n_dense)
+                cols_dense = np.full(n_dense, float(ci))
+
+                f_vals = _bilinear_sample(work, rows_dense, cols_dense)
+                f_norm = np.clip((f_vals - isovalue) / (peak - isovalue), 0.0, 1.0)
+                f_smooth = _smooth_1d(f_norm)
+                f_smooth[0] = 0.0
+                f_smooth[-1] = 0.0
+
+                displacement = f_smooth * warp * span
+                warped_cols = ci + displacement
+
+                idx = np.linspace(0, n_dense - 1, n_pts, dtype=int)
+                pts = np.column_stack([rows_dense[idx], warped_cols[idx]])
+                lines.append(pts)
+
+    return lines
+
+
+def extract_mesh_geometry(
+    field_2d: np.ndarray,
+    isovalue: float,
+    crop_offset: np.ndarray,
+    *,
+    is_negative: bool = False,
+    n_iso_levels: int = _MESH_N_ISO_LEVELS,
+    n_lines: int = _MESH_N_LINES,
+    warp: float = _MESH_WARP_STRENGTH,
+) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    """Extract contour rings and warped grid lines from a 2D projected scalar field.
+
+    Two types of geometry are extracted:
+
+    * **Iso-contour rings** (``contour`` style): concentric curved loops at
+      intermediate field thresholds showing surface depth.
+    * **Warped grid lines** (``mesh`` style): horizontal and vertical scan
+      lines clipped to the exact outer contour and displaced perpendicular
+      by the smoothed field value, emulating 3D surface curvature.
+
+    Parameters
+    ----------
+    field_2d:
+        The upsampled/blurred 2D scalar field (cropped region).
+    isovalue:
+        Outer contour threshold.
+    crop_offset:
+        ``[r0 * upsample, c0 * upsample]`` to map back to full-grid coords.
+    is_negative:
+        If True, negate the field (for neg-phase MO lobes).
+    n_iso_levels:
+        Number of intermediate iso-contour rings.
+    n_lines:
+        Number of grid lines per direction (horizontal and vertical).
+    warp:
+        Perpendicular warp amplitude (higher = more curvature).
+
+    Returns
+    -------
+    (iso_loops, grid_lines):
+        *iso_loops* — closed contour arrays in full-grid coords.
+        *grid_lines* — open warped scan-line arrays in full-grid coords.
+    """
+    work = -field_2d if is_negative else field_2d
+
+    # --- Iso-contour rings ---
+    above = work[work > isovalue]
+    iso_loops: list[np.ndarray] = []
+    if above.size > 0:
+        peak = float(np.percentile(above, 95))
+        if peak > isovalue * 1.05:
+            thresholds = np.linspace(isovalue * 1.05, peak * 0.9, n_iso_levels)
+            for thr in thresholds:
+                raw = chain_segments(marching_squares(work, float(thr)))
+                for lp in raw:
+                    offset_lp = lp + crop_offset
+                    if loop_perimeter(offset_lp) >= MIN_LOOP_PERIMETER:
+                        iso_loops.append(resample_loop(offset_lp))
+
+    # --- Warped grid lines clipped to surface ---
+    h_lines = _warped_scan_lines(work, isovalue, n_lines, axis=0, warp=warp)
+    v_lines = _warped_scan_lines(work, isovalue, n_lines, axis=1, warp=warp)
+    grid_lines = [pts + crop_offset for pts in h_lines + v_lines]
+
+    return iso_loops, grid_lines
+
+
+# ---------------------------------------------------------------------------
+# Shared mesh/wire SVG rendering
+# ---------------------------------------------------------------------------
+
+
+def render_lobe_svg(
+    lobe: LobeContour2D,
+    grid: ContourGrid,
+    fill_color: str,
+    opacity: float,
+    scale: float,
+    cx: float,
+    cy: float,
+    canvas_w: int,
+    canvas_h: int,
+    surface_style: str = "solid",
+    stroke_width: float = 1.5,
+    mesh_inner_width: float = 0.8,
+) -> list[str]:
+    """Render one lobe in solid/mesh/wire style. Returns SVG element strings."""
+    d_all = combined_path_d(lobe.loops, grid, scale, cx, cy, canvas_w, canvas_h)
+    if not d_all:
+        return []
+
+    if surface_style == "solid":
+        return [
+            f'  <g opacity="{opacity:.2f}">',
+            f'    <path d="{d_all}" fill="{fill_color}" fill-rule="evenodd" stroke="none"/>',
+            "  </g>",
+        ]
+
+    # Derive stroke color (darkened fill)
+    from xyzrender.colors import Color
+
+    stroke_hex = Color.from_str(fill_color).darken(strength=0.4).hex
+
+    # --- dot: outer boundary + iso-contour rings, all as round dots ---
+    if surface_style == "dot":
+        dot_sw = stroke_width * 1.2
+        dot_inner_sw = mesh_inner_width * 1.4
+        dot_gap = max(2.5, dot_sw * 1.8)
+        dot_inner_gap = max(2.0, dot_inner_sw * 1.8)
+        lines: list[str] = [f'  <g opacity="{opacity:.2f}">']
+        lines.append(
+            f'    <path d="{d_all}" fill="none" fill-rule="evenodd"'
+            f' stroke="{stroke_hex}" stroke-width="{dot_sw:.1f}"'
+            f' stroke-dasharray="0 {dot_gap:.1f}" stroke-linecap="round"/>'
+        )
+        for iso_loop in lobe.mesh_iso_loops:
+            d = loop_to_path_d(iso_loop, grid, scale, cx, cy, canvas_w, canvas_h)
+            if d:
+                lines.append(
+                    f'    <path d="{d}" fill="none"'
+                    f' stroke="{stroke_hex}" stroke-width="{dot_inner_sw:.1f}"'
+                    f' stroke-dasharray="0 {dot_inner_gap:.1f}" stroke-linecap="round"/>'
+                )
+        lines.append("  </g>")
+        return lines
+
+    # --- contour / mesh: solid strokes ---
+    lines = [f'  <g opacity="{opacity:.2f}">']
+    lines.append(
+        f'    <path d="{d_all}" fill="none" fill-rule="evenodd"'
+        f' stroke="{stroke_hex}" stroke-width="{stroke_width:.1f}"/>'
+    )
+    if surface_style == "contour":
+        for iso_loop in lobe.mesh_iso_loops:
+            d = loop_to_path_d(iso_loop, grid, scale, cx, cy, canvas_w, canvas_h)
+            if d:
+                lines.append(
+                    f'    <path d="{d}" fill="none" stroke="{stroke_hex}" stroke-width="{mesh_inner_width:.1f}"/>'
+                )
+    elif surface_style == "mesh":
+        for grid_pts in lobe.mesh_grid_lines:
+            d = open_path_to_d(grid_pts, grid, scale, cx, cy, canvas_w, canvas_h)
+            if d:
+                lines.append(
+                    f'    <path d="{d}" fill="none" stroke="{stroke_hex}" stroke-width="{mesh_inner_width:.1f}"/>'
+                )
+    lines.append("  </g>")
+    return lines

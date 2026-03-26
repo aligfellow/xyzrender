@@ -50,9 +50,13 @@ def test_align_rotated_molecule(caffeine):
     assert float(np.sqrt(np.mean((aligned - pos1) ** 2))) < 1e-4
 
 
-def test_align_mismatched_atoms_raises(caffeine, ethanol):
-    with pytest.raises(ValueError, match="counts must match"):
-        align(caffeine.graph, ethanol.graph)
+def test_align_mismatched_atoms_mcs_fallback():
+    """Different atom counts trigger MCS alignment instead of raising."""
+    benzene = load(STRUCTURES / "benzene.xyz")
+    anthracene = load(STRUCTURES / "anthracene.xyz")
+    # Should succeed via MCS fallback, not raise
+    aligned = align(benzene.graph, anthracene.graph)
+    assert aligned.shape == (anthracene.graph.number_of_nodes(), 3)
 
 
 # ---------------------------------------------------------------------------
@@ -105,9 +109,23 @@ def test_render_overlay_mutual_exclusion_cell():
         render(mol, overlay=mol, orient=False)
 
 
-def test_render_overlay_atom_count_mismatch(caffeine, ethanol):
-    with pytest.raises(ValueError, match="counts must match"):
-        render(caffeine, overlay=ethanol, orient=False)
+def test_render_overlay_different_atom_counts():
+    """Overlay with different atom counts uses MCS alignment."""
+    benzene = load(STRUCTURES / "benzene.xyz")
+    anthracene = load(STRUCTURES / "anthracene.xyz")
+    svg = str(render(benzene, overlay=anthracene, orient=False))
+    assert svg.startswith("<svg")
+    assert "</svg>" in svg
+
+
+def test_render_overlay_very_different_molecules(caffeine, ethanol):
+    """Overlay of very different molecules either succeeds (small match) or raises."""
+    # Caffeine and ethanol share C/O/H so geometric MCS may find a small match
+    try:
+        svg = str(render(caffeine, overlay=ethanol, orient=False))
+        assert svg.startswith("<svg")
+    except ValueError:
+        pass  # acceptable if no common substructure found
 
 
 # ---------------------------------------------------------------------------

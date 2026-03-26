@@ -16,9 +16,11 @@ from xyzrender.contours import (
     combined_path_d,
     compute_grid_positions,
     cube_corners_ang,
+    extract_mesh_geometry,
     gaussian_blur_2d,
     loop_perimeter,
     marching_squares,
+    render_lobe_svg,
     resample_loop,
 )
 
@@ -52,6 +54,7 @@ def build_density_contours(
     flat_indices: np.ndarray | None = None,
     fixed_bounds: tuple[float, float, float, float] | None = None,
     n_layers: int = _N_LAYERS,
+    surface_style: str = "solid",
 ) -> SurfaceContours:
     """Build density contours from a parsed cube file.
 
@@ -60,6 +63,9 @@ def build_density_contours(
     base isovalue) cover the full surface extent; inner rings (at higher
     thresholds) are smaller concentric shapes.  Stacking them with per-layer
     opacity produces a depth-graded appearance.
+
+    In mesh/wire mode, produces a single outer contour + mesh geometry instead
+    of the multi-layer opacity stacking.
     """
     n1, n2, n3 = cube.grid_shape
     base_res = max(n1, n2, n3)
@@ -134,22 +140,47 @@ def build_density_contours(
     if above.size == 0:
         return SurfaceContours(x_min=x_min, x_max=x_max, y_min=y_min, y_max=y_max, pos_color=color, neg_color=color)
 
-    # Use 85th percentile as upper bound to avoid nuclear-peak outliers
-    upper = float(np.percentile(above, 85))
-    upper = max(upper, isovalue * 1.5)  # ensure at least some spread
-    thresholds = np.geomspace(isovalue, upper, n_layers)
-
     scale_offset = np.array([r0 * _up, c0 * _up])
     res = proj_res * _up
 
-    layers: list[LobeContour2D] = []
-    for threshold in thresholds:
-        raw_loops = chain_segments(marching_squares(blurred, float(threshold)))
-        # Scale from blurred-grid coords to upsampled-grid coords + crop offset
+    if surface_style in ("mesh", "contour", "dot"):
+        # Single outer contour + mesh geometry instead of multi-layer stacking
+        raw_loops = chain_segments(marching_squares(blurred, float(isovalue)))
         offset_loops = [loop * _up + scale_offset for loop in raw_loops]
         loops = [resample_loop(lp) for lp in offset_loops if loop_perimeter(lp) >= MIN_LOOP_PERIMETER]
+        layers: list[LobeContour2D] = []
         if loops:
-            layers.append(LobeContour2D(loops=loops, phase="pos", z_depth=z_depth))
+            lc = LobeContour2D(loops=loops, phase="pos", z_depth=z_depth)
+            if surface_style in ("mesh", "contour", "dot"):
+                # Density mesh falls back to contour — nuclear cusps make
+                # field-based grid warp unusable
+                if surface_style == "mesh":
+                    logger.info("Density: mesh style not supported, using contour instead")
+                _n_iso = 15 if surface_style == "dot" else 10
+                iso_loops, _grid = extract_mesh_geometry(
+                    blurred,
+                    float(isovalue),
+                    scale_offset / _up,
+                    n_iso_levels=_n_iso,
+                    n_lines=0,
+                )
+                lc.mesh_iso_loops = [lp * _up + scale_offset for lp in iso_loops]
+            layers.append(lc)
+    else:
+        # Solid mode: multi-threshold concentric layers
+        # Use 85th percentile as upper bound to avoid nuclear-peak outliers
+        upper = float(np.percentile(above, 85))
+        upper = max(upper, isovalue * 1.5)  # ensure at least some spread
+        thresholds = np.geomspace(isovalue, upper, n_layers)
+
+        layers = []
+        for threshold in thresholds:
+            raw_loops = chain_segments(marching_squares(blurred, float(threshold)))
+            # Scale from blurred-grid coords to upsampled-grid coords + crop offset
+            offset_loops = [loop * _up + scale_offset for loop in raw_loops]
+            loops = [resample_loop(lp) for lp in offset_loops if loop_perimeter(lp) >= MIN_LOOP_PERIMETER]
+            if loops:
+                layers.append(LobeContour2D(loops=loops, phase="pos", z_depth=z_depth))
 
     total_loops = sum(len(lc.loops) for lc in layers)
     if total_loops == 0:
@@ -247,6 +278,7 @@ def recompute_dens(
         flat_indices=_cache["flat_indices"],
         pos_flat_ang=_cache["pos_flat_ang"],
         fixed_bounds=fixed_bounds,
+        surface_style=config.surface_style,
     )
     config.surface_opacity = surface_opacity
 
@@ -267,19 +299,53 @@ def dens_layers_svg(
     cy: float,
     canvas_w: int,
     canvas_h: int,
+    *,
+    surface_style: str = "solid",
+    stroke_width: float = 1.5,
+    mesh_inner_width: float = 0.8,
 ) -> list[str]:
     """Render density threshold layers as stacked semi-transparent paths.
 
     Each layer gets a fraction of the total opacity.  Where more layers
     overlap (inner rings at higher thresholds stack on top of outer rings),
     opacity accumulates, creating a depth-graded appearance from edge to center.
+
+    In mesh/wire mode there is only one lobe; it is rendered via
+    :func:`~xyzrender.contours.render_lobe_svg`.
     """
     n = len(dens.lobes)
     if n == 0:
         return []
-    per_layer = _DENS_BASE_OPACITY * surface_opacity / n
+
     color = dens.pos_color
-    lines: list[str] = []
+
+    if surface_style in ("mesh", "contour", "dot"):
+        # mesh falls back to contour rendering for density
+        _style = "contour" if surface_style == "mesh" else surface_style
+        opacity = _DENS_BASE_OPACITY * surface_opacity
+        lines: list[str] = []
+        for lobe in dens.lobes:
+            lines.extend(
+                render_lobe_svg(
+                    lobe,
+                    dens,
+                    color,
+                    opacity,
+                    scale,
+                    cx,
+                    cy,
+                    canvas_w,
+                    canvas_h,
+                    surface_style=_style,
+                    stroke_width=stroke_width,
+                    mesh_inner_width=mesh_inner_width,
+                )
+            )
+        return lines
+
+    # Solid mode: layered opacity stacking
+    per_layer = _DENS_BASE_OPACITY * surface_opacity / n
+    lines = []
     for lobe in dens.lobes:
         d_all = combined_path_d(lobe.loops, dens, scale, cx, cy, canvas_w, canvas_h)
         if d_all:

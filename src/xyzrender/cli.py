@@ -90,6 +90,14 @@ def main() -> None:
         default=False,
         help="Ignore file connectivity and re-detect bonds with xyzgraph",
     )
+    io_g.add_argument(
+        "--threshold",
+        type=float,
+        default=1.0,
+        metavar="SCALE",
+        help="Global bond-distance scaling factor (default: 1.0). "
+        "Values > 1.0 detect longer bonds, < 1.0 detect fewer.",
+    )
 
     # --- Styling ---
     style_g = p.add_argument_group("styling")
@@ -183,6 +191,13 @@ def main() -> None:
     surf_g.add_argument("--mo-upsample", type=int, default=None, help="MO upsample factor (default: 3)")
     surf_g.add_argument("--opacity", type=float, default=None, help="Surface opacity (default: 1.0, >1 boosts)")
     surf_g.add_argument(
+        "--surface-style",
+        choices=["solid", "mesh", "contour", "dot"],
+        default=None,
+        dest="surface_style",
+        help="Surface rendering style: solid (default), mesh (wireframe grid), wire (outline only)",
+    )
+    surf_g.add_argument(
         "--hull",
         nargs="*",
         default=None,
@@ -246,6 +261,14 @@ def main() -> None:
         "--orient", action=argparse.BooleanOptionalAction, default=None, help="Auto-orientation (default: on)"
     )
     orient_g.add_argument("-I", "--interactive", action="store_true", help="Open in v viewer for interactive rotation")
+    orient_g.add_argument(
+        "--ref",
+        nargs="?",
+        const="reference.xyz",
+        default=None,
+        metavar="FILE",
+        help="Save/load orientation reference for consistent rendering",
+    )
 
     # --- TS / NCI ---
     ts_g = p.add_argument_group("transition state / NCI")
@@ -711,13 +734,22 @@ def main() -> None:
         )
 
     if args.smi:
-        mol = load(args.smi, smiles=True, charge=args.charge, multiplicity=args.multiplicity, kekule=args.kekule)
+        mol = load(
+            args.smi,
+            smiles=True,
+            charge=args.charge,
+            multiplicity=args.multiplicity,
+            kekule=args.kekule,
+            threshold=args.threshold,
+        )
         xyz_path = Path(args.output).with_suffix(".xyz")
         mol.to_xyz(xyz_path, title=args.smi)
         logger.info("3D geometry written to %s", xyz_path)
     elif from_stdin:
-        graph = load_stdin(charge=args.charge, multiplicity=args.multiplicity, kekule=args.kekule)
-        mol = Molecule(graph=graph, cube_data=None, cell_data=None, oriented=False)
+        graph = load_stdin(
+            charge=args.charge, multiplicity=args.multiplicity, kekule=args.kekule, threshold=args.threshold
+        )
+        mol = Molecule(graph=graph, cube_data=None, cell_data=None, oriented=False, threshold=args.threshold)
     elif not args.input:
         p.error("No input file and stdin is a terminal")
     else:
@@ -735,6 +767,7 @@ def main() -> None:
                 crystal=interface_mode or False,
                 cell=args.cell,
                 quick=args.bo is False,
+                threshold=args.threshold,
             )
         except ValueError as e:
             p.error(str(e))
@@ -835,9 +868,15 @@ def main() -> None:
 
     # --- Interactive viewer (operates on the reference frame only) ---
     if args.interactive:
-        orient(mol)
-        if not mol.oriented:
-            sys.exit(1)
+        if args.ref is not None and Path(args.ref).is_file():
+            logger.warning(
+                "--ref %s already exists — skipping interactive viewer (reference orientation will be used)",
+                args.ref,
+            )
+        else:
+            orient(mol)
+            if not mol.oriented:
+                sys.exit(1)
 
     # --- Ensemble: load all frames, align onto (possibly oriented) reference ---
     if args.ensemble:
@@ -854,6 +893,7 @@ def main() -> None:
             multiplicity=args.multiplicity,
             kekule=args.kekule,
             reference_mol=mol,
+            threshold=args.threshold,
         )
 
     # --- Crystal ghost resolution ---
@@ -900,6 +940,7 @@ def main() -> None:
             flat_mo=args.flat_mo,
             dens_color=args.dens_color,
             nci_mode=args.nci_mode,
+            surface_style=args.surface_style,
             opacity=args.opacity,
             overlay=args.overlay,
             overlay_color=args.overlay_color,
@@ -908,6 +949,7 @@ def main() -> None:
             vector_scale=args.vector_scale,
             bo=args.bo,
             output=args.output,
+            ref=args.ref,
         )
     except ValueError as e:
         p.error(str(e))
@@ -966,6 +1008,7 @@ def main() -> None:
                 mo_upsample=args.mo_upsample,
                 flat_mo=args.flat_mo,
                 dens_color=args.dens_color,
+                surface_style=args.surface_style,
                 no_cell=args.no_cell,
                 axes=args.axes,
                 axis=args.axis,
@@ -976,6 +1019,7 @@ def main() -> None:
                 ghost_opacity=args.ghost_opacity,
                 vector=args.vector,
                 vector_scale=args.vector_scale,
+                ref=args.ref,
             )
         except ValueError as e:
             p.error(str(e))

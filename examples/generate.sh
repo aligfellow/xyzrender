@@ -72,6 +72,13 @@ xyzrender "$DIR/caffeine_lumo.cube" --mo --mo-colors maroon teal -o "$IMG/caffei
 xyzrender "$DIR/caffeine_homo.cube" --mo --hy --iso 0.03 -o "$IMG/caffeine_homo_iso_hy.svg"
 xyzrender "$DIR/caffeine_homo.cube" --mo -o "$IMG/caffeine_homo.svg" --gif-rot -go "$IMG/caffeine_homo.gif"
 
+echo "=== Surface styles ==="
+xyzrender "$DIR/caffeine_homo.cube" --mo --surface-style mesh -o "$IMG/caffeine_homo_mesh.svg"
+xyzrender "$DIR/caffeine_homo.cube" --mo --surface-style contour -o "$IMG/caffeine_homo_contour.svg"
+xyzrender "$DIR/caffeine_homo.cube" --mo --surface-style dot -o "$IMG/caffeine_homo_dot.svg"
+xyzrender "$DIR/caffeine_dens.cube" --dens --surface-style contour -o "$IMG/caffeine_dens_contour.svg"
+xyzrender "$DIR/base-pair-dens.cube" --nci-surf "$DIR/base-pair-grad.cube" --surface-style mesh -o "$IMG/base-pair-nci_mesh.svg"
+
 echo "=== Density surface ==="
 xyzrender "$DIR/caffeine_dens.cube" --dens --iso 0.01 -o "$IMG/caffeine_dens_iso.svg"
 xyzrender "$DIR/caffeine_dens.cube" --dens --dens-color teal --opacity 0.75 -o "$IMG/caffeine_dens_custom.svg"
@@ -126,6 +133,7 @@ echo "=== Overlays ==="
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 --hy -o "$IMG/isothio_overlay.svg" --gif-rot -go "$IMG/isothio_overlay.gif"
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 -o "$IMG/isothio_overlay_custom.svg" --no-orient --overlay-color green -a 2
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 --hy --align-atoms "1,2,3" -o "$IMG/isothio_overlay_align.svg"
+xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_bridged.xyz" -c 1 --hy -o "$IMG/isothio_overlay_cross.svg" --gif-rot -go "$IMG/isothio_overlay_cross.gif"
 
 echo "=== Ensemble ==="
 xyzrender "$DIR/triphenylbenzol.xyz" --ensemble -o "$IMG/triphenylbenzol_ensemble.svg" --gif-rot -go "$IMG/triphenylbenzol_ensemble.gif"

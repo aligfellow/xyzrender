@@ -1,0 +1,385 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 759" width="800" height="759">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <defs>
+    <radialGradient id="x0g0" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#bdbdbd"/><stop offset="40%" stop-color="#b2b2b2"/><stop offset="100%" stop-color="#796066"/></radialGradient>
+    <radialGradient id="x0g1" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#bebebe"/><stop offset="40%" stop-color="#b3b3b3"/><stop offset="100%" stop-color="#7b6368"/></radialGradient>
+    <radialGradient id="x0g2" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#bfbfbf"/><stop offset="40%" stop-color="#b5b5b5"/><stop offset="100%" stop-color="#7e656b"/></radialGradient>
+    <radialGradient id="x0g3" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#bfbfbf"/><stop offset="40%" stop-color="#b5b5b5"/><stop offset="100%" stop-color="#7e656b"/></radialGradient>
+    <radialGradient id="x0g4" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#bebebe"/><stop offset="40%" stop-color="#b3b3b3"/><stop offset="100%" stop-color="#7b6368"/></radialGradient>
+    <radialGradient id="x0g5" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#bdbdbd"/><stop offset="40%" stop-color="#b2b2b2"/><stop offset="100%" stop-color="#796065"/></radialGradient>
+    <radialGradient id="x0g6" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#69a3ed"/><stop offset="40%" stop-color="#415ef8"/><stop offset="100%" stop-color="#192da6"/></radialGradient>
+    <radialGradient id="x0g7" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#bbbbbb"/><stop offset="40%" stop-color="#b0b0b0"/><stop offset="100%" stop-color="#765c62"/></radialGradient>
+    <radialGradient id="x0g8" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#66a1ed"/><stop offset="40%" stop-color="#3e5cf8"/><stop offset="100%" stop-color="#1529a4"/></radialGradient>
+    <radialGradient id="x0g9" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#bababa"/><stop offset="40%" stop-color="#afafaf"/><stop offset="100%" stop-color="#745a60"/></radialGradient>
+    <radialGradient id="x0g10" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b8b8b8"/><stop offset="40%" stop-color="#acacac"/><stop offset="100%" stop-color="#6f545a"/></radialGradient>
+    <radialGradient id="x0g11" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#bbbbbb"/><stop offset="40%" stop-color="#b0b0b0"/><stop offset="100%" stop-color="#765c62"/></radialGradient>
+    <radialGradient id="x0g12" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b7b7b7"/><stop offset="40%" stop-color="#ababab"/><stop offset="100%" stop-color="#6e5258"/></radialGradient>
+    <radialGradient id="x0g13" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
+    <radialGradient id="x0g14" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#bcbcbc"/><stop offset="40%" stop-color="#b1b1b1"/><stop offset="100%" stop-color="#775d63"/></radialGradient>
+    <radialGradient id="x0g15" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c2c2c2"/><stop offset="40%" stop-color="#b8b8b8"/><stop offset="100%" stop-color="#846d72"/></radialGradient>
+    <radialGradient id="x0g16" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c3c3c3"/><stop offset="40%" stop-color="#b9b9b9"/><stop offset="100%" stop-color="#866f74"/></radialGradient>
+    <radialGradient id="x0g17" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#cecece"/><stop offset="40%" stop-color="#c6c6c6"/><stop offset="100%" stop-color="#9c8a8e"/></radialGradient>
+    <radialGradient id="x0g18" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#dbdbdb"/><stop offset="40%" stop-color="#d5d5d5"/><stop offset="100%" stop-color="#b6a8ab"/></radialGradient>
+    <radialGradient id="x0g19" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d9d9d9"/><stop offset="40%" stop-color="#d3d3d3"/><stop offset="100%" stop-color="#b3a5a8"/></radialGradient>
+    <radialGradient id="x0g20" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#cccccc"/><stop offset="40%" stop-color="#c4c4c4"/><stop offset="100%" stop-color="#988589"/></radialGradient>
+    <radialGradient id="x0g21" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#bababa"/><stop offset="40%" stop-color="#afafaf"/><stop offset="100%" stop-color="#755b60"/></radialGradient>
+    <radialGradient id="x0g22" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#f05d4c"/><stop offset="40%" stop-color="#ff1d1d"/><stop offset="100%" stop-color="#9a112c"/></radialGradient>
+    <radialGradient id="x0g23" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#bbbbbb"/><stop offset="40%" stop-color="#afafaf"/><stop offset="100%" stop-color="#755b60"/></radialGradient>
+    <radialGradient id="x0g24" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#bababa"/><stop offset="40%" stop-color="#afafaf"/><stop offset="100%" stop-color="#73595f"/></radialGradient>
+    <radialGradient id="x0g25" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#bababa"/><stop offset="40%" stop-color="#afafaf"/><stop offset="100%" stop-color="#74595f"/></radialGradient>
+    <radialGradient id="x0g26" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#f2f269"/><stop offset="40%" stop-color="#ffff41"/><stop offset="100%" stop-color="#ad7f15"/></radialGradient>
+    <radialGradient id="x0g27" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#a88a8f"/></radialGradient>
+    <radialGradient id="x0g28" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#aa8d92"/></radialGradient>
+    <radialGradient id="x0g29" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#aa8d92"/></radialGradient>
+    <radialGradient id="x0g30" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#a88a8f"/></radialGradient>
+    <radialGradient id="x0g31" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9f7e84"/></radialGradient>
+    <radialGradient id="x0g32" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9d7b81"/></radialGradient>
+    <radialGradient id="x0g33" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#ac8f94"/></radialGradient>
+    <radialGradient id="x0g34" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#a18187"/></radialGradient>
+    <radialGradient id="x0g35" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9d7b81"/></radialGradient>
+    <radialGradient id="x0g36" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9e7c82"/></radialGradient>
+    <radialGradient id="x0g37" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9d7b81"/></radialGradient>
+    <radialGradient id="x0g38" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9d7b81"/></radialGradient>
+    <radialGradient id="x0g39" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#a38388"/></radialGradient>
+    <radialGradient id="x0g40" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#aa8d92"/></radialGradient>
+    <radialGradient id="x0g41" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#a98b90"/></radialGradient>
+    <radialGradient id="x0g42" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#a7898e"/></radialGradient>
+    <radialGradient id="x0g43" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#bea8ac"/></radialGradient>
+    <radialGradient id="x0g44" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#e0d5d7"/></radialGradient>
+    <radialGradient id="x0g45" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#dcd0d2"/></radialGradient>
+    <radialGradient id="x0g46" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#baa2a6"/></radialGradient>
+    <radialGradient id="x0g47" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#a4858b"/></radialGradient>
+    <radialGradient id="x0g48" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#a18187"/></radialGradient>
+    <radialGradient id="x0g49" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9e7d83"/></radialGradient>
+    <radialGradient id="x0g50" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#a4848a"/></radialGradient>
+    <radialGradient id="x0g51" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#a88a8f"/></radialGradient>
+    <radialGradient id="x0g52" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d687d4"/><stop offset="40%" stop-color="#c26ad8"/><stop offset="100%" stop-color="#7a3895"/></radialGradient>
+    <radialGradient id="x0g53" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d685d4"/><stop offset="40%" stop-color="#c167d7"/><stop offset="100%" stop-color="#783493"/></radialGradient>
+    <radialGradient id="x0g54" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d583d3"/><stop offset="40%" stop-color="#c065d7"/><stop offset="100%" stop-color="#763291"/></radialGradient>
+    <radialGradient id="x0g55" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d583d3"/><stop offset="40%" stop-color="#c065d7"/><stop offset="100%" stop-color="#763291"/></radialGradient>
+    <radialGradient id="x0g56" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d481d3"/><stop offset="40%" stop-color="#bf63d6"/><stop offset="100%" stop-color="#752f90"/></radialGradient>
+    <radialGradient id="x0g57" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d480d2"/><stop offset="40%" stop-color="#bf62d6"/><stop offset="100%" stop-color="#742e8f"/></radialGradient>
+    <radialGradient id="x0g58" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d481d2"/><stop offset="40%" stop-color="#bf62d6"/><stop offset="100%" stop-color="#742e8f"/></radialGradient>
+    <radialGradient id="x0g59" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d480d2"/><stop offset="40%" stop-color="#bf61d6"/><stop offset="100%" stop-color="#732c8e"/></radialGradient>
+    <radialGradient id="x0g60" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d47fd2"/><stop offset="40%" stop-color="#be60d5"/><stop offset="100%" stop-color="#722b8e"/></radialGradient>
+    <radialGradient id="x0g61" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d480d2"/><stop offset="40%" stop-color="#bf61d6"/><stop offset="100%" stop-color="#732c8f"/></radialGradient>
+    <radialGradient id="x0g62" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d27bd0"/><stop offset="40%" stop-color="#bc5bd4"/><stop offset="100%" stop-color="#6d248a"/></radialGradient>
+    <radialGradient id="x0g63" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d47fd2"/><stop offset="40%" stop-color="#be60d6"/><stop offset="100%" stop-color="#722b8e"/></radialGradient>
+    <radialGradient id="x0g64" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d27bd0"/><stop offset="40%" stop-color="#bc5bd4"/><stop offset="100%" stop-color="#6d248a"/></radialGradient>
+    <radialGradient id="x0g65" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d176cf"/><stop offset="40%" stop-color="#ba55d3"/><stop offset="100%" stop-color="#681c86"/></radialGradient>
+    <radialGradient id="x0g66" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d176cf"/><stop offset="40%" stop-color="#ba55d3"/><stop offset="100%" stop-color="#681c86"/></radialGradient>
+    <radialGradient id="x0g67" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d176cf"/><stop offset="40%" stop-color="#ba55d3"/><stop offset="100%" stop-color="#681c86"/></radialGradient>
+    <radialGradient id="x0g68" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#da91d8"/><stop offset="40%" stop-color="#c776db"/><stop offset="100%" stop-color="#86499e"/></radialGradient>
+    <radialGradient id="x0g69" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#db96da"/><stop offset="40%" stop-color="#ca7ddd"/><stop offset="100%" stop-color="#8c52a2"/></radialGradient>
+    <radialGradient id="x0g70" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#e4afe3"/><stop offset="40%" stop-color="#d69be5"/><stop offset="100%" stop-color="#a67ab8"/></radialGradient>
+    <radialGradient id="x0g71" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ebc5ea"/><stop offset="40%" stop-color="#e2b8ec"/><stop offset="100%" stop-color="#bfa0cc"/></radialGradient>
+    <radialGradient id="x0g72" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#e9bde8"/><stop offset="40%" stop-color="#deade9"/><stop offset="100%" stop-color="#b692c5"/></radialGradient>
+    <radialGradient id="x0g73" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#dfa1de"/><stop offset="40%" stop-color="#d08be1"/><stop offset="100%" stop-color="#9864ac"/></radialGradient>
+    <radialGradient id="x0g74" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d37ed1"/><stop offset="40%" stop-color="#be5fd5"/><stop offset="100%" stop-color="#71298d"/></radialGradient>
+    <radialGradient id="x0g75" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d480d2"/><stop offset="40%" stop-color="#bf62d6"/><stop offset="100%" stop-color="#732d8f"/></radialGradient>
+    <radialGradient id="x0g76" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d37dd1"/><stop offset="40%" stop-color="#bd5ed5"/><stop offset="100%" stop-color="#70288c"/></radialGradient>
+    <radialGradient id="x0g77" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d27ad0"/><stop offset="40%" stop-color="#bc5ad4"/><stop offset="100%" stop-color="#6c2389"/></radialGradient>
+    <radialGradient id="x0g78" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d481d3"/><stop offset="40%" stop-color="#bf63d6"/><stop offset="100%" stop-color="#742f90"/></radialGradient>
+    <radialGradient id="x0g79" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d47fd2"/><stop offset="40%" stop-color="#be60d5"/><stop offset="100%" stop-color="#722b8e"/></radialGradient>
+    <radialGradient id="x0g80" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#da91d8"/><stop offset="40%" stop-color="#c777db"/><stop offset="100%" stop-color="#86499e"/></radialGradient>
+    <radialGradient id="x0g81" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d990d8"/><stop offset="40%" stop-color="#c776db"/><stop offset="100%" stop-color="#85489d"/></radialGradient>
+    <radialGradient id="x0g82" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#dfa2de"/><stop offset="40%" stop-color="#d08ce1"/><stop offset="100%" stop-color="#9865ad"/></radialGradient>
+    <radialGradient id="x0g83" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#e7bae6"/><stop offset="40%" stop-color="#dca9e8"/><stop offset="100%" stop-color="#b38dc2"/></radialGradient>
+    <radialGradient id="x0g84" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#e8bbe7"/><stop offset="40%" stop-color="#ddabe9"/><stop offset="100%" stop-color="#b48fc3"/></radialGradient>
+    <radialGradient id="x0g85" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#e0a4df"/><stop offset="40%" stop-color="#d18ee1"/><stop offset="100%" stop-color="#9b69af"/></radialGradient>
+    <radialGradient id="x0g86" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d685d4"/><stop offset="40%" stop-color="#c168d7"/><stop offset="100%" stop-color="#793593"/></radialGradient>
+    <radialGradient id="x0g87" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d687d5"/><stop offset="40%" stop-color="#c26ad8"/><stop offset="100%" stop-color="#7b3895"/></radialGradient>
+    <radialGradient id="x0g88" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d788d5"/><stop offset="40%" stop-color="#c36bd8"/><stop offset="100%" stop-color="#7c3a96"/></radialGradient>
+    <radialGradient id="x0g89" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d584d4"/><stop offset="40%" stop-color="#c167d7"/><stop offset="100%" stop-color="#783493"/></radialGradient>
+    <radialGradient id="x0g90" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d37cd1"/><stop offset="40%" stop-color="#bd5cd4"/><stop offset="100%" stop-color="#6e268b"/></radialGradient>
+    <radialGradient id="x0g91" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d788d5"/><stop offset="40%" stop-color="#c36cd9"/><stop offset="100%" stop-color="#7c3b96"/></radialGradient>
+    <radialGradient id="x0g92" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d37ed1"/><stop offset="40%" stop-color="#be5fd5"/><stop offset="100%" stop-color="#71298d"/></radialGradient>
+    <radialGradient id="x0g93" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d176cf"/><stop offset="40%" stop-color="#ba55d3"/><stop offset="100%" stop-color="#681c86"/></radialGradient>
+    <radialGradient id="x0g94" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d176cf"/><stop offset="40%" stop-color="#ba55d3"/><stop offset="100%" stop-color="#681c86"/></radialGradient>
+    <radialGradient id="x0g95" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d176cf"/><stop offset="40%" stop-color="#ba55d3"/><stop offset="100%" stop-color="#681c86"/></radialGradient>
+    <radialGradient id="x0g96" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d88bd6"/><stop offset="40%" stop-color="#c46fd9"/><stop offset="100%" stop-color="#7f3f99"/></radialGradient>
+    <radialGradient id="x0g97" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#e6b4e4"/><stop offset="40%" stop-color="#d9a2e7"/><stop offset="100%" stop-color="#ad83bd"/></radialGradient>
+    <radialGradient id="x0g98" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#f1d5f0"/><stop offset="40%" stop-color="#eaccf1"/><stop offset="100%" stop-color="#d1bada"/></radialGradient>
+    <radialGradient id="x0g99" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#efd0ee"/><stop offset="40%" stop-color="#e7c5f0"/><stop offset="100%" stop-color="#cbb2d5"/></radialGradient>
+    <radialGradient id="x0g100" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#de9ddc"/><stop offset="40%" stop-color="#cd85df"/><stop offset="100%" stop-color="#935da8"/></radialGradient>
+    <radialGradient id="x0g101" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d176cf"/><stop offset="40%" stop-color="#ba55d3"/><stop offset="100%" stop-color="#681c86"/></radialGradient>
+    <radialGradient id="x0g102" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d279d0"/><stop offset="40%" stop-color="#bb59d4"/><stop offset="100%" stop-color="#6c2289"/></radialGradient>
+    <radialGradient id="x0g103" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#dfa1de"/><stop offset="40%" stop-color="#d08be1"/><stop offset="100%" stop-color="#9864ac"/></radialGradient>
+    <radialGradient id="x0g104" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#eecfee"/><stop offset="40%" stop-color="#e6c3ef"/><stop offset="100%" stop-color="#caafd4"/></radialGradient>
+    <radialGradient id="x0g105" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#efd1ef"/><stop offset="40%" stop-color="#e8c7f0"/><stop offset="100%" stop-color="#cdb4d7"/></radialGradient>
+    <radialGradient id="x0g106" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#e0a5df"/><stop offset="40%" stop-color="#d18fe2"/><stop offset="100%" stop-color="#9c6aaf"/></radialGradient>
+    <radialGradient id="x0g107" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d685d4"/><stop offset="40%" stop-color="#c168d8"/><stop offset="100%" stop-color="#793693"/></radialGradient>
+    <radialGradient id="x0g108" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#d789d5"/><stop offset="40%" stop-color="#c36cd9"/><stop offset="100%" stop-color="#7c3b96"/></radialGradient>
+  </defs>
+  <circle cx="666.8" cy="336.4" r="11.1" fill="url(#x0g98)" stroke="#b2b2b2" stroke-width="3.7"/>
+  <line x1="664.2" y1="335.6" x2="655.2" y2="332.8" stroke="#d3a0e3" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="610.7" cy="538.2" r="11.1" fill="url(#x0g44)" stroke="#b2b2b2" stroke-width="3.7"/>
+  <line x1="607.0" y1="535.9" x2="594.2" y2="527.8" stroke="#7a7a7a" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="411.8" cy="600.5" r="11.1" fill="url(#x0g105)" stroke="#b2b2b2" stroke-width="3.7"/>
+  <line x1="414.7" y1="595.8" x2="424.6" y2="579.6" stroke="#cc90df" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="539.1" cy="276.8" r="11.1" fill="url(#x0g99)" stroke="#b2b2b2" stroke-width="3.7"/>
+  <line x1="545.3" y1="280.1" x2="566.8" y2="291.7" stroke="#cc90df" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="542.3" cy="538.5" r="11.1" fill="url(#x0g104)" stroke="#b2b2b2" stroke-width="3.7"/>
+  <line x1="536.3" y1="538.0" x2="515.3" y2="536.5" stroke="#cb8ede" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="477.4" cy="480.9" r="11.1" fill="url(#x0g45)" stroke="#b2b2b2" stroke-width="3.7"/>
+  <line x1="482.9" y1="482.6" x2="501.9" y2="488.3" stroke="#747474" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="650.3" cy="331.3" r="21.1" fill="url(#x0g71)" stroke="#b2b2b2" stroke-width="3.7"/>
+  <line x1="631.2" y1="328.6" x2="592.9" y2="310.8" stroke="#c98add" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="635.9" y1="318.5" x2="597.6" y2="300.7" stroke="#c98add" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="664.6" y1="332.4" x2="691.6" y2="346.4" stroke="#c581da" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="659.5" y1="342.4" x2="686.5" y2="356.4" stroke="#c581da" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <circle cx="578.6" cy="298.0" r="21.1" fill="url(#x0g72)" stroke="#b2b2b2" stroke-width="3.7"/>
+  <line x1="571.9" y1="301.8" x2="560.5" y2="298.2" stroke="#be73d6" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="575.3" y1="291.1" x2="563.8" y2="287.5" stroke="#be73d6" stroke-width="6.5" stroke-linecap="round"/>
+  <circle cx="587.2" cy="523.4" r="21.1" fill="url(#x0g18)" stroke="#b2b2b2" stroke-width="3.7"/>
+  <line x1="567.5" y1="521.1" x2="527.6" y2="504.1" stroke="#666666" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="571.9" y1="510.8" x2="532.0" y2="493.8" stroke="#666666" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="599.0" y1="520.8" x2="623.0" y2="527.1" stroke="#555555" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="596.2" y1="531.6" x2="620.1" y2="538.0" stroke="#555555" stroke-width="6.5" stroke-linecap="round"/>
+  <circle cx="430.1" cy="570.7" r="21.1" fill="url(#x0g84)" stroke="#b2b2b2" stroke-width="3.7"/>
+  <line x1="444.8" y1="557.5" x2="484.2" y2="538.8" stroke="#c582db" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="449.6" y1="567.6" x2="489.0" y2="548.9" stroke="#c582db" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="418.1" y1="575.8" x2="390.8" y2="574.6" stroke="#bf74d7" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="418.6" y1="564.6" x2="391.3" y2="563.4" stroke="#bf74d7" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <circle cx="503.8" cy="535.7" r="21.1" fill="url(#x0g83)" stroke="#b2b2b2" stroke-width="3.7"/>
+  <line x1="505.1" y1="523.7" x2="518.9" y2="503.3" stroke="#be72d6" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="514.4" y1="530.0" x2="528.2" y2="509.5" stroke="#be72d6" stroke-width="6.5" stroke-linecap="round"/>
+  <circle cx="512.3" cy="491.5" r="21.1" fill="url(#x0g19)" stroke="#b2b2b2" stroke-width="3.7"/>
+  <line x1="502.3" y1="491.8" x2="486.0" y2="481.6" stroke="#505050" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="508.2" y1="482.3" x2="491.9" y2="472.1" stroke="#505050" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <circle cx="757.2" cy="382.8" r="11.1" fill="url(#x0g97)" stroke="#a6a6a6" stroke-width="3.7"/>
+  <line x1="748.3" y1="378.9" x2="717.7" y2="365.1" stroke="#c077d8" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="700.9" cy="357.5" r="21.1" fill="url(#x0g70)" stroke="#979797" stroke-width="3.7"/>
+  <line x1="694.3" y1="361.5" x2="682.8" y2="358.2" stroke="#b764d2" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="697.4" y1="350.7" x2="685.9" y2="347.5" stroke="#b764d2" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <circle cx="322.0" cy="596.0" r="11.1" fill="url(#x0g106)" stroke="#7e7e7e" stroke-width="3.7"/>
+  <line x1="331.0" y1="591.7" x2="362.2" y2="576.7" stroke="#b967d3" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="690.8" cy="559.2" r="11.1" fill="url(#x0g43)" stroke="#7e7e7e" stroke-width="3.7"/>
+  <line x1="681.6" y1="555.4" x2="649.6" y2="542.5" stroke="#454545" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="379.3" cy="568.5" r="21.1" fill="url(#x0g85)" stroke="#7c7c7c" stroke-width="3.7"/>
+  <line x1="380.8" y1="556.6" x2="394.6" y2="537.0" stroke="#b35acf" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="390.0" y1="563.0" x2="403.7" y2="543.4" stroke="#b35acf" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <circle cx="632.0" cy="535.3" r="21.1" fill="url(#x0g17)" stroke="#7a7a7a" stroke-width="3.7"/>
+  <line x1="621.9" y1="535.6" x2="605.7" y2="525.4" stroke="#343434" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="627.9" y1="526.1" x2="611.6" y2="516.0" stroke="#343434" stroke-width="6.5" stroke-linecap="round"/>
+  <circle cx="529.5" cy="497.5" r="21.1" fill="url(#x0g82)" stroke="#767676" stroke-width="3.7"/>
+  <line x1="546.8" y1="489.6" x2="578.1" y2="475.1" stroke="#b764d2" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="517.7" y1="502.8" x2="491.1" y2="502.0" stroke="#b258cf" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="518.0" y1="491.6" x2="491.4" y2="490.8" stroke="#b258cf" stroke-width="6.5" stroke-linecap="round"/>
+  <circle cx="557.2" cy="291.3" r="21.1" fill="url(#x0g73)" stroke="#747474" stroke-width="3.7"/>
+  <line x1="540.5" y1="283.2" x2="510.2" y2="268.4" stroke="#b660d1" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="571.4" y1="292.7" x2="598.2" y2="307.3" stroke="#b259cf" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="566.1" y1="302.6" x2="592.9" y2="317.1" stroke="#b259cf" stroke-width="6.5" stroke-linecap="round"/>
+  <circle cx="587.2" cy="470.9" r="11.1" fill="url(#x0g103)" stroke="#747474" stroke-width="3.7"/>
+  <circle cx="481.9" cy="472.4" r="21.1" fill="url(#x0g20)" stroke="#6f6f6f" stroke-width="3.7"/>
+  <line x1="464.7" y1="464.5" x2="433.2" y2="449.9" stroke="#3e3e3e" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="493.7" y1="470.2" x2="517.2" y2="477.4" stroke="#303030" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="490.4" y1="480.9" x2="513.9" y2="488.1" stroke="#303030" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <circle cx="424.1" cy="445.7" r="11.1" fill="url(#x0g46)" stroke="#6d6d6d" stroke-width="3.7"/>
+  <circle cx="501.4" cy="264.1" r="11.1" fill="url(#x0g100)" stroke="#686868" stroke-width="3.7"/>
+  <circle cx="679.4" cy="351.4" r="21.1" fill="url(#x0g69)" stroke="#565656" stroke-width="3.7"/>
+  <line x1="660.3" y1="348.9" x2="621.6" y2="331.3" stroke="#af52cd" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="664.9" y1="338.7" x2="626.2" y2="321.1" stroke="#af52cd" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="691.2" y1="357.5" x2="712.8" y2="368.6" stroke="#ae4ecc" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="405.2" cy="531.5" r="21.1" fill="url(#x0g80)" stroke="#494949" stroke-width="3.7"/>
+  <line x1="420.0" y1="518.3" x2="460.0" y2="499.2" stroke="#ae4fcc" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="424.8" y1="528.4" x2="464.8" y2="509.2" stroke="#ae4fcc" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="396.7" y1="528.8" x2="373.6" y2="521.5" stroke="#a944c9" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="607.2" cy="318.6" r="21.1" fill="url(#x0g68)" stroke="#484848" stroke-width="3.7"/>
+  <line x1="602.7" y1="317.2" x2="590.5" y2="313.5" stroke="#a843c9" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="479.6" cy="496.0" r="21.1" fill="url(#x0g81)" stroke="#464646" stroke-width="3.7"/>
+  <line x1="481.9" y1="488.7" x2="488.2" y2="469.0" stroke="#a843c9" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="601.6" cy="516.3" r="21.1" fill="url(#x0g16)" stroke="#444444" stroke-width="3.7"/>
+  <line x1="581.9" y1="514.4" x2="541.2" y2="498.0" stroke="#252525" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="586.1" y1="504.0" x2="545.3" y2="487.7" stroke="#252525" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="612.2" y1="519.0" x2="631.7" y2="524.1" stroke="#1d1d1d" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="525.7" cy="485.8" r="21.1" fill="url(#x0g15)" stroke="#3f3f3f" stroke-width="3.7"/>
+  <line x1="519.0" y1="481.3" x2="501.0" y2="469.3" stroke="#171717" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="719.1" cy="371.8" r="11.1" fill="url(#x0g96)" stroke="#393939" stroke-width="3.7"/>
+  <circle cx="370.5" cy="547.2" r="11.1" fill="url(#x0g33)" stroke="#393939" stroke-width="3.7"/>
+  <line x1="368.8" y1="543.5" x2="362.6" y2="530.3" stroke="#171717" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="44.4" cy="337.9" r="11.1" fill="url(#x0g28)" stroke="#333333" stroke-width="3.7"/>
+  <line x1="53.6" y1="341.6" x2="85.4" y2="354.3" stroke="#1b1b1b" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="64.6" cy="481.3" r="11.1" fill="url(#x0g29)" stroke="#333333" stroke-width="3.7"/>
+  <line x1="72.4" y1="475.2" x2="99.5" y2="454.2" stroke="#1b1b1b" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="65.4" cy="481.7" r="11.1" fill="url(#x0g108)" stroke="#323232" stroke-width="3.7"/>
+  <line x1="73.1" y1="475.5" x2="99.9" y2="454.1" stroke="#a944c9" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="580.2" cy="158.0" r="11.1" fill="url(#x0g91)" stroke="#323232" stroke-width="3.7"/>
+  <line x1="585.5" y1="159.1" x2="603.7" y2="163.0" stroke="#a63ec7" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="518.3" cy="634.9" r="11.1" fill="url(#x0g40)" stroke="#313131" stroke-width="3.7"/>
+  <line x1="511.6" y1="638.8" x2="488.1" y2="652.1" stroke="#161616" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="42.8" cy="338.7" r="11.1" fill="url(#x0g88)" stroke="#313131" stroke-width="3.7"/>
+  <line x1="52.1" y1="342.2" x2="84.2" y2="354.5" stroke="#a843c9" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="102.9" cy="361.3" r="21.1" fill="url(#x0g2)" stroke="#2f2f2f" stroke-width="3.7"/>
+  <line x1="111.1" y1="379.3" x2="117.3" y2="423.1" stroke="#1a1a1a" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="100.0" y1="380.9" x2="106.2" y2="424.6" stroke="#1a1a1a" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="114.0" y1="345.1" x2="147.4" y2="317.8" stroke="#191919" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="121.0" y1="353.7" x2="154.4" y2="326.5" stroke="#191919" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <circle cx="114.4" cy="442.7" r="21.1" fill="url(#x0g3)" stroke="#2f2f2f" stroke-width="3.7"/>
+  <line x1="133.9" y1="445.1" x2="173.4" y2="462.3" stroke="#181818" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="129.4" y1="455.3" x2="168.9" y2="472.5" stroke="#181818" stroke-width="6.5" stroke-linecap="round"/>
+  <circle cx="114.6" cy="442.4" r="21.1" fill="url(#x0g87)" stroke="#2d2d2d" stroke-width="3.7"/>
+  <line x1="106.1" y1="424.5" x2="99.3" y2="380.9" stroke="#a843c9" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="117.2" y1="422.7" x2="110.3" y2="379.1" stroke="#a843c9" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="134.2" y1="444.5" x2="174.0" y2="461.1" stroke="#a842c8" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="129.9" y1="454.8" x2="169.7" y2="471.5" stroke="#a842c8" stroke-width="6.5" stroke-linecap="round"/>
+  <circle cx="101.8" cy="361.2" r="21.1" fill="url(#x0g52)" stroke="#2d2d2d" stroke-width="3.7"/>
+  <line x1="112.7" y1="344.8" x2="145.7" y2="317.1" stroke="#a841c8" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="119.9" y1="353.4" x2="152.8" y2="325.7" stroke="#a841c8" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <circle cx="420.3" cy="669.1" r="11.1" fill="url(#x0g41)" stroke="#2c2c2c" stroke-width="3.7"/>
+  <line x1="428.9" y1="667.5" x2="459.0" y2="662.2" stroke="#141414" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="729.9" cy="204.5" r="11.1" fill="url(#x0g51)" stroke="#2a2a2a" stroke-width="3.7"/>
+  <line x1="727.1" y1="210.8" x2="717.3" y2="233.4" stroke="#111111" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="198.4" cy="536.5" r="11.1" fill="url(#x0g107)" stroke="#292929" stroke-width="3.7"/>
+  <line x1="197.0" y1="526.6" x2="192.0" y2="492.4" stroke="#a741c8" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="196.6" cy="538.0" r="11.1" fill="url(#x0g30)" stroke="#292929" stroke-width="3.7"/>
+  <line x1="195.3" y1="528.1" x2="190.9" y2="493.8" stroke="#171717" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="157.3" cy="247.2" r="11.1" fill="url(#x0g27)" stroke="#292929" stroke-width="3.7"/>
+  <line x1="158.6" y1="257.1" x2="163.0" y2="291.4" stroke="#171717" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="165.5" cy="310.3" r="21.1" fill="url(#x0g1)" stroke="#292929" stroke-width="3.7"/>
+  <line x1="185.0" y1="312.5" x2="224.9" y2="329.5" stroke="#161616" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="180.6" y1="322.8" x2="220.5" y2="339.8" stroke="#161616" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <circle cx="188.4" cy="474.9" r="21.1" fill="url(#x0g4)" stroke="#292929" stroke-width="3.7"/>
+  <line x1="199.5" y1="458.7" x2="233.3" y2="431.3" stroke="#151515" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="206.6" y1="467.4" x2="240.4" y2="439.9" stroke="#151515" stroke-width="6.5" stroke-linecap="round"/>
+  <circle cx="189.3" cy="473.6" r="21.1" fill="url(#x0g86)" stroke="#292929" stroke-width="3.7"/>
+  <line x1="200.2" y1="457.2" x2="233.7" y2="429.4" stroke="#a73fc8" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="207.3" y1="465.8" x2="240.9" y2="438.0" stroke="#a73fc8" stroke-width="6.5" stroke-linecap="round"/>
+  <circle cx="163.7" cy="309.3" r="21.1" fill="url(#x0g53)" stroke="#272727" stroke-width="3.7"/>
+  <line x1="160.9" y1="290.5" x2="155.9" y2="256.3" stroke="#a740c8" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="183.3" y1="311.3" x2="223.6" y2="327.7" stroke="#a63fc7" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="179.1" y1="321.6" x2="219.3" y2="338.1" stroke="#a63fc7" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <circle cx="154.5" cy="246.4" r="11.1" fill="url(#x0g89)" stroke="#272727" stroke-width="3.7"/>
+  <circle cx="637.3" cy="525.6" r="11.1" fill="url(#x0g42)" stroke="#272727" stroke-width="3.7"/>
+  <circle cx="240.0" cy="342.1" r="21.1" fill="url(#x0g0)" stroke="#242424" stroke-width="3.7"/>
+  <line x1="248.2" y1="360.1" x2="254.4" y2="404.1" stroke="#141414" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="237.2" y1="361.7" x2="243.3" y2="405.7" stroke="#141414" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="253.7" y1="328.0" x2="309.2" y2="296.8" stroke="#121212" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="259.2" y1="337.7" x2="314.7" y2="306.5" stroke="#121212" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <circle cx="251.5" cy="423.7" r="21.1" fill="url(#x0g5)" stroke="#242424" stroke-width="3.7"/>
+  <line x1="271.1" y1="422.9" x2="314.2" y2="433.6" stroke="#121212" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="268.4" y1="433.7" x2="311.5" y2="444.5" stroke="#121212" stroke-width="6.5" stroke-linecap="round"/>
+  <circle cx="251.8" cy="421.6" r="21.1" fill="url(#x0g55)" stroke="#242424" stroke-width="3.7"/>
+  <line x1="243.3" y1="403.7" x2="236.4" y2="359.7" stroke="#a63ec7" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="254.3" y1="402.0" x2="247.4" y2="358.0" stroke="#a63ec7" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="270.2" y1="425.8" x2="313.4" y2="435.8" stroke="#a63dc7" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="238.9" cy="340.1" r="21.1" fill="url(#x0g54)" stroke="#232323" stroke-width="3.7"/>
+  <line x1="255.2" y1="330.6" x2="310.2" y2="298.6" stroke="#a53cc7" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="330.7" cy="439.7" r="19.9" fill="url(#x0g56)" stroke="#1f1f1f" stroke-width="3.7"/>
+  <line x1="337.8" y1="456.2" x2="357.5" y2="501.4" stroke="#a53cc7" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="341.3" y1="425.3" x2="365.9" y2="391.8" stroke="#a53bc7" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="330.0" cy="443.3" r="19.9" fill="url(#x0g6)" stroke="#1f1f1f" stroke-width="3.7"/>
+  <line x1="336.4" y1="425.7" x2="361.5" y2="392.6" stroke="#101010" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="345.3" y1="432.5" x2="370.4" y2="399.4" stroke="#101010" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="336.1" y1="460.1" x2="352.7" y2="505.4" stroke="#101010" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="365.1" cy="518.8" r="21.1" fill="url(#x0g78)" stroke="#1e1e1e" stroke-width="3.7"/>
+  <line x1="351.7" y1="531.5" x2="327.0" y2="554.9" stroke="#a43ac6" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="380.0" y1="517.8" x2="420.9" y2="515.2" stroke="#a337c5" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="329.7" cy="291.6" r="22.8" fill="url(#x0g26)" stroke="#1e1e1e" stroke-width="3.7"/>
+  <line x1="344.3" y1="307.1" x2="373.4" y2="361.5" stroke="#101010" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="334.4" y1="312.4" x2="363.5" y2="366.8" stroke="#101010" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <circle cx="475.4" cy="659.3" r="21.1" fill="url(#x0g14)" stroke="#1e1e1e" stroke-width="3.7"/>
+  <line x1="481.7" y1="676.3" x2="493.5" y2="707.6" stroke="#0e0e0e" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="472.9" y1="648.2" x2="466.2" y2="617.7" stroke="#090909" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="613.7" cy="372.9" r="11.1" fill="url(#x0g47)" stroke="#1d1d1d" stroke-width="3.7"/>
+  <line x1="609.0" y1="364.2" x2="592.8" y2="334.3" stroke="#0f0f0f" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="327.8" cy="288.4" r="22.8" fill="url(#x0g58)" stroke="#1d1d1d" stroke-width="3.7"/>
+  <line x1="342.7" y1="303.6" x2="372.7" y2="357.2" stroke="#a53bc6" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="332.9" y1="309.0" x2="362.9" y2="362.6" stroke="#a53bc6" stroke-width="6.5" stroke-linecap="round"/>
+  <circle cx="377.1" cy="376.5" r="21.1" fill="url(#x0g57)" stroke="#1d1d1d" stroke-width="3.7"/>
+  <line x1="396.0" y1="377.7" x2="439.1" y2="380.5" stroke="#a43ac6" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="377.4" cy="380.9" r="21.1" fill="url(#x0g7)" stroke="#1c1c1c" stroke-width="3.7"/>
+  <line x1="396.3" y1="382.3" x2="438.7" y2="385.5" stroke="#0f0f0f" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="359.2" cy="523.3" r="21.1" fill="url(#x0g11)" stroke="#1c1c1c" stroke-width="3.7"/>
+  <line x1="345.9" y1="533.9" x2="321.2" y2="553.6" stroke="#0c0c0c" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="375.1" y1="523.0" x2="418.5" y2="522.4" stroke="#0a0a0a" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="490.6" cy="461.7" r="21.1" fill="url(#x0g75)" stroke="#1c1c1c" stroke-width="3.7"/>
+  <line x1="483.2" y1="444.1" x2="463.9" y2="398.1" stroke="#a43ac6" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="508.6" y1="461.3" x2="541.8" y2="460.7" stroke="#a439c6" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="479.1" y1="472.7" x2="447.3" y2="503.2" stroke="#a336c5" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="586.0" cy="312.1" r="21.1" fill="url(#x0g61)" stroke="#1b1b1b" stroke-width="3.7"/>
+  <line x1="567.0" y1="311.7" x2="516.8" y2="310.5" stroke="#a439c6" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="593.0" y1="327.3" x2="606.1" y2="355.5" stroke="#a337c5" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="593.8" y1="296.7" x2="614.9" y2="254.9" stroke="#a337c5" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="457.0" cy="381.6" r="19.9" fill="url(#x0g59)" stroke="#1a1a1a" stroke-width="3.7"/>
+  <line x1="465.8" y1="366.1" x2="488.4" y2="326.6" stroke="#a439c6" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="739.5" cy="302.5" r="11.1" fill="url(#x0g50)" stroke="#1a1a1a" stroke-width="3.7"/>
+  <line x1="735.2" y1="293.6" x2="720.1" y2="262.4" stroke="#0d0d0d" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="613.7" cy="165.2" r="21.1" fill="url(#x0g63)" stroke="#191919" stroke-width="3.7"/>
+  <line x1="621.3" y1="181.8" x2="626.1" y2="221.5" stroke="#a336c5" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="610.2" y1="183.1" x2="615.0" y2="222.9" stroke="#a336c5" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="616.7" y1="147.4" x2="634.9" y2="112.7" stroke="#a336c5" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="626.6" y1="152.6" x2="644.8" y2="117.9" stroke="#a336c5" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <circle cx="584.0" cy="317.8" r="21.1" fill="url(#x0g23)" stroke="#191919" stroke-width="3.7"/>
+  <line x1="564.9" y1="317.3" x2="517.6" y2="315.9" stroke="#0e0e0e" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="589.1" y1="298.8" x2="610.6" y2="264.1" stroke="#0d0d0d" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="598.6" y1="304.7" x2="620.1" y2="270.0" stroke="#0d0d0d" stroke-width="6.5" stroke-linecap="round"/>
+  <circle cx="456.5" cy="386.8" r="19.9" fill="url(#x0g8)" stroke="#191919" stroke-width="3.7"/>
+  <line x1="465.6" y1="371.3" x2="488.9" y2="331.7" stroke="#0e0e0e" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="464.3" y1="402.9" x2="486.0" y2="447.7" stroke="#0d0d0d" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="498.6" cy="315.3" r="21.1" fill="url(#x0g21)" stroke="#181818" stroke-width="3.7"/>
+  <line x1="483.7" y1="302.2" x2="464.5" y2="271.9" stroke="#0d0d0d" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="493.1" y1="296.3" x2="474.0" y2="265.9" stroke="#0d0d0d" stroke-width="6.5" stroke-linecap="round"/>
+  <circle cx="460.1" cy="254.5" r="19.0" fill="url(#x0g22)" stroke="#181818" stroke-width="3.7"/>
+  <circle cx="497.8" cy="310.1" r="21.1" fill="url(#x0g60)" stroke="#181818" stroke-width="3.7"/>
+  <line x1="482.8" y1="297.3" x2="463.5" y2="267.8" stroke="#a338c6" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="492.1" y1="291.2" x2="472.9" y2="261.7" stroke="#a338c6" stroke-width="6.5" stroke-linecap="round"/>
+  <circle cx="320.0" cy="561.6" r="11.1" fill="url(#x0g79)" stroke="#181818" stroke-width="3.7"/>
+  <circle cx="494.3" cy="464.8" r="21.1" fill="url(#x0g9)" stroke="#171717" stroke-width="3.7"/>
+  <line x1="481.8" y1="476.8" x2="446.9" y2="510.2" stroke="#090909" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="508.8" y1="463.3" x2="536.0" y2="460.7" stroke="#090909" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="711.9" cy="245.5" r="21.1" fill="url(#x0g25)" stroke="#161616" stroke-width="3.7"/>
+  <line x1="693.0" y1="246.7" x2="644.2" y2="249.8" stroke="#0c0c0c" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="718.2" y1="238.3" x2="729.9" y2="224.8" stroke="#070707" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="496.8" cy="716.5" r="11.1" fill="url(#x0g39)" stroke="#161616" stroke-width="3.7"/>
+  <circle cx="458.9" cy="250.5" r="19.0" fill="url(#x0g74)" stroke="#161616" stroke-width="3.7"/>
+  <circle cx="625.2" cy="251.0" r="21.1" fill="url(#x0g24)" stroke="#151515" stroke-width="3.7"/>
+  <line x1="615.7" y1="234.8" x2="598.2" y2="205.1" stroke="#0b0b0b" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="640.5" cy="42.5" r="11.1" fill="url(#x0g92)" stroke="#151515" stroke-width="3.7"/>
+  <line x1="641.7" y1="51.6" x2="645.6" y2="83.0" stroke="#a236c5" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="551.3" cy="460.5" r="11.1" fill="url(#x0g76)" stroke="#141414" stroke-width="3.7"/>
+  <circle cx="593.1" cy="196.6" r="11.1" fill="url(#x0g48)" stroke="#121212" stroke-width="3.7"/>
+  <circle cx="314.2" cy="559.2" r="11.1" fill="url(#x0g34)" stroke="#111111" stroke-width="3.7"/>
+  <circle cx="609.8" cy="363.5" r="11.1" fill="url(#x0g90)" stroke="#101010" stroke-width="3.7"/>
+  <circle cx="622.7" cy="239.5" r="21.1" fill="url(#x0g62)" stroke="#0e0e0e" stroke-width="3.7"/>
+  <line x1="633.9" y1="236.0" x2="657.2" y2="240.5" stroke="#a030c3" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="631.7" y1="246.9" x2="655.0" y2="251.5" stroke="#a030c3" stroke-width="6.5" stroke-linecap="round"/>
+  <circle cx="647.8" cy="100.2" r="21.1" fill="url(#x0g64)" stroke="#0d0d0d" stroke-width="3.7"/>
+  <line x1="659.0" y1="96.7" x2="682.2" y2="101.4" stroke="#a030c3" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="656.8" y1="107.7" x2="680.0" y2="112.4" stroke="#a030c3" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <circle cx="434.4" cy="522.2" r="21.1" fill="url(#x0g10)" stroke="#0b0b0b" stroke-width="3.7"/>
+  <line x1="440.5" y1="539.8" x2="457.6" y2="588.9" stroke="#050505" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="430.0" y1="514.4" x2="421.6" y2="499.8" stroke="#030303" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="435.8" cy="514.3" r="21.1" fill="url(#x0g77)" stroke="#0b0b0b" stroke-width="3.7"/>
+  <line x1="443.5" y1="531.5" x2="457.8" y2="563.3" stroke="#a132c4" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="431.5" y1="506.8" x2="423.5" y2="493.0" stroke="#a030c3" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="543.7" cy="459.9" r="11.1" fill="url(#x0g31)" stroke="#0a0a0a" stroke-width="3.7"/>
+  <circle cx="461.8" cy="572.3" r="11.1" fill="url(#x0g102)" stroke="#090909" stroke-width="3.7"/>
+  <circle cx="463.7" cy="606.5" r="21.1" fill="url(#x0g12)" stroke="#070707" stroke-width="3.7"/>
+  <line x1="449.9" y1="614.3" x2="424.1" y2="628.9" stroke="#020202" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="479.5" y1="606.2" x2="522.6" y2="605.3" stroke="#010101" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="733.3" cy="221.0" r="11.1" fill="url(#x0g49)" stroke="#060606" stroke-width="3.7"/>
+  <circle cx="589.6" cy="588.4" r="11.1" fill="url(#x0g36)" stroke="#040404" stroke-width="3.7"/>
+  <line x1="581.6" y1="591.0" x2="553.6" y2="600.1" stroke="#010101" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="416.9" cy="633.0" r="11.1" fill="url(#x0g35)" stroke="#010101" stroke-width="3.7"/>
+  <circle cx="419.3" cy="495.7" r="11.1" fill="url(#x0g32)" stroke="#010101" stroke-width="3.7"/>
+  <circle cx="421.3" cy="489.1" r="11.1" fill="url(#x0g101)" stroke="#010101" stroke-width="3.7"/>
+  <circle cx="666.2" cy="248.0" r="21.1" fill="url(#x0g67)" stroke="#010101" stroke-width="3.7"/>
+  <line x1="668.5" y1="265.2" x2="672.5" y2="296.7" stroke="#9f2ec3" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="669.3" y1="230.3" x2="687.6" y2="195.5" stroke="#9f2ec3" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <line x1="679.2" y1="235.5" x2="697.4" y2="200.7" stroke="#9f2ec3" stroke-width="6.5" stroke-linecap="round"/>
+  <circle cx="691.2" cy="108.9" r="21.1" fill="url(#x0g65)" stroke="#010101" stroke-width="3.7"/>
+  <line x1="699.2" y1="93.8" x2="713.7" y2="66.1" stroke="#9f2ec3" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="698.9" y1="125.5" x2="703.9" y2="165.0" stroke="#9f2ec3" stroke-width="6.5" stroke-linecap="round"/>
+  <line x1="687.8" y1="126.9" x2="692.8" y2="166.4" stroke="#9f2ec3" stroke-width="6.5" stroke-linecap="round" stroke-dasharray="6.5,13.0"/>
+  <circle cx="538.4" cy="605.0" r="21.1" fill="url(#x0g13)" stroke="#000000" stroke-width="3.7"/>
+  <line x1="541.6" y1="622.3" x2="547.6" y2="654.3" stroke="#000000" stroke-width="9.3" stroke-linecap="round"/>
+  <line x1="536.6" y1="592.9" x2="533.3" y2="570.6" stroke="#000000" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="673.7" cy="305.7" r="11.1" fill="url(#x0g95)" stroke="#000000" stroke-width="3.7"/>
+  <circle cx="717.9" cy="58.2" r="11.1" fill="url(#x0g93)" stroke="#000000" stroke-width="3.7"/>
+  <circle cx="549.3" cy="663.4" r="11.1" fill="url(#x0g38)" stroke="#000000" stroke-width="3.7"/>
+  <circle cx="700.5" cy="183.0" r="21.1" fill="url(#x0g66)" stroke="#000000" stroke-width="3.7"/>
+  <line x1="710.6" y1="185.2" x2="729.0" y2="189.2" stroke="#9f2ec3" stroke-width="9.3" stroke-linecap="round"/>
+  <circle cx="532.3" cy="564.2" r="11.1" fill="url(#x0g37)" stroke="#000000" stroke-width="3.7"/>
+  <circle cx="734.4" cy="190.4" r="11.1" fill="url(#x0g94)" stroke="#000000" stroke-width="3.7"/>
+</svg>

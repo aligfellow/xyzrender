@@ -30,9 +30,11 @@ from xyzrender.contours import (
     combined_path_d,
     compute_grid_positions,
     cube_corners_ang,
+    extract_mesh_geometry,
     gaussian_blur_2d,
     loop_perimeter,
     marching_squares,
+    render_lobe_svg,
     resample_loop,
     upsample_2d,
 )
@@ -247,6 +249,8 @@ def _project_nci_region_2d(
     y_min: float,
     y_max: float,
     resolution: int,
+    *,
+    surface_style: str = "solid",
 ) -> LobeContour2D | None:
     """Project pre-transformed 3D positions to a 2D contour loop.
 
@@ -304,7 +308,21 @@ def _project_nci_region_2d(
         return None
 
     cent_3d = (float(lobe_pos[:, 0].mean()), float(lobe_pos[:, 1].mean()), z_depth)
-    return LobeContour2D(loops=loops, phase="pos", z_depth=z_depth, centroid_3d=cent_3d)
+    lc = LobeContour2D(loops=loops, phase="pos", z_depth=z_depth, centroid_3d=cent_3d)
+
+    if surface_style in ("mesh", "contour", "dot"):
+        _n_iso = 6 if surface_style == "dot" else 3
+        iso_loops, grid_lines = extract_mesh_geometry(
+            upsampled,
+            _MEMBERSHIP_THRESHOLD,
+            offset,
+            n_iso_levels=_n_iso,
+            n_lines=8,
+        )
+        lc.mesh_iso_loops = iso_loops
+        lc.mesh_grid_lines = grid_lines
+
+    return lc
 
 
 # ---------------------------------------------------------------------------
@@ -401,6 +419,7 @@ def build_nci_contours(
     pos_flat_ang: np.ndarray | None = None,
     fixed_bounds: tuple[float, float, float, float] | None = None,
     regions_3d: list[Lobe3D] | None = None,
+    surface_style: str = "solid",
 ) -> NCIContours:
     """Build NCI contour data from a grad cube file.
 
@@ -438,6 +457,14 @@ def build_nci_contours(
     isovalue = params.isovalue
     color = resolve_color(params.color)
     color_mode = params.color_mode
+
+    # Pixel mode is rasterised — incompatible with vector surface styles
+    if surface_style in ("mesh", "contour", "dot") and color_mode == "pixel":
+        logger.warning(
+            "NCI pixel mode is rasterised and incompatible with --surface-style %s; using solid instead",
+            surface_style,
+        )
+        surface_style = "solid"
 
     n1, n2, n3 = grad_cube.grid_shape
     base_res = max(n1, n2, n3)
@@ -502,6 +529,7 @@ def build_nci_contours(
             y_min,
             y_max,
             base_res,
+            surface_style=surface_style,
         )
         if lc is not None:
             if use_dens_color:
@@ -628,6 +656,10 @@ def nci_lobe_svg_items(
     cy: float,
     canvas_w: int,
     canvas_h: int,
+    *,
+    surface_style: str = "solid",
+    stroke_width: float = 1.5,
+    mesh_inner_width: float = 0.8,
 ) -> list[tuple[float, list[str]]]:
     """Return per-lobe ``(z_depth, svg_lines)`` pairs for z-sorted rendering.
 
@@ -646,7 +678,30 @@ def nci_lobe_svg_items(
     items: list[tuple[float, list[str]]] = []
     opacity = surface_opacity
 
+    # Raster PNG (pixel mode) overrides any vector style
     if nci.raster_png:
+        surface_style = "solid"
+
+    if surface_style in ("mesh", "contour", "dot"):
+        for lobe in nci.lobes:
+            color = lobe.lobe_color if lobe.lobe_color is not None else nci.color
+            svg_lines = render_lobe_svg(
+                lobe,
+                nci,
+                color,
+                opacity,
+                scale,
+                cx,
+                cy,
+                canvas_w,
+                canvas_h,
+                surface_style=surface_style,
+                stroke_width=stroke_width,
+                mesh_inner_width=mesh_inner_width,
+            )
+            if svg_lines:
+                items.append((lobe.z_depth, svg_lines))
+    elif nci.raster_png:
         for i, lobe in enumerate(nci.lobes):
             use_str = f'  <use href="#nci_raster" clip-path="url(#nci_clip_{i})" opacity="{opacity:.3f}"/>'
             items.append((lobe.z_depth, [use_str]))
@@ -670,6 +725,10 @@ def nci_loops_svg(
     cy: float,
     canvas_w: int,
     canvas_h: int,
+    *,
+    surface_style: str = "solid",
+    stroke_width: float = 1.5,
+    mesh_inner_width: float = 0.8,
 ) -> list[str]:
     """Render NCI patches as individual flat-filled closed loops.
 
@@ -683,11 +742,35 @@ def nci_loops_svg(
     opacity = surface_opacity
     lines: list[str] = []
 
+    # Raster PNG (pixel mode) overrides any vector style
+    if nci.raster_png:
+        surface_style = "solid"
+
     for lobe in nci.lobes:
         color = lobe.lobe_color if lobe.lobe_color is not None else nci.color
-        d = combined_path_d(lobe.loops, nci, scale, cx, cy, canvas_w, canvas_h)
-        if d:
-            lines.append(f'  <path d="{d}" fill="{color}" fill-rule="evenodd" stroke="none" opacity="{opacity:.3f}"/>')
+        if surface_style in ("mesh", "contour", "dot"):
+            lines.extend(
+                render_lobe_svg(
+                    lobe,
+                    nci,
+                    color,
+                    opacity,
+                    scale,
+                    cx,
+                    cy,
+                    canvas_w,
+                    canvas_h,
+                    surface_style=surface_style,
+                    stroke_width=stroke_width,
+                    mesh_inner_width=mesh_inner_width,
+                )
+            )
+        else:
+            d = combined_path_d(lobe.loops, nci, scale, cx, cy, canvas_w, canvas_h)
+            if d:
+                lines.append(
+                    f'  <path d="{d}" fill="{color}" fill-rule="evenodd" stroke="none" opacity="{opacity:.3f}"/>'
+                )
 
     return lines
 

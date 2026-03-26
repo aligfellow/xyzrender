@@ -103,6 +103,7 @@ class Molecule:
     cell_data: CellData | None = None
     oriented: bool = False
     ensemble: EnsembleFrames | None = None
+    threshold: float = 1.0
 
     def to_xyz(self, path: str | os.PathLike, title: str = "") -> None:
         """Write the molecule to an XYZ file.
@@ -166,6 +167,7 @@ def load(
     crystal: bool | str = False,
     cell: bool = False,
     quick: bool = False,
+    threshold: float = 1.0,
     # --- Ensemble (multi-frame trajectory) ---
     ensemble: bool = False,
     reference_frame: int = 0,
@@ -220,6 +222,10 @@ def load(
         when you know bond orders will be suppressed at render time (e.g.
         ``render(mol, bo=False)``).  CIF and PDB-with-cell always use
         ``quick=True`` automatically regardless of this flag.
+    threshold:
+        Global bond-distance scaling factor (default 1.0).  Multiplies
+        all VDW-based bond-detection cutoffs in xyzgraph.  Values > 1.0
+        make bonds easier to detect (longer tolerance), < 1.0 stricter.
     ensemble:
         Load as a multi-frame trajectory ensemble.  All frames are
         RMSD-aligned onto *reference_frame* and merged into a single graph.
@@ -269,6 +275,7 @@ def load(
             quick=quick,
             nci_detect=nci_detect,
             reference_mol=reference_mol,
+            threshold=threshold,
         )
 
     import xyzrender.parsers as fmt
@@ -284,7 +291,13 @@ def load(
         logger.info("Loading SMILES: %s", molecule)
         data = fmt.parse_smiles(str(molecule), kekule=kekule)
         graph = graph_from_moldata(
-            data, charge=charge, multiplicity=multiplicity, kekule=kekule, rebuild=rebuild, quick=quick
+            data,
+            charge=charge,
+            multiplicity=multiplicity,
+            kekule=kekule,
+            rebuild=rebuild,
+            quick=quick,
+            threshold=threshold,
         )
     elif not Path(mol_path).is_file():
         raise FileNotFoundError(f"[Errno 2] No such file or directory: '{mol_path}'")
@@ -293,12 +306,19 @@ def load(
         interface_mode = _resolve_crystal_interface(mol_path, crystal)
         from xyzrender.crystal import load_crystal
 
-        graph, cell_data = load_crystal(mol_path, interface_mode)
+        graph, cell_data = load_crystal(mol_path, interface_mode, threshold=threshold)
 
     elif mol_path.suffix.lower() == ".cube":
         from xyzrender.readers import load_cube
 
-        graph, cube_data = load_cube(mol_path, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick)
+        graph, cube_data = load_cube(
+            mol_path,
+            charge=charge,
+            multiplicity=multiplicity,
+            kekule=kekule,
+            quick=quick,
+            threshold=threshold,
+        )
 
     elif ts_detect:
         from xyzrender.readers import load_ts_molecule
@@ -309,6 +329,7 @@ def load(
             multiplicity=multiplicity,
             ts_frame=ts_frame,
             kekule=kekule,
+            threshold=threshold,
         )
 
     else:
@@ -322,6 +343,7 @@ def load(
             kekule=kekule,
             rebuild=rebuild,
             quick=quick,
+            threshold=threshold,
         )
 
     # Auto-promote: any file that carried lattice data (extXYZ Lattice=, PDB CRYST1, CIF)
@@ -341,7 +363,7 @@ def load(
 
         graph = detect_nci(graph)
 
-    return Molecule(graph=graph, cube_data=cube_data, cell_data=cell_data)
+    return Molecule(graph=graph, cube_data=cube_data, cell_data=cell_data, threshold=threshold)
 
 
 def orient(mol: Molecule) -> None:
@@ -448,6 +470,7 @@ def render(
     no_hy: bool = False,
     bo: bool | None = None,
     orient: bool | None = None,
+    ref: str | os.PathLike | None = None,
     # --- Crystal display (when mol has cell_data) ---
     no_cell: bool = False,
     axes: bool = True,
@@ -491,6 +514,7 @@ def render(
     dens_color: str | None = None,
     nci_mode: str | None = None,
     nci_cutoff: float | None = None,
+    surface_style: str | None = None,
     # --- Convex hull ---
     hull: bool | str | list[int] | list[list[int]] | None = None,
     hull_color: str | list[str] | None = None,
@@ -536,6 +560,12 @@ def render(
         ``True`` / ``False`` to force / suppress PCA auto-orientation.
         ``None`` (default) enables auto-orientation, unless the molecule was
         manually oriented via :func:`orient`.
+    ref:
+        Path to an orientation reference XYZ file.  If the file exists,
+        the molecule is Kabsch-aligned to it and PCA auto-orientation is
+        disabled regardless of *orient*.  If the file does not exist,
+        current (possibly PCA-oriented) positions are saved to it.
+        Not supported for periodic structures (raises ``ValueError``).
     ts_bonds, nci_bonds:
         Manual TS / NCI bond overlays as 1-indexed atom pairs.
     vdw:
@@ -719,6 +749,10 @@ def render(
 
     apply_hull_to_config(cfg, hull, hull_color, hull_opacity, hull_edge, hull_edge_width_ratio, mol.graph)
 
+    # --- Surface style ---
+    if surface_style is not None:
+        cfg.surface_style = surface_style
+
     # --- Never mutate mol — work on a render-time copy ---
     # resolve_orientation() (called by every compute_*_surface) writes PCA-rotated
     # positions back into the graph in-place and add_crystal_images() appends ghost
@@ -731,6 +765,16 @@ def render(
         cell_data=copy.deepcopy(mol.cell_data) if mol.cell_data is not None else None,
         oriented=mol.oriented,
     )
+
+    # --- Orientation reference ---
+    if ref is not None:
+        ref_path = Path(ref)
+        if ref_path.is_file():
+            if mol.oriented:
+                logger.warning("ref overrides interactive orientation (ref file %s exists)", ref_path)
+            _apply_ref_orientation(rmol, ref_path, cfg)
+        else:
+            _apply_and_save_ref(rmol, cfg, ref_path)
 
     # --- Ensemble: build merged graph lazily (z_nudge=True for static renders) ---
     # mol.graph holds only the reference frame; conformer data lives in mol.ensemble.
@@ -921,6 +965,8 @@ def render(
         compute_dens_surface(rmol.graph, cube_data, cfg, dens_params)
 
     if esp_params is not None and esp is not None and cube_data is not None:
+        if cfg.surface_style != "solid":
+            logger.info("ESP uses raster rendering; --surface-style %s is ignored", cfg.surface_style)
         esp_cube = parse_cube(str(esp))
         compute_esp_surface(rmol.graph, cube_data, esp_cube, cfg, esp_params)
 
@@ -987,6 +1033,7 @@ def render_gif(
     no_hy: bool = False,
     bo: bool | None = None,
     orient: bool | None = None,
+    ref: str | os.PathLike | None = None,
     # --- Molecule color ---
     mol_color: str | None = None,
     # --- Highlight ---
@@ -1020,6 +1067,7 @@ def render_gif(
     mo_upsample: int | None = None,
     flat_mo: bool = False,
     dens_color: str | None = None,
+    surface_style: str | None = None,
     # --- Convex hull (gif_rot only) ---
     hull: bool | str | list[int] | list[list[int]] | None = None,
     hull_color: str | list[str] | None = None,
@@ -1192,6 +1240,10 @@ def render_gif(
 
     apply_hull_to_config(cfg, hull, hull_color, hull_opacity, hull_edge, hull_edge_width_ratio, _gif_graph)
 
+    # --- Surface style ---
+    if surface_style is not None:
+        cfg.surface_style = surface_style
+
     # Surface / hull mutual exclusivity (also catches hull set on pre-built config)
     if cfg.show_convex_hull and (mo or dens):
         msg = "render_gif: convex hull and surface rendering (mo/dens) are mutually exclusive"
@@ -1305,6 +1357,16 @@ def render_gif(
             # Deep-copy so render_rotation_gif (which mutates positions in-place) doesn't
             # corrupt the caller's Molecule, and so _apply_cell_config can add ghost atoms.
             ref_graph = copy.deepcopy(ref_graph)
+
+        # --- Orientation reference (gif_rot only) ---
+        if ref is not None:
+            _ref_path = Path(ref)
+            _ref_mol = Molecule(graph=ref_graph)
+            if _ref_path.is_file():
+                _apply_ref_orientation(_ref_mol, _ref_path, cfg)
+            else:
+                _apply_and_save_ref(_ref_mol, cfg, _ref_path)
+            ref_graph = _ref_mol.graph
 
         # --- Ensemble: build scratch merged graph (z_nudge=False — meaningless for rotation) ---
         if isinstance(molecule, Molecule) and molecule.ensemble is not None:
@@ -1470,6 +1532,7 @@ def _build_ensemble_molecule(
     quick: bool = False,
     nci_detect: bool = False,
     reference_mol: Molecule | None = None,
+    threshold: float = 1.0,
 ) -> Molecule:
     """Build a :class:`Molecule` representing an ensemble of conformers.
 
@@ -1532,6 +1595,7 @@ def _build_ensemble_molecule(
             kekule=kekule,
             rebuild=rebuild,
             quick=quick,
+            threshold=threshold,
         )
         oriented = False
 
@@ -1571,7 +1635,9 @@ def _build_ensemble_molecule(
                 conformer_graphs.append(ref_graph)
                 continue
             atoms = list(zip(frame["symbols"], [tuple(p) for p in frame["positions"]], strict=True))
-            fg = build_graph(atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick)
+            fg = build_graph(
+                atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick, threshold=threshold
+            )
             for _i, _j, d in fg.edges(data=True):
                 if "bond_order" in d:
                     d["bond_order"] = 1
@@ -1607,7 +1673,9 @@ def _build_ensemble_molecule(
         reference_idx=reference_frame,
     )
 
-    return Molecule(graph=ref_graph, cube_data=None, cell_data=cell_data, oriented=oriented, ensemble=ens)
+    return Molecule(
+        graph=ref_graph, cube_data=None, cell_data=cell_data, oriented=oriented, ensemble=ens, threshold=threshold
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1852,6 +1920,84 @@ def _combine_vector_sources(
             )
 
 
+def _apply_ref_orientation(rmol: Molecule, ref_path: Path, cfg: "RenderConfig") -> None:
+    """Kabsch-align *rmol* onto a saved reference XYZ.  Force-disables auto_orient."""
+    if rmol.cell_data is not None:
+        msg = "--ref is not supported for periodic structures"
+        raise ValueError(msg)
+
+    ref_mol = load(ref_path, quick=True)
+
+    # Non-ghost atoms only
+    ref_nodes = [n for n in ref_mol.graph.nodes() if ref_mol.graph.nodes[n]["symbol"] != "*"]
+    mol_nodes = [n for n in rmol.graph.nodes() if rmol.graph.nodes[n]["symbol"] != "*"]
+
+    ref_pos = np.array([ref_mol.graph.nodes[n]["position"] for n in ref_nodes], dtype=float)
+    mol_pos = np.array([rmol.graph.nodes[n]["position"] for n in mol_nodes], dtype=float)
+
+    from xyzrender.utils import kabsch_align
+
+    # Fast path: same atom count and element sequence
+    if len(ref_nodes) == len(mol_nodes) and all(
+        ref_mol.graph.nodes[r]["symbol"] == rmol.graph.nodes[m]["symbol"]
+        for r, m in zip(ref_nodes, mol_nodes, strict=True)
+    ):
+        aligned = kabsch_align(ref_pos, mol_pos)
+    else:
+        # Different molecules — MCS alignment
+        from xyzrender.mcs import find_mcs_mapping
+        from xyzrender.utils import mcs_kabsch_align
+
+        mapping = find_mcs_mapping(ref_mol.graph, rmol.graph)
+        if mapping is None:
+            msg = (
+                f"--ref: no common substructure (>= 3 atoms) between "
+                f"reference ({len(ref_nodes)} atoms) and molecule ({len(mol_nodes)} atoms)"
+            )
+            raise ValueError(msg)
+        g1_ids, g2_ids = mapping
+        matched_frac = len(g1_ids) / min(len(ref_nodes), len(mol_nodes))
+        if matched_frac < 0.25:
+            logger.warning(
+                "--ref: only %d/%d atoms matched (%.0f%%) — alignment may be poor",
+                len(g1_ids),
+                min(len(ref_nodes), len(mol_nodes)),
+                matched_frac * 100,
+            )
+        g1_idx = [ref_nodes.index(n) for n in g1_ids]
+        g2_idx = [mol_nodes.index(n) for n in g2_ids]
+        aligned = mcs_kabsch_align(ref_pos, mol_pos, g1_idx, g2_idx)
+
+    for k, nid in enumerate(mol_nodes):
+        rmol.graph.nodes[nid]["position"] = tuple(float(v) for v in aligned[k])
+
+    # Reference IS the orientation — --orient ignored
+    cfg.auto_orient = False
+
+
+def _apply_and_save_ref(rmol: Molecule, cfg: "RenderConfig", ref_path: Path) -> None:
+    """Orient graph positions (PCA or already done by -I), then dump to XYZ.
+
+    Here we PCA graph nodes for the saved file to match the rendered view.
+    With -I, auto_orient is already False — this is just a dump.
+    """
+    if rmol.cell_data is not None:
+        msg = "--ref is not supported for periodic structures"
+        raise ValueError(msg)
+
+    if cfg.auto_orient and rmol.graph.number_of_nodes() > 1:
+        from xyzrender.utils import pca_orient
+
+        nodes = list(rmol.graph.nodes())
+        pos = np.array([rmol.graph.nodes[n]["position"] for n in nodes], dtype=float)
+        pos = pca_orient(pos)
+        for k, nid in enumerate(nodes):
+            rmol.graph.nodes[nid]["position"] = tuple(pos[k].tolist())
+
+    cfg.auto_orient = False
+    rmol.to_xyz(ref_path, title="xyzrender orientation reference")
+
+
 def _apply_cell_config(
     mol: Molecule,
     cfg: RenderConfig,
@@ -1901,7 +2047,7 @@ def _apply_cell_config(
             raise ValueError("supercell requires a non-zero 3x3 lattice matrix.")
         from xyzrender.crystal import build_supercell
 
-        mol.graph = build_supercell(mol.graph, cell_data, supercell)
+        mol.graph = build_supercell(mol.graph, cell_data, supercell, threshold=mol.threshold)
         # Scaled lattice for ghost generation (ghosts = periodic images of the
         # supercell, not the unit cell).  cell_data stays as unit cell for the
         # cell-box overlay.
@@ -1924,7 +2070,7 @@ def _apply_cell_config(
             if _supercell_lattice is not None
             else cell_data
         )
-        add_crystal_images(mol.graph, ghost_cd)
+        add_crystal_images(mol.graph, ghost_cd, threshold=mol.threshold)
 
     # Bond orders are not meaningful for periodic structures (xyzgraph bond
     # order assignment assumes isolated molecules).

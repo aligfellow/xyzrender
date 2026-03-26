@@ -2309,7 +2309,7 @@ wheels = [
 
 [[package]]
 name = "xyzgraph"
-version = "1.6.5"
+version = "1.6.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -2318,9 +2318,9 @@ dependencies = [
     { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "rdkit" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9f/8c/8c9c822bc4d434aa879e0ece4a708c722f5489717ce6818a464540f184c2/xyzgraph-1.6.5.tar.gz", hash = "sha256:d81af28e5bd3018753bcc58263a6fb3d82c970385a57790c1d974cef23591453", size = 165274, upload-time = "2026-03-22T19:43:53.805Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/db/7f/2c284028a2a5ab269ce3f6a97b9499ff513c627922b62da20fde9f3209ce/xyzgraph-1.6.6.tar.gz", hash = "sha256:af353a346cf5eae02d60eb44b309a7445057c38f74991a069e736e9eb7a70246", size = 165448, upload-time = "2026-03-25T22:19:10.184Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cb/ba/0bbb5c9132e32d2e04f2c55c6982b22442635e59cdd1458737cd4196dcaa/xyzgraph-1.6.5-py3-none-any.whl", hash = "sha256:808a05665af49ee84dfb53f9092286571104ff6addb215be7561348b747c8b5a", size = 122911, upload-time = "2026-03-22T19:43:51.873Z" },
+    { url = "https://files.pythonhosted.org/packages/88/39/fc3d4b9b6e23325c19e02668b91a9e938aaca3a35be754e2940b2e457718/xyzgraph-1.6.6-py3-none-any.whl", hash = "sha256:c0931e912a43bb04a5e40badce983fb27f5de9bf2919d7b29ac6e412193e947e", size = 123050, upload-time = "2026-03-25T22:19:08.243Z" },
 ]
 
 [[package]]
@@ -2399,7 +2399,7 @@ requires-dist = [
     { name = "scipy", marker = "extra == 'hull'", specifier = ">=1.10" },
     { name = "vmol", marker = "extra == 'all'", specifier = ">=3.0rc7" },
     { name = "vmol", marker = "extra == 'v'", specifier = ">=3.0rc7" },
-    { name = "xyzgraph", specifier = ">=1.6.5" },
+    { name = "xyzgraph", specifier = ">=1.6.6" },
 ]
 provides-extras = ["hull", "crystal", "smi", "cif", "v", "all"]
 
