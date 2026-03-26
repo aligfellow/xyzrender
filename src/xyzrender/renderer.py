@@ -274,6 +274,21 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         for i, j in cfg.nci_bonds:
             existing = bonds.get((i, j), (1.0, BondStyle.SOLID, None))
             bonds[(i, j)] = bonds[(j, i)] = (existing[0], BondStyle.DOTTED, existing[2])
+        # Absolute distance cutoff — drop SOLID bonds longer than threshold
+        # (TS / NCI overlay bonds are intentionally kept)
+        if cfg.bond_cutoff is not None:
+            cutoff_sq = cfg.bond_cutoff**2
+            drop = []
+            for (i, j), (_bo, style, _c_ov) in bonds.items():
+                if i < j and style == BondStyle.SOLID:
+                    d = np.array(graph.nodes[i]["position"]) - np.array(graph.nodes[j]["position"])
+                    if float(d @ d) > cutoff_sq:
+                        drop.append((i, j))
+            for i, j in drop:
+                del bonds[(i, j)]
+                del bonds[(j, i)]
+            if drop:
+                logger.info("%d bond(s) hidden with a bond cutoff of %.3f Å", len(drop), cfg.bond_cutoff)
         # Molecule color: paint all SOLID bonds with darkened mol_color
         if mol_bond_color is not None:
             for (i, j), (bo, style, c_ov) in list(bonds.items()):

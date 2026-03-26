@@ -46,6 +46,8 @@ All CLI flags are available as keyword arguments to `render()`:
 render(mol, config="flat")                                     # built-in preset
 render(mol, config="paton", transparent=True)                  # preset + transparent bg
 render(mol, bond_width=8, atom_scale=1.5, background="#f0f0f0") # individual overrides
+render(mol, bond_cutoff=2.0)                                   # hide bonds longer than 2.0 Å
+render(mol, hide_bonds=True)                                   # hide all bonds
 ```
 
 ### Hydrogen visibility

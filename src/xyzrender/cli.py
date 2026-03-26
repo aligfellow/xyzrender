@@ -138,6 +138,7 @@ def main() -> None:
     disp_g.add_argument(
         "--no-bonds", action="store_true", default=False, help="Hide all bonds (e.g. space-filling style)"
     )
+    disp_g.add_argument("--bond-cutoff", type=float, default=None, help="Hide bonds longer than this distance (Å)")
     disp_g.add_argument("--bo", action=argparse.BooleanOptionalAction, default=None, help="Bond orders")
     disp_g.add_argument(
         "-k", "--kekule", action="store_true", default=False, help="Use Kekule bond orders (no aromatic 1.5)"
@@ -596,6 +597,7 @@ def main() -> None:
         bo=args.bo,
         hy=hy_spec,
         hide_bonds=args.no_bonds,
+        bond_cutoff=args.bond_cutoff,
         no_hy=args.no_hy,
         orient=_orient,
         opacity=args.opacity,

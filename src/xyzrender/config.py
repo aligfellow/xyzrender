@@ -195,6 +195,7 @@ def build_config(
     vdw_scale=None,
     vdw_gradient_strength=None,
     hide_bonds: bool = False,
+    bond_cutoff: float | None = None,
     hy: bool | list[int] | None = None,
     no_hy: bool = False,
     orient: bool | None = None,
@@ -277,6 +278,8 @@ def build_config(
         overrides["transparent"] = True
     if hide_bonds:
         overrides["hide_bonds"] = True
+    if bond_cutoff is not None:
+        overrides["bond_cutoff"] = bond_cutoff
 
     cfg = build_render_config(config_data, overrides)
     cfg.auto_orient = orient if orient is not None else True

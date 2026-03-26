@@ -25,6 +25,8 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `-b`, `--bond-width` | Bond stroke width |
 | `-s`, `--atom-stroke-width` | Atom outline stroke width |
 | `--bond-color` | Bond color (hex or named) |
+| `--bond-cutoff` | Hide bonds longer than this distance (Å) |
+| `--no-bonds` | Hide all bonds (e.g. space-filling style) |
 | `-B`, `--background` | Background color |
 | `-t`, `--transparent` | Transparent background |
 | `-G`, `--gradient-strength` | Gradient contrast multiplier |
