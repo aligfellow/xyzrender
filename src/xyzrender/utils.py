@@ -75,6 +75,23 @@ def pca_orient(
     centroid = fit.mean(axis=0)
     c = pos - centroid  # center all positions around fit centroid
     c_fit = fit - centroid
+
+    # Degenerate: single atom or all coincident
+    if len(c_fit) < 2 or np.allclose(c_fit, 0, atol=1e-12):
+        return (c, np.eye(3)) if return_matrix else c
+
+    # Diatomic: align bond along x
+    if len(c_fit) == 2:
+        ax = c_fit[1] - c_fit[0]
+        ax /= np.linalg.norm(ax)
+        ref = np.eye(3)[np.argmin(np.abs(ax))]
+        z = np.cross(ax, ref)
+        z /= np.linalg.norm(z)
+        y = np.cross(z, ax)
+        rot = np.vstack([ax, y, z])
+        oriented = c @ rot.T
+        return (oriented, rot) if return_matrix else oriented
+
     if priority_pairs:
         # Duplicate priority atom positions to bias PCA towards their plane
         extra = []
@@ -111,6 +128,16 @@ def pca_orient(
 def pca_matrix(pos: np.ndarray) -> np.ndarray:
     """Compute PCA rotation matrix (Vt) without applying it."""
     c = pos - pos.mean(axis=0)
+    if len(c) < 2 or np.allclose(c, 0, atol=1e-12):
+        return np.eye(3)
+    if len(c) == 2:
+        ax = c[1] - c[0]
+        ax /= np.linalg.norm(ax)
+        ref = np.eye(3)[np.argmin(np.abs(ax))]
+        z = np.cross(ax, ref)
+        z /= np.linalg.norm(z)
+        y = np.cross(z, ax)
+        return np.vstack([ax, y, z])
     _, _, vt = np.linalg.svd(c, full_matrices=False)
     if np.linalg.det(vt) < 0:
         vt[-1] *= -1

@@ -113,6 +113,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         fit_radii = radii
 
     ref_scale = (_REF_CANVAS - 2 * cfg.padding) / _REF_SPAN
+    # Pad fit_radii by atom stroke overshoot so the bounding box accounts for it
+    fit_radii = fit_radii + cfg.atom_stroke_width / (2 * ref_scale)
     # Expand canvas for surface bounds (MO / density / ESP are mutually exclusive)
     extra_lo = extra_hi = None
     if cfg.mo_contours is not None:
