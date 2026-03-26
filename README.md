@@ -1,6 +1,6 @@
 # xyzrender: Publication-quality molecular graphics.
 
-Render molecular structures as publication-quality SVG, PNG, PDF, and animated GIF from XYZ, mol/SDF, MOL2, PDB, SMILES, CIF, cube files, or quantum chemistry output — from the command line or from Python/Jupyter.
+Render molecular structures as publication-quality SVG, PNG, PDF, and animated GIF from XYZ, mol/SDF, MOL2, PDB, SMILES, CIF, cube files, quantum chemistry input or output — from the command line or from Python/Jupyter.
 
 [![PyPI Downloads](https://static.pepy.tech/badge/xyzrender)](https://pepy.tech/projects/xyzrender)
 [![License](https://img.shields.io/github/license/aligfellow/xyzrender)](https://github.com/aligfellow/xyzrender/blob/main/LICENSE)
@@ -12,7 +12,7 @@ Render molecular structures as publication-quality SVG, PNG, PDF, and animated G
 [![Documentation](https://readthedocs.org/projects/xyzrender/badge/?version=latest)](https://xyzrender.readthedocs.io/en/latest/)
 [![Docs](https://img.shields.io/badge/docs-readthedocs-blue?logo=readthedocs)](https://xyzrender.readthedocs.io)
 
-xyzrender turns XYZ files and quantum chemistry input/output (MOl, MOL2, SDF, PDB, ORCA, Gaussian, Q-Chem, etc.) into clean SVG, PNG, PDF, and animated GIF graphics — ready for papers, presentations, and supporting information. The SVG rendering approach is built on and inspired by [**xyz2svg**](https://github.com/briling/xyz2svg) by [Ksenia Briling **@briling**](https://github.com/briling).
+xyzrender turns molecular structures into clean SVG, PNG, PDF, and animated GIF graphics — ready for papers, presentations, and supporting information. It reads XYZ, mol/SDF, MOL2, PDB, SMILES, CIF, cube files, and QM input/output files from Gaussian, ORCA, NWChem, Q-Chem, Psi4, MOPAC, GAMESS, Turbomole, and periodic codes (VASP, Quantum ESPRESSO, SIESTA, ABINIT, CP2K). The SVG rendering approach is built on and inspired by [**xyz2svg**](https://github.com/briling/xyz2svg) by [Ksenia Briling **@briling**](https://github.com/briling).
 
 Most molecular visualisation tools require manual setup: loading files into a GUI, tweaking camera angles, exporting at the right resolution and adding specific TS or NCI bonds. `xyzrender` skips this. One command gives you a (mostly) oriented, depth-cued structure with correct bond orders, aromatic ring rendering, automatic bond connectivity, with TS bonds and NCI bonds. Orientation control is available through an interface to [**v**](https://github.com/briling/v) by [Ksenia Briling **@briling**](https://github.com/briling).
 
@@ -34,8 +34,9 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Conformer ensemble** — overlay all frames from a multi-frame XYZ trajectory, with palette colouring and opacity control
 - **Convex hull** — semi-transparent facets over selected atoms (e.g. aromatic ring carbons, coordination spheres); optional hull-edge lines
 - **Depth fog and gradients** — 3D depth cues without needing a 3D viewer
+- **QM input files** — render directly from Gaussian, ORCA, NWChem, Q-Chem, Psi4, MOPAC, GAMESS, Turbomole, and CP2K input files — coordinates and charge/multiplicity extracted automatically
 - **Cheminformatics formats** — mol, SDF, MOL2, PDB (with CRYST1 unit cell), SMILES (3D embedding via rdkit), and CIF (via ase) — bond connectivity read directly from file
-- **Crystal / periodic structures** — render periodic structures with unit cell box, ghost atoms, and crystallographic axis arrows (a/b/c); extXYZ `Lattice=` auto-detected; VASP/QE via [`phonopy`](https://github.com/phonopy/phonopy)
+- **Crystal / periodic structures** — render periodic structures with unit cell box, ghost atoms, and crystallographic axis arrows (a/b/c); auto-detected from VASP POSCAR, QE pw.in, SIESTA FDF, ABINIT, CP2K, and extXYZ `Lattice=` headers
 - **Multiple output formats** — SVG (default), PNG, PDF, and GIF from the same command
 
 **Preconfigured but extensible.** Built-in presets (`default`, `flat`, `paton`, `skeletal`, `bubble`, `tube`, `wire`, `graph`) cover common use cases. Every setting — colors, radii, bond widths, gradients, fog — can be overridden via CLI flags or a custom JSON config file.
@@ -273,8 +274,7 @@ Falls back to CairoSVG automatically (filters silently ignored). SVG output alwa
 
 Optional dependencies:
 
-- [**phonopy**](https://github.com/phonopy/phonopy) — crystal structure loading (`pip install 'xyzrender[crystal]'`)
-- [**rdkit**](https://www.rdkit.org/) — SMILES 3D embedding (`pip install 'xyzrender[smiles]'`)
+- [**rdkit**](https://www.rdkit.org/) — SMILES 3D embedding (`pip install 'xyzrender[smi]'`)
 - [**ase**](https://wiki.fysik.dtu.dk/ase/) — CIF parsing (`pip install 'xyzrender[cif]'`)
 - [**v**](https://github.com/briling/v) — interactive molecule orientation (`pip install xyzrender[v]`, Linux only, not included into `[all]`)
 

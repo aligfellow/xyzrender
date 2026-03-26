@@ -1,9 +1,7 @@
-"""Crystal structure support (optional — requires xyzrender[crystal] / phonopy).
+"""Crystal structure support.
 
-This module contains all phonopy-dependent functionality for loading periodic
-crystal structures and generating periodic image atoms for rendering.  It is
-intentionally separated from ``io.py`` so that the optional ``phonopy``
-dependency is not imported at all unless crystal loading is actually requested.
+Loading periodic crystal structures (VASP, QE, SIESTA, ABINIT) and generating
+periodic image atoms for rendering.
 
 Public API
 ----------
@@ -75,15 +73,17 @@ def load_crystal(
     interface_mode: str,
     threshold: float = 1.0,
 ) -> tuple[nx.Graph, CellData]:
-    """Load a periodic crystal structure using phonopy.
+    """Load a periodic crystal structure.
+
+    Uses built-in parsers for VASP, QE, SIESTA, and ABINIT.
 
     Parameters
     ----------
     path:
         Path to the crystal structure input file (POSCAR/CONTCAR for VASP,
-        ``*.in`` / ``pw.in`` for Quantum ESPRESSO, etc.).
+        ``*.in`` / ``pw.in`` for Quantum ESPRESSO, ``.fdf`` for SIESTA, etc.).
     interface_mode:
-        Phonopy interface identifier: ``"vasp"``, ``"qe"``, ``"abinit"``, etc.
+        Interface identifier: ``"vasp"``, ``"qe"``, ``"siesta"``, ``"abinit"``.
 
     Returns
     -------
@@ -92,28 +92,27 @@ def load_crystal(
         3x3 lattice matrix (rows = a, b, c in Å).
     """
     logger.info("Loading %s", path)
-    try:
-        from phonopy.interface.calculator import (
-            get_calculator_physical_units,
-            read_crystal_structure,
-        )
-    except ImportError:
-        msg = "Crystal structure loading requires phonopy: pip install 'xyzrender[crystal]'"
-        raise ImportError(msg) from None
 
-    unitcell, _ = read_crystal_structure(str(path), interface_mode=interface_mode)
-    if unitcell is None:
-        msg = f"Failed to read crystal structure from {path!r} (interface_mode={interface_mode!r})"
+    if interface_mode == "vasp":
+        from xyzrender.inputs import parse_poscar
+
+        atoms, lattice = parse_poscar(str(path))
+    elif interface_mode == "qe":
+        from xyzrender.inputs import parse_qe_input
+
+        atoms, lattice, _charge = parse_qe_input(str(path))
+    elif interface_mode == "siesta":
+        from xyzrender.inputs import parse_siesta_fdf
+
+        atoms, lattice = parse_siesta_fdf(str(path))
+    elif interface_mode == "abinit":
+        from xyzrender.inputs import parse_abinit_input
+
+        atoms, lattice = parse_abinit_input(str(path))
+    else:
+        msg = f"Unsupported crystal interface mode: {interface_mode!r}. Supported: vasp, qe, siesta, abinit."
         raise ValueError(msg)
-    # Convert native units → Angstrom.
-    factor: float = get_calculator_physical_units(interface_mode).distance_to_A
-    symbols: list[str] = list(unitcell.symbols)
-    positions = unitcell.positions * factor  # ndarray, shape (N, 3), in Å
-    lattice = np.array(unitcell.cell) * factor  # shape (3, 3), rows = a, b, c in Å
 
-    atoms: list[tuple[str, tuple[float, float, float]]] = [
-        (sym, (float(pos[0]), float(pos[1]), float(pos[2]))) for sym, pos in zip(symbols, positions, strict=True)
-    ]
     graph = build_graph(atoms, charge=0, multiplicity=None, kekule=False, quick=True, threshold=threshold)
     logger.info(
         "Crystal graph: %d atoms, %d bonds, lattice=%s",

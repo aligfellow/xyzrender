@@ -1,0 +1,6 @@
+!SP HF STO-3G
+*xyzfile 0 1 ../structures/caffeine.xyz
+%pal
+nprocs 1
+end
+%MaxCore 1000

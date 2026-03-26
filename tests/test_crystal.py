@@ -14,7 +14,6 @@ EXTXYZ_FILE = EXAMPLES / "caffeine_cell.xyz"
 
 @pytest.fixture(scope="module")
 def vasp_crystal():
-    pytest.importorskip("phonopy")
     from xyzrender.crystal import load_crystal
 
     return load_crystal(VASP_FILE, "vasp")
@@ -22,7 +21,6 @@ def vasp_crystal():
 
 @pytest.fixture(scope="module")
 def qe_crystal():
-    pytest.importorskip("phonopy")
     from xyzrender.crystal import load_crystal
 
     return load_crystal(QE_FILE, "qe")
@@ -233,7 +231,7 @@ def test_render_crystal_no_images(vasp_crystal):
 
 
 # ---------------------------------------------------------------------------
-# extXYZ Lattice= tests (--cell path, no phonopy)
+# extXYZ Lattice= tests (--cell path)
 # ---------------------------------------------------------------------------
 
 
@@ -274,7 +272,7 @@ def test_extxyz_cell_box_renders(extxyz_graph):
     assert len(cell_lines) == 12
 
 
-def test_extxyz_supercell_builds_without_phonopy(extxyz_graph):
+def test_extxyz_supercell_builds(extxyz_graph):
     """Supercell expansion works for any input that carries a lattice (extXYZ)."""
     from xyzrender.crystal import build_supercell
     from xyzrender.types import CellData

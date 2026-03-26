@@ -33,11 +33,10 @@ xyzrender = "xyzrender.cli:main"
 
 [project.optional-dependencies]
 hull    = ["scipy>=1.10"]
-crystal = ["phonopy"]
 smi     = ["rdkit"]
 cif     = ["ase"]
 v       = ["vmol>=3.0rc7"]
-all     = ["phonopy", "rdkit", "ase", "scipy>=1.10", "vmol>=3.0rc7"]
+all     = ["rdkit", "ase", "scipy>=1.10", "vmol>=3.0rc7"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -52,7 +51,6 @@ dev = [
     "pytest-cov>=5.0.0",
     "ruff>=0.14.14",
     "ty>=0.0.14",
-    "phonopy",  # optional dep
     "ase",      # optional dep (needed for test_formats.py pdb fixtures)
     "rdkit",    # optional dep (needed for test_formats.py mol/sdf fixtures)
     "vmol>=3.0rc7",

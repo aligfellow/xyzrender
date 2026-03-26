@@ -29,7 +29,7 @@ mol = load("ts.out", ts_detect=True)            # detect TS bonds via graphRC
 mol = load("mol.xyz", nci_detect=True)          # detect NCI interactions
 mol = load("mol.sdf", mol_frame=2, kekule=True) # SDF frame + Kekule bonds
 mol = load("CC(=O)O", smiles=True)              # SMILES → 3D (requires rdkit)
-mol = load("POSCAR", crystal=True)              # VASP/QE structure (requires phonopy)
+mol = load("POSCAR")                            # VASP/QE/SIESTA/ABINIT auto-detected
 mol = load("caffeine_cell.xyz", cell=True)      # extXYZ Lattice= header
 mol = load("mol.xyz", quick=True)               # skip BO detection (faster, use with bo=False)
 mol = load("mol.xyz", threshold=1.3)           # more permissive bond detection (detect longer bonds)

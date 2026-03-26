@@ -151,7 +151,7 @@ Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Pref
 | `--cell` | Draw unit cell box from `Lattice=` in extXYZ (usually auto-detected) |
 | `--cell-color` | Cell edge color (hex or named, default: `gray`) |
 | `--cell-width` | Unit cell box line width (default: 2.0) |
-| `--crystal [{vasp,qe}]` | Load as crystal via `phonopy`; format auto-detected or explicit |
+| `--crystal [{vasp,qe,siesta,abinit}]` | (Deprecated) Periodic formats are now auto-detected |
 | `--no-cell` | Hide the unit cell box |
 | `--ghosts` / `--no-ghosts` | Show/hide ghost (periodic image) atoms outside the cell |
 | `--ghost-opacity` | Opacity of ghost atoms/bonds (default: 0.5) |

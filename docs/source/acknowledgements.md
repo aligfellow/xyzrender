@@ -16,8 +16,7 @@ The SVG rendering in xyzrender is built on and heavily inspired by [**xyz2svg**]
 
 ## Optional dependencies
 
-- [**phonopy**](https://github.com/phonopy/phonopy) — crystal structure loading (`pip install 'xyzrender[crystal]'`)
-- [**rdkit**](https://www.rdkit.org/) — SMILES 3D embedding (`pip install 'xyzrender[smiles]'`)
+- [**rdkit**](https://www.rdkit.org/) — SMILES 3D embedding (`pip install 'xyzrender[smi]'`)
 - [**ase**](https://wiki.fysik.dtu.dk/ase/) — CIF parsing (`pip install 'xyzrender[cif]'`)
 - [**v**](https://github.com/briling/v) — interactive molecule orientation (`-I` flag, `pip install xyzrender[v]`, Linux only, not included into `[all]`)
 

@@ -66,10 +66,16 @@ def main() -> None:
 
     # --- Input / Output ---
     io_g = p.add_argument_group("input/output")
-    io_g.add_argument("input", nargs="?", help="Input file (.xyz, .mol, .sdf, .mol2, .pdb, .smi, .cif, .cube, …)")
+    io_g.add_argument(
+        "input",
+        nargs="?",
+        help="Input file (.xyz, .mol, .sdf, .mol2, .pdb, .smi, .cif, .cube, "
+        ".com, .gjf, .inp, .nw, .vasp, POSCAR, .in, …)",
+    )
     io_g.add_argument("-o", "--output", help="Output file (.svg, .png, .pdf)")
     io_g.add_argument("-c", "--charge", type=int, default=0)
     io_g.add_argument("-m", "--multiplicity", type=int, default=None)
+    io_g.add_argument("--bohr", action="store_true", default=False, help="Input coordinates are in Bohr")
     io_g.add_argument("-d", "--debug", action="store_true", help="Debug output")
     io_g.add_argument(
         "--smi",
@@ -488,13 +494,8 @@ def main() -> None:
         nargs="?",
         const="auto",
         default=None,
-        metavar="{vasp,qe}",
-        help=(
-            "Load as a periodic crystal structure via phonopy (requires xyzrender[crystal]). "
-            "Enables unit cell box, crystallographic axes (a/b/c), and image atoms. "
-            "Optionally specify the phonopy interface: vasp, qe (auto-detected from filename "
-            "if omitted). Examples: --crystal, --crystal vasp, --crystal qe"
-        ),
+        metavar="{vasp,qe,siesta,abinit}",
+        help="(Deprecated — periodic formats are now auto-detected.) Kept for backward compatibility.",
     )
     crystal_g.add_argument(
         "--cell",
@@ -502,8 +503,7 @@ def main() -> None:
         default=False,
         help=(
             "Draw the unit cell box from an extXYZ Lattice= header. "
-            "No crystallographic axes or image atoms — just the box. "
-            "Does not require phonopy."
+            "No crystallographic axes or image atoms — just the box."
         ),
     )
     crystal_g.add_argument("--no-cell", action="store_true", default=False, help="Hide the unit cell box (--crystal)")
@@ -697,9 +697,9 @@ def main() -> None:
     if args.rebuild and args.smi:
         logger.warning("--rebuild has no effect on SMILES input (rdkit bonds are always used)")
 
-    # --crystal: interface_mode is non-None iff phonopy crystal loading is requested.
+    # --crystal: interface_mode is non-None iff explicit crystal loading is requested.
     # Auto-detection (stem/extension) is handled inside load() → _resolve_crystal_interface().
-    # --cell is a separate lighter path: extXYZ box only, no phonopy, no image atoms.
+    # --cell is a separate lighter path: extXYZ box only, no image atoms.
     interface_mode: str | None = None
     if args.crystal is not None:
         if args.input is None:
@@ -768,6 +768,7 @@ def main() -> None:
                 cell=args.cell,
                 quick=args.bo is False,
                 threshold=args.threshold,
+                bohr=True if args.bohr else None,
             )
         except ValueError as e:
             p.error(str(e))

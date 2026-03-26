@@ -12,9 +12,34 @@ xyzrender molecule.xyz
 
 extXYZ (with `Lattice=` header) is handled automatically — the unit cell box, ghost atoms, and axis arrows are enabled without any extra flags. See [Crystal Structures](examples/crystal.md).
 
+## QM Input Files
+
+Render directly from computational chemistry input files. Coordinates and charge/multiplicity are extracted automatically.
+
+```bash
+xyzrender calc.com              # Gaussian
+xyzrender calc.gjf              # Gaussian
+xyzrender calc.inp              # ORCA / CP2K / GAMESS
+xyzrender calc.nw               # NWChem
+xyzrender calc.in               # Q-Chem (or QE / ABINIT — auto-detected)
+xyzrender calc.fdf              # SIESTA
+xyzrender calc.abi              # ABINIT
+xyzrender calc.coord            # Turbomole (Bohr auto-detected)
+```
+
+For Turbomole and other codes that use Bohr units, conversion is auto-detected. Use `--bohr` to force conversion:
+
+```bash
+xyzrender calc.coord --bohr
+```
+
+Charge and multiplicity are extracted from the input file where possible (ORCA `* xyz C M`, Gaussian charge/mult line, NWChem `charge` directive, Q-Chem `$molecule`, Psi4 `molecule {}`). Override with `-c` / `-m`.
+
+If coordinates are in an external file (e.g. ORCA `* xyzfile 0 1 mol.xyz`), the referenced file is read automatically.
+
 ## QM Output
 
-ORCA (`.out`), Gaussian (`.log`), Q-Chem (`.out`) — format is auto-detected from file content:
+ORCA (`.out`), Gaussian (`.log`), Q-Chem (`.out`) — format is auto-detected from file content via [cclib](https://cclib.github.io/):
 
 ```bash
 xyzrender calc.out
@@ -75,16 +100,19 @@ xyzrender dens.cube --esp esp.cube
 xyzrender dens.cube --nci-surf grad.cube
 ```
 
-## Periodic structures (VASP / QE)
+## Periodic structures
 
-Requires `pip install 'xyzrender[crystal]'` (`phonopy`):
+VASP, Quantum ESPRESSO, SIESTA, ABINIT, and CP2K periodic input files are auto-detected — the unit cell, ghost atoms, and axis arrows are enabled automatically:
 
 ```bash
-xyzrender NV63.vasp --crystal vasp
-xyzrender NV63.in --crystal qe
+xyzrender NV63.vasp             # VASP POSCAR/CONTCAR
+xyzrender NV63.in               # Quantum ESPRESSO pw.in
+xyzrender calc.fdf              # SIESTA FDF
+xyzrender calc.abi              # ABINIT
+xyzrender calc.inp              # CP2K (cell from &CELL block)
 ```
 
-Format is auto-detected from extension; `--crystal` with no argument also works. See [Crystal Structures](examples/crystal.md).
+No extra dependencies or flags required. See [Crystal Structures](examples/crystal.md).
 
 ## Re-detecting bonds
 
@@ -103,3 +131,4 @@ xyzrender molecule.sdf --rebuild
 | `--rebuild` | Ignore file connectivity; re-detect bonds with xyzgraph |
 | `-c`, `--charge` | Molecular charge |
 | `-m`, `--multiplicity` | Spin multiplicity |
+| `--bohr` | Input coordinates are in Bohr (force conversion to Angstrom) |

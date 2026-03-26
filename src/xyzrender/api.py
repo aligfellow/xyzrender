@@ -168,6 +168,7 @@ def load(
     cell: bool = False,
     quick: bool = False,
     threshold: float = 1.0,
+    bohr: bool | None = None,
     # --- Ensemble (multi-frame trajectory) ---
     ensemble: bool = False,
     reference_frame: int = 0,
@@ -211,9 +212,8 @@ def load(
         When used with ``ensemble=True``, NCI detection is run on
         each frame independently.
     crystal:
-        Load as a periodic crystal structure via phonopy.  Pass ``True``
-        to auto-detect the interface from the filename, or a string such
-        as ``"vasp"`` or ``"qe"`` to specify explicitly.
+        Deprecated — periodic formats are now auto-detected by
+        ``load_molecule()``.  Kept for backward compatibility.
     cell:
         Read the periodic cell box from an extXYZ ``Lattice=`` header and
         store it on the returned :class:`Molecule`.
@@ -303,10 +303,20 @@ def load(
         raise FileNotFoundError(f"[Errno 2] No such file or directory: '{mol_path}'")
 
     elif crystal:
-        interface_mode = _resolve_crystal_interface(mol_path, crystal)
-        from xyzrender.crystal import load_crystal
+        # --crystal is no longer needed; periodic formats are auto-detected by load_molecule().
+        # Keep for backward compatibility but just fall through to load_molecule().
+        logger.info("--crystal is no longer required; periodic formats are auto-detected.")
+        from xyzrender.readers import load_molecule
 
-        graph, cell_data = load_crystal(mol_path, interface_mode, threshold=threshold)
+        graph, cell_data = load_molecule(
+            mol_path,
+            charge=charge,
+            multiplicity=multiplicity,
+            kekule=kekule,
+            quick=quick,
+            threshold=threshold,
+            bohr=bohr,
+        )
 
     elif mol_path.suffix.lower() == ".cube":
         from xyzrender.readers import load_cube
@@ -344,6 +354,7 @@ def load(
             rebuild=rebuild,
             quick=quick,
             threshold=threshold,
+            bohr=bohr,
         )
 
     # Auto-promote: any file that carried lattice data (extXYZ Lattice=, PDB CRYST1, CIF)
@@ -639,7 +650,7 @@ def render(
     else:
         mol = load(molecule)
 
-    # Supercell requires lattice/cell_data (works for any periodic input, not just phonopy crystals)
+    # Supercell requires lattice/cell_data
     if supercell != (1, 1, 1) and mol.cell_data is None:
         raise ValueError("supercell requires an input with a unit cell (lattice).")
 
@@ -2080,17 +2091,21 @@ def _apply_cell_config(
 
 
 def _resolve_crystal_interface(path: Path, crystal: bool | str) -> str:
-    """Resolve the phonopy interface mode from *crystal* param and file path."""
-    if isinstance(crystal, str) and crystal in {"vasp", "qe"}:
+    """Resolve the crystal interface mode from *crystal* param and file path."""
+    if isinstance(crystal, str) and crystal in {"vasp", "qe", "siesta", "abinit"}:
         return crystal
-    # auto-detect from filename
     stem = path.stem.upper()
     ext = path.suffix.lower()
     if ext == ".vasp" or stem in {"POSCAR", "CONTCAR"}:
         return "vasp"
     if ext == ".in":
         return "qe"
-    msg = f"Cannot auto-detect crystal interface from {str(path)!r}. Specify explicitly: crystal='vasp' or crystal='qe'"
+    if ext == ".fdf":
+        return "siesta"
+    msg = (
+        f"Cannot auto-detect crystal interface from {str(path)!r}. "
+        "Specify explicitly: crystal='vasp', 'qe', 'siesta', or 'abinit'"
+    )
     raise ValueError(msg)
 
 

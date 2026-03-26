@@ -39,7 +39,6 @@ uv tool install .
 Some features require additional packages:
 
 ```bash
-pip install 'xyzrender[crystal]'  # VASP/QE periodic structures (phonopy)
 pip install 'xyzrender[smi]'      # SMILES input (rdkit)
 pip install 'xyzrender[cif]'      # CIF input (ase)
 pip install 'xyzrender[all]'      # everything above

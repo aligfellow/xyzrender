@@ -35,25 +35,25 @@ The **extXYZ** comment line must contain a `Lattice=` key with the 3×3 cell mat
 
 ### Supercell expansion
 
-Expand a periodic structure into a supercell with `--supercell M N L`, which repeats the unit cell `M×N×L` times along the lattice vectors (a, b, c). This option is available for any input that includes unit-cell lattice data (e.g. extXYZ `Lattice=` headers, PDB `CRYST1`, CIF, or `--crystal` inputs).
+Expand a periodic structure into a supercell with `--supercell M N L`, which repeats the unit cell `M×N×L` times along the lattice vectors (a, b, c). This option is available for any input that includes unit-cell lattice data (e.g. extXYZ `Lattice=` headers, PDB `CRYST1`, CIF, VASP, QE, SIESTA, ABINIT, CP2K).
 
 Ghost atoms show the periodic images of the *supercell* (not the unit cell), while the cell-box overlay always shows the original unit cell. The `--hy` / `--no-hy` flags apply to ghost H atoms too.
 
 ```bash
-xyzrender NV63.vasp --crystal vasp -o NV63_vasp.svg
-xyzrender NV63.vasp --crystal --gif-rot -go NV63_vasp.gif
-xyzrender NV63.in --crystal qe --no-axes -o NV63_qe.svg
+xyzrender NV63.vasp -o NV63_vasp.svg
+xyzrender NV63.vasp --gif-rot -go NV63_vasp.gif
+xyzrender NV63.in --no-axes -o NV63_qe.svg
 ```
 
-## VASP / Quantum ESPRESSO
+## Periodic codes
 
-Requires `pip install 'xyzrender[crystal]'` (phonopy).
+VASP, Quantum ESPRESSO, SIESTA, ABINIT, and CP2K periodic input files are auto-detected from file content. No extra dependencies or flags required.
 
 | VASP (NV63) | VASP rotation | QE (no axes) |
 |------------|--------------|-------------|
 | ![VASP (NV63)](../../../examples/images/NV63_vasp.svg) | ![VASP rotation](../../../examples/images/NV63_vasp.gif) | ![QE (no axes)](../../../examples/images/NV63_qe.svg) |
 
-Format is auto-detected from extension (`.vasp`, `POSCAR`, `CONTCAR` → VASP; `.in` → QE).
+Format is auto-detected from extension (`.vasp`, `POSCAR`, `CONTCAR` → VASP; `.in` → QE/ABINIT; `.fdf` → SIESTA; `.abi` → ABINIT; `.inp` → CP2K).
 
 ## Crystallographic viewing direction
 
@@ -73,7 +73,7 @@ xyzrender NV63_cell.xyz --axis 111 --gif-rot 111 -o NV63_111.svg -go NV63_111.gi
 
 | Flag | Description |
 |------|-------------|
-| `--crystal [{vasp,qe}]` | Load VASP/QE structure via phonopy; format auto-detected or explicit |
+| `--crystal [{vasp,qe,siesta,abinit}]` | (Deprecated) Periodic formats are now auto-detected |
 | `--cell` | Force cell rendering for extXYZ (usually not needed) |
 | `--no-cell` | Hide the unit cell box |
 | `--ghosts` / `--no-ghosts` | Show/hide ghost (periodic image) atoms outside the cell |
