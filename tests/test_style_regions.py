@@ -57,6 +57,12 @@ class TestTubePreset:
         for r in radii:
             assert float(r) == pytest.approx(0.0, abs=0.1)
 
+    def test_metal_tube_has_flat_bonds_and_outline(self, caffeine):
+        """metal_tube should disable gradient shading and emit black outline strokes."""
+        svg = str(render(caffeine, config="metal_tube", orient=False))
+        assert "url(#" not in svg
+        assert 'stroke="#000000"' in svg
+
 
 # ---------------------------------------------------------------------------
 # Element-coloured bonds

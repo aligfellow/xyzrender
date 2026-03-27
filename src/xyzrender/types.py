@@ -224,6 +224,8 @@ class RenderConfig:
     bond_gap: float = 0.6  # multi-bond spacing as fraction of bond_width
     bond_color_by_element: bool = False  # color bonds by endpoint atom colors
     bond_gradient: bool = False  # cylinder shading on bonds (perpendicular gradient for 3D tube look)
+    bond_outline_color: str | None = None  # optional under-stroke colour for bond outline
+    bond_outline_width_ratio: float = 1.2  # outline stroke = bond_width * ratio
     gradient: bool = False
     hue_shift_factor: float = 0.2
     light_shift_factor: float = 0.2

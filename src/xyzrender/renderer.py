@@ -703,6 +703,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     # Deferred atom layers: draw all edges first, then place nodes on top for a
     # clean diagram-like aesthetic (enabled by atoms_above_bonds).
     _deferred_atom_layers: list[str] = []
+    # Bond-outline underlayer (emitted once beneath the molecule bond strokes)
+    _bond_outline_layer: list[str] = []
     _atoms_above = cfg.atoms_above_bonds if _acfg is None else any(c.atoms_above_bonds for c in _acfg)
 
     def _shaded_stroke(color_hex, lx1, ly1, lx2, ly2, w, lpx, lpy, shade_cfg):
@@ -738,8 +740,28 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         )
         return f"url(#{sid})"
 
-    def _bond_line(lx1, ly1, lx2, ly2, w, color_hex, lpx, lpy, shade_cfg, op_attr, dash=""):
+    def _bond_line(
+        lx1,
+        ly1,
+        lx2,
+        ly2,
+        w,
+        color_hex,
+        lpx,
+        lpy,
+        shade_cfg,
+        op_attr,
+        dash="",
+        outline_color: str | None = None,
+        outline_ratio: float = 1.2,
+    ):
         """Emit a single bond line — flat or cylinder-shaded."""
+        if outline_color is not None and outline_ratio > 1.0:
+            ow = w * outline_ratio
+            _bond_outline_layer.append(
+                f'  <line x1="{lx1:.1f}" y1="{ly1:.1f}" x2="{lx2:.1f}" y2="{ly2:.1f}" '
+                f'stroke="{outline_color}" stroke-width="{ow:.1f}" stroke-linecap="round"{dash}{op_attr}/>'
+            )
         stroke = _shaded_stroke(color_hex, lx1, ly1, lx2, ly2, w, lpx, lpy, shade_cfg)
         svg.append(
             f'  <line x1="{lx1:.1f}" y1="{ly1:.1f}" x2="{lx2:.1f}" y2="{ly2:.1f}" '
@@ -747,7 +769,26 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         )
 
     def _element_line(
-        lx1, ly1, lx2, ly2, w, ci_hex, cj_hex, ri, rj, lpx, lpy, *, fog_enabled, fi, fj, shade_cfg, op_attr, dash=""
+        lx1,
+        ly1,
+        lx2,
+        ly2,
+        w,
+        ci_hex,
+        cj_hex,
+        ri,
+        rj,
+        lpx,
+        lpy,
+        *,
+        fog_enabled,
+        fi,
+        fj,
+        shade_cfg,
+        op_attr,
+        dash="",
+        outline_color: str | None = None,
+        outline_ratio: float = 1.2,
     ):
         """Emit a half-bond split line with element colouring.
 
@@ -759,13 +800,55 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         c2 = blend_fog(cj_hex, fog_rgb, avg_fog) if fog_enabled else cj_hex
         # Skip split when both endpoints are the same colour (e.g. C-C bonds)
         if c1 == c2:
-            _bond_line(lx1, ly1, lx2, ly2, w, c1, lpx, lpy, shade_cfg, op_attr, dash)
+            _bond_line(
+                lx1,
+                ly1,
+                lx2,
+                ly2,
+                w,
+                c1,
+                lpx,
+                lpy,
+                shade_cfg,
+                op_attr,
+                dash,
+                outline_color=outline_color,
+                outline_ratio=outline_ratio,
+            )
         else:
             t = ri / (ri + rj) if (ri + rj) > 0 else 0.5
             xm = lx1 + (lx2 - lx1) * t
             ym = ly1 + (ly2 - ly1) * t
-            _bond_line(lx1, ly1, xm, ym, w, c1, lpx, lpy, shade_cfg, op_attr, dash)
-            _bond_line(xm, ym, lx2, ly2, w, c2, lpx, lpy, shade_cfg, op_attr, dash)
+            _bond_line(
+                lx1,
+                ly1,
+                xm,
+                ym,
+                w,
+                c1,
+                lpx,
+                lpy,
+                shade_cfg,
+                op_attr,
+                dash,
+                outline_color=outline_color,
+                outline_ratio=outline_ratio,
+            )
+            _bond_line(
+                xm,
+                ym,
+                lx2,
+                ly2,
+                w,
+                c2,
+                lpx,
+                lpy,
+                shade_cfg,
+                op_attr,
+                dash,
+                outline_color=outline_color,
+                outline_ratio=outline_ratio,
+            )
 
     def add_bond(ai, aj, bo, style, opacity: float = 1.0, color_override: str | None = None):
         """Render bond — closure captures shared rendering state."""
@@ -781,6 +864,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             _bw = min(_bw, 20.0 * scale_ratio)
         _gap = bcfg.bond_gap * _bw
         _bond_color = bcfg.bond_color
+        _outline_color = bcfg.bond_outline_color
+        _outline_ratio = bcfg.bond_outline_width_ratio
         if style == BondStyle.DASHED and bcfg.ts_color is not None:
             _bond_color = bcfg.ts_color
         if style == BondStyle.DOTTED and bcfg.nci_color is not None:
@@ -874,9 +959,25 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     shade_cfg=shade,
                     op_attr=op_attr,
                     dash=dash,
+                    outline_color=_outline_color,
+                    outline_ratio=_outline_ratio,
                 )
             else:
-                _bond_line(lx1, ly1, lx2, ly2, w, color, px, py, shade, op_attr, dash)
+                _bond_line(
+                    lx1,
+                    ly1,
+                    lx2,
+                    ly2,
+                    w,
+                    color,
+                    px,
+                    py,
+                    shade,
+                    op_attr,
+                    dash,
+                    outline_color=_outline_color,
+                    outline_ratio=_outline_ratio,
+                )
 
         # TS/NCI: single line with dash pattern, no cylinder shading
         if style == BondStyle.DASHED:
@@ -904,6 +1005,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 ox, oy = px * ib * _gap, py * ib * _gap
                 _emit(x1 + ox, y1 + oy, x2 + ox, y2 + oy, w, _scfg)
 
+    _molecule_insert_idx = len(svg)
     for idx, ai in enumerate(z_order):
         # Flush all vectors whose origin depth <= this atom's depth.  The hidden
         # check is intentionally after the flush so hidden atoms still act as
@@ -1041,6 +1143,10 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 if bond_op < 0.01:
                     continue  # skip invisible bonds
                 add_bond(ai, aj_int, bo, style, opacity=bond_op, color_override=color_ov)
+
+    # Insert bond outlines at the bottom of the molecule layer.
+    if _bond_outline_layer:
+        svg[_molecule_insert_idx:_molecule_insert_idx] = _bond_outline_layer
 
     # NCI patches in front of all atoms (z_depth > frontmost atom)
     while nci_lobe_idx < len(nci_lobes_flat):

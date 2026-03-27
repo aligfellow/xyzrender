@@ -38,7 +38,7 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Crystal / periodic structures** — render periodic structures with unit cell box, ghost atoms, and crystallographic axis arrows (a/b/c); extXYZ `Lattice=` auto-detected; VASP/QE via [`phonopy`](https://github.com/phonopy/phonopy)
 - **Multiple output formats** — SVG (default), PNG, PDF, and GIF from the same command
 
-**Preconfigured but extensible.** Built-in presets (`default`, `flat`, `paton`, `skeletal`, `bubble`, `tube`, `wire`, `graph`) cover common use cases. Every setting — colors, radii, bond widths, gradients, fog — can be overridden via CLI flags or a custom JSON config file.
+**Preconfigured but extensible.** Built-in presets (`default`, `flat`, `paton`, `skeletal`, `bubble`, `tube`, `metal_tube`, `wire`, `graph`) cover common use cases. Every setting — colors, radii, bond widths, gradients, fog — can be overridden via CLI flags or a custom JSON config file.
 
 ```bash
 xyzrender caffeine.xyz                          # SVG with sensible defaults
@@ -121,9 +121,21 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |---------|------|--------------------|------|----------|
 | ![default](examples/images/caffeine_default.svg) | ![flat](examples/images/caffeine_flat.svg) | ![paton](examples/images/caffeine_paton.svg) | ![pmol](examples/images/caffeine_pmol.svg) | ![skeletal](examples/images/caffeine_skeletal.svg) |
 
-| Bubble | Tube | Wire | Graph |
-|--------|------|------|-------|
-| ![bubble](examples/images/caffeine_bubble.svg) | ![tube](examples/images/caffeine_tube.svg) | ![wire](examples/images/caffeine_wire.svg) | ![graph](examples/images/caffeine_graph.svg) |
+| Bubble | Tube | Metal Tube | Wire | Graph |
+|--------|------|------------|------|-------|
+| ![bubble](examples/images/caffeine_bubble.svg) | ![tube](examples/images/caffeine_tube.svg) | ![metal tube](examples/images/caffeine_tube.svg) | ![wire](examples/images/caffeine_wire.svg) | ![graph](examples/images/caffeine_graph.svg) |
+
+### Metal tube variants
+
+The `metal_tube` preset is designed for metal complexes. Here are common combinations:
+
+| Atom gradients + flat bonds |
+|----------------------------|
+| ![metal tube atom gradient, flat bonds](examples/images/mn_h2_metal_tube_atom_grad_flat_bonds.svg) |
+
+```bash
+xyzrender examples/structures/mn-h2.log --config metal_tube --hy --grad --no-bond-gradient -o mn_h2_metal_tube_atom_grad_flat_bonds.svg
+```
 
 ### Style regions
 

@@ -26,6 +26,18 @@ The `pmol` preset is a PyMOL-inspired style that keeps atoms visible and adds sp
 
 The `tube` and `wire` presets hide atom circles and colour each bond by its endpoint atoms, with a cylinder shading gradient for a 3D look. The `tube` preset uses thick bonds; `wire` uses thin bonds.
 
+## Metal tube: atom gradients + flat bonds
+
+The `metal_tube` preset is designed for metal complexes: non-metals render as tube-only, while metals render with full atom circles. A common variant is **gradient atoms + flat (non-shaded) bonds**:
+
+| metal_tube atom gradients + flat bonds |
+|----------------------------------------|
+| ![metal_tube atom gradients + flat bonds](../../../examples/images/mn_h2_metal_tube_atom_grad_flat_bonds.svg) |
+
+```bash
+xyzrender examples/structures/mn-h2.log --config metal_tube --hy --grad --no-bond-gradient -o mn_h2_metal_tube_atom_grad_flat_bonds.svg
+```
+
 
 ## Hydrogen display
 

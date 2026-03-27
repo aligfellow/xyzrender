@@ -13,7 +13,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--threshold SCALE` | Global bond-distance scaling factor (default: 1.0). Values > 1.0 detect longer bonds, < 1.0 detect fewer |
 | `-c`, `--charge` | Molecular charge |
 | `-m`, `--multiplicity` | Spin multiplicity |
-| `--config` | Config preset (`default`, `flat`, `paton`, `pmol`, `skeletal`) or path to JSON file |
+| `--config` | Config preset (`default`, `flat`, `paton`, `pmol`, `skeletal`, `tube`, `metal_tube`, `wire`, `graph`) or path to JSON file |
 | `-d`, `--debug` | Debug logging |
 
 ## Styling
@@ -39,10 +39,10 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 
 | Flag | Description |
 |------|-------------|
-| `--hy [ATOMS]` | Show H atoms (no args = all, or `"1-5,8"` 1-indexed) |
+| `--hy [ATOMS]` | Show H atoms (no args = all; selectors support ranges like `"1-5,8"` and elements like `el:Pt`, `el:metal`) |
 | `--no-hy` | Hide all H atoms |
 | `-k`, `--kekule` | Use Kekulé bond orders (no aromatic 1.5) |
-| `--vdw` | vdW spheres (no args = all, or index ranges e.g. `1-6`) |
+| `--vdw` | vdW spheres (no args = all; selectors support ranges like `1-6` and elements like `el:Pt`, `el:metal`) |
 | `--vdw-opacity` | vdW sphere opacity (default: 0.25) |
 | `--vdw-scale` | vdW sphere radius scale |
 | `--vdw-gradient` | vdW sphere gradient strength |
@@ -60,7 +60,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--ensemble` | Ensemble overlay for multi-frame XYZ trajectories; conformers default to CPK atom colours |
 | `--ensemble-color VALUE` | Palette name (`viridis`, `spectral`, `coolwarm`), a single colour, or comma-separated colours |
 | `--opacity FLOAT` | Opacity for non-reference conformers (0–1) |
-| `--align-atoms INDICES` | 1-indexed atom subset for Kabsch alignment (min 3), e.g. `1,2,3` or `1-6`. Works with `--overlay` and `--ensemble` |
+| `--align-atoms INDICES` | Atom subset for Kabsch alignment (min 3), e.g. `1,2,3`, `1-6`, or `el:Pt`. Works with `--overlay` and `--ensemble` |
 
 ## Orientation
 
