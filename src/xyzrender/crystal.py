@@ -42,15 +42,13 @@ logger = logging.getLogger(__name__)
 __all__ = ["add_crystal_images", "build_supercell", "load_crystal"]
 
 
-def _is_bonded(sym_i: str, sym_j: str, dist: float, threshold: float = 1.0) -> bool:
+def _is_bonded(sym_i: str, sym_j: str, dist: float) -> bool:
     """Return True if two atoms at *dist* Å apart are likely bonded.
 
     Uses xyzgraph's VDW radii (DATA.vdw) and the same type-specific distance
     thresholds as xyzgraph's BondThresholds defaults, so ghost-bond detection
     is consistent with main-cell bond detection.  Note: xyzgraph also applies
     geometric pruning (bond angles, valence) which is not replicated here.
-
-    *threshold* is the global scaling factor (same as ``BondThresholds.threshold``).
     """
     ri = DATA.vdw.get(sym_i, 2.0)
     rj = DATA.vdw.get(sym_j, 2.0)
@@ -67,13 +65,12 @@ def _is_bonded(sym_i: str, sym_j: str, dist: float, threshold: float = 1.0) -> b
         t = _bond_thresholds.threshold_metal_ligand
     else:
         t = _bond_thresholds.threshold_nonmetal_nonmetal
-    return dist < t * (ri + rj) * threshold
+    return dist < t * (ri + rj)
 
 
 def load_crystal(
     path: str | Path,
     interface_mode: str,
-    threshold: float = 1.0,
 ) -> tuple[nx.Graph, CellData]:
     """Load a periodic crystal structure using phonopy.
 
@@ -114,7 +111,7 @@ def load_crystal(
     atoms: list[tuple[str, tuple[float, float, float]]] = [
         (sym, (float(pos[0]), float(pos[1]), float(pos[2]))) for sym, pos in zip(symbols, positions, strict=True)
     ]
-    graph = build_graph(atoms, charge=0, multiplicity=None, kekule=False, quick=True, threshold=threshold)
+    graph = build_graph(atoms, charge=0, multiplicity=None, kekule=False, quick=True)
     logger.info(
         "Crystal graph: %d atoms, %d bonds, lattice=%s",
         graph.number_of_nodes(),
@@ -126,9 +123,7 @@ def load_crystal(
     return graph, CellData(lattice=lattice)
 
 
-def build_supercell(
-    graph: "nx.Graph", cell_data: CellData, repeats: tuple[int, int, int], threshold: float = 1.0
-) -> "nx.Graph":
+def build_supercell(graph: "nx.Graph", cell_data: CellData, repeats: tuple[int, int, int]) -> "nx.Graph":
     """Return a new graph representing a repeated supercell.
 
     The unit-cell graph is replicated *m x n x l* times.  Intra-replica edges
@@ -217,7 +212,7 @@ def build_supercell(
                     tid = tgt_base + v
                     tpos = np.array(new_g.nodes[tid]["position"])
                     tsym = new_g.nodes[tid]["symbol"]
-                    if _is_bonded(ssym, tsym, float(np.linalg.norm(spos - tpos)), threshold):
+                    if _is_bonded(ssym, tsym, float(np.linalg.norm(spos - tpos))):
                         new_g.add_edge(sid, tid, bond_order=1.0)
 
     # -- 4. Graph-level metadata (lattice stays as unit cell for cell box) --
@@ -225,7 +220,7 @@ def build_supercell(
     return new_g
 
 
-def add_crystal_images(graph: nx.Graph, crystal_data: CellData, threshold: float = 1.0) -> int:
+def add_crystal_images(graph: nx.Graph, crystal_data: CellData) -> int:
     """Add periodic image atoms that are bonded to cell atoms.
 
     For each of the 26 neighbouring unit cells, adds image copies of cell
@@ -257,9 +252,7 @@ def add_crystal_images(graph: nx.Graph, crystal_data: CellData, threshold: float
             img_pos = cell_pos[src_id] + offset
 
             bonded_to: list[int] = [
-                j
-                for j in cell_ids
-                if _is_bonded(sym_i, cell_syms[j], float(np.linalg.norm(img_pos - cell_pos[j])), threshold)
+                j for j in cell_ids if _is_bonded(sym_i, cell_syms[j], float(np.linalg.norm(img_pos - cell_pos[j])))
             ]
 
             # Skip ghost hydrogens that only bond to C (C-H across boundary

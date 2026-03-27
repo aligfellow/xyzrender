@@ -231,7 +231,8 @@ class RenderConfig:
     fog: bool = False
     fog_strength: float = 0.8
     hide_bonds: bool = False
-    bond_cutoff: float | None = None  # absolute distance cutoff (Å); bonds longer than this are hidden
+    unbond: list[str] = field(default_factory=list)  # raw specs: ["M-L", "sbm", "1-3"]
+    bond: list[str] = field(default_factory=list)  # raw index pairs: ["4-5"]
     hide_h: bool = False
     show_h_indices: list[int] = field(default_factory=list)
     bond_orders: bool = True

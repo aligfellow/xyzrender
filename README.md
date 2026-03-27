@@ -24,6 +24,7 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Transition state bonds** — forming/breaking bonds rendered as dashed lines, detected automatically from imaginary frequency vibrations via [`graphRC`](https://github.com/aligfellow/graphRC)
 - **Stereochemistry labels** — R/S, E/Z, axial, planar (metallocene and CIP), and helical chirality labels detected and annotated automatically via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
 - **Non-covalent interactions** — hydrogen bonds and other weak interactions shown as dotted lines, detected automatically via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
+- **Bond display rules** — selectively hide or add bonds using element categories (`M`, `sbm` [s-block metal], `L`, `het`), element pairs (`M-L`, `Fe-het`), pi-coordination (`M-pi`), or atom indices
 - **GIF animations** — rotation, TS vibration, and trajectory animations for presentations
 - **Molecular orbitals** — render MO lobes from cube files with front/back depth cueing; multiple surface styles (solid, mesh, contour, wire, dot)
 - **Electron density surfaces** — depth-graded translucent isosurfaces from density cube files; contour and dot styles available

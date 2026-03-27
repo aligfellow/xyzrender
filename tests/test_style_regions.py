@@ -90,7 +90,7 @@ class TestElementColouredBonds:
         # element-radius tables from optional xyzgraph versions.
         g.add_node(0, symbol="*", position=[0.0, 0.0, 0.0])
         g.add_node(1, symbol="*", position=[1.2, 0.0, 0.0])
-        g.add_edge(0, 1, bond_order=1.0, bond_type="NCI")
+        g.add_edge(0, 1, bond_order=1.0, NCI=True)
 
         cfg = RenderConfig(
             fog=False,
@@ -201,8 +201,8 @@ class TestOverlayIsolation:
         g.add_node(1, symbol="N", position=[1.5, 0.0, 0.0])
         g.add_node(2, symbol="*", position=[0.75, 0.8, 0.0])  # NCI centroid
         g.add_edge(0, 1, bond_order=1.0)
-        g.add_edge(0, 2, bond_order=1.0, bond_type="NCI")
-        g.add_edge(1, 2, bond_order=1.0, bond_type="NCI")
+        g.add_edge(0, 2, bond_order=1.0, NCI=True)
+        g.add_edge(1, 2, bond_order=1.0, NCI=True)
 
         tube_cfg = RenderConfig(atom_scale=0, atom_stroke_width=0)
         cfg = RenderConfig(

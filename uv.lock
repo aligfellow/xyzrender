@@ -2309,7 +2309,7 @@ wheels = [
 
 [[package]]
 name = "xyzgraph"
-version = "1.6.6"
+version = "1.6.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -2318,9 +2318,9 @@ dependencies = [
     { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "rdkit" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/db/7f/2c284028a2a5ab269ce3f6a97b9499ff513c627922b62da20fde9f3209ce/xyzgraph-1.6.6.tar.gz", hash = "sha256:af353a346cf5eae02d60eb44b309a7445057c38f74991a069e736e9eb7a70246", size = 165448, upload-time = "2026-03-25T22:19:10.184Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9c/1b/4bc99da1336144c7191cb65f446319e4a51341e25fc62dc724fbd5627625/xyzgraph-1.6.7.tar.gz", hash = "sha256:3aa0a05d2c21ac3eb0bf0858114e2601ffc6a7f6d01ab455912d5370968feaf2", size = 166502, upload-time = "2026-03-27T14:03:12.72Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/88/39/fc3d4b9b6e23325c19e02668b91a9e938aaca3a35be754e2940b2e457718/xyzgraph-1.6.6-py3-none-any.whl", hash = "sha256:c0931e912a43bb04a5e40badce983fb27f5de9bf2919d7b29ac6e412193e947e", size = 123050, upload-time = "2026-03-25T22:19:08.243Z" },
+    { url = "https://files.pythonhosted.org/packages/6b/0f/6819dfcbf93e368dc3ea35c3b366e605991e342ed6c2b87af373ed881c0c/xyzgraph-1.6.7-py3-none-any.whl", hash = "sha256:43e619d9b96e9dbc497abbcaf302f3f6fa8fcc75dc2f3a52c5581cbb489fd325", size = 123745, upload-time = "2026-03-27T14:03:10.94Z" },
 ]
 
 [[package]]
@@ -2399,7 +2399,7 @@ requires-dist = [
     { name = "scipy", marker = "extra == 'hull'", specifier = ">=1.10" },
     { name = "vmol", marker = "extra == 'all'", specifier = ">=3.0rc7" },
     { name = "vmol", marker = "extra == 'v'", specifier = ">=3.0rc7" },
-    { name = "xyzgraph", specifier = ">=1.6.6" },
+    { name = "xyzgraph", specifier = ">=1.6.7" },
 ]
 provides-extras = ["hull", "crystal", "smi", "cif", "v", "all"]
 

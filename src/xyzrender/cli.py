@@ -46,6 +46,17 @@ def _parse_indices(s: str) -> list[int]:
     return parse_atom_indices(s)
 
 
+def _flatten_specs(items: list[str]) -> list[str]:
+    """Split each item on commas and flatten: ['M-L,sbm', '1-3'] → ['M-L', 'sbm', '1-3']."""
+    out: list[str] = []
+    for item in items:
+        for part in item.split(","):
+            stripped = part.strip()
+            if stripped:
+                out.append(stripped)
+    return out
+
+
 def _parse_atom_spec(s: str) -> list[int]:
     """Parse '1-5,8' → [1, 2, 3, 4, 5, 8] (1-indexed, for passing to API)."""
     indices: list[int] = []
@@ -90,14 +101,6 @@ def main() -> None:
         default=False,
         help="Ignore file connectivity and re-detect bonds with xyzgraph",
     )
-    io_g.add_argument(
-        "--threshold",
-        type=float,
-        default=1.0,
-        metavar="SCALE",
-        help="Global bond-distance scaling factor (default: 1.0). "
-        "Values > 1.0 detect longer bonds, < 1.0 detect fewer.",
-    )
 
     # --- Styling ---
     style_g = p.add_argument_group("styling")
@@ -138,7 +141,20 @@ def main() -> None:
     disp_g.add_argument(
         "--no-bonds", action="store_true", default=False, help="Hide all bonds (e.g. space-filling style)"
     )
-    disp_g.add_argument("--bond-cutoff", type=float, default=None, help="Hide bonds longer than this distance (Å)")
+    disp_g.add_argument(
+        "--unbond",
+        nargs="+",
+        default=[],
+        metavar="SPEC",
+        help='Hide bonds by rule or index pair: "M-L sbm Fe-het 1-3" (comma or space separated)',
+    )
+    disp_g.add_argument(
+        "--bond",
+        nargs="+",
+        default=[],
+        metavar="PAIR",
+        help='Force-show/add bonds: "1-3 4-5" (1-indexed, overrides --unbond)',
+    )
     disp_g.add_argument("--bo", action=argparse.BooleanOptionalAction, default=None, help="Bond orders")
     disp_g.add_argument(
         "-k", "--kekule", action="store_true", default=False, help="Use Kekule bond orders (no aromatic 1.5)"
@@ -597,7 +613,8 @@ def main() -> None:
         bo=args.bo,
         hy=hy_spec,
         hide_bonds=args.no_bonds,
-        bond_cutoff=args.bond_cutoff,
+        unbond=_flatten_specs(args.unbond) or None,
+        bond=_flatten_specs(args.bond) or None,
         no_hy=args.no_hy,
         orient=_orient,
         opacity=args.opacity,
@@ -742,16 +759,13 @@ def main() -> None:
             charge=args.charge,
             multiplicity=args.multiplicity,
             kekule=args.kekule,
-            threshold=args.threshold,
         )
         xyz_path = Path(args.output).with_suffix(".xyz")
         mol.to_xyz(xyz_path, title=args.smi)
         logger.info("3D geometry written to %s", xyz_path)
     elif from_stdin:
-        graph = load_stdin(
-            charge=args.charge, multiplicity=args.multiplicity, kekule=args.kekule, threshold=args.threshold
-        )
-        mol = Molecule(graph=graph, cube_data=None, cell_data=None, oriented=False, threshold=args.threshold)
+        graph = load_stdin(charge=args.charge, multiplicity=args.multiplicity, kekule=args.kekule)
+        mol = Molecule(graph=graph, cube_data=None, cell_data=None, oriented=False)
     elif not args.input:
         p.error("No input file and stdin is a terminal")
     else:
@@ -769,7 +783,6 @@ def main() -> None:
                 crystal=interface_mode or False,
                 cell=args.cell,
                 quick=args.bo is False,
-                threshold=args.threshold,
             )
         except ValueError as e:
             p.error(str(e))
@@ -895,7 +908,6 @@ def main() -> None:
             multiplicity=args.multiplicity,
             kekule=args.kekule,
             reference_mol=mol,
-            threshold=args.threshold,
         )
 
     # --- Crystal ghost resolution ---
