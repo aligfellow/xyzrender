@@ -46,6 +46,17 @@ def _parse_indices(s: str) -> list[int]:
     return parse_atom_indices(s)
 
 
+def _flatten_specs(items: list[str]) -> list[str]:
+    """Split each item on commas and flatten: ['M-L,sbm', '1-3'] → ['M-L', 'sbm', '1-3']."""
+    out: list[str] = []
+    for item in items:
+        for part in item.split(","):
+            stripped = part.strip()
+            if stripped:
+                out.append(stripped)
+    return out
+
+
 def _parse_atom_spec(s: str) -> list[int]:
     """Parse '1-5,8' → [1, 2, 3, 4, 5, 8] (1-indexed, for passing to API)."""
     indices: list[int] = []
@@ -194,21 +205,15 @@ def main() -> None:
         default=False,
         help="Ignore file connectivity and re-detect bonds with xyzgraph",
     )
-    io_g.add_argument(
-        "--threshold",
-        type=float,
-        default=1.0,
-        metavar="SCALE",
-        help="Global bond-distance scaling factor (default: 1.0). "
-        "Values > 1.0 detect longer bonds, < 1.0 detect fewer.",
-    )
 
     # --- Styling ---
     style_g = p.add_argument_group("styling")
     style_g.add_argument(
         "--config",
         default=None,
-        help=("Config preset or JSON path (default, flat, paton, skeletal, bubble, tube, metal_tube, wire, graph, custom)"),
+        help=(
+            "Config preset or JSON path (default, flat, paton, skeletal, bubble, tube, metal_tube, wire, graph, custom)"
+        ),
     )
     style_g.add_argument("-S", "--canvas-size", type=int, default=None)
     style_g.add_argument("-a", "--atom-scale", type=float, default=None)
@@ -242,7 +247,20 @@ def main() -> None:
     disp_g.add_argument(
         "--no-bonds", action="store_true", default=False, help="Hide all bonds (e.g. space-filling style)"
     )
-    disp_g.add_argument("--bond-cutoff", type=float, default=None, help="Hide bonds longer than this distance (Å)")
+    disp_g.add_argument(
+        "--unbond",
+        nargs="+",
+        default=[],
+        metavar="SPEC",
+        help='Hide bonds by rule or index pair: "M-L sbm Fe-het 1-3" (comma or space separated)',
+    )
+    disp_g.add_argument(
+        "--bond",
+        nargs="+",
+        default=[],
+        metavar="PAIR",
+        help='Force-show/add bonds: "1-3 4-5" (1-indexed, overrides --unbond)',
+    )
     disp_g.add_argument("--bo", action=argparse.BooleanOptionalAction, default=None, help="Bond orders")
     disp_g.add_argument(
         "-k", "--kekule", action="store_true", default=False, help="Use Kekule bond orders (no aromatic 1.5)"
@@ -707,8 +725,9 @@ def main() -> None:
         bo=args.bo,
         hy=None,
         hide_bonds=args.no_bonds,
-        bond_cutoff=args.bond_cutoff,
-        no_hy=False,
+        unbond=_flatten_specs(args.unbond) or None,
+        bond=_flatten_specs(args.bond) or None,
+        no_hy=args.no_hy,
         orient=_orient,
         opacity=args.opacity,
         label_font_size=args.label_size,
@@ -842,16 +861,13 @@ def main() -> None:
             charge=args.charge,
             multiplicity=args.multiplicity,
             kekule=args.kekule,
-            threshold=args.threshold,
         )
         xyz_path = Path(args.output).with_suffix(".xyz")
         mol.to_xyz(xyz_path, title=args.smi)
         logger.info("3D geometry written to %s", xyz_path)
     elif from_stdin:
-        graph = load_stdin(
-            charge=args.charge, multiplicity=args.multiplicity, kekule=args.kekule, threshold=args.threshold
-        )
-        mol = Molecule(graph=graph, cube_data=None, cell_data=None, oriented=False, threshold=args.threshold)
+        graph = load_stdin(charge=args.charge, multiplicity=args.multiplicity, kekule=args.kekule)
+        mol = Molecule(graph=graph, cube_data=None, cell_data=None, oriented=False)
     elif not args.input:
         p.error("No input file and stdin is a terminal")
     else:
@@ -869,15 +885,15 @@ def main() -> None:
                 crystal=interface_mode or False,
                 cell=args.cell,
                 quick=args.bo is False,
-                threshold=args.threshold,
             )
         except ValueError as e:
             p.error(str(e))
 
     # Resolve atom-spec driven options now that atom symbols are available.
+    import copy
+
     from xyzrender.config import apply_hydrogen_flags, build_region_config
     from xyzrender.types import StyleRegion
-    import copy
 
     hy_spec: bool | list[int] | None = None
     if args.hy is not None:
@@ -894,7 +910,10 @@ def main() -> None:
     if args.region:
         from xyzrender.api import _apply_style_regions
 
-        _apply_style_regions(cfg, regions=[(_resolve_atom_spec(atoms_str, mol.graph), config_name) for atoms_str, config_name in args.region])
+        _apply_style_regions(
+            cfg,
+            regions=[(_resolve_atom_spec(atoms_str, mol.graph), config_name) for atoms_str, config_name in args.region],
+        )
 
     # metal_tube preset: keep tube baseline for all atoms, restore full atom size for metals.
     if (args.config or "default") == "metal_tube":
@@ -1039,7 +1058,6 @@ def main() -> None:
             multiplicity=args.multiplicity,
             kekule=args.kekule,
             reference_mol=mol,
-            threshold=args.threshold,
         )
 
     # --- Crystal ghost resolution ---

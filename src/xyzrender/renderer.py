@@ -65,7 +65,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         # Collect TS bond pairs to prioritize in orientation
         ts_pairs = list(cfg.ts_bonds) if cfg.ts_bonds else []
         for i, j, d in graph.edges(data=True):
-            if d.get("TS", False) or d.get("bond_type", "") == "TS":
+            if d.get("TS", False):
                 ts_pairs.append((i, j))
         # Exclude NCI centroid dummy nodes from PCA fitting
         atom_mask = np.array([s != "*" for s in symbols])
@@ -258,10 +258,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     if not cfg.hide_bonds:
         for i, j, d in graph.edges(data=True):
             bo = d.get("bond_order", 1.0)  # always store raw; bond_orders flag applied per-bond at render
-            bt = d.get("bond_type", "")
-            if bt == "TS" or d.get("TS", False):
+            if d.get("TS", False):
                 style = BondStyle.DASHED
-            elif bt == "NCI" or d.get("NCI", False):
+            elif d.get("NCI", False):
                 style = BondStyle.DOTTED
             else:
                 style = BondStyle.SOLID
@@ -274,21 +273,6 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         for i, j in cfg.nci_bonds:
             existing = bonds.get((i, j), (1.0, BondStyle.SOLID, None))
             bonds[(i, j)] = bonds[(j, i)] = (existing[0], BondStyle.DOTTED, existing[2])
-        # Absolute distance cutoff — drop SOLID bonds longer than threshold
-        # (TS / NCI overlay bonds are intentionally kept)
-        if cfg.bond_cutoff is not None:
-            cutoff_sq = cfg.bond_cutoff**2
-            drop = []
-            for (i, j), (_bo, style, _c_ov) in bonds.items():
-                if i < j and style == BondStyle.SOLID:
-                    d = np.array(graph.nodes[i]["position"]) - np.array(graph.nodes[j]["position"])
-                    if float(d @ d) > cutoff_sq:
-                        drop.append((i, j))
-            for i, j in drop:
-                del bonds[(i, j)]
-                del bonds[(j, i)]
-            if drop:
-                logger.info("%d bond(s) hidden with a bond cutoff of %.3f Å", len(drop), cfg.bond_cutoff)
         # Molecule color: paint all SOLID bonds with darkened mol_color
         if mol_bond_color is not None:
             for (i, j), (bo, style, c_ov) in list(bonds.items()):

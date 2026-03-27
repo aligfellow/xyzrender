@@ -103,7 +103,6 @@ class Molecule:
     cell_data: CellData | None = None
     oriented: bool = False
     ensemble: EnsembleFrames | None = None
-    threshold: float = 1.0
 
     def to_xyz(self, path: str | os.PathLike, title: str = "") -> None:
         """Write the molecule to an XYZ file.
@@ -167,7 +166,6 @@ def load(
     crystal: bool | str = False,
     cell: bool = False,
     quick: bool = False,
-    threshold: float = 1.0,
     # --- Ensemble (multi-frame trajectory) ---
     ensemble: bool = False,
     reference_frame: int = 0,
@@ -222,10 +220,6 @@ def load(
         when you know bond orders will be suppressed at render time (e.g.
         ``render(mol, bo=False)``).  CIF and PDB-with-cell always use
         ``quick=True`` automatically regardless of this flag.
-    threshold:
-        Global bond-distance scaling factor (default 1.0).  Multiplies
-        all VDW-based bond-detection cutoffs in xyzgraph.  Values > 1.0
-        make bonds easier to detect (longer tolerance), < 1.0 stricter.
     ensemble:
         Load as a multi-frame trajectory ensemble.  All frames are
         RMSD-aligned onto *reference_frame* and merged into a single graph.
@@ -275,7 +269,6 @@ def load(
             quick=quick,
             nci_detect=nci_detect,
             reference_mol=reference_mol,
-            threshold=threshold,
         )
 
     import xyzrender.parsers as fmt
@@ -297,7 +290,6 @@ def load(
             kekule=kekule,
             rebuild=rebuild,
             quick=quick,
-            threshold=threshold,
         )
     elif not Path(mol_path).is_file():
         raise FileNotFoundError(f"[Errno 2] No such file or directory: '{mol_path}'")
@@ -306,7 +298,7 @@ def load(
         interface_mode = _resolve_crystal_interface(mol_path, crystal)
         from xyzrender.crystal import load_crystal
 
-        graph, cell_data = load_crystal(mol_path, interface_mode, threshold=threshold)
+        graph, cell_data = load_crystal(mol_path, interface_mode)
 
     elif mol_path.suffix.lower() == ".cube":
         from xyzrender.readers import load_cube
@@ -317,7 +309,6 @@ def load(
             multiplicity=multiplicity,
             kekule=kekule,
             quick=quick,
-            threshold=threshold,
         )
 
     elif ts_detect:
@@ -329,7 +320,6 @@ def load(
             multiplicity=multiplicity,
             ts_frame=ts_frame,
             kekule=kekule,
-            threshold=threshold,
         )
 
     else:
@@ -343,7 +333,6 @@ def load(
             kekule=kekule,
             rebuild=rebuild,
             quick=quick,
-            threshold=threshold,
         )
 
     # Auto-promote: any file that carried lattice data (extXYZ Lattice=, PDB CRYST1, CIF)
@@ -363,7 +352,7 @@ def load(
 
         graph = detect_nci(graph)
 
-    return Molecule(graph=graph, cube_data=cube_data, cell_data=cell_data, threshold=threshold)
+    return Molecule(graph=graph, cube_data=cube_data, cell_data=cell_data)
 
 
 def orient(mol: Molecule) -> None:
@@ -467,7 +456,8 @@ def render(
     vdw_gradient_strength: float | None = None,
     # --- Display ---
     hide_bonds: bool = False,
-    bond_cutoff: float | None = None,
+    unbond: list[str] | None = None,
+    bond: list[str] | None = None,
     hy: bool | list[int] | None = None,
     no_hy: bool = False,
     bo: bool | None = None,
@@ -568,6 +558,17 @@ def render(
         disabled regardless of *orient*.  If the file does not exist,
         current (possibly PCA-oriented) positions are saved to it.
         Not supported for periodic structures (raises ``ValueError``).
+    unbond:
+        Bond display rules.  A list of spec strings that hide bonds:
+        categories (``"M"``, ``"sbm"``, ``"L"``, ``"het"``), element
+        pairs (``"M-L"``, ``"Fe-het"``), pi-coordination (``"pi"``,
+        ``"M-pi"``), element symbols (``"Li"``), atom indices
+        (``"2"``), or index pairs (``"1-3"``).  Specs are 1-indexed.
+        NCI / TS overlay edges are never removed by rules.
+    bond:
+        Force-show or add bonds as 1-indexed index-pair strings
+        (``["4-5"]``).  Overrides ``unbond`` — a bond listed here
+        will not be removed even if it matches an unbond rule.
     ts_bonds, nci_bonds:
         Manual TS / NCI bond overlays as 1-indexed atom pairs.
     vdw:
@@ -700,7 +701,8 @@ def render(
             vdw_gradient_strength=vdw_gradient_strength,
             bo=bo,
             hide_bonds=hide_bonds,
-            bond_cutoff=bond_cutoff,
+            unbond=unbond,
+            bond=bond,
             hy=hy,
             no_hy=no_hy,
             orient=_orient,
@@ -978,6 +980,12 @@ def render(
         nci_cube = parse_cube(str(nci))
         compute_nci_surface(rmol.graph, cube_data, nci_cube, cfg, nci_params)
 
+    # --- Bond rules (unbond / bond) ---
+    if cfg.unbond or cfg.bond:
+        from xyzrender.bond_rules import apply_bond_rules
+
+        apply_bond_rules(rmol.graph, cfg)
+
     # --- Render ---
     svg = render_svg(rmol.graph, cfg)
 
@@ -1034,7 +1042,8 @@ def render_gif(
     vdw_scale: float | None = None,
     vdw_gradient_strength: float | None = None,
     hide_bonds: bool = False,
-    bond_cutoff: float | None = None,
+    unbond: list[str] | None = None,
+    bond: list[str] | None = None,
     hy: bool | list[int] | None = None,
     no_hy: bool = False,
     bo: bool | None = None,
@@ -1209,7 +1218,8 @@ def render_gif(
             vdw_gradient_strength=vdw_gradient_strength,
             bo=bo,
             hide_bonds=hide_bonds,
-            bond_cutoff=bond_cutoff,
+            unbond=unbond,
+            bond=bond,
             hy=hy,
             no_hy=no_hy,
             orient=orient,
@@ -1540,7 +1550,6 @@ def _build_ensemble_molecule(
     quick: bool = False,
     nci_detect: bool = False,
     reference_mol: Molecule | None = None,
-    threshold: float = 1.0,
 ) -> Molecule:
     """Build a :class:`Molecule` representing an ensemble of conformers.
 
@@ -1603,7 +1612,6 @@ def _build_ensemble_molecule(
             kekule=kekule,
             rebuild=rebuild,
             quick=quick,
-            threshold=threshold,
         )
         oriented = False
 
@@ -1643,9 +1651,7 @@ def _build_ensemble_molecule(
                 conformer_graphs.append(ref_graph)
                 continue
             atoms = list(zip(frame["symbols"], [tuple(p) for p in frame["positions"]], strict=True))
-            fg = build_graph(
-                atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick, threshold=threshold
-            )
+            fg = build_graph(atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick)
             for _i, _j, d in fg.edges(data=True):
                 if "bond_order" in d:
                     d["bond_order"] = 1
@@ -1681,9 +1687,7 @@ def _build_ensemble_molecule(
         reference_idx=reference_frame,
     )
 
-    return Molecule(
-        graph=ref_graph, cube_data=None, cell_data=cell_data, oriented=oriented, ensemble=ens, threshold=threshold
-    )
+    return Molecule(graph=ref_graph, cube_data=None, cell_data=cell_data, oriented=oriented, ensemble=ens)
 
 
 # ---------------------------------------------------------------------------
@@ -2055,7 +2059,7 @@ def _apply_cell_config(
             raise ValueError("supercell requires a non-zero 3x3 lattice matrix.")
         from xyzrender.crystal import build_supercell
 
-        mol.graph = build_supercell(mol.graph, cell_data, supercell, threshold=mol.threshold)
+        mol.graph = build_supercell(mol.graph, cell_data, supercell)
         # Scaled lattice for ghost generation (ghosts = periodic images of the
         # supercell, not the unit cell).  cell_data stays as unit cell for the
         # cell-box overlay.
@@ -2078,7 +2082,7 @@ def _apply_cell_config(
             if _supercell_lattice is not None
             else cell_data
         )
-        add_crystal_images(mol.graph, ghost_cd, threshold=mol.threshold)
+        add_crystal_images(mol.graph, ghost_cd)
 
     # Bond orders are not meaningful for periodic structures (xyzgraph bond
     # order assignment assumes isolated molecules).
