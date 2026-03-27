@@ -39,13 +39,6 @@ def _parse_pairs(s: str) -> list[tuple[int, int]]:
     return pairs
 
 
-def _parse_indices(s: str) -> list[int]:
-    """Parse '1-20,25,30' → [0..19, 24, 29] (1-indexed input → 0-indexed)."""
-    from xyzrender.utils import parse_atom_indices
-
-    return parse_atom_indices(s)
-
-
 def _flatten_specs(items: list[str]) -> list[str]:
     """Split each item on commas and flatten: ['M-L,sbm', '1-3'] → ['M-L', 'sbm', '1-3']."""
     out: list[str] = []
@@ -55,122 +48,6 @@ def _flatten_specs(items: list[str]) -> list[str]:
             if stripped:
                 out.append(stripped)
     return out
-
-
-def _parse_atom_spec(s: str) -> list[int]:
-    """Parse '1-5,8' → [1, 2, 3, 4, 5, 8] (1-indexed, for passing to API)."""
-    indices: list[int] = []
-    for part in s.split(","):
-        if "-" in part:
-            a, b = part.split("-")
-            indices.extend(range(int(a), int(b) + 1))
-        else:
-            indices.append(int(part))
-    return indices
-
-
-def _metal_symbols() -> set[str]:
-    """Return element symbols considered metals (full periodic-table metals)."""
-    from xyzgraph import DATA
-
-    metal_atomic_numbers = {
-        3,
-        4,
-        11,
-        12,
-        13,
-        19,
-        20,
-        31,
-        37,
-        38,
-        49,
-        50,
-        55,
-        56,
-        81,
-        82,
-        83,
-        84,
-        87,
-        88,
-        113,
-        114,
-        115,
-        116,
-        *range(21, 31),
-        *range(39, 49),
-        *range(57, 81),
-        *range(89, 113),
-    }
-    return {DATA.n2s[z] for z in metal_atomic_numbers if z in DATA.n2s}
-
-
-def _resolve_atom_spec(spec: str, graph) -> list[int]:
-    """Resolve atom spec to 1-indexed indices, supporting `el:` selectors."""
-    from xyzgraph import DATA
-
-    node_ids = list(graph.nodes())
-    symbols = [str(graph.nodes[n].get("symbol", "")) for n in node_ids]
-    n_atoms = len(symbols)
-
-    metals = _metal_symbols()
-    all_symbols = {s for s in DATA.s2n.keys() if s and s != "*"}
-
-    resolved: set[int] = set()
-    tokens = [t.strip() for t in spec.split(",") if t.strip()]
-    for tok in tokens:
-        low = tok.lower()
-        if low.startswith("el:"):
-            rhs = tok[3:].strip()
-            if not rhs:
-                raise ValueError("empty element selector in atom spec; use e.g. el:Pt or el:metal")
-            selectors = [p.strip() for p in rhs.replace("|", "+").split("+") if p.strip()]
-            for sel in selectors:
-                s_low = sel.lower()
-                if s_low in {"metal", "metals"}:
-                    for i, sym in enumerate(symbols, start=1):
-                        if sym in metals:
-                            resolved.add(i)
-                    continue
-                sym = sel[0].upper() + sel[1:].lower() if sel else sel
-                if sym not in all_symbols:
-                    raise ValueError(f"unknown element selector {sel!r} in atom spec")
-                for i, atom_sym in enumerate(symbols, start=1):
-                    if atom_sym == sym:
-                        resolved.add(i)
-            continue
-
-        if tok.isdigit():
-            idx = int(tok)
-            if idx < 1 or idx > n_atoms:
-                raise ValueError(f"atom index {idx} out of bounds (1..{n_atoms})")
-            resolved.add(idx)
-            continue
-
-        if "-" in tok:
-            a_raw, b_raw = tok.split("-", 1)
-            if a_raw.strip().isdigit() and b_raw.strip().isdigit():
-                a, b = int(a_raw), int(b_raw)
-                if a > b:
-                    a, b = b, a
-                if a < 1 or b > n_atoms:
-                    raise ValueError(f"atom range {tok!r} out of bounds (1..{n_atoms})")
-                resolved.update(range(a, b + 1))
-                continue
-
-        if tok.isalpha():
-            sym = tok[0].upper() + tok[1:].lower()
-            if sym not in all_symbols:
-                raise ValueError(f"unknown element selector {tok!r} in atom spec")
-            for i, atom_sym in enumerate(symbols, start=1):
-                if atom_sym == sym:
-                    resolved.add(i)
-            continue
-
-        raise ValueError(f"invalid atom selector token {tok!r}")
-
-    return sorted(resolved)
 
 
 def main() -> None:
@@ -211,15 +88,15 @@ def main() -> None:
     style_g.add_argument(
         "--config",
         default=None,
-        help=(
-            "Config preset or JSON path (default, flat, paton, skeletal, bubble, tube, metal_tube, wire, graph, custom)"
-        ),
+        help=("Config preset or JSON path (default, flat, paton, skeletal, bubble, tube, mtube, wire, graph, custom)"),
     )
     style_g.add_argument("-S", "--canvas-size", type=int, default=None)
     style_g.add_argument("-a", "--atom-scale", type=float, default=None)
     style_g.add_argument("-b", "--bond-width", type=float, default=None)
     style_g.add_argument("-s", "--atom-stroke-width", type=float, default=None)
     style_g.add_argument("--bond-color", default=None, help="Bond color (hex or named)")
+    style_g.add_argument("--bond-outline-color", default=None, help="Bond outline color (hex or named)")
+    style_g.add_argument("--bond-outline-width", type=float, default=None, help="Bond outline width in px (0 = off)")
     style_g.add_argument("-B", "--background", default=None)
     style_g.add_argument("-t", "--transparent", action="store_true", help="Transparent background")
     style_g.add_argument("-Hls", "--hue-shift-factor", type=float, default=None, help="Hue gradient contrast")
@@ -241,7 +118,7 @@ def main() -> None:
         const="",
         default=None,
         metavar="ATOMS",
-        help='Show H atoms (no args=all, or selectors like "1-5,8", "el:Pt", "el:metal")',
+        help='Show H atoms (no args=all, or indices like "1-5,8")',
     )
     disp_g.add_argument("--no-hy", action="store_true", default=False, help="Hide all H atoms")
     disp_g.add_argument(
@@ -274,7 +151,7 @@ def main() -> None:
         nargs="?",
         const="",
         default=None,
-        help='VdW spheres (no args=all, or selectors like "1-20,25", "el:Pt", "el:metal")',
+        help='VdW spheres (no args=all, or selectors like "1-20,25", "M", "Pt")',
     )
 
     # --- Surfaces (MO / density / ESP) ---
@@ -375,7 +252,7 @@ def main() -> None:
         "--align-atoms",
         default=None,
         dest="align_atoms",
-        help='Atom selectors (min 3) for alignment subset, e.g. "1,2,3", "1-6", "el:Pt"',
+        help='Atom indices (min 3) for alignment subset, e.g. "1,2,3", "1-6"',
     )
     ov_g.add_argument(
         "--ensemble-color",
@@ -453,7 +330,7 @@ def main() -> None:
         "--anchor",
         default=None,
         metavar="ATOMS",
-        help='Atoms that stay fixed, e.g. "1-5,8", "el:Pt", "el:metal"',
+        help='Atoms that stay fixed, e.g. "1-5,8"',
     )
 
     # --- Atom color / Highlight ---
@@ -478,7 +355,8 @@ def main() -> None:
         action="append",
         default=None,
         metavar=("ATOMS", "CONFIG"),
-        help='Render atom subset with a different style: --region "1-5" flat or --region "el:Pt" flat.',
+        help="Render atom subset with a different style: "
+        '--region "1-5" flat or --region "Pt" flat or --region "M" tube.',
     )
 
     # --- Bond coloring ---
@@ -699,6 +577,13 @@ def main() -> None:
 
     configure_logging(verbose=True, debug=args.debug)
 
+    from xyzrender.utils import parse_atom_indices
+
+    # Normalise --hy: None | "" | "1-5,8" → None | True | [1,2,3,4,5,8] (1-indexed for API)
+    hy_spec: bool | list[int] | None = None
+    if args.hy is not None:
+        hy_spec = True if args.hy == "" else parse_atom_indices(args.hy, one_indexed=True)
+
     # Resolve orient flag before build_config so it can be passed in directly
     from_stdin = not args.input and not sys.stdin.isatty()
     _orient: bool | None = args.orient
@@ -712,6 +597,8 @@ def main() -> None:
         bond_width=args.bond_width,
         atom_stroke_width=args.atom_stroke_width,
         bond_color=args.bond_color,
+        bond_outline_color=args.bond_outline_color,
+        bond_outline_width=args.bond_outline_width,
         ts_color=args.ts_color,
         nci_color=args.nci_color,
         background=args.background,
@@ -723,7 +610,7 @@ def main() -> None:
         fog=args.fog,
         fog_strength=args.fog_strength,
         bo=args.bo,
-        hy=None,
+        hy=hy_spec,
         hide_bonds=args.no_bonds,
         unbond=_flatten_specs(args.unbond) or None,
         bond=_flatten_specs(args.bond) or None,
@@ -890,48 +777,18 @@ def main() -> None:
             p.error(str(e))
 
     # Resolve atom-spec driven options now that atom symbols are available.
-    import copy
-
-    from xyzrender.config import apply_hydrogen_flags, build_region_config
-    from xyzrender.types import StyleRegion
-
-    hy_spec: bool | list[int] | None = None
-    if args.hy is not None:
-        hy_spec = True if args.hy == "" else _resolve_atom_spec(args.hy, mol.graph)
-    apply_hydrogen_flags(cfg, hy=hy_spec, no_hy=args.no_hy)
+    from xyzrender.selectors import resolve_atom_indices
 
     if args.vdw is not None:
         if args.vdw == "":
             cfg.vdw_indices = []
         else:
-            cfg.vdw_indices = [i - 1 for i in _resolve_atom_spec(args.vdw, mol.graph)]
+            cfg.vdw_indices = sorted(resolve_atom_indices(args.vdw, mol.graph))
 
-    # User-defined style regions first.
-    if args.region:
-        from xyzrender.api import _apply_style_regions
+    # Style regions (user-defined + preset-defined from JSON)
+    from xyzrender.api import _apply_style_regions
 
-        _apply_style_regions(
-            cfg,
-            regions=[(_resolve_atom_spec(atoms_str, mol.graph), config_name) for atoms_str, config_name in args.region],
-        )
-
-    # metal_tube preset: keep tube baseline for all atoms, restore full atom size for metals.
-    if (args.config or "default") == "metal_tube":
-        metal_atoms = _resolve_atom_spec("el:metal", mol.graph)
-        occupied = set()
-        for region in cfg.style_regions:
-            occupied.update(region._index_set)
-        metal_indices = [i for i in metal_atoms if (i - 1) not in occupied]
-        if metal_indices:
-            metal_cfg = copy.copy(cfg)
-            metal_cfg.style_regions = []
-            _default_cfg = build_region_config("default")
-            metal_cfg.atom_scale = _default_cfg.atom_scale * 1.50
-            # Renderer scales stroke widths by scale_ratio; use a larger base
-            # so metal outlines remain visible in dense tube scenes.
-            metal_cfg.atom_stroke_width = 3.5
-            metal_cfg.atom_stroke_color = "#000000"
-            cfg.style_regions.append(StyleRegion(indices=[i - 1 for i in metal_indices], config=metal_cfg))
+    _apply_style_regions(cfg, mol.graph, regions=args.region)
 
     # Resolve hull now that mol is loaded (needs graph for ring detection / index conversion)
     if args.hull is not None:
@@ -941,7 +798,7 @@ def main() -> None:
             # --hull with no args → all heavy atoms
             _hull_arg = True
         else:
-            _hull_arg = [_resolve_atom_spec(g, mol.graph) for g in args.hull]
+            _hull_arg = [parse_atom_indices(g, one_indexed=True) for g in args.hull]
         apply_hull_to_config(
             cfg,
             _hull_arg,
@@ -1012,11 +869,11 @@ def main() -> None:
     # --- Parse align-atoms (comma-separated 1-indexed, e.g. "1,2,3" or "1-6") ---
     _align_atoms: list[int] | None = None
     if args.align_atoms is not None:
-        _align_atoms = _resolve_atom_spec(args.align_atoms, mol.graph)
+        _align_atoms = parse_atom_indices(args.align_atoms, one_indexed=True)
 
     _anchor_atoms: list[int] | None = None
     if args.anchor:
-        _anchor_atoms = _resolve_atom_spec(args.anchor, mol.graph)
+        _anchor_atoms = parse_atom_indices(args.anchor, one_indexed=True)
 
     # --- Parse ensemble color: palette name, single color, or comma-separated list ---
     _ens_color: str | list[str] | None = None

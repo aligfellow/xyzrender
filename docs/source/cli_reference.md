@@ -12,7 +12,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--rebuild` | Ignore file connectivity; re-detect bonds with xyzgraph |
 | `-c`, `--charge` | Molecular charge |
 | `-m`, `--multiplicity` | Spin multiplicity |
-| `--config` | Config preset (`default`, `flat`, `paton`, `pmol`, `skeletal`, `tube`, `metal_tube`, `wire`, `graph`) or path to JSON file |
+| `--config` | Config preset (`default`, `flat`, `paton`, `pmol`, `skeletal`, `tube`, `mtube`, `wire`, `graph`) or path to JSON file |
 | `-d`, `--debug` | Debug logging |
 
 ## Styling
@@ -24,8 +24,10 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `-b`, `--bond-width` | Bond stroke width |
 | `-s`, `--atom-stroke-width` | Atom outline stroke width |
 | `--bond-color` | Bond color (hex or named) |
+| `--bond-outline-color` | Bond edge stroke color (default: black) |
+| `--bond-outline-width` | Bond edge stroke width in px (0 = off) |
 | `--no-bonds` | Hide all bonds (e.g. space-filling style) |
-| `--unbond SPEC [...]` | Hide bonds by rule or index: categories (`M-L`, `sbm`, `Fe-het`), pi-coordination (`M-pi`, `pi`), element (`Li`), atom index (`2`), or pair (`1-3`). Comma or space separated |
+| `--unbond SPEC [...]` | Hide bonds by rule or index* |
 | `--bond PAIR [...]` | Force-show/add bonds: 1-indexed pairs (`1-3 4-5`). Overrides `--unbond` |
 | `-B`, `--background` | Background color |
 | `-t`, `--transparent` | Transparent background |
@@ -34,15 +36,20 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `-F`, `--fog-strength` | Depth fog strength |
 | `--fog` / `--no-fog` | Depth fog toggle |
 | `--bo` / `--no-bo` | Bond order rendering toggle |
+| `--bond-by-element` / `--no-bond-by-element` | Color bonds by endpoint atom colors |
+| `--bond-gradient` / `--no-bond-gradient` | Cylinder shading on bonds (3D tube look) |
+| `--region ATOMS CONFIG` | Render atom subset with a different style (repeatable). Selectors: `"1-5"`, `"Pt"`, `"M"` (metals), `"sbm"` (s-block), `"het"` (heteroatoms) |
+
+*- categories (`M-L`, `sbm`, `Fe-het`), pi-coordination (`M-pi`, `pi`), element (`Li`), atom index (`2`), or pair (`1-3`). Comma or space separated
 
 ## Display
 
 | Flag | Description |
 |------|-------------|
-| `--hy [ATOMS]` | Show H atoms (no args = all; selectors support ranges like `"1-5,8"` and elements like `el:Pt`, `el:metal`) |
+| `--hy [ATOMS]` | Show H atoms (no args = all, or indices like `"1-5,8"`) |
 | `--no-hy` | Hide all H atoms |
 | `-k`, `--kekule` | Use Kekulé bond orders (no aromatic 1.5) |
-| `--vdw` | vdW spheres (no args = all; selectors support ranges like `1-6` and elements like `el:Pt`, `el:metal`) |
+| `--vdw` | vdW spheres (no args = all, or selectors like `"1-6"`, `"M"`, `"Pt"`) |
 | `--vdw-opacity` | vdW sphere opacity (default: 0.25) |
 | `--vdw-scale` | vdW sphere radius scale |
 | `--vdw-gradient` | vdW sphere gradient strength |
@@ -60,7 +67,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--ensemble` | Ensemble overlay for multi-frame XYZ trajectories; conformers default to CPK atom colours |
 | `--ensemble-color VALUE` | Palette name (`viridis`, `spectral`, `coolwarm`), a single colour, or comma-separated colours |
 | `--opacity FLOAT` | Opacity for non-reference conformers (0–1) |
-| `--align-atoms INDICES` | Atom subset for Kabsch alignment (min 3), e.g. `1,2,3`, `1-6`, or `el:Pt`. Works with `--overlay` and `--ensemble` |
+| `--align-atoms INDICES` | Atom subset for Kabsch alignment (min 3), e.g. `1,2,3`, `1-6`. Works with `--overlay` and `--ensemble` |
 
 ## Orientation
 

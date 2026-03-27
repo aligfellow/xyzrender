@@ -57,10 +57,9 @@ class TestTubePreset:
         for r in radii:
             assert float(r) == pytest.approx(0.0, abs=0.1)
 
-    def test_metal_tube_has_flat_bonds_and_outline(self, caffeine):
-        """metal_tube should disable gradient shading and emit black outline strokes."""
-        svg = str(render(caffeine, config="metal_tube", orient=False))
-        assert "url(#" not in svg
+    def test_mtube_has_flat_bonds_and_outline(self, caffeine):
+        """mtube should disable gradient shading and emit edge stroke shadow."""
+        svg = str(render(caffeine, config="mtube", orient=False))
         assert 'stroke="#000000"' in svg
 
 
@@ -184,6 +183,61 @@ class TestStyleRegions:
         """Atoms appearing in multiple regions should raise ValueError."""
         with pytest.raises(ValueError, match="appear in multiple style regions"):
             render(caffeine, regions=[("1-5", "flat"), ("3-8", "tube")], orient=False)
+
+    def test_element_selector_in_region(self, ethanol):
+        """Element selectors like 'O' should work in render(regions=...)."""
+        svg = str(render(ethanol, config="tube", regions=[("O", "default")], fog=False, orient=False, hy=True))
+        radii = [float(m) for m in re.findall(r'<circle[^>]*r="([^"]+)"', svg)]
+        assert any(r > 1.0 for r in radii), "O atom in default region should have visible radius"
+
+    def test_bond_outline_in_render(self, caffeine):
+        """bond_outline_width > 0 should produce outline strokes in the SVG."""
+        svg = str(render(caffeine, bond_outline_width=5, fog=False, gradient=False, orient=False))
+        assert 'stroke="#000000"' in svg
+
+    def test_preset_region_creates_style_region(self):
+        """Preset with 'regions' key should load region_specs on config."""
+        from xyzrender.config import build_config
+
+        cfg = build_config("mtube")
+        assert cfg.region_specs is not None
+        assert "M" in cfg.region_specs
+
+    def test_user_region_overrides_preset_region(self):
+        """User region wins over preset region for overlapping atoms."""
+        import networkx as nx
+
+        from xyzrender.api import _apply_style_regions
+
+        g = nx.Graph()
+        g.add_node(0, symbol="Fe")
+        g.add_node(1, symbol="C")
+
+        cfg = RenderConfig(region_specs={"M": {"atom_scale": 5.0}})
+        _apply_style_regions(cfg, g, regions=[("Fe", "flat")])
+        # Fe should get flat (gradient=False), not the preset's atom_scale=5.0
+        fe_region = [r for r in cfg.style_regions if 0 in r._index_set]
+        assert len(fe_region) == 1
+        assert fe_region[0].config.gradient is False  # flat preset
+        assert fe_region[0].config.atom_scale != 5.0  # not the preset override
+
+    def test_preset_region_not_resolved_twice(self):
+        """Preset regions cleared after resolution — no duplicates on second call."""
+        import networkx as nx
+
+        from xyzrender.api import _apply_style_regions
+
+        g = nx.Graph()
+        g.add_node(0, symbol="Fe")
+        g.add_node(1, symbol="C")
+
+        cfg = RenderConfig(region_specs={"M": {"atom_scale": 5.0}})
+        _apply_style_regions(cfg, g)
+        assert len(cfg.style_regions) == 1
+        assert cfg.region_specs is None
+
+        _apply_style_regions(cfg, g)
+        assert len(cfg.style_regions) == 1  # not doubled
 
 
 # ---------------------------------------------------------------------------

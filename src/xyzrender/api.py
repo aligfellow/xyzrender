@@ -440,6 +440,8 @@ def render(
     bond_width: float | None = None,
     atom_stroke_width: float | None = None,
     bond_color: str | None = None,
+    bond_outline_color: str | None = None,
+    bond_outline_width: float | None = None,
     ts_color: str | None = None,
     nci_color: str | None = None,
     background: str | None = None,
@@ -685,6 +687,8 @@ def render(
             bond_width=bond_width,
             atom_stroke_width=atom_stroke_width,
             bond_color=bond_color,
+            bond_outline_color=bond_outline_color,
+            bond_outline_width=bond_outline_width,
             ts_color=ts_color,
             nci_color=nci_color,
             background=background,
@@ -731,8 +735,8 @@ def render(
     # --- Highlight ---
     _apply_highlight(cfg, highlight=highlight)
 
-    # --- Style regions ---
-    _apply_style_regions(cfg, regions=regions)
+    # --- Style regions (user + preset-defined) ---
+    _apply_style_regions(cfg, mol.graph, regions=regions)
 
     # --- Bond coloring ---
     if ts_color is not None:
@@ -1027,6 +1031,8 @@ def render_gif(
     bond_width: float | None = None,
     atom_stroke_width: float | None = None,
     bond_color: str | None = None,
+    bond_outline_color: str | None = None,
+    bond_outline_width: float | None = None,
     ts_color: str | None = None,
     nci_color: str | None = None,
     background: str | None = None,
@@ -1202,6 +1208,8 @@ def render_gif(
             bond_width=bond_width,
             atom_stroke_width=atom_stroke_width,
             bond_color=bond_color,
+            bond_outline_color=bond_outline_color,
+            bond_outline_width=bond_outline_width,
             ts_color=ts_color,
             nci_color=nci_color,
             background=background,
@@ -1234,8 +1242,8 @@ def render_gif(
     # --- Highlight ---
     _apply_highlight(cfg, highlight=highlight)
 
-    # --- Style regions ---
-    _apply_style_regions(cfg, regions=regions)
+    # --- Style regions (user + preset-defined) ---
+    _apply_style_regions(cfg, _gif_graph, regions=regions)
 
     # --- Bond coloring ---
     if ts_color is not None:
@@ -1779,32 +1787,57 @@ def _apply_highlight(
 
 def _apply_style_regions(
     cfg: "RenderConfig",
+    graph: "nx.Graph",
     *,
     regions: "list[tuple[str | list[int], str | RenderConfig]] | None" = None,
 ) -> None:
-    """Apply style-region overrides to *cfg* (mutates in place).
+    """Resolve atom specs and apply style-region overrides to *cfg*.
 
-    Each region is ``(atoms_spec, config_spec)`` where *atoms_spec* is a
-    1-indexed string (``"1-5,8"``) or 1-indexed ``list[int]``, and
-    *config_spec* is a preset name or a pre-built :class:`RenderConfig`.
+    Handles both user-defined regions (from ``regions=`` parameter) and
+    preset-defined regions (from the JSON ``"regions"`` key on *cfg*).
+
+    *atoms_spec* is a string (``"1-5"``, ``"M"``, ``"Pt"``) resolved via
+    selectors, or a 1-indexed ``list[int]``.  *config_spec* is a preset
+    name, a :class:`RenderConfig`, or (for preset regions) a dict of
+    overrides merged on top of the parent config.
+
+    User-defined regions are applied first; preset regions skip atoms
+    already claimed.
     """
-    if regions is None:
-        return
-
     import copy
 
-    from xyzrender.config import build_region_config
+    from xyzrender.config import build_region_config, load_config
+    from xyzrender.selectors import resolve_atom_indices
     from xyzrender.types import StyleRegion
 
     seen: set[int] = set()
-    for atoms_spec, config_spec in regions:
-        indices = parse_atom_indices(atoms_spec)
 
+    # Preset regions first — so user regions can override with a warning
+    preset_claimed: set[int] = set()
+    for spec in cfg.region_specs or {}:
+        preset_claimed.update(resolve_atom_indices(spec, graph))
+
+    # --- User-defined regions ---
+    for atoms_spec, config_spec in regions or []:
+        if isinstance(atoms_spec, str):
+            indices = sorted(resolve_atom_indices(atoms_spec, graph))
+        else:
+            indices = parse_atom_indices(atoms_spec)
+
+        # Error on user-vs-user overlap
         overlap = seen & set(indices)
         if overlap:
             examples = sorted(overlap)[:5]
             msg = f"atom(s) {', '.join(str(i + 1) for i in examples)} appear in multiple style regions (1-indexed)"
             raise ValueError(msg)
+        # Warn on user-vs-preset overlap (user wins)
+        preset_overlap = preset_claimed & set(indices)
+        if preset_overlap:
+            logger.warning(
+                "style region overrides preset region for atom(s) %s",
+                ", ".join(str(i + 1) for i in sorted(preset_overlap)[:5]),
+            )
+            preset_claimed -= preset_overlap
         seen.update(indices)
 
         if isinstance(config_spec, str):
@@ -1815,8 +1848,31 @@ def _apply_style_regions(
             msg = f"region config must be a preset name (str) or RenderConfig, got {type(config_spec)}"
             raise TypeError(msg)
 
-        rcfg.style_regions = []  # no nested regions
+        rcfg.style_regions = []
         cfg.style_regions.append(StyleRegion(indices=indices, config=rcfg))
+
+    # --- Preset-defined regions (from JSON "regions" key) ---
+    _pending_specs = cfg.region_specs or {}
+    cfg.region_specs = None  # clear so they aren't resolved again if called twice
+    for spec, region_def in _pending_specs.items():
+        indices = sorted(resolve_atom_indices(spec, graph))
+        free = [i for i in indices if i not in seen]
+        if not free:
+            continue
+        rcfg = copy.copy(cfg)
+        rcfg.style_regions = []
+        rcfg.region_specs = None
+        if isinstance(region_def, str):
+            overrides = load_config(region_def)
+        else:
+            overrides = region_def
+        for k, v in overrides.items():
+            if hasattr(rcfg, k):
+                setattr(rcfg, k, v)
+            else:
+                logger.warning("preset region %r: unknown config key %r (ignored)", spec, k)
+        cfg.style_regions.append(StyleRegion(indices=free, config=rcfg))
+        seen.update(free)
 
 
 def _apply_render_overlays(

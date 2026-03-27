@@ -12,7 +12,14 @@
   "bond_gradient": false,
   "bond_color": "#606060",
   "bond_outline_color": "#000000",
-  "bond_outline_width_ratio": 1.2,
+  "bond_outline_width": 5.0,
   "fog": false,
-  "background": "white"
+  "background": "white",
+  "regions": {
+    "M": {
+      "gradient": true,
+      "atom_scale": 4.0,
+      "atom_stroke_width": 5.0
+    }
+  }
 }

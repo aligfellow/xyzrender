@@ -224,8 +224,8 @@ class RenderConfig:
     bond_gap: float = 0.6  # multi-bond spacing as fraction of bond_width
     bond_color_by_element: bool = False  # color bonds by endpoint atom colors
     bond_gradient: bool = False  # cylinder shading on bonds (perpendicular gradient for 3D tube look)
-    bond_outline_color: str | None = None  # optional under-stroke colour for bond outline
-    bond_outline_width_ratio: float = 1.2  # outline stroke = bond_width * ratio
+    bond_outline_color: str = "#000000"  # stroke colour drawn behind bonds
+    bond_outline_width: float = 0.0  # absolute px; 0 = off, visible border = this value on each side
     gradient: bool = False
     hue_shift_factor: float = 0.2
     light_shift_factor: float = 0.2
@@ -344,6 +344,8 @@ class RenderConfig:
     hull_edge_width_ratio: float = 0.4  # stroke width = bond_width * this
     # Style regions: render subsets of atoms with a different preset/config
     style_regions: list[StyleRegion] = field(default_factory=list)
+    # Preset-defined regions: {"M": "flat"} or {"M": {"atom_scale": 4.0}} resolved at render time
+    region_specs: dict[str, str | dict] | None = None
 
 
 @dataclass
