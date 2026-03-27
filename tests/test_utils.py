@@ -42,6 +42,39 @@ def test_pca_matrix_orthogonal():
     assert np.allclose(vt @ vt.T, np.eye(3), atol=1e-10)
 
 
+def test_pca_orient_monoatomic():
+    pos = np.array([[5.0, 3.0, 1.0]])
+    oriented, rot = pca_orient(pos, return_matrix=True)
+    assert np.allclose(rot, np.eye(3))
+    assert np.allclose(oriented, [[0.0, 0.0, 0.0]])
+
+
+def test_pca_orient_diatomic():
+    pos = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 2.0]])
+    oriented, rot = pca_orient(pos, return_matrix=True)
+    assert rot.shape == (3, 3)
+    assert np.isclose(np.linalg.det(rot), 1.0, atol=1e-10)
+    # Bond should be along x after orientation
+    assert np.var(oriented[:, 0]) >= np.var(oriented[:, 1])
+
+
+def test_pca_orient_coincident():
+    pos = np.array([[1.0, 2.0, 3.0]] * 5)
+    oriented, rot = pca_orient(pos, return_matrix=True)
+    assert np.allclose(rot, np.eye(3))
+    assert np.allclose(oriented, 0.0)
+
+
+def test_pca_matrix_monoatomic():
+    assert np.allclose(pca_matrix(np.array([[5.0, 3.0, 1.0]])), np.eye(3))
+
+
+def test_pca_matrix_diatomic():
+    vt = pca_matrix(np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 2.0]]))
+    assert vt.shape == (3, 3)
+    assert np.allclose(vt @ vt.T, np.eye(3), atol=1e-10)
+
+
 def test_kabsch_recovers_rotation():
     """Apply a known 90-degree rotation and verify Kabsch recovers it."""
     rng = np.random.default_rng(42)

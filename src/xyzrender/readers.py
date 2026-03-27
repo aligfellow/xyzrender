@@ -36,11 +36,9 @@ def _is_vasp_file(path: str) -> bool:
     return p.suffix.lower() == ".vasp" or p.stem.upper() in {"POSCAR", "CONTCAR"}
 
 
-def _build_crystal_graph(
-    atoms: list, lattice, *, charge: int = 0, multiplicity=None, kekule: bool = False, threshold: float = 1.0
-) -> tuple:
+def _build_crystal_graph(atoms: list, lattice, *, charge: int = 0, multiplicity=None, kekule: bool = False) -> tuple:
     """Build graph + CellData from atoms and lattice (shared by periodic parsers)."""
-    graph = build_graph(atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=True, threshold=threshold)
+    graph = build_graph(atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=True)
     graph.graph["lattice"] = lattice
     graph.graph["lattice_origin"] = np.zeros(3)
     return graph, CellData(lattice=lattice)
@@ -53,7 +51,6 @@ def _load_qm_input(
     multiplicity=None,
     kekule: bool = False,
     quick: bool = False,
-    threshold: float = 1.0,
     bohr: bool | None = None,
 ) -> tuple:
     """Load a QM input file, detecting periodic formats automatically.
@@ -108,19 +105,13 @@ def _load_qm_input(
             if detected == "qe":
                 atoms, lattice, file_charge = parse_qe_input(p)
                 c = charge if charge != 0 else file_charge
-                return _build_crystal_graph(
-                    atoms, lattice, charge=c, multiplicity=multiplicity, kekule=kekule, threshold=threshold
-                )
+                return _build_crystal_graph(atoms, lattice, charge=c, multiplicity=multiplicity, kekule=kekule)
             elif detected == "siesta":
                 atoms, lattice = parse_siesta_fdf(p)
-                return _build_crystal_graph(
-                    atoms, lattice, charge=charge, multiplicity=multiplicity, kekule=kekule, threshold=threshold
-                )
+                return _build_crystal_graph(atoms, lattice, charge=charge, multiplicity=multiplicity, kekule=kekule)
             elif detected == "abinit":
                 atoms, lattice = parse_abinit_input(p)
-                return _build_crystal_graph(
-                    atoms, lattice, charge=charge, multiplicity=multiplicity, kekule=kekule, threshold=threshold
-                )
+                return _build_crystal_graph(atoms, lattice, charge=charge, multiplicity=multiplicity, kekule=kekule)
         except (ValueError, IndexError, KeyError):
             logger.debug("%s parser failed on %s, falling back to generic sniffer", detected, p)
 
@@ -128,7 +119,7 @@ def _load_qm_input(
     atoms, file_charge, file_mult = parse_qm_input(p, bohr=bohr)
     c = charge if charge != 0 else file_charge
     m = multiplicity if multiplicity is not None else file_mult
-    graph = build_graph(atoms, charge=c, multiplicity=m, kekule=kekule, quick=quick, threshold=threshold)
+    graph = build_graph(atoms, charge=c, multiplicity=m, kekule=kekule, quick=quick)
     crystal = None
 
     # CP2K: coords already extracted by sniffer; check for a cell block too
@@ -155,7 +146,6 @@ def load_molecule(
     kekule: bool = False,
     rebuild: bool = False,
     quick: bool = False,
-    threshold: float = 1.0,
     bohr: bool | None = None,
 ) -> tuple[nx.Graph, CellData | None]:
     """Read a molecular structure file and build a graph.
@@ -201,9 +191,7 @@ def load_molecule(
     crystal: CellData | None = None
 
     if p.endswith(".cube"):
-        graph, _cube = load_cube(
-            p, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick, threshold=threshold
-        )
+        graph, _cube = load_cube(p, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick)
     elif p.endswith(".xyz"):
         # Parse charge/mult from extXYZ comment line as defaults
         _xyz_charge, _xyz_mult = charge, multiplicity
@@ -224,7 +212,6 @@ def load_molecule(
             multiplicity=_xyz_mult,
             kekule=kekule,
             quick=quick,
-            threshold=threshold,
         )
         try:
             _lattice = _parse_extxyz_lattice(_comment)
@@ -245,7 +232,6 @@ def load_molecule(
             kekule=kekule,
             rebuild=rebuild,
             quick=quick,
-            threshold=threshold,
         )
     elif p.endswith(".pdb"):
         data = fmt.parse_pdb(p)
@@ -258,7 +244,6 @@ def load_molecule(
             kekule=kekule,
             rebuild=rebuild,
             quick=_pdb_quick,
-            threshold=threshold,
         )
         if data.pbc_cell is not None:
             # Position cell so it's centred on the molecular centroid.
@@ -277,29 +262,24 @@ def load_molecule(
             kekule=kekule,
             rebuild=rebuild,
             quick=quick,
-            threshold=threshold,
         )
     elif p.endswith(".cif"):
         data = fmt.parse_cif(p)
         # CIF is always periodic — bond orders are always suppressed at render time
-        graph = build_graph(
-            data.atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=True, threshold=threshold
-        )
+        graph = build_graph(data.atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=True)
         assert data.pbc_cell is not None
         crystal = CellData(lattice=data.pbc_cell)
     elif _is_vasp_file(p):
         from xyzrender.inputs import parse_poscar
 
         atoms, lattice = parse_poscar(p)
-        graph = build_graph(
-            atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=True, threshold=threshold
-        )
+        graph = build_graph(atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=True)
         graph.graph["lattice"] = lattice
         graph.graph["lattice_origin"] = np.zeros(3)
         crystal = CellData(lattice=lattice)
     elif p.endswith(tuple(_INPUT_EXTS)):
         graph, crystal = _load_qm_input(
-            p, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick, threshold=threshold, bohr=bohr
+            p, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick, bohr=bohr
         )
     else:
         # Unknown extension: try cclib (output parser), then generic sniffer as fallback
@@ -311,7 +291,7 @@ def load_molecule(
             atoms, file_charge, file_mult = parse_qm_input(p)
         c = charge if charge != 0 else file_charge
         m = multiplicity if multiplicity is not None else file_mult
-        graph = build_graph(atoms, charge=c, multiplicity=m, kekule=kekule, quick=quick, threshold=threshold)
+        graph = build_graph(atoms, charge=c, multiplicity=m, kekule=kekule, quick=quick)
 
     logger.info("Built graph: %d atoms, %d bonds", graph.number_of_nodes(), graph.number_of_edges())
     return graph, crystal
@@ -323,7 +303,6 @@ def load_cube(
     multiplicity: int | None = None,
     kekule: bool = False,
     quick: bool = False,
-    threshold: float = 1.0,
 ) -> tuple[nx.Graph, CubeData]:
     """Load molecular structure and orbital data from a Gaussian cube file.
 
@@ -351,9 +330,7 @@ def load_cube(
 
     logger.info("Loading %s", path)
     cube = parse_cube(path)
-    graph = build_graph(
-        cube.atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick, threshold=threshold
-    )
+    graph = build_graph(cube.atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick)
     logger.info(
         "Cube graph: %d atoms, %d bonds, MO %s", graph.number_of_nodes(), graph.number_of_edges(), cube.mo_index
     )
@@ -367,7 +344,6 @@ def graph_from_moldata(
     kekule: bool = False,
     rebuild: bool = False,
     quick: bool = False,
-    threshold: float = 1.0,
 ) -> nx.Graph:
     """Build a graph from MolData, using file bonds or xyzgraph detection.
 
@@ -424,7 +400,6 @@ def graph_from_moldata(
         multiplicity=multiplicity,
         kekule=kekule,
         quick=quick,
-        threshold=threshold,
     )
     logger.info(
         "Graph rebuilt via xyzgraph: %d atoms, %d bonds",
@@ -441,7 +416,6 @@ def load_ts_molecule(
     mode: int = 0,
     ts_frame: int = 0,
     kekule: bool = False,
-    threshold: float = 1.0,
 ) -> tuple[nx.Graph, list[dict]]:
     """Load TS and detect forming/breaking bonds via graphRC.
 
@@ -494,7 +468,7 @@ def load_ts_molecule(
     if kekule:
         ts_frame_data = frames[ts_frame]
         atoms = list(zip(ts_frame_data["symbols"], [tuple(p) for p in ts_frame_data["positions"]], strict=True))
-        kekule_graph = build_graph(atoms, charge=charge, multiplicity=multiplicity, kekule=True, threshold=threshold)
+        kekule_graph = build_graph(atoms, charge=charge, multiplicity=multiplicity, kekule=True)
         for i, j, d in graph.edges(data=True):
             if d.get("TS", False):
                 if kekule_graph.has_edge(i, j):
@@ -570,9 +544,7 @@ def load_trajectory_frames(path: str | Path) -> list[dict]:
     return frames
 
 
-def load_stdin(
-    charge: int = 0, multiplicity: int | None = None, kekule: bool = False, threshold: float = 1.0
-) -> nx.Graph:
+def load_stdin(charge: int = 0, multiplicity: int | None = None, kekule: bool = False) -> nx.Graph:
     """Read atoms from stdin — auto-detects XYZ and line-by-line formats.
 
     Parameters
@@ -598,7 +570,7 @@ def load_stdin(
     fc, fm = _get_charge_mult(lines, 0)
     c = charge if charge != 0 else fc
     m = multiplicity if multiplicity is not None else fm
-    return build_graph(atoms, charge=c, multiplicity=m, kekule=kekule, threshold=threshold)
+    return build_graph(atoms, charge=c, multiplicity=m, kekule=kekule)
 
 
 def _parse_auto(text: str) -> list[tuple[str, tuple[float, float, float]]]:

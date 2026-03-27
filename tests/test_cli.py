@@ -1,6 +1,6 @@
 """Tests for CLI helpers."""
 
-from xyzrender.cli import _basename, _parse_indices, _parse_pairs
+from xyzrender.cli import _basename, _parse_pairs
 
 
 def test_basename_from_xyz():
@@ -43,24 +43,3 @@ def test_parse_pairs_multiple():
 def test_parse_pairs_empty():
     assert _parse_pairs("") == []
     assert _parse_pairs("   ") == []
-
-
-# ---------------------------------------------------------------------------
-# _parse_indices
-# ---------------------------------------------------------------------------
-
-
-def test_parse_indices_single():
-    assert _parse_indices("1") == [0]
-
-
-def test_parse_indices_range():
-    assert _parse_indices("1-3") == [0, 1, 2]
-
-
-def test_parse_indices_mixed():
-    assert _parse_indices("1-3,5,7") == [0, 1, 2, 4, 6]
-
-
-def test_parse_indices_empty():
-    assert _parse_indices("") == []

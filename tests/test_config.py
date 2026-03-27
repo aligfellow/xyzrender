@@ -19,6 +19,18 @@ def test_flat_preset_has_no_gradient():
     assert cfg.gradient is False
 
 
+def test_mtube_preset_is_flat_with_stroke():
+    cfg = build_config("mtube")
+    assert cfg.atom_scale == 0.0
+    assert cfg.bond_color_by_element is True
+    assert cfg.bond_gradient is False
+    assert cfg.gradient is False
+    assert cfg.bond_outline_color == "#000000"
+    assert cfg.bond_outline_width > 0
+    assert cfg.region_specs is not None
+    assert "M" in cfg.region_specs
+
+
 def test_paton_preset_has_no_bond_orders():
     cfg = build_config("paton")
     assert cfg.bond_orders is False

@@ -24,6 +24,7 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Transition state bonds** — forming/breaking bonds rendered as dashed lines, detected automatically from imaginary frequency vibrations via [`graphRC`](https://github.com/aligfellow/graphRC)
 - **Stereochemistry labels** — R/S, E/Z, axial, planar (metallocene and CIP), and helical chirality labels detected and annotated automatically via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
 - **Non-covalent interactions** — hydrogen bonds and other weak interactions shown as dotted lines, detected automatically via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
+- **Bond display rules** — selectively hide or add bonds using element categories (`M`, `sbm` [s-block metal], `L`, `het`), element pairs (`M-L`, `Fe-het`), pi-coordination (`M-pi`), or atom indices
 - **GIF animations** — rotation, TS vibration, and trajectory animations for presentations
 - **Molecular orbitals** — render MO lobes from cube files with front/back depth cueing; multiple surface styles (solid, mesh, contour, wire, dot)
 - **Electron density surfaces** — depth-graded translucent isosurfaces from density cube files; contour and dot styles available
@@ -39,7 +40,7 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Crystal / periodic structures** — render periodic structures with unit cell box, ghost atoms, and crystallographic axis arrows (a/b/c); auto-detected from VASP POSCAR, QE pw.in, SIESTA FDF, ABINIT, CP2K, and extXYZ `Lattice=` headers
 - **Multiple output formats** — SVG (default), PNG, PDF, and GIF from the same command
 
-**Preconfigured but extensible.** Built-in presets (`default`, `flat`, `paton`, `skeletal`, `bubble`, `tube`, `wire`, `graph`) cover common use cases. Every setting — colors, radii, bond widths, gradients, fog — can be overridden via CLI flags or a custom JSON config file.
+**Preconfigured but extensible.** Built-in presets (`default`, `flat`, `paton`, `skeletal`, `bubble`, `tube`, `mtube`, `wire`, `graph`) cover common use cases. Every setting — colors, radii, bond widths, gradients, fog — can be overridden via CLI flags or a custom JSON config file.
 
 ```bash
 xyzrender caffeine.xyz                          # SVG with sensible defaults
@@ -120,11 +121,15 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 | Default | Flat | Paton (PyMOL-like) | Pmol | Skeletal |
 |---------|------|--------------------|------|----------|
-| ![default](examples/images/caffeine_default.svg) | ![flat](examples/images/caffeine_flat.svg) | ![paton](examples/images/caffeine_paton.svg) | ![pmol](examples/images/caffeine_pmol.svg) | ![skeletal](examples/images/caffeine_skeletal.svg) |
+| ![default](examples/images/caffeine_default.svg) | ![flat](examples/images/caffeine_flat.svg) | ![paton](examples/images/caffeine_paton.svg) | ![pmol](examples/images/caffeine_pmol.svg) | 
 
-| Bubble | Tube | Wire | Graph |
-|--------|------|------|-------|
-| ![bubble](examples/images/caffeine_bubble.svg) | ![tube](examples/images/caffeine_tube.svg) | ![wire](examples/images/caffeine_wire.svg) | ![graph](examples/images/caffeine_graph.svg) |
+| Skeletal | Bubble | Tube | Metal Tube | Wire | Graph |
+|--------|------|------------|------|-------|
+| ![skeletal](examples/images/caffeine_skeletal.svg) | ![bubble](examples/images/caffeine_bubble.svg) | ![tube](examples/images/caffeine_tube.svg) | 
+
+| Wire | Graph | MTube | MTube (metal) | 
+|--|--|--|
+| ![wire](examples/images/caffeine_wire.svg) | ![graph](examples/images/caffeine_graph.svg) | ![mtube](examples/images/caffeine_mtube.svg) | ![mtube](examples/images/mnh_mtube.svg) |
 
 ### Style regions
 
@@ -186,7 +191,7 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### Stereochemistry labels
 
-| Isothiocyanate (R/S, E/Z, planar)                      | TS with stereo (Mn-H₂, `--ts --stereo`)                    |
+| Isothiourea (R/S, E/Z, planar)                      | TS with stereo (Mn-H₂, `--ts --stereo`)                    |
 | ------------------------------------------------------- | ----------------------------------------------------------- |
 | ![isothio stereo](examples/images/isothio_stereo.svg)   | ![mn-h2 ts stereo](examples/images/mn-h2_ts_stereo.svg)    |
 

@@ -60,7 +60,7 @@ xyzrender sn2.out --ts --label sn2_label.txt --label-size 40
 
 Add stereochemistry labels derived from 3D geometry (via [xyzgraph](https://github.com/aligfellow/xyzgraph)). Detects R/S point chirality, E/Z double bonds, axial, planar (metallocene and CIP), and helical chirality.
 
-| Isothiocyanate (R/S, E/Z, planar) | TS with stereo (Mn-H₂) |
+| Isothiourea (R/S, E/Z, planar) | TS with stereo (Mn-H₂) |
 |---|---|
 | ![isothio stereo](../../../examples/images/isothio_stereo.svg) | ![mn-h2 ts stereo](../../../examples/images/mn-h2_ts_stereo.svg) |
 

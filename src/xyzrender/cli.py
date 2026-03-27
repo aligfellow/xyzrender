@@ -39,23 +39,15 @@ def _parse_pairs(s: str) -> list[tuple[int, int]]:
     return pairs
 
 
-def _parse_indices(s: str) -> list[int]:
-    """Parse '1-20,25,30' → [0..19, 24, 29] (1-indexed input → 0-indexed)."""
-    from xyzrender.utils import parse_atom_indices
-
-    return parse_atom_indices(s)
-
-
-def _parse_atom_spec(s: str) -> list[int]:
-    """Parse '1-5,8' → [1, 2, 3, 4, 5, 8] (1-indexed, for passing to API)."""
-    indices: list[int] = []
-    for part in s.split(","):
-        if "-" in part:
-            a, b = part.split("-")
-            indices.extend(range(int(a), int(b) + 1))
-        else:
-            indices.append(int(part))
-    return indices
+def _flatten_specs(items: list[str]) -> list[str]:
+    """Split each item on commas and flatten: ['M-L,sbm', '1-3'] → ['M-L', 'sbm', '1-3']."""
+    out: list[str] = []
+    for item in items:
+        for part in item.split(","):
+            stripped = part.strip()
+            if stripped:
+                out.append(stripped)
+    return out
 
 
 def main() -> None:
@@ -96,27 +88,21 @@ def main() -> None:
         default=False,
         help="Ignore file connectivity and re-detect bonds with xyzgraph",
     )
-    io_g.add_argument(
-        "--threshold",
-        type=float,
-        default=1.0,
-        metavar="SCALE",
-        help="Global bond-distance scaling factor (default: 1.0). "
-        "Values > 1.0 detect longer bonds, < 1.0 detect fewer.",
-    )
 
     # --- Styling ---
     style_g = p.add_argument_group("styling")
     style_g.add_argument(
         "--config",
         default=None,
-        help=("Config preset or JSON path (default, flat, paton, skeletal, bubble, tube, wire, graph, custom)"),
+        help=("Config preset or JSON path (default, flat, paton, skeletal, bubble, tube, mtube, wire, graph, custom)"),
     )
     style_g.add_argument("-S", "--canvas-size", type=int, default=None)
     style_g.add_argument("-a", "--atom-scale", type=float, default=None)
     style_g.add_argument("-b", "--bond-width", type=float, default=None)
     style_g.add_argument("-s", "--atom-stroke-width", type=float, default=None)
     style_g.add_argument("--bond-color", default=None, help="Bond color (hex or named)")
+    style_g.add_argument("--bond-outline-color", default=None, help="Bond outline color (hex or named)")
+    style_g.add_argument("--bond-outline-width", type=float, default=None, help="Bond outline width in px (0 = off)")
     style_g.add_argument("-B", "--background", default=None)
     style_g.add_argument("-t", "--transparent", action="store_true", help="Transparent background")
     style_g.add_argument("-Hls", "--hue-shift-factor", type=float, default=None, help="Hue gradient contrast")
@@ -138,11 +124,25 @@ def main() -> None:
         const="",
         default=None,
         metavar="ATOMS",
-        help='Show H atoms (no args=all, or "1-5,8" 1-indexed)',
+        help='Show H atoms (no args=all, or indices like "1-5,8")',
     )
     disp_g.add_argument("--no-hy", action="store_true", default=False, help="Hide all H atoms")
     disp_g.add_argument(
         "--no-bonds", action="store_true", default=False, help="Hide all bonds (e.g. space-filling style)"
+    )
+    disp_g.add_argument(
+        "--unbond",
+        nargs="+",
+        default=[],
+        metavar="SPEC",
+        help='Hide bonds by rule or index pair: "M-L sbm Fe-het 1-3" (comma or space separated)',
+    )
+    disp_g.add_argument(
+        "--bond",
+        nargs="+",
+        default=[],
+        metavar="PAIR",
+        help='Force-show/add bonds: "1-3 4-5" (1-indexed, overrides --unbond)',
     )
     disp_g.add_argument("--bo", action=argparse.BooleanOptionalAction, default=None, help="Bond orders")
     disp_g.add_argument(
@@ -152,7 +152,13 @@ def main() -> None:
     disp_g.add_argument(
         "--skeletal-label-color", default=None, help="Override all element label colors in skeletal mode (hex or named)"
     )
-    disp_g.add_argument("--vdw", nargs="?", const="", default=None, help='VdW spheres (no args=all, or "1-20,25")')
+    disp_g.add_argument(
+        "--vdw",
+        nargs="?",
+        const="",
+        default=None,
+        help='VdW spheres (no args=all, or selectors like "1-20,25", "M", "Pt")',
+    )
 
     # --- Surfaces (MO / density / ESP) ---
     surf_g = p.add_argument_group("surfaces")
@@ -252,7 +258,7 @@ def main() -> None:
         "--align-atoms",
         default=None,
         dest="align_atoms",
-        help='1-indexed atom indices (min 3) for alignment subset, e.g. "1,2,3" or "1-6"',
+        help='Atom indices (min 3) for alignment subset, e.g. "1,2,3", "1-6"',
     )
     ov_g.add_argument(
         "--ensemble-color",
@@ -326,7 +332,12 @@ def main() -> None:
     gif_g.add_argument(
         "--diffuse-forward", action="store_true", help="Play forward (molecule → noise) instead of assembly"
     )
-    gif_g.add_argument("--anchor", default=None, metavar="ATOMS", help='Atoms that stay fixed: "1-5,8" (1-indexed)')
+    gif_g.add_argument(
+        "--anchor",
+        default=None,
+        metavar="ATOMS",
+        help='Atoms that stay fixed, e.g. "1-5,8"',
+    )
 
     # --- Atom color / Highlight ---
     hl_g = p.add_argument_group("highlight")
@@ -350,7 +361,8 @@ def main() -> None:
         action="append",
         default=None,
         metavar=("ATOMS", "CONFIG"),
-        help='Render atom subset with a different style: --region "1-5" flat. Can be repeated.',
+        help="Render atom subset with a different style: "
+        '--region "1-5" flat or --region "Pt" flat or --region "M" tube.',
     )
 
     # --- Bond coloring ---
@@ -565,10 +577,12 @@ def main() -> None:
 
     configure_logging(verbose=True, debug=args.debug)
 
-    # Normalise argparse --hy (None | "" | "1-5,8") → shared (None | True | [1,2,3,4,5,8])
+    from xyzrender.utils import parse_atom_indices
+
+    # Normalise --hy: None | "" | "1-5,8" → None | True | [1,2,3,4,5,8] (1-indexed for API)
     hy_spec: bool | list[int] | None = None
     if args.hy is not None:
-        hy_spec = True if args.hy == "" else _parse_atom_spec(args.hy)
+        hy_spec = True if args.hy == "" else parse_atom_indices(args.hy, one_indexed=True)
 
     # Resolve orient flag before build_config so it can be passed in directly
     from_stdin = not args.input and not sys.stdin.isatty()
@@ -583,6 +597,8 @@ def main() -> None:
         bond_width=args.bond_width,
         atom_stroke_width=args.atom_stroke_width,
         bond_color=args.bond_color,
+        bond_outline_color=args.bond_outline_color,
+        bond_outline_width=args.bond_outline_width,
         ts_color=args.ts_color,
         nci_color=args.nci_color,
         background=args.background,
@@ -596,6 +612,8 @@ def main() -> None:
         bo=args.bo,
         hy=hy_spec,
         hide_bonds=args.no_bonds,
+        unbond=_flatten_specs(args.unbond) or None,
+        bond=_flatten_specs(args.bond) or None,
         no_hy=args.no_hy,
         orient=_orient,
         opacity=args.opacity,
@@ -605,9 +623,7 @@ def main() -> None:
         vdw_gradient_strength=args.vdw_gradient,
         ts_bonds=_parse_pairs(args.ts_bond),
         nci_bonds=_parse_pairs(args.nci_bond),
-        vdw_indices=(
-            _parse_indices(args.vdw) if args.vdw is not None and args.vdw != "" else ([] if args.vdw == "" else None)
-        ),
+        vdw_indices=None,
         show_indices=args.idx is not None,
         idx_format=args.idx or "sn",
         cmap_range=tuple(args.cmap_range) if args.cmap_range else None,
@@ -626,14 +642,6 @@ def main() -> None:
             if len(entry) > 2:
                 raise SystemExit(f"error: --hl takes 1-2 arguments (ATOMS [COLOR]), got {len(entry)}")
         _highlight = [tuple(e) for e in args.hl]
-
-    # Style regions
-    if args.region:
-        from xyzrender.api import _apply_style_regions
-
-        _apply_style_regions(
-            cfg, regions=[(_parse_atom_spec(atoms_str), config_name) for atoms_str, config_name in args.region]
-        )
 
     # Bond coloring
     if args.bond_by_element is not None:
@@ -740,16 +748,13 @@ def main() -> None:
             charge=args.charge,
             multiplicity=args.multiplicity,
             kekule=args.kekule,
-            threshold=args.threshold,
         )
         xyz_path = Path(args.output).with_suffix(".xyz")
         mol.to_xyz(xyz_path, title=args.smi)
         logger.info("3D geometry written to %s", xyz_path)
     elif from_stdin:
-        graph = load_stdin(
-            charge=args.charge, multiplicity=args.multiplicity, kekule=args.kekule, threshold=args.threshold
-        )
-        mol = Molecule(graph=graph, cube_data=None, cell_data=None, oriented=False, threshold=args.threshold)
+        graph = load_stdin(charge=args.charge, multiplicity=args.multiplicity, kekule=args.kekule)
+        mol = Molecule(graph=graph, cube_data=None, cell_data=None, oriented=False)
     elif not args.input:
         p.error("No input file and stdin is a terminal")
     else:
@@ -767,11 +772,24 @@ def main() -> None:
                 crystal=interface_mode or False,
                 cell=args.cell,
                 quick=args.bo is False,
-                threshold=args.threshold,
                 bohr=True if args.bohr else None,
             )
         except ValueError as e:
             p.error(str(e))
+
+    # Resolve atom-spec driven options now that atom symbols are available.
+    from xyzrender.selectors import resolve_atom_indices
+
+    if args.vdw is not None:
+        if args.vdw == "":
+            cfg.vdw_indices = []
+        else:
+            cfg.vdw_indices = sorted(resolve_atom_indices(args.vdw, mol.graph))
+
+    # Style regions (user-defined + preset-defined from JSON)
+    from xyzrender.api import _apply_style_regions
+
+    _apply_style_regions(cfg, mol.graph, regions=args.region)
 
     # Resolve hull now that mol is loaded (needs graph for ring detection / index conversion)
     if args.hull is not None:
@@ -781,7 +799,7 @@ def main() -> None:
             # --hull with no args → all heavy atoms
             _hull_arg = True
         else:
-            _hull_arg = [_parse_atom_spec(g) for g in args.hull]
+            _hull_arg = [parse_atom_indices(g, one_indexed=True) for g in args.hull]
         apply_hull_to_config(
             cfg,
             _hull_arg,
@@ -852,7 +870,11 @@ def main() -> None:
     # --- Parse align-atoms (comma-separated 1-indexed, e.g. "1,2,3" or "1-6") ---
     _align_atoms: list[int] | None = None
     if args.align_atoms is not None:
-        _align_atoms = _parse_atom_spec(args.align_atoms)
+        _align_atoms = parse_atom_indices(args.align_atoms, one_indexed=True)
+
+    _anchor_atoms: list[int] | None = None
+    if args.anchor:
+        _anchor_atoms = parse_atom_indices(args.anchor, one_indexed=True)
 
     # --- Parse ensemble color: palette name, single color, or comma-separated list ---
     _ens_color: str | list[str] | None = None
@@ -894,7 +916,6 @@ def main() -> None:
             multiplicity=args.multiplicity,
             kekule=args.kekule,
             reference_mol=mol,
-            threshold=args.threshold,
         )
 
     # --- Crystal ghost resolution ---
@@ -991,7 +1012,7 @@ def main() -> None:
                 diffuse_bonds=args.diffuse_bonds,
                 diffuse_rot=args.diffuse_rot,
                 diffuse_reverse=not args.diffuse_forward,
-                anchor=_parse_atom_spec(args.anchor) if args.anchor else None,
+                anchor=_anchor_atoms,
                 output=gif_path,
                 gif_fps=args.gif_fps,
                 rot_frames=args.rot_frames,

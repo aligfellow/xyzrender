@@ -13,23 +13,26 @@ if TYPE_CHECKING:
     from xyzrender.types import RenderConfig
 
 
-def parse_atom_indices(spec: str | list[int]) -> list[int]:
-    """Parse an atom specifier into a 0-indexed list of atom indices.
+def parse_atom_indices(spec: str | list[int], *, one_indexed: bool = False) -> list[int]:
+    """Parse an atom specifier into a list of atom indices.
 
     Accepts a 1-indexed string (``"1-5,8,12"``) or a 1-indexed
-    ``list[int]``.  Both forms are converted to 0-indexed output.
+    ``list[int]``.  By default converts to 0-indexed output.
+    Pass ``one_indexed=True`` to keep 1-indexed (for passing to API
+    functions that expect user-facing numbering).
     """
+    offset = 0 if one_indexed else -1
     if isinstance(spec, list):
-        return [i - 1 for i in spec]
+        return [i + offset for i in spec]
     if not isinstance(spec, str) or not spec.strip():
         return []
     indices: list[int] = []
     for part in spec.split(","):
         if "-" in part:
             a, b = part.split("-")
-            indices.extend(range(int(a) - 1, int(b)))
+            indices.extend(range(int(a) + offset, int(b) + offset + 1))
         else:
-            indices.append(int(part) - 1)
+            indices.append(int(part) + offset)
     return indices
 
 
@@ -75,6 +78,23 @@ def pca_orient(
     centroid = fit.mean(axis=0)
     c = pos - centroid  # center all positions around fit centroid
     c_fit = fit - centroid
+
+    # Degenerate: single atom or all coincident
+    if len(c_fit) < 2 or np.allclose(c_fit, 0, atol=1e-12):
+        return (c, np.eye(3)) if return_matrix else c
+
+    # Diatomic: align bond along x
+    if len(c_fit) == 2:
+        ax = c_fit[1] - c_fit[0]
+        ax /= np.linalg.norm(ax)
+        ref = np.eye(3)[np.argmin(np.abs(ax))]
+        z = np.cross(ax, ref)
+        z /= np.linalg.norm(z)
+        y = np.cross(z, ax)
+        rot = np.vstack([ax, y, z])
+        oriented = c @ rot.T
+        return (oriented, rot) if return_matrix else oriented
+
     if priority_pairs:
         # Duplicate priority atom positions to bias PCA towards their plane
         extra = []
@@ -111,6 +131,16 @@ def pca_orient(
 def pca_matrix(pos: np.ndarray) -> np.ndarray:
     """Compute PCA rotation matrix (Vt) without applying it."""
     c = pos - pos.mean(axis=0)
+    if len(c) < 2 or np.allclose(c, 0, atol=1e-12):
+        return np.eye(3)
+    if len(c) == 2:
+        ax = c[1] - c[0]
+        ax /= np.linalg.norm(ax)
+        ref = np.eye(3)[np.argmin(np.abs(ax))]
+        z = np.cross(ax, ref)
+        z /= np.linalg.norm(z)
+        y = np.cross(z, ax)
+        return np.vstack([ax, y, z])
     _, _, vt = np.linalg.svd(c, full_matrices=False)
     if np.linalg.det(vt) < 0:
         vt[-1] *= -1

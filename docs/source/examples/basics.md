@@ -6,9 +6,9 @@
 |---------|------|-------------------|--------|
 | ![Default](../../../examples/images/caffeine_default.svg) | ![Flat](../../../examples/images/caffeine_flat.svg) | ![Paton (PyMOL-like)](../../../examples/images/caffeine_paton.svg) | ![Bubble](../../../examples/images/caffeine_bubble.svg) |
 
-| Tube | Wire |
-|------|------|
-| ![Tube](../../../examples/images/caffeine_tube.svg) | ![Wire](../../../examples/images/caffeine_wire.svg) |
+| Tube | Wire | Pmol | MTube |
+|------|------|------|-------|
+| ![Tube](../../../examples/images/caffeine_tube.svg) | ![Wire](../../../examples/images/caffeine_wire.svg) | ![Pmol](../../../examples/images/caffeine_pmol.svg) | ![MTube](../../../examples/images/caffeine_mtube.svg) |
 
 ```bash
 xyzrender caffeine.xyz                        # default
@@ -17,6 +17,7 @@ xyzrender caffeine.xyz --config paton         # paton: PyMOL-style
 xyzrender caffeine.xyz --config pmol          # pmol: ball-and-stick + element-coloured bonds (PyMOL-inspired)
 xyzrender caffeine.xyz --config bubble --hy   # space-filling-like
 xyzrender caffeine.xyz --config tube          # tube: cylinder-shaded sticks
+xyzrender caffeine.xyz --config mtube         # mtube: metal tube with edge stroke
 xyzrender caffeine.xyz --config wire          # wire: thin element-coloured lines
 ```
 
@@ -26,6 +27,18 @@ The `pmol` preset is a PyMOL-inspired style that keeps atoms visible and adds sp
 
 The `tube` and `wire` presets hide atom circles and colour each bond by its endpoint atoms, with a cylinder shading gradient for a 3D look. The `tube` preset uses thick bonds; `wire` uses thin bonds.
 
+## Metal tube
+
+The `mtube` preset is designed for metal complexes: non-metals render as tube-only, while metals are highlighted via a preset-defined region. Combines well with `--unbond pi` to remove pi-coordination clutter.
+
+| Caffeine (mtube) | Mn-H complex (mtube + unbond pi) |
+|------------------|----------------------------------|
+| ![mtube](../../../examples/images/caffeine_mtube.svg) | ![mnh mtube](../../../examples/images/mnh_mtube.svg) |
+
+```bash
+xyzrender caffeine.xyz --config mtube
+xyzrender mnh.xyz --config mtube --unbond pi --hy
+```
 
 ## Hydrogen display
 

@@ -15,6 +15,12 @@ xyzrender mol.xyz --region "84-165" tube
 # Tube base, ball-stick for the QM region
 xyzrender mol.xyz --config tube --region "1-20" default
 
+# Element selectors: all metals as ball-stick, rest as tube
+xyzrender complex.xyz --config tube --region "M" default
+
+# Specific element: Pt atoms as flat
+xyzrender complex.xyz --region "Pt" flat
+
 # Multiple regions with different presets
 xyzrender mol.xyz --config tube --region "1-20" default --region "21-40" flat
 
@@ -32,11 +38,37 @@ mol = load("mol.xyz")
 # Single region
 render(mol, config="tube", regions=[("1-20", "default")])
 
+# Element selectors (M = metals, Pt, sbm = s-block metals, het = heteroatoms)
+render(mol, config="tube", regions=[("M", "default")])
+
 # Multiple regions — indices are 1-indexed (strings or lists)
 render(mol, config="tube", regions=[("1-20", "default"), ("21-40", "flat")])
 
 # 1-indexed list form
 render(mol, config="tube", regions=[([1, 2, 3, 4], "default")])
+```
+
+### Preset-defined regions
+
+Presets can define regions directly in JSON. The `"regions"` key maps atom selectors to a preset name or an inline overrides dict:
+
+```json
+{
+  "regions": {
+    "M": "flat",
+    "het": { "atom_scale": 4.0, "gradient": true }
+  }
+}
+```
+
+The built-in `mtube` preset uses this — metals are auto-highlighted via `"regions": {"M": {...}}`. Combine with `--unbond pi` to remove pi-coordination bonds on metal complexes:
+
+| mtube + unbond pi |
+|-------------------|
+| ![mnh mtube](../../../examples/images/mnh_mtube.svg) |
+
+```bash
+xyzrender mnh.xyz --config mtube --unbond pi
 ```
 
 ## Combining with other overlays
@@ -87,6 +119,6 @@ The tube and wire presets enable both by default. The cylinder shading uses the 
 
 | Flag | Description |
 |------|-------------|
-| `--region ATOMS CONFIG` | Render atom subset with a different preset (repeatable) |
+| `--region ATOMS CONFIG` | Render atom subset with a different preset (repeatable). ATOMS selectors: `"1-5"`, `"M"`, `"Pt"`, `"sbm"`, `"het"` |
 | `--bond-by-element` / `--no-bond-by-element` | Color bonds by endpoint atom colors |
 | `--bond-gradient` / `--no-bond-gradient` | Cylinder shading on bonds |

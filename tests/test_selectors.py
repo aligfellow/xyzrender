@@ -1,0 +1,110 @@
+"""Tests for selectors — element-category atom selection."""
+
+import networkx as nx
+import pytest
+
+from xyzrender.selectors import normalize_token, resolve_atom_indices, resolve_element_set
+
+
+def _metal_graph():
+    """Pt, Ni, C, H, O, N — covers metals, heteroatoms, organic."""
+    g = nx.Graph()
+    g.add_node(0, symbol="Pt")
+    g.add_node(1, symbol="Ni")
+    g.add_node(2, symbol="C")
+    g.add_node(3, symbol="H")
+    g.add_node(4, symbol="O")
+    g.add_node(5, symbol="N")
+    return g
+
+
+# ---------------------------------------------------------------------------
+# normalize_token
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_token():
+    assert normalize_token("M") == "M"
+    assert normalize_token("m") == "M"
+    assert normalize_token("sbm") == "sbm"
+    assert normalize_token("Fe") == "Fe"
+    assert normalize_token("fe") == "Fe"
+
+
+def test_unknown_token_raises():
+    with pytest.raises(ValueError, match="Unknown category or element"):
+        normalize_token("Xx")
+
+
+def test_number_token_raises():
+    with pytest.raises(ValueError, match="Unknown category or element"):
+        normalize_token("42")
+
+
+# ---------------------------------------------------------------------------
+# resolve_element_set
+# ---------------------------------------------------------------------------
+
+
+def test_element_set_categories():
+    metals = resolve_element_set("M")
+    assert "Fe" in metals
+    assert "Pt" in metals
+    assert "C" not in metals
+
+    sbm = resolve_element_set("sbm")
+    assert sbm <= metals
+    assert "Li" in sbm
+
+    nonmetals = resolve_element_set("L")
+    assert not (nonmetals & metals)
+    assert "C" in nonmetals
+
+    het = resolve_element_set("het")
+    assert "O" in het
+    assert "N" in het
+    assert "C" not in het
+    assert "Fe" not in het
+
+
+def test_element_set_single():
+    assert resolve_element_set("Fe") == frozenset({"Fe"})
+
+
+def test_element_set_pi_raises():
+    with pytest.raises(ValueError, match="cannot be resolved to an element set"):
+        resolve_element_set("pi")
+
+
+# ---------------------------------------------------------------------------
+# resolve_atom_indices
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_categories():
+    g = _metal_graph()
+    assert resolve_atom_indices("M", g) == {0, 1}  # Pt, Ni
+    assert resolve_atom_indices("het", g) == {4, 5}  # O, N
+    assert resolve_atom_indices("L", g) == {2, 3, 4, 5}  # C, H, O, N
+
+
+def test_resolve_element():
+    g = _metal_graph()
+    assert resolve_atom_indices("Pt", g) == {0}
+    assert resolve_atom_indices("pt", g) == {0}  # case-insensitive
+
+
+def test_resolve_numeric():
+    g = _metal_graph()
+    assert resolve_atom_indices("1", g) == {0}
+    assert resolve_atom_indices("2-4", g) == {1, 2, 3}
+    assert resolve_atom_indices(" 1 ", g) == {0}  # whitespace
+
+
+def test_resolve_no_matches():
+    assert resolve_atom_indices("Fe", _metal_graph()) == set()
+
+
+def test_resolve_unknown_raises():
+    with pytest.raises(ValueError, match="Unknown category or element"):
+        resolve_atom_indices("Xx", _metal_graph())

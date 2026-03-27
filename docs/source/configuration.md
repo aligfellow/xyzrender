@@ -2,7 +2,7 @@
 
 ## Built-in presets
 
-Use `--config` to load a styling preset. Built-in options: `default`, `flat`, `paton`, `pmol`, `skeletal`, `bubble`, `tube`, `wire`, `graph`.
+Use `--config` to load a styling preset. Built-in options: `default`, `flat`, `paton`, `pmol`, `skeletal`, `bubble`, `tube`, `mtube`, `wire`, `graph`.
 
 | Preset | Description |
 |--------|-------------|
@@ -13,6 +13,7 @@ Use `--config` to load a styling preset. Built-in options: `default`, `flat`, `p
 | `skeletal` | Skeletal formula diagram — thin bonds, minimal atoms |
 | `bubble` | Space-filling (CPK) — large atoms, no bonds |
 | `tube` | Tube/stick model — no atoms, thick element-coloured bonds with cylinder shading |
+| `mtube` | Metal tube — tube bonds with black edge stroke; metals auto-highlighted via preset region |
 | `wire` | Wireframe — no atoms, thin element-coloured bonds with cylinder shading |
 | `graph` | Minimal graph look — teal bonds, bold outlined nodes with light tinted centers |
 
@@ -23,6 +24,7 @@ xyzrender caffeine.xyz --config pmol
 xyzrender caffeine.xyz --config skeletal
 xyzrender caffeine.xyz --config bubble --hy
 xyzrender caffeine.xyz --config tube
+xyzrender caffeine.xyz --config mtube
 xyzrender caffeine.xyz --config wire
 xyzrender caffeine.xyz --config graph
 ```
@@ -74,6 +76,8 @@ All available keys:
   "cmap_unlabeled": "#ffffff",
   "bond_color_by_element": false,
   "bond_gradient": false,
+  "bond_outline_color": "#000000",
+  "bond_outline_width": 0,
   "atom_wash": 0.0,
   "atoms_above_bonds": false,
   "colors": {
@@ -81,11 +85,25 @@ All available keys:
     "H": "whitesmoke",
     "N": "slateblue",
     "O": "red"
+  },
+  "regions": {
+    "M": "flat"
   }
 }
 ```
 
 The `colors` key maps element symbols to hex values (`#D9D9D9`) or [CSS4 named colors](https://matplotlib.org/stable/gallery/color/named_colors.html) (`steelblue`), overriding the default CPK palette.
+
+`bond_outline_color` / `bond_outline_width` add a shadow edge behind bonds (visible as an outline). Set `bond_outline_width` > 0 to activate (color defaults to black).
+
+The `regions` key defines per-atom-group style overrides. Keys are atom selectors (`M` = metals, `Pt`, `sbm` = s-block metals, `het` = heteroatoms, or numeric `1-5`). Values are a preset name or an inline dict of overrides:
+
+```json
+"regions": {
+  "M": "flat",
+  "het": { "atom_scale": 3.0, "gradient": true }
+}
+```
 
 Surface-related keys (`mo_pos_color`, `mo_neg_color`, `dens_iso`, `dens_color`) are only used when `--mo`, `--dens`, or `--esp` is active.
 
@@ -124,4 +142,4 @@ If no `-o` is given, output defaults to `{input_basename}.svg`.
 | `--vdw-gradient` | vdW sphere gradient strength |
 | `--bond-by-element` / `--no-bond-by-element` | Color bonds by endpoint atom colors |
 | `--bond-gradient` / `--no-bond-gradient` | Cylinder shading on bonds (3D tube look) |
-| `--region ATOMS CONFIG` | Render atom subset with a different preset (repeatable) |
+| `--region ATOMS CONFIG` | Render atom subset with a different preset (repeatable). Selectors: `"1-5"`, `"M"`, `"Pt"`, `"sbm"`, `"het"` |

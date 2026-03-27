@@ -103,7 +103,6 @@ class Molecule:
     cell_data: CellData | None = None
     oriented: bool = False
     ensemble: EnsembleFrames | None = None
-    threshold: float = 1.0
 
     def to_xyz(self, path: str | os.PathLike, title: str = "") -> None:
         """Write the molecule to an XYZ file.
@@ -167,7 +166,6 @@ def load(
     crystal: bool | str = False,
     cell: bool = False,
     quick: bool = False,
-    threshold: float = 1.0,
     bohr: bool | None = None,
     # --- Ensemble (multi-frame trajectory) ---
     ensemble: bool = False,
@@ -222,10 +220,6 @@ def load(
         when you know bond orders will be suppressed at render time (e.g.
         ``render(mol, bo=False)``).  CIF and PDB-with-cell always use
         ``quick=True`` automatically regardless of this flag.
-    threshold:
-        Global bond-distance scaling factor (default 1.0).  Multiplies
-        all VDW-based bond-detection cutoffs in xyzgraph.  Values > 1.0
-        make bonds easier to detect (longer tolerance), < 1.0 stricter.
     ensemble:
         Load as a multi-frame trajectory ensemble.  All frames are
         RMSD-aligned onto *reference_frame* and merged into a single graph.
@@ -275,7 +269,6 @@ def load(
             quick=quick,
             nci_detect=nci_detect,
             reference_mol=reference_mol,
-            threshold=threshold,
         )
 
     import xyzrender.parsers as fmt
@@ -297,7 +290,6 @@ def load(
             kekule=kekule,
             rebuild=rebuild,
             quick=quick,
-            threshold=threshold,
         )
     elif not Path(mol_path).is_file():
         raise FileNotFoundError(f"[Errno 2] No such file or directory: '{mol_path}'")
@@ -314,7 +306,6 @@ def load(
             multiplicity=multiplicity,
             kekule=kekule,
             quick=quick,
-            threshold=threshold,
             bohr=bohr,
         )
 
@@ -327,7 +318,6 @@ def load(
             multiplicity=multiplicity,
             kekule=kekule,
             quick=quick,
-            threshold=threshold,
         )
 
     elif ts_detect:
@@ -339,7 +329,6 @@ def load(
             multiplicity=multiplicity,
             ts_frame=ts_frame,
             kekule=kekule,
-            threshold=threshold,
         )
 
     else:
@@ -353,7 +342,6 @@ def load(
             kekule=kekule,
             rebuild=rebuild,
             quick=quick,
-            threshold=threshold,
             bohr=bohr,
         )
 
@@ -374,7 +362,7 @@ def load(
 
         graph = detect_nci(graph)
 
-    return Molecule(graph=graph, cube_data=cube_data, cell_data=cell_data, threshold=threshold)
+    return Molecule(graph=graph, cube_data=cube_data, cell_data=cell_data)
 
 
 def orient(mol: Molecule) -> None:
@@ -462,6 +450,8 @@ def render(
     bond_width: float | None = None,
     atom_stroke_width: float | None = None,
     bond_color: str | None = None,
+    bond_outline_color: str | None = None,
+    bond_outline_width: float | None = None,
     ts_color: str | None = None,
     nci_color: str | None = None,
     background: str | None = None,
@@ -477,6 +467,9 @@ def render(
     vdw_scale: float | None = None,
     vdw_gradient_strength: float | None = None,
     # --- Display ---
+    hide_bonds: bool = False,
+    unbond: list[str] | None = None,
+    bond: list[str] | None = None,
     hy: bool | list[int] | None = None,
     no_hy: bool = False,
     bo: bool | None = None,
@@ -577,6 +570,17 @@ def render(
         disabled regardless of *orient*.  If the file does not exist,
         current (possibly PCA-oriented) positions are saved to it.
         Not supported for periodic structures (raises ``ValueError``).
+    unbond:
+        Bond display rules.  A list of spec strings that hide bonds:
+        categories (``"M"``, ``"sbm"``, ``"L"``, ``"het"``), element
+        pairs (``"M-L"``, ``"Fe-het"``), pi-coordination (``"pi"``,
+        ``"M-pi"``), element symbols (``"Li"``), atom indices
+        (``"2"``), or index pairs (``"1-3"``).  Specs are 1-indexed.
+        NCI / TS overlay edges are never removed by rules.
+    bond:
+        Force-show or add bonds as 1-indexed index-pair strings
+        (``["4-5"]``).  Overrides ``unbond`` — a bond listed here
+        will not be removed even if it matches an unbond rule.
     ts_bonds, nci_bonds:
         Manual TS / NCI bond overlays as 1-indexed atom pairs.
     vdw:
@@ -693,6 +697,8 @@ def render(
             bond_width=bond_width,
             atom_stroke_width=atom_stroke_width,
             bond_color=bond_color,
+            bond_outline_color=bond_outline_color,
+            bond_outline_width=bond_outline_width,
             ts_color=ts_color,
             nci_color=nci_color,
             background=background,
@@ -708,6 +714,9 @@ def render(
             vdw_scale=vdw_scale,
             vdw_gradient_strength=vdw_gradient_strength,
             bo=bo,
+            hide_bonds=hide_bonds,
+            unbond=unbond,
+            bond=bond,
             hy=hy,
             no_hy=no_hy,
             orient=_orient,
@@ -736,8 +745,8 @@ def render(
     # --- Highlight ---
     _apply_highlight(cfg, highlight=highlight)
 
-    # --- Style regions ---
-    _apply_style_regions(cfg, regions=regions)
+    # --- Style regions (user + preset-defined) ---
+    _apply_style_regions(cfg, mol.graph, regions=regions)
 
     # --- Bond coloring ---
     if ts_color is not None:
@@ -985,6 +994,12 @@ def render(
         nci_cube = parse_cube(str(nci))
         compute_nci_surface(rmol.graph, cube_data, nci_cube, cfg, nci_params)
 
+    # --- Bond rules (unbond / bond) ---
+    if cfg.unbond or cfg.bond:
+        from xyzrender.bond_rules import apply_bond_rules
+
+        apply_bond_rules(rmol.graph, cfg)
+
     # --- Render ---
     svg = render_svg(rmol.graph, cfg)
 
@@ -1026,6 +1041,8 @@ def render_gif(
     bond_width: float | None = None,
     atom_stroke_width: float | None = None,
     bond_color: str | None = None,
+    bond_outline_color: str | None = None,
+    bond_outline_width: float | None = None,
     ts_color: str | None = None,
     nci_color: str | None = None,
     background: str | None = None,
@@ -1040,6 +1057,9 @@ def render_gif(
     vdw_opacity: float | None = None,
     vdw_scale: float | None = None,
     vdw_gradient_strength: float | None = None,
+    hide_bonds: bool = False,
+    unbond: list[str] | None = None,
+    bond: list[str] | None = None,
     hy: bool | list[int] | None = None,
     no_hy: bool = False,
     bo: bool | None = None,
@@ -1198,6 +1218,8 @@ def render_gif(
             bond_width=bond_width,
             atom_stroke_width=atom_stroke_width,
             bond_color=bond_color,
+            bond_outline_color=bond_outline_color,
+            bond_outline_width=bond_outline_width,
             ts_color=ts_color,
             nci_color=nci_color,
             background=background,
@@ -1213,6 +1235,9 @@ def render_gif(
             vdw_scale=vdw_scale,
             vdw_gradient_strength=vdw_gradient_strength,
             bo=bo,
+            hide_bonds=hide_bonds,
+            unbond=unbond,
+            bond=bond,
             hy=hy,
             no_hy=no_hy,
             orient=orient,
@@ -1227,8 +1252,8 @@ def render_gif(
     # --- Highlight ---
     _apply_highlight(cfg, highlight=highlight)
 
-    # --- Style regions ---
-    _apply_style_regions(cfg, regions=regions)
+    # --- Style regions (user + preset-defined) ---
+    _apply_style_regions(cfg, _gif_graph, regions=regions)
 
     # --- Bond coloring ---
     if ts_color is not None:
@@ -1543,7 +1568,6 @@ def _build_ensemble_molecule(
     quick: bool = False,
     nci_detect: bool = False,
     reference_mol: Molecule | None = None,
-    threshold: float = 1.0,
 ) -> Molecule:
     """Build a :class:`Molecule` representing an ensemble of conformers.
 
@@ -1606,7 +1630,6 @@ def _build_ensemble_molecule(
             kekule=kekule,
             rebuild=rebuild,
             quick=quick,
-            threshold=threshold,
         )
         oriented = False
 
@@ -1646,9 +1669,7 @@ def _build_ensemble_molecule(
                 conformer_graphs.append(ref_graph)
                 continue
             atoms = list(zip(frame["symbols"], [tuple(p) for p in frame["positions"]], strict=True))
-            fg = build_graph(
-                atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick, threshold=threshold
-            )
+            fg = build_graph(atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick)
             for _i, _j, d in fg.edges(data=True):
                 if "bond_order" in d:
                     d["bond_order"] = 1
@@ -1684,9 +1705,7 @@ def _build_ensemble_molecule(
         reference_idx=reference_frame,
     )
 
-    return Molecule(
-        graph=ref_graph, cube_data=None, cell_data=cell_data, oriented=oriented, ensemble=ens, threshold=threshold
-    )
+    return Molecule(graph=ref_graph, cube_data=None, cell_data=cell_data, oriented=oriented, ensemble=ens)
 
 
 # ---------------------------------------------------------------------------
@@ -1778,32 +1797,57 @@ def _apply_highlight(
 
 def _apply_style_regions(
     cfg: "RenderConfig",
+    graph: "nx.Graph",
     *,
     regions: "list[tuple[str | list[int], str | RenderConfig]] | None" = None,
 ) -> None:
-    """Apply style-region overrides to *cfg* (mutates in place).
+    """Resolve atom specs and apply style-region overrides to *cfg*.
 
-    Each region is ``(atoms_spec, config_spec)`` where *atoms_spec* is a
-    1-indexed string (``"1-5,8"``) or 1-indexed ``list[int]``, and
-    *config_spec* is a preset name or a pre-built :class:`RenderConfig`.
+    Handles both user-defined regions (from ``regions=`` parameter) and
+    preset-defined regions (from the JSON ``"regions"`` key on *cfg*).
+
+    *atoms_spec* is a string (``"1-5"``, ``"M"``, ``"Pt"``) resolved via
+    selectors, or a 1-indexed ``list[int]``.  *config_spec* is a preset
+    name, a :class:`RenderConfig`, or (for preset regions) a dict of
+    overrides merged on top of the parent config.
+
+    User-defined regions are applied first; preset regions skip atoms
+    already claimed.
     """
-    if regions is None:
-        return
-
     import copy
 
-    from xyzrender.config import build_region_config
+    from xyzrender.config import build_region_config, load_config
+    from xyzrender.selectors import resolve_atom_indices
     from xyzrender.types import StyleRegion
 
     seen: set[int] = set()
-    for atoms_spec, config_spec in regions:
-        indices = parse_atom_indices(atoms_spec)
 
+    # Preset regions first — so user regions can override with a warning
+    preset_claimed: set[int] = set()
+    for spec in cfg.region_specs or {}:
+        preset_claimed.update(resolve_atom_indices(spec, graph))
+
+    # --- User-defined regions ---
+    for atoms_spec, config_spec in regions or []:
+        if isinstance(atoms_spec, str):
+            indices = sorted(resolve_atom_indices(atoms_spec, graph))
+        else:
+            indices = parse_atom_indices(atoms_spec)
+
+        # Error on user-vs-user overlap
         overlap = seen & set(indices)
         if overlap:
             examples = sorted(overlap)[:5]
             msg = f"atom(s) {', '.join(str(i + 1) for i in examples)} appear in multiple style regions (1-indexed)"
             raise ValueError(msg)
+        # Warn on user-vs-preset overlap (user wins)
+        preset_overlap = preset_claimed & set(indices)
+        if preset_overlap:
+            logger.warning(
+                "style region overrides preset region for atom(s) %s",
+                ", ".join(str(i + 1) for i in sorted(preset_overlap)[:5]),
+            )
+            preset_claimed -= preset_overlap
         seen.update(indices)
 
         if isinstance(config_spec, str):
@@ -1814,8 +1858,31 @@ def _apply_style_regions(
             msg = f"region config must be a preset name (str) or RenderConfig, got {type(config_spec)}"
             raise TypeError(msg)
 
-        rcfg.style_regions = []  # no nested regions
+        rcfg.style_regions = []
         cfg.style_regions.append(StyleRegion(indices=indices, config=rcfg))
+
+    # --- Preset-defined regions (from JSON "regions" key) ---
+    _pending_specs = cfg.region_specs or {}
+    cfg.region_specs = None  # clear so they aren't resolved again if called twice
+    for spec, region_def in _pending_specs.items():
+        indices = sorted(resolve_atom_indices(spec, graph))
+        free = [i for i in indices if i not in seen]
+        if not free:
+            continue
+        rcfg = copy.copy(cfg)
+        rcfg.style_regions = []
+        rcfg.region_specs = None
+        if isinstance(region_def, str):
+            overrides = load_config(region_def)
+        else:
+            overrides = region_def
+        for k, v in overrides.items():
+            if hasattr(rcfg, k):
+                setattr(rcfg, k, v)
+            else:
+                logger.warning("preset region %r: unknown config key %r (ignored)", spec, k)
+        cfg.style_regions.append(StyleRegion(indices=free, config=rcfg))
+        seen.update(free)
 
 
 def _apply_render_overlays(
@@ -2058,7 +2125,7 @@ def _apply_cell_config(
             raise ValueError("supercell requires a non-zero 3x3 lattice matrix.")
         from xyzrender.crystal import build_supercell
 
-        mol.graph = build_supercell(mol.graph, cell_data, supercell, threshold=mol.threshold)
+        mol.graph = build_supercell(mol.graph, cell_data, supercell)
         # Scaled lattice for ghost generation (ghosts = periodic images of the
         # supercell, not the unit cell).  cell_data stays as unit cell for the
         # cell-box overlay.
@@ -2081,7 +2148,7 @@ def _apply_cell_config(
             if _supercell_lattice is not None
             else cell_data
         )
-        add_crystal_images(mol.graph, ghost_cd, threshold=mol.threshold)
+        add_crystal_images(mol.graph, ghost_cd)
 
     # Bond orders are not meaningful for periodic structures (xyzgraph bond
     # order assignment assumes isolated molecules).
