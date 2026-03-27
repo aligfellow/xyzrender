@@ -73,7 +73,6 @@ xyzrender NV63_cell.xyz --axis 111 --gif-rot 111 -o NV63_111.svg -go NV63_111.gi
 
 | Flag | Description |
 |------|-------------|
-| `--crystal [{vasp,qe,siesta,abinit}]` | (Deprecated) Periodic formats are now auto-detected |
 | `--cell` | Force cell rendering for extXYZ (usually not needed) |
 | `--no-cell` | Hide the unit cell box |
 | `--ghosts` / `--no-ghosts` | Show/hide ghost (periodic image) atoms outside the cell |

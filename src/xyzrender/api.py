@@ -163,7 +163,6 @@ def load(
     ts_detect: bool = False,
     ts_frame: int = 0,
     nci_detect: bool = False,
-    crystal: bool | str = False,
     cell: bool = False,
     quick: bool = False,
     bohr: bool | None = None,
@@ -209,9 +208,6 @@ def load(
         Detect non-covalent interactions with xyzgraph after loading.
         When used with ``ensemble=True``, NCI detection is run on
         each frame independently.
-    crystal:
-        Deprecated — periodic formats are now auto-detected by
-        ``load_molecule()``.  Kept for backward compatibility.
     cell:
         Read the periodic cell box from an extXYZ ``Lattice=`` header and
         store it on the returned :class:`Molecule`.
@@ -293,21 +289,6 @@ def load(
         )
     elif not Path(mol_path).is_file():
         raise FileNotFoundError(f"[Errno 2] No such file or directory: '{mol_path}'")
-
-    elif crystal:
-        # --crystal is no longer needed; periodic formats are auto-detected by load_molecule().
-        # Keep for backward compatibility but just fall through to load_molecule().
-        logger.info("--crystal is no longer required; periodic formats are auto-detected.")
-        from xyzrender.readers import load_molecule
-
-        graph, cell_data = load_molecule(
-            mol_path,
-            charge=charge,
-            multiplicity=multiplicity,
-            kekule=kekule,
-            quick=quick,
-            bohr=bohr,
-        )
 
     elif mol_path.suffix.lower() == ".cube":
         from xyzrender.readers import load_cube
@@ -2155,25 +2136,6 @@ def _apply_cell_config(
     if bo_explicit:
         logger.warning("Bond orders are not supported for periodic structures (--bo ignored)")
     cfg.bond_orders = False
-
-
-def _resolve_crystal_interface(path: Path, crystal: bool | str) -> str:
-    """Resolve the crystal interface mode from *crystal* param and file path."""
-    if isinstance(crystal, str) and crystal in {"vasp", "qe", "siesta", "abinit"}:
-        return crystal
-    stem = path.stem.upper()
-    ext = path.suffix.lower()
-    if ext == ".vasp" or stem in {"POSCAR", "CONTCAR"}:
-        return "vasp"
-    if ext == ".in":
-        return "qe"
-    if ext == ".fdf":
-        return "siesta"
-    msg = (
-        f"Cannot auto-detect crystal interface from {str(path)!r}. "
-        "Specify explicitly: crystal='vasp', 'qe', 'siesta', or 'abinit'"
-    )
-    raise ValueError(msg)
 
 
 def _write_output(svg: str, output: Path, cfg: RenderConfig) -> None:

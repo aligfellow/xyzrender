@@ -1,152 +1,63 @@
 """Tests for xyzrender.formats and io loader functions.
 
-Mol/SDF fixtures are generated with rdkit from caffeine SMILES (real output,
-not hand-crafted strings).  MOL2 uses the checked-in example file.  PDB
-fixtures are generated with ase.  All tests are skipped when the required
-library is not installed.
+All fixtures use checked-in example files — no rdkit or ase generation needed.
 """
 
 from __future__ import annotations
 
-import pytest
-
-pytest.importorskip("rdkit", reason="rdkit required for mol/sdf fixture generation")
-pytest.importorskip("ase", reason="ase required for pdb fixture generation")
-
 from pathlib import Path
 
-import ase
-import ase.io
 import numpy as np
-from ase.build import molecule
-from rdkit import Chem
-from rdkit.Chem import AllChem, SDWriter
+import pytest
 
 # ---------------------------------------------------------------------------
-# Caffeine: rdkit-generated mol/sdf fixtures
+# Paths to checked-in test files
 # ---------------------------------------------------------------------------
 
-_CAFFEINE_SMI = "Cn1cnc2c1c(=O)n(c(=O)n2C)C"
-_CAFFEINE_HEAVY = 14  # C8N4O2
-_CAFFEINE_ATOMS = 24  # with explicit H
+_STRUCTURES = Path(__file__).parent.parent / "examples" / "structures"
+_INPUTS = Path(__file__).parent.parent / "examples" / "inputs"
 
+_CAFFEINE_SDF = _STRUCTURES / "caffeine_sdf.sdf"
+_MULTI_SDF = _STRUCTURES / "multi_mol.sdf"
+_WATER_MOL2 = _STRUCTURES / "water_mol2.mol2"
+_WATER_PDB = _STRUCTURES / "water.pdb"
+_WATER_PDB_CRYST = _STRUCTURES / "water_cryst.pdb"
+_ALA_PDB = _STRUCTURES / "ala_phe_ala.pdb"
+_CIF_FILE = _STRUCTURES / "caffeine_cif.cif"
 
-def _caffeine_3d() -> Chem.Mol:
-    mol = Chem.MolFromSmiles(_CAFFEINE_SMI)
-    mol = Chem.AddHs(mol)
-    params = AllChem.ETKDGv3()  # type: ignore[attr-defined]
-    params.randomSeed = 42
-    AllChem.EmbedMolecule(mol, params)  # type: ignore[attr-defined]
-    AllChem.MMFFOptimizeMolecule(mol)  # type: ignore[attr-defined]
-    return mol
-
-
-@pytest.fixture(scope="module")
-def caffeine_mol(tmp_path_factory):
-    path = tmp_path_factory.mktemp("mol") / "caffeine.mol"
-    Chem.MolToMolFile(_caffeine_3d(), str(path))
-    return path
-
-
-@pytest.fixture(scope="module")
-def caffeine_sdf(tmp_path_factory):
-    path = tmp_path_factory.mktemp("sdf") / "caffeine.sdf"
-    w = SDWriter(str(path))
-    w.write(_caffeine_3d())
-    w.close()
-    return path
-
-
-_WATER_ATOMS = 3  # O + 2H with explicit H
-
-
-@pytest.fixture(scope="module")
-def multi_sdf(tmp_path_factory):
-    """Two-record SDF: caffeine (frame 0) then water (frame 1)."""
-    water = Chem.MolFromSmiles("O")
-    water = Chem.AddHs(water)
-    params = AllChem.ETKDGv3()  # type: ignore[attr-defined]
-    params.randomSeed = 0
-    AllChem.EmbedMolecule(water, params)  # type: ignore[attr-defined]
-
-    path = tmp_path_factory.mktemp("multi_sdf") / "multi.sdf"
-    w = SDWriter(str(path))
-    w.write(_caffeine_3d())
-    w.write(water)
-    w.close()
-    return path
+_CAFFEINE_ATOMS = 24  # C8N4O2 + 10H
 
 
 # ---------------------------------------------------------------------------
-# Water MOL2 — checked-in example file
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="module")
-def water_mol2():
-    return Path(__file__).parent.parent / "examples" / "structures" / "water_mol2.mol2"
-
-
-# ---------------------------------------------------------------------------
-# Water PDB — ase-generated
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="module")
-def water() -> ase.Atoms:
-    return molecule("H2O")
-
-
-@pytest.fixture(scope="module")
-def water_pdb(water, tmp_path_factory):
-    path = tmp_path_factory.mktemp("pdb") / "water.pdb"
-    ase.io.write(str(path), water, format="proteindatabank")
-    return path
-
-
-@pytest.fixture(scope="module")
-def water_pdb_cryst(water, tmp_path_factory):
-    """Water molecule in a PDB with a CRYST1 unit cell."""
-    from ase.cell import Cell
-
-    w = water.copy()
-    w.set_cell(Cell.fromcellpar([10.0, 10.0, 10.0, 90.0, 90.0, 90.0]))
-    w.set_pbc(True)
-    path = tmp_path_factory.mktemp("pdb_cryst") / "water_cryst.pdb"
-    ase.io.write(str(path), w, format="proteindatabank")
-    return path
-
-
-# ---------------------------------------------------------------------------
-# parse_mol
+# parse_mol (SDF V2000 is the same block format as .mol)
 # ---------------------------------------------------------------------------
 
 
 class TestParseMol:
-    def test_atom_count(self, caffeine_mol):
+    def test_atom_count(self):
         from xyzrender.parsers import parse_mol
 
-        d = parse_mol(caffeine_mol)
+        d = parse_mol(_CAFFEINE_SDF)
         assert len(d.atoms) == _CAFFEINE_ATOMS
 
-    def test_element_symbols(self, caffeine_mol):
+    def test_element_symbols(self):
         from xyzrender.parsers import parse_mol
 
-        d = parse_mol(caffeine_mol)
+        d = parse_mol(_CAFFEINE_SDF)
         symbols = {sym for sym, _ in d.atoms}
         assert {"C", "N", "O", "H"} == symbols
 
-    def test_bonds_present(self, caffeine_mol):
+    def test_bonds_present(self):
         from xyzrender.parsers import parse_mol
 
-        d = parse_mol(caffeine_mol)
+        d = parse_mol(_CAFFEINE_SDF)
         assert d.bonds is not None
         assert len(d.bonds) > 0
 
-    def test_no_pbc_cell(self, caffeine_mol):
+    def test_no_pbc_cell(self):
         from xyzrender.parsers import parse_mol
 
-        d = parse_mol(caffeine_mol)
+        d = parse_mol(_CAFFEINE_SDF)
         assert d.pbc_cell is None
 
 
@@ -156,42 +67,42 @@ class TestParseMol:
 
 
 class TestParseSdf:
-    def test_atom_count(self, caffeine_sdf):
+    def test_atom_count(self):
         from xyzrender.parsers import parse_sdf
 
-        d = parse_sdf(caffeine_sdf, frame=0)
+        d = parse_sdf(_CAFFEINE_SDF, frame=0)
         assert len(d.atoms) == _CAFFEINE_ATOMS
 
-    def test_bonds_present(self, caffeine_sdf):
+    def test_bonds_present(self):
         from xyzrender.parsers import parse_sdf
 
-        d = parse_sdf(caffeine_sdf, frame=0)
+        d = parse_sdf(_CAFFEINE_SDF, frame=0)
         assert d.bonds is not None
         assert len(d.bonds) > 0
 
-    def test_frame_out_of_range(self, caffeine_sdf):
+    def test_frame_out_of_range(self):
         from xyzrender.parsers import parse_sdf
 
         with pytest.raises(IndexError):
-            parse_sdf(caffeine_sdf, frame=99)
+            parse_sdf(_CAFFEINE_SDF, frame=99)
 
-    def test_multi_frame0(self, multi_sdf):
+    def test_multi_frame0(self):
         from xyzrender.parsers import parse_sdf
 
-        d = parse_sdf(multi_sdf, frame=0)
+        d = parse_sdf(_MULTI_SDF, frame=0)
         assert len(d.atoms) == _CAFFEINE_ATOMS
 
-    def test_multi_frame1(self, multi_sdf):
+    def test_multi_frame1(self):
         from xyzrender.parsers import parse_sdf
 
-        d = parse_sdf(multi_sdf, frame=1)
-        assert len(d.atoms) == _WATER_ATOMS
+        d = parse_sdf(_MULTI_SDF, frame=1)
+        assert len(d.atoms) == 3  # water
 
-    def test_multi_frame_selects_different_molecules(self, multi_sdf):
+    def test_multi_frame_selects_different_molecules(self):
         from xyzrender.parsers import parse_sdf
 
-        d0 = parse_sdf(multi_sdf, frame=0)
-        d1 = parse_sdf(multi_sdf, frame=1)
+        d0 = parse_sdf(_MULTI_SDF, frame=0)
+        d1 = parse_sdf(_MULTI_SDF, frame=1)
         assert len(d0.atoms) != len(d1.atoms)
 
 
@@ -201,23 +112,23 @@ class TestParseSdf:
 
 
 class TestParseMol2:
-    def test_atom_count(self, water_mol2):
+    def test_atom_count(self):
         from xyzrender.parsers import parse_mol2
 
-        d = parse_mol2(water_mol2)
+        d = parse_mol2(_WATER_MOL2)
         assert len(d.atoms) == 3
 
-    def test_element_symbols(self, water_mol2):
+    def test_element_symbols(self):
         from xyzrender.parsers import parse_mol2
 
-        d = parse_mol2(water_mol2)
+        d = parse_mol2(_WATER_MOL2)
         symbols = {sym for sym, _ in d.atoms}
         assert symbols == {"O", "H"}
 
-    def test_bonds_present(self, water_mol2):
+    def test_bonds_present(self):
         from xyzrender.parsers import parse_mol2
 
-        d = parse_mol2(water_mol2)
+        d = parse_mol2(_WATER_MOL2)
         assert d.bonds is not None
         assert len(d.bonds) == 2
 
@@ -228,109 +139,103 @@ class TestParseMol2:
 
 
 class TestParsePdb:
-    def test_atom_count(self, water_pdb):
+    def test_atom_count(self):
         from xyzrender.parsers import parse_pdb
 
-        d = parse_pdb(water_pdb)
+        d = parse_pdb(_WATER_PDB)
         assert len(d.atoms) == 3
 
-    def test_element_symbols(self, water_pdb):
+    def test_element_symbols(self):
         from xyzrender.parsers import parse_pdb
 
-        d = parse_pdb(water_pdb)
+        d = parse_pdb(_WATER_PDB)
         symbols = {sym for sym, _ in d.atoms}
         assert symbols == {"O", "H"}
 
-    def test_no_cryst1(self, water_pdb):
+    def test_no_cryst1(self):
         from xyzrender.parsers import parse_pdb
 
-        d = parse_pdb(water_pdb)
+        d = parse_pdb(_WATER_PDB)
         assert d.pbc_cell is None
 
-    def test_cryst1_parsed(self, water_pdb_cryst):
+    def test_cryst1_parsed(self):
         from xyzrender.parsers import parse_pdb
 
-        d = parse_pdb(water_pdb_cryst)
+        d = parse_pdb(_WATER_PDB_CRYST)
         assert d.pbc_cell is not None
         assert d.pbc_cell.shape == (3, 3)
 
-    def test_cryst1_orthorhombic(self, water_pdb_cryst):
+    def test_cryst1_orthorhombic(self):
         from xyzrender.parsers import parse_pdb
 
-        d = parse_pdb(water_pdb_cryst)
+        d = parse_pdb(_WATER_PDB_CRYST)
         assert d.pbc_cell is not None
-        # Cubic cell → diagonal matrix with all 10 Å
+        # Cubic cell -> diagonal matrix with all 10 A
         diag = np.diag(d.pbc_cell)
         np.testing.assert_allclose(diag, [10.0, 10.0, 10.0], atol=1e-2)
 
 
 # ---------------------------------------------------------------------------
-# io loaders — graph structure
+# io loaders -- graph structure
 # ---------------------------------------------------------------------------
 
 
 class TestLoaders:
-    def test_load_mol_nodes(self, caffeine_mol):
+    def test_load_sdf_nodes(self):
         from xyzrender.readers import load_molecule
 
-        g, _ = load_molecule(caffeine_mol)
+        g, _ = load_molecule(_CAFFEINE_SDF)
         assert g.number_of_nodes() == _CAFFEINE_ATOMS
 
-    def test_load_mol_edges(self, caffeine_mol):
+    def test_load_sdf_edges(self):
         from xyzrender.readers import load_molecule
 
-        g, _ = load_molecule(caffeine_mol)
+        g, _ = load_molecule(_CAFFEINE_SDF)
         assert g.number_of_edges() > 0
 
-    def test_load_mol_rebuild(self, caffeine_mol):
+    def test_load_sdf_rebuild(self):
         from xyzrender.readers import load_molecule
 
-        g, _ = load_molecule(caffeine_mol, rebuild=True)
+        g, _ = load_molecule(_CAFFEINE_SDF, rebuild=True)
         assert g.number_of_nodes() == _CAFFEINE_ATOMS
 
-    def test_load_sdf_nodes(self, caffeine_sdf):
+    def test_load_mol2_nodes(self):
         from xyzrender.readers import load_molecule
 
-        g, _ = load_molecule(caffeine_sdf)
-        assert g.number_of_nodes() == _CAFFEINE_ATOMS
-
-    def test_load_mol2_nodes(self, water_mol2):
-        from xyzrender.readers import load_molecule
-
-        g, _ = load_molecule(water_mol2)
+        g, _ = load_molecule(_WATER_MOL2)
         assert g.number_of_nodes() == 3
 
-    def test_load_pdb_no_crystal(self, water_pdb):
+    def test_load_pdb_no_crystal(self):
         from xyzrender.readers import load_molecule
 
-        g, crystal = load_molecule(water_pdb)
+        g, crystal = load_molecule(_WATER_PDB)
         assert g.number_of_nodes() == 3
         assert crystal is None
 
-    def test_load_pdb_with_crystal(self, water_pdb_cryst):
+    def test_load_pdb_with_crystal(self):
         from xyzrender.readers import load_molecule
         from xyzrender.types import CellData
 
-        g, crystal = load_molecule(water_pdb_cryst)
+        g, crystal = load_molecule(_WATER_PDB_CRYST)
         assert g.number_of_nodes() == 3
         assert isinstance(crystal, CellData)
         assert crystal.lattice.shape == (3, 3)
-        # Cubic 10 Å cell — diagonal should be ~10 after round-trip through CellData
+        # Cubic 10 A cell
         np.testing.assert_allclose(np.diag(crystal.lattice), [10.0, 10.0, 10.0], atol=1e-2)
 
-    def test_node_attributes(self, caffeine_mol):
+    def test_node_attributes(self):
         from xyzrender.readers import load_molecule
 
-        g, _ = load_molecule(caffeine_mol)
+        g, _ = load_molecule(_CAFFEINE_SDF)
         for i in g.nodes:
             assert "symbol" in g.nodes[i]
             assert "position" in g.nodes[i]
             assert len(g.nodes[i]["position"]) == 3
 
-    def test_edge_attributes(self, caffeine_mol):
+    def test_edge_attributes(self):
         from xyzrender.readers import load_molecule
 
-        g, _ = load_molecule(caffeine_mol)
+        g, _ = load_molecule(_CAFFEINE_SDF)
         for _, _, d in g.edges(data=True):
             assert "bond_order" in d
             assert d["bond_order"] > 0
@@ -339,6 +244,8 @@ class TestLoaders:
 # ---------------------------------------------------------------------------
 # parse_smiles
 # ---------------------------------------------------------------------------
+
+pytest.importorskip("rdkit", reason="rdkit required for SMILES tests")
 
 
 class TestParseSmiles:
@@ -385,10 +292,8 @@ class TestParseSmiles:
 
 
 # ---------------------------------------------------------------------------
-# parse_cif / load_molecule(.cif) — uses examples/structures/caffeine_cif.cif
+# parse_cif / load_molecule(.cif) -- uses examples/structures/caffeine_cif.cif
 # ---------------------------------------------------------------------------
-
-_CIF_FILE = Path(__file__).parent.parent / "examples" / "structures" / "caffeine_cif.cif"
 
 
 @pytest.mark.filterwarnings("ignore::UserWarning:ase")
@@ -419,10 +324,6 @@ class TestParseCif:
 # ---------------------------------------------------------------------------
 # QM input file parsers (inputs.py)
 # ---------------------------------------------------------------------------
-
-_STRUCTURES = Path(__file__).parent.parent / "examples" / "structures"
-_INPUTS = Path(__file__).parent.parent / "examples" / "inputs"
-_CAFFEINE_ATOMS = 24
 
 
 class TestQmInputs:
