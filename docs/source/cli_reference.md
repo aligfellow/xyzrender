@@ -10,7 +10,6 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--smi SMILES` | Embed a SMILES string into 3D (requires rdkit) |
 | `--mol-frame N` | Record index in multi-molecule SDF (default: 0) |
 | `--rebuild` | Ignore file connectivity; re-detect bonds with xyzgraph |
-| `--threshold SCALE` | Global bond-distance scaling factor (default: 1.0). Values > 1.0 detect longer bonds, < 1.0 detect fewer |
 | `-c`, `--charge` | Molecular charge |
 | `-m`, `--multiplicity` | Spin multiplicity |
 | `--config` | Config preset (`default`, `flat`, `paton`, `pmol`, `skeletal`) or path to JSON file |
@@ -25,8 +24,9 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `-b`, `--bond-width` | Bond stroke width |
 | `-s`, `--atom-stroke-width` | Atom outline stroke width |
 | `--bond-color` | Bond color (hex or named) |
-| `--bond-cutoff` | Hide bonds longer than this distance (Å) |
 | `--no-bonds` | Hide all bonds (e.g. space-filling style) |
+| `--unbond SPEC [...]` | Hide bonds by rule or index: categories (`M-L`, `sbm`, `Fe-het`), pi-coordination (`M-pi`, `pi`), element (`Li`), atom index (`2`), or pair (`1-3`). Comma or space separated |
+| `--bond PAIR [...]` | Force-show/add bonds: 1-indexed pairs (`1-3 4-5`). Overrides `--unbond` |
 | `-B`, `--background` | Background color |
 | `-t`, `--transparent` | Transparent background |
 | `-G`, `--gradient-strength` | Gradient contrast multiplier |

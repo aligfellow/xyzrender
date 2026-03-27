@@ -32,8 +32,6 @@ mol = load("CC(=O)O", smiles=True)              # SMILES → 3D (requires rdkit)
 mol = load("POSCAR", crystal=True)              # VASP/QE structure (requires phonopy)
 mol = load("caffeine_cell.xyz", cell=True)      # extXYZ Lattice= header
 mol = load("mol.xyz", quick=True)               # skip BO detection (faster, use with bo=False)
-mol = load("mol.xyz", threshold=1.3)           # more permissive bond detection (detect longer bonds)
-mol = load("mol.xyz", threshold=0.8)           # stricter bond detection (detect fewer bonds)
 ```
 
 ## Render options
@@ -46,9 +44,32 @@ All CLI flags are available as keyword arguments to `render()`:
 render(mol, config="flat")                                     # built-in preset
 render(mol, config="paton", transparent=True)                  # preset + transparent bg
 render(mol, bond_width=8, atom_scale=1.5, background="#f0f0f0") # individual overrides
-render(mol, bond_cutoff=2.0)                                   # hide bonds longer than 2.0 Å
 render(mol, hide_bonds=True)                                   # hide all bonds
 ```
+
+### Bond display rules
+
+Selectively hide or add bonds using element categories, element symbols,
+pi-coordination, or atom indices.  Specs are **1-indexed**.
+
+```python
+render(mol, unbond=["M-L"])                   # hide all metal-ligand bonds
+render(mol, unbond=["sbm"])                   # hide all s-block metal bonds (Li, Na, K, etc.)
+render(mol, unbond=["M-het"])                 # hide metal-heteroatom (not C, not H)
+render(mol, unbond=["M-pi"])                  # hide metal pi-coordination (ferrocene-like)
+render(mol, unbond=["pi"])                    # hide all pi-coordination bonds 
+render(mol, unbond=["Fe-C"])                  # hide iron-carbon bonds specifically
+render(mol, unbond=["Li"])                    # hide all bonds from lithium atoms
+render(mol, unbond=["2"])                     # hide all bonds from atom 2
+render(mol, unbond=["1-3"])                   # hide bond between atoms 1 and 3
+render(mol, unbond=["M-L"], bond=["2-5"])     # hide M-L but keep bond 2-5
+render(mol, unbond=["sbm", "M-pi", "1-3"])    # multiple specs
+```
+
+Available categories: `M` (all metals), `sbm` (s-block metals), `L` (non-metals),
+`het` (heteroatoms: not C, not H, not metal), `pi` (eta-coordination to aromatic rings).
+Any element symbol also works (`Fe`, `Li`, `O`, etc.).
+NCI and TS overlay edges are never removed by rules.
 
 ### Hydrogen visibility
 
