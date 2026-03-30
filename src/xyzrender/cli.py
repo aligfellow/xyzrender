@@ -994,8 +994,8 @@ def main() -> None:
         from xyzrender.bond_rules import apply_bond_rules
 
         apply_bond_rules(mol.graph, cfg)
-        cfg.unbond = None
-        cfg.bond = None
+        cfg.unbond = []
+        cfg.bond = []
 
     # --- Render static SVG ---
     try:
