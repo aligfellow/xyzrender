@@ -390,6 +390,10 @@ def graph_from_moldata(
                 graph.number_of_nodes(),
                 graph.number_of_edges(),
             )
+        _eff_charge = charge if charge != 0 else (data.charge or 0)
+        graph.graph["total_charge"] = _eff_charge
+        if multiplicity is not None:
+            graph.graph["multiplicity"] = multiplicity
         return graph
 
     # Fall back to xyzgraph distance-based detection

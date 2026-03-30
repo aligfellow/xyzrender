@@ -120,13 +120,14 @@ def diffuse_frames(
                     op = max(0.0, np.exp(-6.0 * (ratio - 1.0)))
                     bond_opacities[(i, j)] = bond_opacities[(j, i)] = op
 
-        frames.append(
-            {
-                "symbols": symbols,
-                "positions": perturbed.tolist(),
-                "bond_opacities": bond_opacities,
-            }
-        )
+        frame: dict = {
+            "symbols": symbols,
+            "positions": perturbed.tolist(),
+            "bond_opacities": bond_opacities,
+        }
+        if bonds == "fade":
+            frame["hull_opacity_factor"] = 1.0 - d
+        frames.append(frame)
 
     if reverse:
         frames.reverse()

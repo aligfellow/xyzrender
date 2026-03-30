@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import logging
 import sys
 from dataclasses import dataclass
@@ -831,6 +832,10 @@ def _render_traj_frame(
         render_graph = graph
 
     frame_config = config
+    hull_factor = frame.get("hull_opacity_factor")
+    if hull_factor is not None and config.show_convex_hull:
+        frame_config = copy.copy(config)
+        frame_config.hull_opacity = config.hull_opacity * hull_factor
     if rotation_axis is not None:
         _rg_nodes = list(render_graph.nodes())
         _rg_centroid = np.mean([render_graph.nodes[n]["position"] for n in _rg_nodes], axis=0)

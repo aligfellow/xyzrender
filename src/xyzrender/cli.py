@@ -988,6 +988,15 @@ def main() -> None:
         if lat.shape != (3, 3) or np.allclose(lat, 0.0):
             p.error("--supercell requires a non-zero 3x3 lattice matrix.")
 
+    # --- Bond rules: apply once to mol.graph so render() and render_gif() both
+    #     receive the resolved graph; their internal guards then become no-ops. ---
+    if cfg.unbond or cfg.bond:
+        from xyzrender.bond_rules import apply_bond_rules
+
+        apply_bond_rules(mol.graph, cfg)
+        cfg.unbond = None
+        cfg.bond = None
+
     # --- Render static SVG ---
     try:
         render(

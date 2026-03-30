@@ -1263,6 +1263,10 @@ def render_gif(
             ref_graph, _ = load_molecule(str(mol_path))
         else:
             ref_graph = copy.deepcopy(ref_graph)
+        if cfg.unbond or cfg.bond:
+            from xyzrender.bond_rules import apply_bond_rules
+
+            apply_bond_rules(ref_graph, cfg)
         from xyzrender.diffuse import parse_anchor
 
         render_diffuse_gif(
@@ -1289,6 +1293,11 @@ def render_gif(
             # Deep-copy so render_rotation_gif (which mutates positions in-place) doesn't
             # corrupt the caller's Molecule, and so _apply_cell_config can add ghost atoms.
             ref_graph = copy.deepcopy(ref_graph)
+
+        if cfg.unbond or cfg.bond:
+            from xyzrender.bond_rules import apply_bond_rules
+
+            apply_bond_rules(ref_graph, cfg)
 
         # --- Orientation reference (gif_rot only) ---
         if ref is not None:
@@ -1326,8 +1335,8 @@ def render_gif(
             if isinstance(overlay, Molecule):
                 overlay_mol = overlay
             else:
-                _ov_charge = ref_graph.graph.get("total_charge", 0)
-                _ov_mult = ref_graph.graph.get("multiplicity")
+                _ov_charge = _gif_graph.graph.get("total_charge", 0)
+                _ov_mult = _gif_graph.graph.get("multiplicity")
                 overlay_mol = load(overlay, charge=_ov_charge, multiplicity=_ov_mult)
             if overlay_color is not None:
                 cfg.overlay_color = resolve_color(overlay_color)

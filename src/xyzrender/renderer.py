@@ -555,7 +555,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 x2, y2 = _proj(pos[nj], scale, cx, cy, canvas_w, canvas_h)
                 svg.append(
                     f'  <line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" '
-                    f'stroke="{edge_color}" stroke-width="{hull_lw:.1f}" stroke-linecap="round"/>'
+                    f'stroke="{edge_color}" stroke-width="{hull_lw:.1f}" stroke-linecap="round" '
+                    f'stroke-opacity="{cfg.hull_opacity:.3f}"/>'
                 )
 
     # --- Vector arrows: prepare for z-interleaved drawing ---
