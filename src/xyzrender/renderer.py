@@ -192,6 +192,21 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             "Render: %d atoms, %d bonds, scale=%.2f, center=(%.2f, %.2f)", n, graph.number_of_edges(), scale, cx, cy
         )
     z_order = np.argsort(pos[:, 2])
+    _z_rank = np.empty(n, dtype=int)  # atom_idx → position in z_order
+    _z_rank[z_order] = np.arange(n)
+
+    # Pre-project all atom positions to 2D (vectorized)
+    _px = canvas_w / 2 + scale * (pos[:, 0] - cx)  # (n,) projected x
+    _py = canvas_h / 2 - scale * (pos[:, 1] - cy)  # (n,) projected y
+
+    # Pre-extract per-atom flags to avoid repeated NetworkX lookups in the render loop
+    _is_image = [graph.nodes[nid].get("image", False) for nid in node_ids]
+    # Pre-extract diffuse_opacity for bonds (GIF diffuse animation)
+    _diffuse_op: dict[tuple[int, int], float] = {}
+    for u, v, d in graph.edges(data=True):
+        dop = d.get("diffuse_opacity")
+        if dop is not None:
+            _diffuse_op[(u, v)] = _diffuse_op[(v, u)] = dop
 
     # Atom base colors — CPK by default, palette cmap when --cmap is active
     if cfg.atom_cmap is not None:
@@ -257,6 +272,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 colors[ai] = gc
                 hl_atom_group[ai] = gid
 
+    # Pre-cache hex strings so .hex property isn't recomputed in the render loop
+    _color_hex = [c.hex for c in colors]
+
     # Bond lookup: (bond_order, style, color_override)
     bonds: dict[tuple[int, int], tuple[float, BondStyle, str | None]] = {}
     if not cfg.hide_bonds:
@@ -295,6 +313,14 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     and (c_ov is None or c_ov == mol_bond_color)
                 ):
                     bonds[(i, j)] = bonds[(j, i)] = (bo, style, hl_group_bond_color[gi])
+
+    # Pre-build adjacency list for O(degree) bond lookup in render loop
+    bond_adj: dict[int, list[int]] = {}
+    if bonds:
+        for i, j in bonds:
+            if i < j:  # bonds has both (i,j) and (j,i); add once
+                bond_adj.setdefault(i, []).append(j)
+                bond_adj.setdefault(j, []).append(i)
 
     # Only hide C-H hydrogens (not O-H, N-H, free H, etc.)
     hidden = set()
@@ -776,22 +802,89 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             _bond_line(lx1, ly1, xm, ym, w, c1, lpx, lpy, shade_cfg, op_attr, dash)
             _bond_line(xm, ym, lx2, ly2, w, c2, lpx, lpy, shade_cfg, op_attr, dash)
 
+    # Pre-resolve bond config for the common case (no style regions)
+    _base_bcfg = cfg
+    _base_bw = cfg.bond_width * scale_ratio
+    _base_gap = cfg.bond_gap * _base_bw
+    _base_bond_color = cfg.bond_color
+    _base_outline_color = cfg.bond_outline_color
+    _base_outline_width = cfg.bond_outline_width * scale_ratio
+    _base_by_element = cfg.bond_color_by_element
+    _base_scfg = cfg if cfg.bond_gradient else None
+
+    def _emit_line(
+        lx1,
+        ly1,
+        lx2,
+        ly2,
+        w,
+        color_hex,
+        lpx,
+        lpy,
+        shade,
+        op_attr,
+        dash,
+        by_element,
+        ci_hex,
+        cj_hex,
+        ri_vdw,
+        rj_vdw,
+        fi,
+        fj,
+    ):
+        """Dispatch a single bond line — element-coloured or uniform."""
+        if by_element:
+            _element_line(
+                lx1,
+                ly1,
+                lx2,
+                ly2,
+                w,
+                ci_hex,
+                cj_hex,
+                ri_vdw,
+                rj_vdw,
+                lpx,
+                lpy,
+                fog_enabled=cfg.fog,
+                fi=fi,
+                fj=fj,
+                shade_cfg=shade,
+                op_attr=op_attr,
+                dash=dash,
+            )
+        else:
+            _bond_line(lx1, ly1, lx2, ly2, w, color_hex, lpx, lpy, shade, op_attr, dash)
+
     def add_bond(ai, aj, bo, style, opacity: float = 1.0, color_override: str | None = None):
         """Render bond — closure captures shared rendering state."""
-        # TS/NCI bonds are structural overlays — always use the base config
-        # so they look consistent regardless of which region the atoms are in.
-        # Their width is capped at the default (20) so they stay thin even when
-        # the base is a thick-bond preset like tube.
-        bcfg = cfg if style != BondStyle.SOLID else _bond_cfg(ai, aj)
-        # Apply bond_orders per-bond so regions can override independently
+        # Config: use base config unless style regions exist and bond is solid
+        if _acfg is not None and style == BondStyle.SOLID:
+            ca, cb = _acfg[ai], _acfg[aj]
+            bcfg = ca if (ca is cb and ca is not cfg) else cfg
+        else:
+            bcfg = cfg
         bo = bo if bcfg.bond_orders else 1.0
-        _bw = bcfg.bond_width * scale_ratio
+
+        # Use pre-resolved values when config is the base (common path)
+        if bcfg is cfg:
+            _bw = _base_bw
+            _gap = _base_gap
+            _bond_color = _base_bond_color
+            _stroke_color = _base_outline_color
+            _stroke_width = _base_outline_width
+            _scfg = _base_scfg
+        else:
+            _bw = bcfg.bond_width * scale_ratio
+            _gap = bcfg.bond_gap * _bw
+            _bond_color = bcfg.bond_color
+            _stroke_color = bcfg.bond_outline_color
+            _stroke_width = bcfg.bond_outline_width * scale_ratio
+            _scfg = bcfg if bcfg.bond_gradient else None
+
         if style != BondStyle.SOLID:
             _bw = min(_bw, 20.0 * scale_ratio)
-        _gap = bcfg.bond_gap * _bw
-        _bond_color = bcfg.bond_color
-        _stroke_color = bcfg.bond_outline_color
-        _stroke_width = bcfg.bond_outline_width * scale_ratio
+            _gap = bcfg.bond_gap * _bw
         if style == BondStyle.DASHED and bcfg.ts_color is not None:
             _bond_color = bcfg.ts_color
         if style == BondStyle.DOTTED and bcfg.nci_color is not None:
@@ -825,43 +918,23 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             )
             return
 
-        rij = pos[aj] - pos[ai]
-        dist = np.linalg.norm(rij)
-        if dist < 1e-6:
+        _bg = bond_geom.get((ai, aj))
+        if _bg is None:
             return
-        d = rij / dist
+        x1, y1, x2, y2, px, py = _bg
 
-        ri = radii[ai]
-        rj = radii[aj]
-
-        start = pos[ai] + d * ri * 0.9
-        end = pos[aj] - d * rj * 0.9
-        if np.dot(end - start, d) <= 0:
-            return
-
-        x1, y1 = _proj(start, scale, cx, cy, canvas_w, canvas_h)
-        x2, y2 = _proj(end, scale, cx, cy, canvas_w, canvas_h)
-        dx, dy = x2 - x1, y2 - y1
-        ln = (dx * dx + dy * dy) ** 0.5
-        if ln < 1:
-            return
-        px, py = -dy / ln, dx / ln
-
-        # Element-coloured bonds: colour by endpoint atoms.
-        # TS/NCI bonds are structural overlays — always use uniform colour.
         by_element = bcfg.bond_color_by_element and color_override is None and style == BondStyle.SOLID
+        ci_hex = cj_hex = color = ""
         if by_element:
-            ci_hex = colors[ai].hex
-            cj_hex = colors[aj].hex
+            ci_hex = _color_hex[ai]
+            cj_hex = _color_hex[aj]
         else:
             color = color_override if color_override is not None else _bond_color
             if cfg.fog:
-                avg_fog = (fog_f[ai] + fog_f[aj]) / 2 * 0.75  # bonds fog less than atoms
-                color = blend_fog(color, fog_rgb, avg_fog)
+                color = blend_fog(color, fog_rgb, (fog_f[ai] + fog_f[aj]) / 2 * 0.75)
 
         op_attr = f' opacity="{opacity:.2f}"' if opacity < 1.0 else ""
 
-        # Collect edge stroke shadow into the deferred layer
         if _stroke_color and _stroke_width > 0:
             ow = _bw + 2 * _stroke_width
             _bond_outline_layer.append(
@@ -869,59 +942,155 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 f'stroke="{_stroke_color}" stroke-width="{ow:.1f}" stroke-linecap="round"{op_attr}/>'
             )
 
-        # Cylinder shading config — None when off, bcfg when on
-        _scfg = bcfg if bcfg.bond_gradient else None
+        # Common args for _emit_line
+        _fi = fog_f[ai]
+        _fj = fog_f[aj]
+        _ri_vdw = raw_vdw[ai]
+        _rj_vdw = raw_vdw[aj]
 
-        def _emit(lx1, ly1, lx2, ly2, w, shade, dash=""):
-            """Dispatch a single bond line — element-coloured or uniform."""
-            if by_element:
-                _element_line(
-                    lx1,
-                    ly1,
-                    lx2,
-                    ly2,
-                    w,
-                    ci_hex,
-                    cj_hex,
-                    raw_vdw[ai],
-                    raw_vdw[aj],
-                    px,
-                    py,
-                    fog_enabled=cfg.fog,
-                    fi=fog_f[ai],
-                    fj=fog_f[aj],
-                    shade_cfg=shade,
-                    op_attr=op_attr,
-                    dash=dash,
-                )
-            else:
-                _bond_line(lx1, ly1, lx2, ly2, w, color, px, py, shade, op_attr, dash)
-
-        # TS/NCI: single line with dash pattern, no cylinder shading
         if style == BondStyle.DASHED:
             dd, gg = _bw * 1.2, _bw * 2.2
-            _emit(x1, y1, x2, y2, _bw * 1.2, None, f' stroke-dasharray="{dd:.1f},{gg:.1f}"')
+            _emit_line(
+                x1,
+                y1,
+                x2,
+                y2,
+                _bw * 1.2,
+                color,
+                px,
+                py,
+                None,
+                op_attr,
+                f' stroke-dasharray="{dd:.1f},{gg:.1f}"',
+                by_element,
+                ci_hex,
+                cj_hex,
+                _ri_vdw,
+                _rj_vdw,
+                _fi,
+                _fj,
+            )
             return
         if style == BondStyle.DOTTED:
             dd, gg = _bw * 0.08, _bw * 2
-            _emit(x1, y1, x2, y2, _bw, None, f' stroke-dasharray="{dd:.1f},{gg:.1f}"')
+            _emit_line(
+                x1,
+                y1,
+                x2,
+                y2,
+                _bw,
+                color,
+                px,
+                py,
+                None,
+                op_attr,
+                f' stroke-dasharray="{dd:.1f},{gg:.1f}"',
+                by_element,
+                ci_hex,
+                cj_hex,
+                _ri_vdw,
+                _rj_vdw,
+                _fi,
+                _fj,
+            )
             return
 
         is_aromatic = 1.3 < bo < 1.7
         if is_aromatic:
-            # Solid + dashed parallel lines, dashed toward ring center
             side = _ring_side(pos, ai, aj, aromatic_rings, x1, y1, x2, y2, px, py, scale, cx, cy, canvas_w, canvas_h)
             w = _bw * 0.7
             for ib in [-1, 1]:
                 ox, oy = px * ib * _gap, py * ib * _gap
                 dash = f' stroke-dasharray="{w * 1.0:.1f},{w * 2.0:.1f}"' if ib == side else ""
-                _emit(x1 + ox, y1 + oy, x2 + ox, y2 + oy, w, _scfg if not dash else None, dash)
+                _emit_line(
+                    x1 + ox,
+                    y1 + oy,
+                    x2 + ox,
+                    y2 + oy,
+                    w,
+                    color,
+                    px,
+                    py,
+                    _scfg if not dash else None,
+                    op_attr,
+                    dash,
+                    by_element,
+                    ci_hex,
+                    cj_hex,
+                    _ri_vdw,
+                    _rj_vdw,
+                    _fi,
+                    _fj,
+                )
         else:
             nb = max(1, round(bo))
             w = _bw if nb == 1 else _bw * 0.7
             for ib in range(-nb + 1, nb, 2):
                 ox, oy = px * ib * _gap, py * ib * _gap
-                _emit(x1 + ox, y1 + oy, x2 + ox, y2 + oy, w, _scfg)
+                _emit_line(
+                    x1 + ox,
+                    y1 + oy,
+                    x2 + ox,
+                    y2 + oy,
+                    w,
+                    color,
+                    px,
+                    py,
+                    _scfg,
+                    op_attr,
+                    "",
+                    by_element,
+                    ci_hex,
+                    cj_hex,
+                    _ri_vdw,
+                    _rj_vdw,
+                    _fi,
+                    _fj,
+                )
+
+    # --- Vectorized bond geometry precomputation ---
+    # Precompute projected start/end/perpendicular for all bonds in one pass.
+    # bond_geom[(ai, aj)] = (x1, y1, x2, y2, px, py) or None if degenerate.
+    bond_geom: dict[tuple[int, int], tuple[float, float, float, float, float, float] | None] = {}
+    if bonds and not cfg.hide_bonds and bw > 0:
+        # Collect unique undirected bond pairs
+        _bpairs = [(i, j) for i, j in bonds if i < j]
+        if _bpairs:
+            _bi = np.array([p[0] for p in _bpairs])
+            _bj = np.array([p[1] for p in _bpairs])
+            # Vectorized 3D geometry
+            _rij = pos[_bj] - pos[_bi]  # (nb, 3)
+            _dist = np.sqrt((_rij * _rij).sum(axis=1))  # (nb,)
+            _valid = _dist > 1e-6
+            _d = np.zeros_like(_rij)
+            _d[_valid] = _rij[_valid] / _dist[_valid, None]
+            _ri = radii[_bi]
+            _rj = radii[_bj]
+            _start = pos[_bi] + _d * (_ri * 0.9)[:, None]
+            _end = pos[_bj] - _d * (_rj * 0.9)[:, None]
+            _dot_check = ((_end - _start) * _d).sum(axis=1)
+            _valid &= _dot_check > 0
+            # Vectorized 2D projection
+            _sx = canvas_w / 2 + scale * (_start[:, 0] - cx)
+            _sy = canvas_h / 2 - scale * (_start[:, 1] - cy)
+            _ex = canvas_w / 2 + scale * (_end[:, 0] - cx)
+            _ey = canvas_h / 2 - scale * (_end[:, 1] - cy)
+            _ddx = _ex - _sx
+            _ddy = _ey - _sy
+            _ln = np.sqrt(_ddx * _ddx + _ddy * _ddy)
+            _valid &= _ln >= 1
+            _ppx = np.zeros_like(_ln)
+            _ppy = np.zeros_like(_ln)
+            _ppx[_valid] = -_ddy[_valid] / _ln[_valid]
+            _ppy[_valid] = _ddx[_valid] / _ln[_valid]
+            # Store results
+            for k in range(len(_bpairs)):
+                ai_k, aj_k = _bpairs[k]
+                if _valid[k]:
+                    g = (float(_sx[k]), float(_sy[k]), float(_ex[k]), float(_ey[k]), float(_ppx[k]), float(_ppy[k]))
+                    bond_geom[(ai_k, aj_k)] = bond_geom[(aj_k, ai_k)] = g
+                else:
+                    bond_geom[(ai_k, aj_k)] = bond_geom[(aj_k, ai_k)] = None
 
     _molecule_insert_idx = len(svg)
     for idx, ai in enumerate(z_order):
@@ -959,8 +1128,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         if nci_lobes_flat:
             _drain_nci(float(pos[ai][2]))
 
-        xi, yi = _proj(pos[ai], scale, cx, cy, canvas_w, canvas_h)
-        is_image = graph.nodes[ai].get("image", False)
+        xi, yi = _px[ai], _py[ai]
+        is_image = _is_image[ai]
         if is_image:
             atom_op = cfg.periodic_image_opacity
         elif ens_opacities[ai] is not None:
@@ -993,14 +1162,14 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             # Atom circle (gradient or flat fill)
             _sw_ai = _atom_sw[ai] if _atom_sw is not None else sw
             _grad_ai = _atom_use_grad[ai] if _atom_use_grad is not None else use_grad
-            _stroke_atom = colors[ai].hex if acfg.atom_stroke_color == "atom" else acfg.atom_stroke_color
+            _stroke_atom = _color_hex[ai] if acfg.atom_stroke_color == "atom" else acfg.atom_stroke_color
             dof_attr = f' filter="url(#dof{dof_buckets[ai]})"' if cfg.dof else ""
             if _grad_ai:
                 if use_per_atom_grad:
                     grad_id = f"g{ai}"
                     fs_atom = atom_fog_stroke[ai]
                 else:
-                    gid_suffix = f"{a_nums[ai]}_{colors[ai].hex[1:]}"
+                    gid_suffix = f"{a_nums[ai]}_{_color_hex[ai][1:]}"
                     if _acfg is not None:
                         gid_suffix += f"_{id(acfg) & 0xFFFF:04x}"
                     grad_id = f"g{gid_suffix}"
@@ -1010,7 +1179,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     f'fill="url(#{grad_id})" stroke="{fs_atom}" stroke-width="{_sw_ai:.1f}"{op_attr_atom}{dof_attr}/>'
                 )
             else:
-                fill = colors[ai].blend(WHITE, acfg.atom_wash).hex if acfg.atom_wash > 0 else colors[ai].hex
+                fill = colors[ai].blend(WHITE, acfg.atom_wash).hex if acfg.atom_wash > 0 else _color_hex[ai]
                 stroke = _stroke_atom
                 if cfg.fog:
                     fill = blend_fog(fill, fog_rgb, fog_f[ai])
@@ -1037,15 +1206,14 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 _deferred_atom_layers.extend(svg[_atom_layer_start:])
                 del svg[_atom_layer_start:]
 
-        # Bonds to deeper atoms
+        # Bonds to deeper atoms (adjacency list → O(degree) instead of O(n))
         if not cfg.hide_bonds and bw > 0:
-            for aj in z_order[idx + 1 :]:
-                aj_int = int(aj)
-                if aj_int in hidden or (ai, aj_int) not in bonds:
+            for aj_int in bond_adj.get(ai, ()):
+                if aj_int in hidden or _z_rank[aj_int] <= idx:
                     continue
                 bo, style, color_ov = bonds[(ai, aj_int)]
                 # Use periodic_image_opacity if either endpoint is an image atom
-                _aj_image = graph.nodes[aj_int].get("image", False)
+                _aj_image = _is_image[aj_int]
                 _aj_ens_op = ens_opacities[aj_int] if not _aj_image else None
                 _ai_ens_op = ens_opacities[ai]
                 if is_image or _aj_image:
@@ -1055,7 +1223,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 else:
                     bond_op = 1.0
                 # Diffuse GIF: fade stretched bonds
-                _diff_op = graph.edges[ai, aj_int].get("diffuse_opacity") if graph.has_edge(ai, aj_int) else None
+                _diff_op = _diffuse_op.get((ai, aj_int))
                 if _diff_op is not None:
                     bond_op = min(bond_op, _diff_op)
                 if bond_op < 0.01:

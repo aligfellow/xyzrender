@@ -2193,6 +2193,7 @@ def _apply_cell_config(
 
     # Supercell replication (must occur before adding ghost atoms)
     _supercell_lattice = None
+    _n_base = None
     if supercell != (1, 1, 1):
         lat = getattr(cell_data, "lattice", None)
         if lat is None:
@@ -2202,6 +2203,7 @@ def _apply_cell_config(
             raise ValueError("supercell requires a non-zero 3x3 lattice matrix.")
         from xyzrender.crystal import build_supercell
 
+        _n_base = mol.graph.number_of_nodes()
         mol.graph = build_supercell(mol.graph, cell_data, supercell)
         # Scaled lattice for ghost generation (ghosts = periodic images of the
         # supercell, not the unit cell).  cell_data stays as unit cell for the
@@ -2225,7 +2227,13 @@ def _apply_cell_config(
             if _supercell_lattice is not None
             else cell_data
         )
-        add_crystal_images(mol.graph, ghost_cd)
+        add_crystal_images(
+            mol.graph,
+            ghost_cd,
+            supercell_repeats=supercell if _n_base is not None else None,
+            unit_cell_data=cell_data if _n_base is not None else None,
+            n_base=_n_base,
+        )
 
     # Bond orders are not meaningful for periodic structures (xyzgraph bond
     # order assignment assumes isolated molecules).
