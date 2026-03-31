@@ -259,7 +259,8 @@ class TestStyleRegions:
         dashed = [line for line in svg.split("\n") if "<line" in line and "stroke-dasharray" in line]
         assert len(dashed) == 1
         assert 'stroke="url(#' in dashed[0]
-        assert "#1111ff" in svg and "#dddddd" in svg
+        assert "#1111ff" in svg
+        assert "#dddddd" in svg
 
     def test_bond_outline_fog_blended(self):
         """With fog enabled, bond outline should fog-blend from one endpoint to the other."""
@@ -334,7 +335,9 @@ class TestStyleRegions:
         split_lines = [
             line
             for line in svg.split("\n")
-            if "<line" in line and ('stroke="#1111ff"' in line or 'stroke="#ff1111"' in line) and "dasharray" not in line
+            if "<line" in line
+            and ('stroke="#1111ff"' in line or 'stroke="#ff1111"' in line)
+            and "dasharray" not in line
         ]
         assert len(split_lines) == 2
 

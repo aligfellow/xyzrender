@@ -1716,7 +1716,7 @@ def _annotations_svg(
                 xb, yb = _proj(pos[seg_b], scale, cx, cy, canvas_w, canvas_h)
                 seg_col = seg_color
                 if cfg.fog:
-                    avg_fog = _fog_s((fog_f[seg_a] + fog_f[seg_b]) / 2 * 0.75)
+                    avg_fog = ((fog_f[seg_a] + fog_f[seg_b]) / 2 * 0.75) * _FOG_BLEND_SCALE
                     seg_col = blend_fog(seg_color, fog_rgb, avg_fog)
                 svg.append(
                     f'  <line x1="{xa:.1f}" y1="{ya:.1f}" x2="{xb:.1f}" y2="{yb:.1f}" '
