@@ -36,6 +36,7 @@ _REF_CANVAS = 800  # reference canvas size (px) — bond/label widths are define
 _CENTROID_VDW = 0.5  # VdW radius (Å) for NCI pi-system centroid dummy nodes
 _H_ATOM_SCALE = 0.6  # display-radius shrink factor for H atoms (ball-and-stick)
 _H_VDW_SCALE = 0.65  # VdW-sphere shrink factor for H atoms
+_FOG_BLEND_SCALE = 0.82  # keep fog softer for both atoms and bonds
 
 
 def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, _unique_ids: bool = True) -> str:
@@ -56,6 +57,10 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 _rmap[ai] = region.config
         # NCI centroid nodes ("*") are structural overlays — always base config
         _acfg = [cfg if symbols[ai] == "*" else _rmap.get(ai, cfg) for ai in range(n)]
+
+    def _fog_s(v: float) -> float:
+        """Shared fog attenuation used for all color blending in this render."""
+        return v * _FOG_BLEND_SCALE
 
     # Pre-compute local vector origins/directions so we can rotate them with auto_orient
     _vec_origins = np.array([va.origin for va in cfg.vectors], dtype=float) if cfg.vectors else np.full((0, 3), np.nan)
@@ -405,10 +410,10 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     continue
                 acfg = _acfg[ai] if _acfg is not None else cfg
                 hi, me, lo = get_gradient_colors(colors[ai], acfg)
-                t = min(fog_f[ai] ** 2 * 0.7, 0.70)
+                t = min(_fog_s(fog_f[ai]) ** 2 * 0.7, 0.70)
                 hi, me, lo = hi.blend(WHITE, t), me.blend(WHITE, t), lo.blend(WHITE, t)
                 _base_stroke = colors[ai].hex if acfg.atom_stroke_color == "atom" else acfg.atom_stroke_color
-                atom_fog_stroke[ai] = blend_fog(_base_stroke, fog_rgb, fog_f[ai])
+                atom_fog_stroke[ai] = blend_fog(_base_stroke, fog_rgb, _fog_s(fog_f[ai]))
                 svg.append(
                     f'    <radialGradient id="g{ai}" cx=".5" cy=".5" fx=".33" fy=".33" r=".66">'
                     f'<stop offset="0%" stop-color="{hi.hex}"/>'
@@ -789,7 +794,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         *ri*, *rj* are raw VdW radii for radius-weighted midpoint.
         Each half is individually cylinder-shaded when *shade_cfg* is set.
         """
-        avg_fog = (fi + fj) / 2 * 0.75
+        avg_fog = _fog_s((fi + fj) / 2 * 0.75)
         c1 = blend_fog(ci_hex, fog_rgb, avg_fog) if fog_enabled else ci_hex
         c2 = blend_fog(cj_hex, fog_rgb, avg_fog) if fog_enabled else cj_hex
         # Skip split when both endpoints are the same colour (e.g. C-C bonds)
@@ -797,10 +802,29 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             _bond_line(lx1, ly1, lx2, ly2, w, c1, lpx, lpy, shade_cfg, op_attr, dash)
         else:
             t = ri / (ri + rj) if (ri + rj) > 0 else 0.5
-            xm = lx1 + (lx2 - lx1) * t
-            ym = ly1 + (ly2 - ly1) * t
-            _bond_line(lx1, ly1, xm, ym, w, c1, lpx, lpy, shade_cfg, op_attr, dash)
-            _bond_line(xm, ym, lx2, ly2, w, c2, lpx, lpy, shade_cfg, op_attr, dash)
+            # Keep dashed stroke continuity (e.g. aromatic dashed side) by using
+            # one line with a hard-stop gradient at the endpoint split ratio.
+            if dash:
+                sid = f"be{next(_bs_counter)}"
+                off = max(0.0, min(100.0, 100.0 * t))
+                svg.append(
+                    f'  <defs><linearGradient id="{sid}" x1="{lx1:.1f}" y1="{ly1:.1f}" '
+                    f'x2="{lx2:.1f}" y2="{ly2:.1f}" gradientUnits="userSpaceOnUse">'
+                    f'<stop offset="0%" stop-color="{c1}"/>'
+                    f'<stop offset="{off:.4f}%" stop-color="{c1}"/>'
+                    f'<stop offset="{off:.4f}%" stop-color="{c2}"/>'
+                    f'<stop offset="100%" stop-color="{c2}"/>'
+                    f"</linearGradient></defs>"
+                )
+                svg.append(
+                    f'  <line x1="{lx1:.1f}" y1="{ly1:.1f}" x2="{lx2:.1f}" y2="{ly2:.1f}" '
+                    f'stroke="url(#{sid})" stroke-width="{w:.1f}" stroke-linecap="round"{dash}{op_attr}/>'
+                )
+            else:
+                xm = lx1 + (lx2 - lx1) * t
+                ym = ly1 + (ly2 - ly1) * t
+                _bond_line(lx1, ly1, xm, ym, w, c1, lpx, lpy, shade_cfg, op_attr, dash)
+                _bond_line(xm, ym, lx2, ly2, w, c2, lpx, lpy, shade_cfg, op_attr, dash)
 
     # Pre-resolve bond config for the common case (no style regions)
     _base_bcfg = cfg
@@ -831,8 +855,28 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         rj_vdw,
         fi,
         fj,
+        stroke_color_start,
+        stroke_color_end,
+        stroke_width,
     ):
         """Dispatch a single bond line — element-coloured or uniform."""
+        if stroke_color_start and stroke_width > 0:
+            stroke = stroke_color_start
+            if stroke_color_end and stroke_color_end != stroke_color_start:
+                sid = f"bo{next(_bs_counter)}"
+                svg.append(
+                    f'  <defs><linearGradient id="{sid}" x1="{lx1:.1f}" y1="{ly1:.1f}" '
+                    f'x2="{lx2:.1f}" y2="{ly2:.1f}" gradientUnits="userSpaceOnUse">'
+                    f'<stop offset="0%" stop-color="{stroke_color_start}"/>'
+                    f'<stop offset="100%" stop-color="{stroke_color_end}"/>'
+                    f"</linearGradient></defs>"
+                )
+                stroke = f"url(#{sid})"
+            ow = w + 2 * stroke_width
+            _bond_outline_layer.append(
+                f'  <line x1="{lx1:.1f}" y1="{ly1:.1f}" x2="{lx2:.1f}" y2="{ly2:.1f}" '
+                f'stroke="{stroke}" stroke-width="{ow:.1f}" stroke-linecap="round"{dash}{op_attr}/>'
+            )
         if by_element:
             _element_line(
                 lx1,
@@ -931,22 +975,20 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         else:
             color = color_override if color_override is not None else _bond_color
             if cfg.fog:
-                color = blend_fog(color, fog_rgb, (fog_f[ai] + fog_f[aj]) / 2 * 0.75)
+                color = blend_fog(color, fog_rgb, _fog_s((fog_f[ai] + fog_f[aj]) / 2 * 0.75))
 
         op_attr = f' opacity="{opacity:.2f}"' if opacity < 1.0 else ""
-
-        if _stroke_color and _stroke_width > 0:
-            ow = _bw + 2 * _stroke_width
-            _bond_outline_layer.append(
-                f'  <line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" '
-                f'stroke="{_stroke_color}" stroke-width="{ow:.1f}" stroke-linecap="round"{op_attr}/>'
-            )
 
         # Common args for _emit_line
         _fi = fog_f[ai]
         _fj = fog_f[aj]
         _ri_vdw = raw_vdw[ai]
         _rj_vdw = raw_vdw[aj]
+        _outline_color_i = _stroke_color
+        _outline_color_j = _stroke_color
+        if _stroke_color and cfg.fog:
+            _outline_color_i = blend_fog(_stroke_color, fog_rgb, _fog_s(_fi))
+            _outline_color_j = blend_fog(_stroke_color, fog_rgb, _fog_s(_fj))
 
         if style == BondStyle.DASHED:
             dd, gg = _bw * 1.2, _bw * 2.2
@@ -969,6 +1011,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 _rj_vdw,
                 _fi,
                 _fj,
+                _outline_color_i,
+                _outline_color_j,
+                _stroke_width,
             )
             return
         if style == BondStyle.DOTTED:
@@ -992,6 +1037,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 _rj_vdw,
                 _fi,
                 _fj,
+                _outline_color_i,
+                _outline_color_j,
+                _stroke_width,
             )
             return
 
@@ -1021,6 +1069,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     _rj_vdw,
                     _fi,
                     _fj,
+                    _outline_color_i,
+                    _outline_color_j,
+                    _stroke_width,
                 )
         else:
             nb = max(1, round(bo))
@@ -1046,6 +1097,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     _rj_vdw,
                     _fi,
                     _fj,
+                    _outline_color_i,
+                    _outline_color_j,
+                    _stroke_width,
                 )
 
     # --- Vectorized bond geometry precomputation ---
@@ -1088,7 +1142,15 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 ai_k, aj_k = _bpairs[k]
                 if _valid[k]:
                     g = (float(_sx[k]), float(_sy[k]), float(_ex[k]), float(_ey[k]), float(_ppx[k]), float(_ppy[k]))
-                    bond_geom[(ai_k, aj_k)] = bond_geom[(aj_k, ai_k)] = g
+                    bond_geom[(ai_k, aj_k)] = g
+                    bond_geom[(aj_k, ai_k)] = (
+                        float(_ex[k]),
+                        float(_ey[k]),
+                        float(_sx[k]),
+                        float(_sy[k]),
+                        float(-_ppx[k]),
+                        float(-_ppy[k]),
+                    )
                 else:
                     bond_geom[(ai_k, aj_k)] = bond_geom[(aj_k, ai_k)] = None
 
@@ -1182,8 +1244,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 fill = colors[ai].blend(WHITE, acfg.atom_wash).hex if acfg.atom_wash > 0 else _color_hex[ai]
                 stroke = _stroke_atom
                 if cfg.fog:
-                    fill = blend_fog(fill, fog_rgb, fog_f[ai])
-                    stroke = blend_fog(stroke, fog_rgb, fog_f[ai])
+                    fill = blend_fog(fill, fog_rgb, _fog_s(fog_f[ai]))
+                    stroke = blend_fog(stroke, fog_rgb, _fog_s(fog_f[ai]))
                 svg.append(
                     f'  <circle cx="{xi:.1f}" cy="{yi:.1f}" r="{radii[ai] * scale:.1f}" '
                     f'fill="{fill}" stroke="{stroke}" stroke-width="{_sw_ai:.1f}"{op_attr_atom}{dof_attr}/>'
@@ -1654,7 +1716,7 @@ def _annotations_svg(
                 xb, yb = _proj(pos[seg_b], scale, cx, cy, canvas_w, canvas_h)
                 seg_col = seg_color
                 if cfg.fog:
-                    avg_fog = (fog_f[seg_a] + fog_f[seg_b]) / 2 * 0.75
+                    avg_fog = _fog_s((fog_f[seg_a] + fog_f[seg_b]) / 2 * 0.75)
                     seg_col = blend_fog(seg_color, fog_rgb, avg_fog)
                 svg.append(
                     f'  <line x1="{xa:.1f}" y1="{ya:.1f}" x2="{xb:.1f}" y2="{yb:.1f}" '

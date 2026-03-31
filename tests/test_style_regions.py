@@ -195,6 +195,162 @@ class TestStyleRegions:
         svg = str(render(caffeine, bond_outline_width=5, fog=False, gradient=False, orient=False))
         assert 'stroke="#000000"' in svg
 
+    def test_outline_drawn_per_bond_segment(self):
+        """Outline strokes should follow visible bond segments for multi-bond orders."""
+        import networkx as nx
+
+        from xyzrender.renderer import render_svg
+
+        g = nx.Graph()
+        g.add_node(0, symbol="*", position=[0.0, 0.0, 0.0])
+        g.add_node(1, symbol="*", position=[1.6, 0.0, 0.0])  # double bond
+        g.add_node(2, symbol="*", position=[0.0, 1.7, 0.0])  # triple bond
+        g.add_node(3, symbol="*", position=[-1.6, 0.2, 0.0])
+        g.add_node(4, symbol="*", position=[-0.8, 1.6, 0.0])  # aromatic bond
+        g.add_edge(0, 1, bond_order=2.0)
+        g.add_edge(0, 2, bond_order=3.0)
+        g.add_edge(3, 4, bond_order=1.5)
+
+        cfg = RenderConfig(
+            atom_scale=0.0,
+            atom_stroke_width=0.0,
+            bond_width=18.0,
+            bond_outline_color="#000000",
+            bond_outline_width=2.0,
+            bond_orders=True,
+            bond_gradient=False,
+            fog=False,
+            gradient=False,
+            auto_orient=False,
+        )
+        svg = render_svg(g, cfg, _unique_ids=False)
+        outlines = [line for line in svg.split("\n") if "<line" in line and 'stroke="#000000"' in line]
+
+        # Expected visible segment count: double=2, triple=3, aromatic=2.
+        assert len(outlines) == 7
+        assert all('stroke-linecap="round"' in line for line in outlines)
+        assert any("stroke-dasharray" in line for line in outlines), "Aromatic dashed segment should be outlined"
+
+    def test_aromatic_dashed_element_split_uses_single_dashed_line(self):
+        """Element-split aromatic dashed segment should stay one dashed line (no midpoint dash reset)."""
+        import networkx as nx
+
+        from xyzrender.renderer import render_svg
+
+        g = nx.Graph()
+        g.add_node(0, symbol="N", position=[0.0, 0.0, 0.0])
+        g.add_node(1, symbol="C", position=[1.6, 0.0, 0.0])
+        g.add_edge(0, 1, bond_order=1.5)
+
+        cfg = RenderConfig(
+            atom_scale=0.0,
+            atom_stroke_width=0.0,
+            bond_width=18.0,
+            bond_outline_width=0.0,
+            bond_orders=True,
+            bond_color_by_element=True,
+            bond_gradient=False,
+            fog=False,
+            gradient=False,
+            auto_orient=False,
+            color_overrides={"N": "#1111ff", "C": "#dddddd"},
+        )
+        svg = render_svg(g, cfg, _unique_ids=False)
+        dashed = [line for line in svg.split("\n") if "<line" in line and "stroke-dasharray" in line]
+        assert len(dashed) == 1
+        assert 'stroke="url(#' in dashed[0]
+        assert "#1111ff" in svg and "#dddddd" in svg
+
+    def test_bond_outline_fog_blended(self):
+        """With fog enabled, bond outline should fog-blend from one endpoint to the other."""
+        import networkx as nx
+
+        from xyzrender.renderer import render_svg
+
+        g = nx.Graph()
+        g.add_node(0, symbol="*", position=[0.0, 0.0, 1.0])
+        g.add_node(1, symbol="*", position=[1.6, 0.0, -3.0])
+        g.add_edge(0, 1, bond_order=1.0)
+
+        cfg = RenderConfig(
+            atom_scale=0.0,
+            atom_stroke_width=0.0,
+            bond_width=18.0,
+            bond_color="#ff0000",
+            bond_outline_color="#000000",
+            bond_outline_width=2.0,
+            bond_orders=True,
+            bond_color_by_element=False,
+            bond_gradient=False,
+            fog=True,
+            fog_strength=1.2,
+            gradient=False,
+            auto_orient=False,
+        )
+        svg = render_svg(g, cfg, _unique_ids=False)
+        round_lines = [line for line in svg.split("\n") if "<line" in line and 'stroke-linecap="round"' in line]
+        widths = []
+        for line in round_lines:
+            m = re.search(r'stroke-width="([^"]+)"', line)
+            if m is not None:
+                widths.append((float(m.group(1)), line))
+        assert widths
+        # Outline is the widest line (bond width + 2*outline width).
+        _, outline_line = max(widths, key=lambda t: t[0])
+        assert 'stroke="url(#' in outline_line
+        gid = re.search(r'stroke="url\(#([^)]+)\)"', outline_line)
+        assert gid is not None
+        gmatch = re.search(rf'<linearGradient id="{re.escape(gid.group(1))}"[^>]*>(.*?)</linearGradient>', svg)
+        assert gmatch is not None
+        stops = re.findall(r'stop-color="([^"]+)"', gmatch.group(1))
+        assert len(stops) == 2
+        assert stops[0] != stops[1]
+
+    def test_element_split_order_matches_bond_endpoints_when_drawn_reverse(self):
+        """Element split should stay bound to endpoints even when drawn as (high_idx -> low_idx)."""
+        import networkx as nx
+
+        from xyzrender.renderer import render_svg
+
+        g = nx.Graph()
+        # node 0 is front (higher z), node 1 is back (lower z) so render loop draws 1->0
+        g.add_node(0, symbol="O", position=[1.0, 0.0, 1.0])
+        g.add_node(1, symbol="N", position=[-1.0, 0.0, 0.0])
+        g.add_edge(0, 1, bond_order=1.0)
+
+        cfg = RenderConfig(
+            atom_scale=0.0,
+            atom_stroke_width=0.0,
+            bond_width=14.0,
+            bond_orders=True,
+            bond_color_by_element=True,
+            bond_gradient=False,
+            fog=False,
+            gradient=False,
+            auto_orient=False,
+            color_overrides={"N": "#1111ff", "O": "#ff1111"},
+        )
+        svg = render_svg(g, cfg, _unique_ids=False)
+        split_lines = [
+            line
+            for line in svg.split("\n")
+            if "<line" in line and ('stroke="#1111ff"' in line or 'stroke="#ff1111"' in line) and "dasharray" not in line
+        ]
+        assert len(split_lines) == 2
+
+        # Determine colour at left-most endpoint by checking which segment touches min-x.
+        segs = []
+        for ln in split_lines:
+            m = re.search(r'x1="([^"]+)" y1="([^"]+)" x2="([^"]+)" y2="([^"]+)" stroke="([^"]+)"', ln)
+            assert m is not None
+            x1 = float(m.group(1))
+            x2 = float(m.group(3))
+            col = m.group(5)
+            segs.append((x1, x2, col))
+        min_x = min(min(x1, x2) for x1, x2, _ in segs)
+        left_cols = [col for x1, x2, col in segs if abs(x1 - min_x) < 1e-6 or abs(x2 - min_x) < 1e-6]
+        assert "#1111ff" in left_cols
+
     def test_preset_region_creates_style_region(self):
         """Preset with 'regions' key should load region_specs on config."""
         from xyzrender.config import build_config

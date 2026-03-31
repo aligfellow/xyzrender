@@ -8,6 +8,8 @@
   "bond_orders": false,
   "bond_color_by_element": true,
   "bond_gradient": true,
+  "bond_outline_color": "#000000",
+  "bond_outline_width": 3.0,
   "colors": {
     "C": "#D9D9D9",
     "H": "#FAFAFA",
