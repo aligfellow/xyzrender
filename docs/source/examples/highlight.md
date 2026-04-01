@@ -97,3 +97,20 @@ The default highlight palette is defined in `default.json` and can be customised
 ```
 
 Groups are assigned colors in order: first group gets `orchid`, second `mediumseagreen`, etc. The palette cycles if there are more groups than colors.
+
+## Radius scale
+
+Scale atom radii for selected atoms. Uses the same selector syntax as `--hl`. The factor multiplies on top of the global `--atom-scale` (`-a`). Repeatable.
+
+```bash
+xyzrender mol.xyz --radius-scale "N" 2.0                    # double nitrogen radii
+xyzrender mol.xyz --radius-scale "M,67,68" 2 --radius-scale "H" 0.8  # multiple groups
+```
+
+### Python
+
+```python
+render(mol, radius_scale=[("N", 2.0)])
+render(mol, radius_scale=[("M,67,68", 2.0), ("H", 0.8)])
+render(mol, radius_scale=[([1, 2, 3], 3.0)])  # 1-indexed list
+```

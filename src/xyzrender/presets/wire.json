@@ -8,6 +8,7 @@
   "gradient": false,
   "bond_color_by_element": true,
   "bond_gradient": true,
+  "bond_gradient_strength": 0.3,
   "bond_orders": false,
   "colors": {
     "H": "#e5e5e5"

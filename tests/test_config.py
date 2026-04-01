@@ -41,6 +41,8 @@ def test_pmol_preset_enables_element_colored_bonds():
     assert cfg.bond_color_by_element is True
     assert cfg.bond_gradient is True
     assert cfg.bond_orders is False
+    assert cfg.bond_outline_color == "#000000"
+    assert cfg.bond_outline_width > 0
 
 
 def test_graph_preset_config():

@@ -56,7 +56,7 @@ All available keys:
   "nci_color": "#228B22",
   "atom_stroke_width": 3,
   "gradient": true,
-  "gradient_strength": 1.5,
+  "atom_gradient_strength": 1.0,
   "fog": true,
   "fog_strength": 1.2,
   "bond_orders": true,
@@ -76,6 +76,7 @@ All available keys:
   "cmap_unlabeled": "#ffffff",
   "bond_color_by_element": false,
   "bond_gradient": false,
+  "bond_gradient_strength": 0.3,
   "bond_outline_color": "#000000",
   "bond_outline_width": 0,
   "atom_wash": 0.0,
@@ -133,13 +134,15 @@ If no `-o` is given, output defaults to `{input_basename}.svg`.
 | `-B`, `--background` | Background color (hex or named, default: `#ffffff`) |
 | `-t`, `--transparent` | Transparent background |
 | `--grad` / `--no-grad` | Toggle radial gradients |
-| `-G`, `--gradient-strength` | Gradient contrast |
+| `--atom-gradient-strength` | Atom gradient strength (default: 1.0) |
+| `--bond-gradient-strength` | Bond cylinder gradient strength (default: 0.3) |
+| `--vdw-gradient-strength` | vdW sphere gradient strength (default: 1.6) |
 | `--fog` / `--no-fog` | Toggle depth fog |
 | `-F`, `--fog-strength` | Depth fog strength |
 | `--bo` / `--no-bo` | Toggle bond order rendering |
 | `--vdw-opacity` | vdW sphere opacity |
 | `--vdw-scale` | vdW sphere radius scale |
-| `--vdw-gradient` | vdW sphere gradient strength |
 | `--bond-by-element` / `--no-bond-by-element` | Color bonds by endpoint atom colors |
 | `--bond-gradient` / `--no-bond-gradient` | Cylinder shading on bonds (3D tube look) |
+| `--radius-scale ATOMS FACTOR` | Scale selected atoms (repeatable). Multiplies on top of `-a`. Selectors: `"1-5,M"` |
 | `--region ATOMS CONFIG` | Render atom subset with a different preset (repeatable). Selectors: `"1-5"`, `"M"`, `"Pt"`, `"sbm"`, `"het"` |

@@ -66,7 +66,7 @@ Styling:
   -B COLOR / -t           Background colour / transparent
   --grad / --no-grad      Atom gradients on/off
   --fog / --no-fog        Depth fog on/off
-  --dof                   Depth of field - blur "back" atoms
+  --dof                   Depth of field - blur "back" atoms (not bonds)
 
 Display:
   --hy [ATOMS] / --no-hy  Show/hide H atoms (all or specific indices)
@@ -113,6 +113,8 @@ Highlight / Regions:
   --mol-color COLOR       Flat colour for all atoms
   --hl ATOMS [COLOR]      Highlight atom group (repeatable)
   --region ATOMS CONFIG   Per-atom style region
+  --radius-scale ATOMS FACTOR
+                          Per-atom radius scale (multiplies on top of -a)
 
 Crystal:
   --cell                  Draw unit cell box
@@ -180,6 +182,14 @@ def main() -> None:
     )
     style_g.add_argument("-S", "--canvas-size", type=int, default=None)
     style_g.add_argument("-a", "--atom-scale", type=float, default=None)
+    style_g.add_argument(
+        "--radius-scale",
+        nargs=2,
+        action="append",
+        default=None,
+        metavar=("ATOMS", "FACTOR"),
+        help='Scale atom radii: --radius-scale "1,2-4,M" 2.0. Repeatable. Multiplies on top of -a.',
+    )
     style_g.add_argument("-b", "--bond-width", type=float, default=None)
     style_g.add_argument("-s", "--atom-stroke-width", type=float, default=None)
     style_g.add_argument("--bond-color", default=None, help="Bond color (hex or named)")
@@ -196,7 +206,9 @@ def main() -> None:
     style_g.add_argument("-F", "--fog-strength", type=float, default=None, help="Fog strength")
     style_g.add_argument("--vdw-opacity", type=float, default=None, help="VdW sphere opacity")
     style_g.add_argument("--vdw-scale", type=float, default=None, help="VdW sphere radius scale")
-    style_g.add_argument("--vdw-gradient", type=float, default=None, help="VdW sphere gradient strength")
+    style_g.add_argument("--atom-gradient-strength", type=float, default=None, help="Atom gradient strength")
+    style_g.add_argument("--bond-gradient-strength", type=float, default=None, help="Bond gradient strength")
+    style_g.add_argument("--vdw-gradient-strength", type=float, default=None, help="VdW sphere gradient strength")
 
     # --- Display ---
     disp_g = p.add_argument_group("display")
@@ -493,7 +505,7 @@ def main() -> None:
     # --- Depth of field ---
     dof_g = p.add_argument_group("depth of field")
     dof_g.add_argument(
-        "--dof", action="store_true", default=False, help="Depth-of-field blur (front sharp, back blurred)"
+        "--dof", action="store_true", default=False, help="Depth-of-field blur (does not affect bonds/lines)"
     )
     dof_g.add_argument(
         "--dof-strength", type=float, default=None, metavar="FLOAT", help="DoF max blur strength (default: 3.0)"
@@ -720,7 +732,9 @@ def main() -> None:
         label_font_size=args.label_size,
         vdw_opacity=args.vdw_opacity,
         vdw_scale=args.vdw_scale,
-        vdw_gradient_strength=args.vdw_gradient,
+        atom_gradient_strength=args.atom_gradient_strength,
+        bond_gradient_strength=args.bond_gradient_strength,
+        vdw_gradient_strength=args.vdw_gradient_strength,
         ts_bonds=_parse_pairs(args.ts_bond),
         nci_bonds=_parse_pairs(args.nci_bond),
         vdw_indices=None,
@@ -757,6 +771,10 @@ def main() -> None:
         cfg.dof = True
     if args.dof_strength is not None:
         cfg.dof_strength = args.dof_strength
+
+    # Per-atom radius scale
+    if args.radius_scale is not None:
+        cfg.radius_scale = [(sel, float(fac)) for sel, fac in args.radius_scale]
 
     # Output path defaults and validation
     base = _basename(args.input, from_stdin)
