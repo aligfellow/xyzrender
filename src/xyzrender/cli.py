@@ -113,6 +113,8 @@ Highlight / Regions:
   --mol-color COLOR       Flat colour for all atoms
   --hl ATOMS [COLOR]      Highlight atom group (repeatable)
   --region ATOMS CONFIG   Per-atom style region
+  --radius-scale ATOMS FACTOR
+                          Per-atom radius scale (multiplies on top of -a)
 
 Crystal:
   --cell                  Draw unit cell box
