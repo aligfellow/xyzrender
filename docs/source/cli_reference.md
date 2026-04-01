@@ -31,13 +31,15 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--bond PAIR [...]` | Force-show/add bonds: 1-indexed pairs (`1-3 4-5`). Overrides `--unbond` |
 | `-B`, `--background` | Background color |
 | `-t`, `--transparent` | Transparent background |
-| `-G`, `--gradient-strength` | Gradient contrast multiplier |
 | `--grad` / `--no-grad` | Radial gradient toggle |
+| `--atom-gradient-strength` | Atom gradient strength (default: 1.0) |
+| `--bond-gradient` / `--no-bond-gradient` | Cylinder shading on bonds (3D tube look) |
+| `--bond-gradient-strength` | Bond cylinder gradient strength (default: 0.3) |
 | `-F`, `--fog-strength` | Depth fog strength |
 | `--fog` / `--no-fog` | Depth fog toggle |
 | `--bo` / `--no-bo` | Bond order rendering toggle |
 | `--bond-by-element` / `--no-bond-by-element` | Color bonds by endpoint atom colors |
-| `--bond-gradient` / `--no-bond-gradient` | Cylinder shading on bonds (3D tube look) |
+| `--radius-scale ATOMS FACTOR` | Scale selected atoms (repeatable). Multiplies on top of `-a` |
 | `--region ATOMS CONFIG` | Render atom subset with a different style (repeatable). Selectors: `"1-5"`, `"Pt"`, `"M"` (metals), `"sbm"` (s-block), `"het"` (heteroatoms) |
 
 *- categories (`M-L`, `sbm`, `Fe-het`), pi-coordination (`M-pi`, `pi`), element (`Li`), atom index (`2`), or pair (`1-3`). Comma or space separated
@@ -52,10 +54,10 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--vdw` | vdW spheres (no args = all, or selectors like `"1-6"`, `"M"`, `"Pt"`) |
 | `--vdw-opacity` | vdW sphere opacity (default: 0.25) |
 | `--vdw-scale` | vdW sphere radius scale |
-| `--vdw-gradient` | vdW sphere gradient strength |
+| `--vdw-gradient-strength` | vdW sphere gradient strength (default: 1.6) |
 | `--mol-color COLOR` | Flat color for all atoms and bonds (overrides CPK). Highlight paints on top |
 | `--hl ATOMS [COLOR]` | Highlight atom group: `--hl "1-5,8" [color]`. Can be repeated for multiple groups. Auto-colors from palette if no color given |
-| `--dof` | Depth-of-field blur (front atoms sharp, back atoms blurred) |
+| `--dof` | Depth-of-field blur (does not affect bonds/lines) |
 | `--dof-strength FLOAT` | DoF max blur strength (default: 3.0) |
 
 ## Structural overlay / ensemble

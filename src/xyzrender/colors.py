@@ -227,19 +227,25 @@ def get_color(atomic_number: int, overrides: dict[str, str] | None = None) -> Co
     return Color.from_int(_DEFAULT_COLOR)
 
 
-def get_gradient_colors(color: Color, config: RenderConfig | None = None) -> tuple[Color, Color, Color]:
-    """Compute gradient triplet from a base color: (lighter center, base, darker edge)."""
+def get_gradient_colors(
+    color: Color, config: RenderConfig | None = None, strength: float = 1.0
+) -> tuple[Color, Color, Color]:
+    """Compute gradient triplet from a base color: (lighter center, base, darker edge).
+
+    *strength* scales the lighten/darken shift (see ``atom_gradient_strength``,
+    ``bond_gradient_strength``, ``vdw_gradient_strength``).
+    """
     cfg = config or RenderConfig()
     return (
         color.lighten(
-            strength=1.0,
+            strength=strength,
             hue_shift_factor=cfg.hue_shift_factor,
             light_shift_factor=cfg.light_shift_factor,
             saturation_shift_factor=cfg.saturation_shift_factor,
         ),
         color,
         color.darken(
-            strength=1.0,
+            strength=strength,
             hue_shift_factor=cfg.hue_shift_factor,
             light_shift_factor=cfg.light_shift_factor,
             saturation_shift_factor=cfg.saturation_shift_factor,

@@ -213,6 +213,9 @@ class RenderConfig:
     canvas_size: int = 800
     padding: float = 20.0
     atom_scale: float = 1.0
+    radius_scale: list[tuple[str | list[int], float]] = field(
+        default_factory=list
+    )  # per-atom radius scale: [("N,M", 2.0), ([1,2], 3.0), ...]
     atom_stroke_width: float = 1.5
     atom_stroke_color: str = "black"  # "atom" = use per-atom element color
     atom_wash: float = 0.0  # blend atom fill toward white (0=none, 0.78=graph-style tint)
@@ -224,9 +227,11 @@ class RenderConfig:
     bond_gap: float = 0.6  # multi-bond spacing as fraction of bond_width
     bond_color_by_element: bool = False  # color bonds by endpoint atom colors
     bond_gradient: bool = False  # cylinder shading on bonds (perpendicular gradient for 3D tube look)
+    bond_gradient_strength: float = 0.3  # lighten/darken strength for bond shading (cf. vdw_gradient_strength)
     bond_outline_color: str = "#000000"  # stroke colour drawn behind bonds
     bond_outline_width: float = 0.0  # absolute px; 0 = off, visible border = this value on each side
     gradient: bool = False
+    atom_gradient_strength: float = 1.0  # atom gradient intensity
     hue_shift_factor: float = 0.2
     light_shift_factor: float = 0.2
     saturation_shift_factor: float = 0.2

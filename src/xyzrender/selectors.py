@@ -99,13 +99,16 @@ def resolve_element_set(token: str) -> frozenset[str]:
 def resolve_atom_indices(spec: str, graph: nx.Graph) -> set[int]:
     """Resolve a spec string to a set of 0-indexed atom indices in *graph*.
 
-    Accepts category/element tokens (``"M"``, ``"Fe"``) or numeric ranges
-    (``"1-5"``, ``"8"``).  Numeric specs are 1-indexed (converted to 0-indexed).
+    Accepts comma-separated tokens where each token is a category/element
+    (``"M"``, ``"Fe"``), a numeric index (``"8"``), or a numeric range
+    (``"1-5"``).  Numeric specs are 1-indexed (converted to 0-indexed).
+
+    Examples: ``"1,2-4,M,N"`` → union of {0}, {1,2,3}, metals, nitrogens.
 
     Parameters
     ----------
     spec:
-        A category, element symbol, or 1-indexed numeric range.
+        Comma-separated categories, element symbols, or 1-indexed numeric ranges.
     graph:
         The molecular graph to resolve against.
 
@@ -114,6 +117,14 @@ def resolve_atom_indices(spec: str, graph: nx.Graph) -> set[int]:
     set[int]
         0-indexed atom indices.
     """
+    # Comma-separated multi-spec: split, resolve each, union.
+    if "," in spec:
+        result: set[int] = set()
+        for part in spec.split(","):
+            stripped = part.strip()
+            if stripped:
+                result |= resolve_atom_indices(stripped, graph)
+        return result
     # Numeric range?  Check BEFORE normalize_token (which rejects digits).
     if re.fullmatch(r"\d+(-\d+)?", spec.strip()):
         stripped = spec.strip()

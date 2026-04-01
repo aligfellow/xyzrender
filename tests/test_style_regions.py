@@ -115,13 +115,13 @@ class TestElementColouredBonds:
 
 
 class TestCylinderShading:
-    def test_gradient_uses_five_stops(self, caffeine):
-        """Cylinder shading should use 5-stop gradient (lo->me->hi->me->lo)."""
+    def test_gradient_uses_three_stops(self, caffeine):
+        """Cylinder shading should use 3-stop gradient (lo->hi->lo)."""
         svg = str(render(caffeine, bond_gradient=True, fog=False, orient=False))
         grad_match = re.search(r"<linearGradient[^>]*>(.*?)</linearGradient>", svg)
         assert grad_match is not None
         stops = grad_match.group(1).count("stop offset")
-        assert stops == 5
+        assert stops == 3
 
     def test_shading_not_applied_to_dashed_bonds(self):
         """TS (dashed) bonds should not get cylinder shading."""

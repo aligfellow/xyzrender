@@ -201,6 +201,8 @@ def build_config(
     label_font_size=None,
     vdw_opacity=None,
     vdw_scale=None,
+    atom_gradient_strength=None,
+    bond_gradient_strength=None,
     vdw_gradient_strength=None,
     hide_bonds: bool = False,
     unbond: list[str] | None = None,
@@ -281,6 +283,8 @@ def build_config(
         ("label_font_size", label_font_size),
         ("vdw_opacity", vdw_opacity),
         ("vdw_scale", vdw_scale),
+        ("atom_gradient_strength", atom_gradient_strength),
+        ("bond_gradient_strength", bond_gradient_strength),
         ("vdw_gradient_strength", vdw_gradient_strength),
     ]:
         if val is not None:

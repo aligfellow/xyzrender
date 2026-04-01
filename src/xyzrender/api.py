@@ -428,6 +428,7 @@ def render(
     # --- Style (only when config is a preset name or file path) ---
     canvas_size: int | None = None,
     atom_scale: float | None = None,
+    radius_scale: list[tuple[str | list[int], float]] | None = None,
     bond_width: float | None = None,
     atom_stroke_width: float | None = None,
     bond_color: str | None = None,
@@ -446,6 +447,8 @@ def render(
     label_font_size: float | None = None,
     vdw_opacity: float | None = None,
     vdw_scale: float | None = None,
+    atom_gradient_strength: float | None = None,
+    bond_gradient_strength: float | None = None,
     vdw_gradient_strength: float | None = None,
     # --- Display ---
     hide_bonds: bool = False,
@@ -693,6 +696,8 @@ def render(
             label_font_size=label_font_size,
             vdw_opacity=vdw_opacity,
             vdw_scale=vdw_scale,
+            atom_gradient_strength=atom_gradient_strength,
+            bond_gradient_strength=bond_gradient_strength,
             vdw_gradient_strength=vdw_gradient_strength,
             bo=bo,
             hide_bonds=hide_bonds,
@@ -744,6 +749,10 @@ def render(
         cfg.dof = True
     if dof_strength is not None:
         cfg.dof_strength = dof_strength
+
+    # --- Per-atom radius scale ---
+    if radius_scale is not None:
+        cfg.radius_scale = radius_scale
 
     # --- Convex hull (both config paths) ---
     from xyzrender.hull import apply_hull_to_config
@@ -934,6 +943,7 @@ def render_gif(
     # --- Style (same as render(), only used when config is a string) ---
     canvas_size: int | None = None,
     atom_scale: float | None = None,
+    radius_scale: list[tuple[str | list[int], float]] | None = None,
     bond_width: float | None = None,
     atom_stroke_width: float | None = None,
     bond_color: str | None = None,
@@ -952,6 +962,8 @@ def render_gif(
     label_font_size: float | None = None,
     vdw_opacity: float | None = None,
     vdw_scale: float | None = None,
+    atom_gradient_strength: float | None = None,
+    bond_gradient_strength: float | None = None,
     vdw_gradient_strength: float | None = None,
     hide_bonds: bool = False,
     unbond: list[str] | None = None,
@@ -1129,6 +1141,8 @@ def render_gif(
             label_font_size=label_font_size,
             vdw_opacity=vdw_opacity,
             vdw_scale=vdw_scale,
+            atom_gradient_strength=atom_gradient_strength,
+            bond_gradient_strength=bond_gradient_strength,
             vdw_gradient_strength=vdw_gradient_strength,
             bo=bo,
             hide_bonds=hide_bonds,
@@ -1166,6 +1180,10 @@ def render_gif(
         cfg.dof = True
     if dof_strength is not None:
         cfg.dof_strength = dof_strength
+
+    # --- Per-atom radius scale ---
+    if radius_scale is not None:
+        cfg.radius_scale = radius_scale
 
     # --- Convex hull (both config paths) ---
     from xyzrender.hull import apply_hull_to_config

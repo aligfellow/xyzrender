@@ -100,10 +100,29 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     else:
         radii = raw_vdw * cfg.atom_scale * _RADIUS_SCALE
 
+    # Per-atom scale multipliers (--scale "N,M" 2.0 or API scale=[("N,M", 2.0)])
+    _per_atom_mult: np.ndarray | None = None
+    if cfg.radius_scale:
+        from xyzrender.selectors import resolve_atom_indices
+        from xyzrender.utils import parse_atom_indices
+
+        _per_atom_mult = np.ones(n)
+        for spec, factor in cfg.radius_scale:
+            if isinstance(spec, str):
+                indices = resolve_atom_indices(spec, graph)
+            else:
+                indices = set(parse_atom_indices(spec))  # 1-indexed list → 0-indexed
+            for idx in indices:
+                if 0 <= idx < n:
+                    _per_atom_mult[idx] *= factor
+        radii = radii * _per_atom_mult
+
     # VdW sphere radii use a separate (larger) H scaling
     raw_vdw_sphere = np.array(
         [_CENTROID_VDW if s == "*" else DATA.vdw.get(s, 1.5) * (_H_VDW_SCALE if s == "H" else 1.0) for s in symbols]
     )
+    if _per_atom_mult is not None:
+        raw_vdw_sphere = raw_vdw_sphere * _per_atom_mult
 
     # Use VdW radii for canvas fitting when VdW spheres are active
     if cfg.vdw_indices is not None:
@@ -404,7 +423,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 if _atom_use_grad is not None and not _atom_use_grad[ai]:
                     continue
                 acfg = _acfg[ai] if _acfg is not None else cfg
-                hi, me, lo = get_gradient_colors(colors[ai], acfg)
+                hi, me, lo = get_gradient_colors(colors[ai], acfg, strength=acfg.atom_gradient_strength)
                 t = min(fog_f[ai] ** 2 * 0.7, 0.70)
                 hi, me, lo = hi.blend(WHITE, t), me.blend(WHITE, t), lo.blend(WHITE, t)
                 _base_stroke = colors[ai].hex if acfg.atom_stroke_color == "atom" else acfg.atom_stroke_color
@@ -429,14 +448,21 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 an = a_nums[ai]
                 chex = colors[ai].hex
                 acfg = _acfg[ai] if _acfg is not None else cfg
-                key = (an, chex, acfg.hue_shift_factor, acfg.light_shift_factor, acfg.saturation_shift_factor)
+                key = (
+                    an,
+                    chex,
+                    acfg.hue_shift_factor,
+                    acfg.light_shift_factor,
+                    acfg.saturation_shift_factor,
+                    acfg.atom_gradient_strength,
+                )
                 if key in seen or ai in hidden:
                     continue
                 gid = f"{an}_{chex[1:]}"
                 if _acfg is not None:
                     gid += f"_{id(acfg) & 0xFFFF:04x}"
                 seen[key] = gid
-                hi, me, lo = get_gradient_colors(colors[ai], acfg)
+                hi, me, lo = get_gradient_colors(colors[ai], acfg, strength=acfg.atom_gradient_strength)
                 svg.append(
                     f'    <radialGradient id="g{gid}" cx=".5" cy=".5" fx=".33" fy=".33" r=".66">'
                     f'<stop offset="0%" stop-color="{hi.hex}"/>'
@@ -714,7 +740,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
 
     # Cylinder shading: cache gradient colours and counter for unique IDs
     _bs_counter = itertools.count()
-    _shade_color_cache: dict[str, tuple[str, str, str]] = {}
+    _shade_color_cache: dict[str, tuple[str, str]] = {}
     # Deferred atom layers: draw all edges first, then place nodes on top for a
     # clean diagram-like aesthetic (enabled by atoms_above_bonds).
     _deferred_atom_layers: list[str] = []
@@ -734,23 +760,23 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             return color_hex
         chex = color_hex
         if chex not in _shade_color_cache:
-            hi, me, lo = get_gradient_colors(Color.from_str(chex), shade_cfg)
-            _shade_color_cache[chex] = (hi.hex, me.hex, lo.hex)
-        hi_hex, me_hex, lo_hex = _shade_color_cache[chex]
+            hi, _me, lo = get_gradient_colors(
+                Color.from_str(chex), shade_cfg, strength=shade_cfg.bond_gradient_strength
+            )
+            _shade_color_cache[chex] = (hi.hex, lo.hex)
+        hi_hex, lo_hex = _shade_color_cache[chex]
         sid = f"bs{next(_bs_counter)}"
         half = w * 0.5
         mx, my = (lx1 + lx2) / 2, (ly1 + ly2) / 2
         gx1, gy1 = mx - lpx * half, my - lpy * half
         gx2, gy2 = mx + lpx * half, my + lpy * half
-        # 5-stop gradient: lo → me → hi → me → lo  (matches atom radial balance —
-        # small specular highlight at centre, mostly base colour, dark edges)
+        # 3-stop gradient: lo → hi → lo  (symmetric cylinder shading —
+        # specular highlight at centre, dark edges)
         svg.append(
             f'  <defs><linearGradient id="{sid}" x1="{gx1:.1f}" y1="{gy1:.1f}" '
             f'x2="{gx2:.1f}" y2="{gy2:.1f}" gradientUnits="userSpaceOnUse">'
             f'<stop offset="0%" stop-color="{lo_hex}"/>'
-            f'<stop offset="30%" stop-color="{me_hex}"/>'
             f'<stop offset="50%" stop-color="{hi_hex}"/>'
-            f'<stop offset="70%" stop-color="{me_hex}"/>'
             f'<stop offset="100%" stop-color="{lo_hex}"/>'
             f"</linearGradient></defs>"
         )
