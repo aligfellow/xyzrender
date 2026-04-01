@@ -506,6 +506,13 @@ def render(
     hull_opacity: float | None = None,
     hull_edge: bool | None = None,
     hull_edge_width_ratio: float | None = None,
+    # --- Pore detection ---
+    pore: bool = False,
+    pore_max_size: int = 100,
+    pore_min_size: int = 0,
+    face_planarity: float = 0.25,
+    pore_color: str | None = None,
+    pore_opacity: float | None = None,
     # --- Molecule color ---
     mol_color: str | None = None,
     # --- Highlight ---
@@ -745,10 +752,62 @@ def render(
     if dof_strength is not None:
         cfg.dof_strength = dof_strength
 
-    # --- Convex hull (both config paths) ---
-    from xyzrender.hull import apply_hull_to_config
+    # --- Hull faces / pores: detect on unit cell BEFORE supercell expansion ---
+    # This avoids running expensive cycle detection on a larger supercell graph.
+    # Indices are tiled across supercell replicas after expansion.
+    _unit_cell_hull_indices: list[list[int]] | None = None
+    _unit_cell_n_base: int | None = None
+    if hull in {"faces", "face", "pores", "pore"}:
+        from xyzrender.hull import resolve_hull_faces, resolve_hull_pores
+        from xyzrender.types import RenderConfig
 
-    apply_hull_to_config(cfg, hull, hull_color, hull_opacity, hull_edge, hull_edge_width_ratio, mol.graph)
+        _tmp_cfg = RenderConfig(cell_data=mol.cell_data)
+        if hull in {"faces", "face"}:
+            _unit_cell_hull_indices = resolve_hull_faces(
+                mol.graph,
+                max_size=pore_max_size,
+                min_size=pore_min_size,
+                cell_data=mol.cell_data,
+                face_planarity=face_planarity,
+            )
+        else:
+            _unit_cell_hull_indices = resolve_hull_pores(
+                mol.graph,
+                _tmp_cfg,
+                max_size=pore_max_size,
+                min_size=pore_min_size,
+            )
+            if _tmp_cfg.pore_node_ids:
+                cfg.pore_node_ids = _tmp_cfg.pore_node_ids
+        if _unit_cell_hull_indices:
+            _unit_cell_n_base = mol.graph.number_of_nodes()
+
+    if pore and cfg.pore_node_ids is None:
+        from xyzrender.pore import find_pores as _find_pores
+
+        _pore_lat = getattr(mol.cell_data, "lattice", None) if mol.cell_data else None
+        pore_data = _find_pores(mol.graph, max_size=pore_max_size, min_size=pore_min_size, lattice=_pore_lat)
+        if pore_data:
+            # Map pore vertex positions to nearest real graph node IDs.
+            all_nodes = list(mol.graph.nodes())
+            all_pos = np.array([mol.graph.nodes[n_]["position"] for n_ in all_nodes])
+            pore_ids: list[list[int]] = []
+            centroids: list[tuple[float, float, float]] = []
+            radii_list: list[float] = []
+            for _c, _r, verts in pore_data:
+                subset: list[int] = []
+                for v in verts:
+                    dists = np.linalg.norm(all_pos - np.array(v), axis=1)
+                    nearest = all_nodes[int(np.argmin(dists))]
+                    if nearest not in subset:
+                        subset.append(nearest)
+                pore_ids.append(subset)
+                centroids.append(_c)
+                radii_list.append(_r)
+            cfg.pore_node_ids = pore_ids
+            cfg.pore_centroids = centroids
+            cfg.pore_radii = radii_list
+            _unit_cell_n_base = _unit_cell_n_base or mol.graph.number_of_nodes()
 
     # --- Surface style ---
     if surface_style is not None:
@@ -895,6 +954,85 @@ def render(
         from xyzrender.bond_rules import apply_bond_rules
 
         apply_bond_rules(rmol.graph, cfg)
+
+    # --- Convex hull ---
+    from xyzrender.hull import apply_hull_to_config
+
+    if _unit_cell_hull_indices and hull in {"faces", "face", "pores", "pore"}:
+        # Tile unit-cell face/pore indices across supercell replicas.
+        from xyzrender.hull import normalize_hull_subsets
+        from xyzrender.pore import pore_size_colors
+
+        subsets = normalize_hull_subsets(_unit_cell_hull_indices)
+        if supercell != (1, 1, 1) and _unit_cell_n_base is not None:
+            m, n_sc, l_sc = supercell
+            tiled: list[list[int]] = []
+            for ii in range(m):
+                for jj in range(n_sc):
+                    for kk in range(l_sc):
+                        base = (ii * n_sc * l_sc + jj * l_sc + kk) * _unit_cell_n_base
+                        for sub in subsets:
+                            tiled.append([idx + base for idx in sub])
+            subsets = tiled
+
+        cfg.show_convex_hull = True
+        cfg.hull_atom_indices = subsets
+        cfg.hull_rings = True
+        if hull_color is None:
+            cfg.hull_colors = pore_size_colors(subsets, rmol.graph)
+        if hull_color is not None:
+            cfg.hull_colors = [hull_color] if isinstance(hull_color, str) else hull_color
+        if hull_opacity is not None:
+            cfg.hull_opacity = hull_opacity
+        if hull_edge is not None:
+            cfg.show_hull_edges = hull_edge
+        if hull_edge_width_ratio is not None:
+            cfg.hull_edge_width_ratio = hull_edge_width_ratio
+    elif hull is not None:
+        # hull=True / "rings" / explicit indices — run on final graph as before.
+        apply_hull_to_config(
+            cfg,
+            hull,
+            hull_color,
+            hull_opacity,
+            hull_edge,
+            hull_edge_width_ratio,
+            rmol.graph,
+            face_planarity=face_planarity,
+        )
+
+    # --- Pore spheres ---
+    if pore or cfg.pore_node_ids:
+        if cfg.pore_node_ids:
+            # Tile pore node IDs and centroids across supercell replicas.
+            if supercell != (1, 1, 1) and _unit_cell_n_base is not None:
+                m, n_sc, l_sc = supercell
+                tiled_ids: list[list[int]] = []
+                tiled_centroids: list[tuple[float, float, float]] = []
+                tiled_radii: list[float] = []
+                _lat = np.array(mol.cell_data.lattice) if mol.cell_data else None
+                for ii in range(m):
+                    for jj in range(n_sc):
+                        for kk in range(l_sc):
+                            base = (ii * n_sc * l_sc + jj * l_sc + kk) * _unit_cell_n_base
+                            shift = (_lat[0] * ii + _lat[1] * jj + _lat[2] * kk) if _lat is not None else np.zeros(3)
+                            for si, sub in enumerate(cfg.pore_node_ids):
+                                tiled_ids.append([idx + base for idx in sub])
+                                if cfg.pore_centroids:
+                                    c = np.array(cfg.pore_centroids[si]) + shift
+                                    tiled_centroids.append((float(c[0]), float(c[1]), float(c[2])))
+                                if cfg.pore_radii:
+                                    tiled_radii.append(cfg.pore_radii[si])
+                cfg.pore_node_ids = tiled_ids
+                if tiled_centroids:
+                    cfg.pore_centroids = tiled_centroids
+                if tiled_radii:
+                    cfg.pore_radii = tiled_radii
+            cfg.pore_spheres = True
+        if pore_color is not None:
+            cfg.pore_sphere_color = pore_color
+        if pore_opacity is not None:
+            cfg.pore_sphere_opacity = pore_opacity
 
     # --- Render ---
     svg = render_svg(rmol.graph, cfg)

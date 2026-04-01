@@ -16,6 +16,8 @@ from xyzrender.dens import dens_layers_svg
 from xyzrender.hull import (
     get_convex_hull_edges_silhouette,
     get_convex_hull_facets,
+    get_ring_edges,
+    get_ring_facets,
     hull_facets_svg,
     normalize_hull_subsets,
 )
@@ -70,26 +72,36 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         # Exclude NCI centroid dummy nodes from PCA fitting
         atom_mask = np.array([s != "*" for s in symbols])
         fit_mask = atom_mask if not atom_mask.all() else None
+        # Always capture rotation matrix when pore centroids or vectors need transforming.
+        _pca_rot: np.ndarray | None = None
+        _pca_centroid: np.ndarray | None = None
         if cfg.vectors:
-            # Capture rotation matrix so vector origins/directions transform with the molecule
             _fit = pos[fit_mask] if fit_mask is not None else pos
-            _centroid = _fit.mean(axis=0)
-            pos, _orient_rot = pca_orient(pos, ts_pairs or None, fit_mask=fit_mask, return_matrix=True)
-            _vec_origins = (_vec_origins - _centroid) @ _orient_rot.T
-            _vec_dirs = _vec_dirs @ _orient_rot.T
-            logger.debug("render_svg PCA centroid: %s", _centroid)
+            _pca_centroid = _fit.mean(axis=0)
+            pos, _pca_rot = pca_orient(pos, ts_pairs or None, fit_mask=fit_mask, return_matrix=True)
+            _vec_origins = (_vec_origins - _pca_centroid) @ _pca_rot.T
+            _vec_dirs = _vec_dirs @ _pca_rot.T
+            logger.debug("render_svg PCA centroid: %s", _pca_centroid)
             for _vi, _vo in enumerate(_vec_origins):
                 logger.debug("  vector[%d] origin after PCA: %s (should be ~0 for COM origins)", _vi, _vo)
             if cfg.cell_data is not None:
-                cfg.cell_data.lattice = (_orient_rot @ cfg.cell_data.lattice.T).T
-                cfg.cell_data.cell_origin = _orient_rot @ (cfg.cell_data.cell_origin - _centroid)
-        elif cfg.cell_data is not None:
-            pre_centroid = pos.mean(axis=0)
-            pos, _rot_mat = pca_orient(pos, ts_pairs, fit_mask=fit_mask, return_matrix=True)
-            cfg.cell_data.lattice = (_rot_mat @ cfg.cell_data.lattice.T).T
-            cfg.cell_data.cell_origin = _rot_mat @ (cfg.cell_data.cell_origin - pre_centroid)
+                cfg.cell_data.lattice = (_pca_rot @ cfg.cell_data.lattice.T).T
+                cfg.cell_data.cell_origin = _pca_rot @ (cfg.cell_data.cell_origin - _pca_centroid)
+        elif cfg.cell_data is not None or cfg.pore_centroids:
+            _fit = pos[fit_mask] if fit_mask is not None else pos
+            _pca_centroid = _fit.mean(axis=0)
+            pos, _pca_rot = pca_orient(pos, ts_pairs, fit_mask=fit_mask, return_matrix=True)
+            if cfg.cell_data is not None:
+                cfg.cell_data.lattice = (_pca_rot @ cfg.cell_data.lattice.T).T
+                cfg.cell_data.cell_origin = _pca_rot @ (cfg.cell_data.cell_origin - _pca_centroid)
         else:
             pos = pca_orient(pos, ts_pairs or None, fit_mask=fit_mask)
+
+        # Transform pore centroids with the same PCA rotation.
+        if cfg.pore_centroids and _pca_rot is not None and _pca_centroid is not None:
+            cfg.pore_centroids = [
+                tuple(float(x) for x in _pca_rot @ (np.array(c) - _pca_centroid)) for c in cfg.pore_centroids
+            ]
 
     raw_vdw = np.array(
         [_CENTROID_VDW if s == "*" else DATA.vdw.get(s, 1.5) * (_H_ATOM_SCALE if s == "H" else 1.0) for s in symbols]
@@ -513,11 +525,15 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             all_facets: list[tuple[np.ndarray, float]] = []
             subset_indices: list[int] = []
             for idx, subset in enumerate(subsets):
-                include_mask = np.zeros(n, dtype=bool)
-                for i in subset:
-                    if 0 <= i < n:
-                        include_mask[i] = True
-                sub_facets = get_convex_hull_facets(pos, include_mask)
+                if cfg.hull_rings:
+                    valid = [i for i in subset if 0 <= i < n]
+                    sub_facets = get_ring_facets(pos, valid)
+                else:
+                    include_mask = np.zeros(n, dtype=bool)
+                    for i in subset:
+                        if 0 <= i < n:
+                            include_mask[i] = True
+                    sub_facets = get_convex_hull_facets(pos, include_mask)
                 all_facets.extend(sub_facets)
                 subset_indices.extend([idx] * len(sub_facets))
             facets = all_facets
@@ -560,11 +576,16 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             if subsets:
                 for sidx, subset in enumerate(subsets):
                     sub_color = palette[sidx % len(palette)]
-                    include_mask = np.zeros(n, dtype=bool)
-                    for i in subset:
-                        if 0 <= i < n:
-                            include_mask[i] = True
-                    for ni, nj in get_convex_hull_edges_silhouette(pos, include_mask):
+                    if cfg.hull_rings:
+                        valid = [i for i in subset if 0 <= i < n]
+                        edges = get_ring_edges(valid)
+                    else:
+                        include_mask = np.zeros(n, dtype=bool)
+                        for i in subset:
+                            if 0 <= i < n:
+                                include_mask[i] = True
+                        edges = get_convex_hull_edges_silhouette(pos, include_mask)
+                    for ni, nj in edges:
                         if (ni, nj) not in bond_pairs:
                             mid_z = (pos[ni][2] + pos[nj][2]) / 2.0
                             hull_edges_with_z.append(((ni, nj), mid_z, sub_color))
@@ -702,6 +723,71 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         while nci_lobe_idx < len(nci_lobes_flat) and nci_lobes_flat[nci_lobe_idx][0] < next_z:
             svg.extend(nci_lobes_flat[nci_lobe_idx][1])
             nci_lobe_idx += 1
+
+    # --- Pore volume spheres (z-interleaved) ---
+    # Uses cfg.pore_node_ids: list of node-ID lists per pore.
+    # Centroid + radius computed from oriented positions (post-PCA).
+    pore_spheres_flat: list[tuple[float, list[str]]] = []
+    pore_sphere_idx = 0
+    if cfg.pore_spheres and cfg.pore_node_ids:
+        from xyzrender.pore import pore_size_colors
+
+        fp_colors = pore_size_colors(cfg.pore_node_ids, graph)
+        # Use fingerprint colours only when multiple distinct pore types exist.
+        # Otherwise use the configured pore sphere colour.
+        if len(set(fp_colors)) > 1:
+            pore_colors = fp_colors
+        else:
+            pore_colors = [cfg.pore_sphere_color] * len(cfg.pore_node_ids)
+        _pore_grad_cache: dict[str, str] = {}
+        svg.append("  <defs>")
+        for hex_color in set(pore_colors):
+            base = Color.from_hex(hex_color)
+            dark = base.darken(
+                strength=cfg.vdw_gradient_strength,
+                hue_shift_factor=cfg.hue_shift_factor,
+                light_shift_factor=cfg.light_shift_factor,
+                saturation_shift_factor=cfg.saturation_shift_factor,
+            )
+            gid = f"pore_{hex_color[1:]}"
+            _pore_grad_cache[hex_color] = gid
+            svg.append(
+                f'    <radialGradient id="{gid}" cx=".5" cy=".5" fx=".33" fy=".33" r=".66">'
+                f'<stop offset="0%" stop-color="{base.hex}"/>'
+                f'<stop offset="100%" stop-color="{dark.hex}"/>'
+                f"</radialGradient>"
+            )
+        svg.append("  </defs>")
+        for pidx, node_ids in enumerate(cfg.pore_node_ids):
+            # Use true centroids/radii when available (accurate coarse-grain positions).
+            # Fall back to node-mean for backwards compatibility.
+            if cfg.pore_centroids and cfg.pore_radii and pidx < len(cfg.pore_centroids):
+                centroid = np.array(cfg.pore_centroids[pidx])
+                radius = cfg.pore_radii[pidx]
+            else:
+                valid = [i for i in node_ids if 0 <= i < n]
+                if len(valid) < 3:
+                    continue
+                ring_pos = pos[valid]
+                centroid = ring_pos.mean(axis=0)
+                dists = np.linalg.norm(ring_pos - centroid, axis=1)
+                radius = float(dists.min()) * 0.7
+            sx, sy = _proj(centroid, scale, cx, cy, canvas_w, canvas_h)
+            sr = radius * scale
+            z_depth = float(centroid[2])
+            gid = _pore_grad_cache[pore_colors[pidx]]
+            sphere_svg = [
+                f'  <circle cx="{sx:.1f}" cy="{sy:.1f}" r="{sr:.1f}" '
+                f'fill="url(#{gid})" fill-opacity="{cfg.pore_sphere_opacity:.2f}" stroke="none"/>'
+            ]
+            pore_spheres_flat.append((z_depth, sphere_svg))
+        pore_spheres_flat.sort(key=lambda x: x[0])
+
+    def _drain_pore_spheres(next_z: float) -> None:
+        nonlocal pore_sphere_idx
+        while pore_sphere_idx < len(pore_spheres_flat) and pore_spheres_flat[pore_sphere_idx][0] < next_z:
+            svg.extend(pore_spheres_flat[pore_sphere_idx][1])
+            pore_sphere_idx += 1
 
     # Interleaved z-order: for each atom, render it then its bonds to deeper atoms
 
@@ -1124,9 +1210,11 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         if ai in hidden:
             continue
 
-        # Drain NCI patches that belong behind this atom (before drawing it or its bonds)
+        # Drain NCI patches and pore spheres that belong behind this atom
         if nci_lobes_flat:
             _drain_nci(float(pos[ai][2]))
+        if pore_spheres_flat:
+            _drain_pore_spheres(float(pos[ai][2]))
 
         xi, yi = _px[ai], _py[ai]
         is_image = _is_image[ai]
@@ -1277,6 +1365,10 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     canvas_h,
                     draw_shaft=False,
                 )
+
+    # Drain remaining pore spheres (in front of all atoms)
+    if pore_spheres_flat:
+        _drain_pore_spheres(float("inf"))
 
     # --- Front MO orbital lobes (on top of molecule) ---
     if cfg.mo_contours is not None:

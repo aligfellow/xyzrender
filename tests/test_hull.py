@@ -401,3 +401,119 @@ def test_convex_hull_3d_three_points():
     pts = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]], dtype=float)
     simplices = _convex_hull_3d(pts)
     assert simplices.shape == (1, 3)
+
+
+# ---------------------------------------------------------------------------
+# Pore / face detection tests
+# ---------------------------------------------------------------------------
+
+
+def _hex_lattice_graph(rows: int = 2, cols: int = 3):
+    """Build a small planar hexagonal lattice graph (like graphene)."""
+    import networkx as nx
+
+    g = nx.Graph()
+    node_id = 0
+    id_map: dict[tuple[int, int, int], int] = {}
+    a = 1.42
+
+    for r in range(rows):
+        for c in range(cols):
+            for sub in (0, 1):
+                x = c * a * 3 + sub * a * 1.5
+                y = r * a * np.sqrt(3) + sub * a * np.sqrt(3) / 2
+                g.add_node(node_id, symbol="C", position=(x, y, 0.0))
+                id_map[(r, c, sub)] = node_id
+                node_id += 1
+
+    for r in range(rows):
+        for c in range(cols):
+            g.add_edge(id_map[(r, c, 0)], id_map[(r, c, 1)])
+    for r in range(rows):
+        for c in range(cols - 1):
+            g.add_edge(id_map[(r, c, 1)], id_map[(r, c + 1, 0)])
+    for r in range(rows - 1):
+        for c in range(cols):
+            g.add_edge(id_map[(r + 1, c, 0)], id_map[(r, c, 1)])
+
+    return g
+
+
+def test_find_2d_faces_hexagonal():
+    """Hexagonal lattice yields hexagonal faces."""
+    from xyzrender.pore import find_2d_faces
+
+    g = _hex_lattice_graph(rows=2, cols=3)
+    faces = find_2d_faces(g, max_size=30)
+    assert len(faces) > 0
+    assert 6 in {len(f) for f in faces}
+
+
+def test_find_2d_faces_triangle():
+    """Three nodes forming a triangle yield one face of size 3."""
+    import networkx as nx
+
+    from xyzrender.pore import find_2d_faces
+
+    g = nx.Graph()
+    g.add_node(0, symbol="C", position=(0.0, 0.0, 0.0))
+    g.add_node(1, symbol="C", position=(1.0, 0.0, 0.0))
+    g.add_node(2, symbol="C", position=(0.5, 0.866, 0.0))
+    g.add_edge(0, 1)
+    g.add_edge(1, 2)
+    g.add_edge(0, 2)
+
+    faces = find_2d_faces(g, max_size=30)
+    assert len(faces) == 1
+    assert len(faces[0]) == 3
+
+
+def test_find_2d_faces_empty_graph():
+    """Empty graph returns no faces."""
+    import networkx as nx
+
+    from xyzrender.pore import find_2d_faces
+
+    g = nx.Graph()
+    g.add_node(0, symbol="C", position=(0.0, 0.0, 0.0))
+    assert find_2d_faces(g) == []
+
+
+def test_pore_size_colors():
+    """pore_size_colors assigns same color to same-size rings."""
+    from xyzrender.pore import pore_size_colors
+
+    subsets = [[0, 1, 2], [3, 4, 5], [6, 7, 8, 9]]
+    colors = pore_size_colors(subsets)
+    assert len(colors) == 3
+    assert colors[0] == colors[1]  # both size-3
+    assert colors[0] != colors[2]  # size-3 != size-4
+
+
+def test_resolve_hull_faces():
+    """hull='faces' on a 2D graph returns face indices."""
+    import networkx as nx
+
+    from xyzrender.hull import resolve_hull_flag_and_indices
+
+    g = nx.Graph()
+    g.add_node(0, symbol="C", position=(0.0, 0.0, 0.0))
+    g.add_node(1, symbol="C", position=(1.0, 0.0, 0.0))
+    g.add_node(2, symbol="C", position=(0.5, 0.866, 0.0))
+    g.add_edge(0, 1)
+    g.add_edge(1, 2)
+    g.add_edge(0, 2)
+
+    show, indices = resolve_hull_flag_and_indices("faces", g)
+    assert show is True
+    assert isinstance(indices, list)
+    assert len(indices) == 1
+
+
+def test_resolve_hull_pores_no_graph():
+    """hull='pores' with no graph returns (None, None)."""
+    from xyzrender.hull import resolve_hull_flag_and_indices
+
+    show, indices = resolve_hull_flag_and_indices("pores", None)
+    assert show is None
+    assert indices is None

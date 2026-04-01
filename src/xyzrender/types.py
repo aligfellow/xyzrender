@@ -338,10 +338,22 @@ class RenderConfig:
     hull_atom_indices: list[int] | list[list[int]] | None = None
     # If None, hull uses all non-dummy atoms. If a flat list of ints, one subset (e.g. ring carbons).
     # If a list of lists, multiple subsets: each inner list is 0-based atom indices for one hull.
+    # When hull_rings is True, each subset is an ordered ring — rendered as the actual
+    # polygon rather than a convex hull.
+    hull_rings: bool = False
     # Non-bond hull edges (1-skeleton) drawn as thin lines for better 3D perception.
     # Edge color is auto-derived as a darkened shade of the hull fill color.
     show_hull_edges: bool = True
     hull_edge_width_ratio: float = 0.4  # stroke width = bond_width * this
+    pore_spheres: bool = False  # draw inscribed sphere at each pore centroid
+    pore_sphere_opacity: float = 0.5
+    pore_sphere_color: str = "#f0d060"  # warm yellow default
+    # Pore geometry: node-ID lists per pore (for hull drawing).
+    pore_node_ids: list[list[int]] | None = None
+    # Pore sphere placement: true centroid + radius from coarse-grained detection.
+    # Transformed by PCA rotation in the renderer for correct placement.
+    pore_centroids: list[tuple[float, float, float]] | None = None
+    pore_radii: list[float] | None = None
     # Style regions: render subsets of atoms with a different preset/config
     style_regions: list[StyleRegion] = field(default_factory=list)
     # Preset-defined regions: {"M": "flat"} or {"M": {"atom_scale": 4.0}} resolved at render time
