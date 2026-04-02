@@ -149,6 +149,12 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |-----------|---------|-------------|
 | ![vdw](examples/images/asparagine_vdw.svg) | ![vdw partial](examples/images/asparagine_vdw_partial.svg) | ![vdw paton](examples/images/asparagine_vdw_paton.svg) |
 
+### Optional scaling
+
+| Cu centre scaled (`--radius-scale "Cu" 1.8`) | Multi-group scaled (`--hy --radius-scale "N,O" 1.4 --radius-scale "H" 0.8`) |
+|-----------------------------------------------|-------------------------------------------------------------------------------|
+| ![cu scaled](examples/images/cucl4_scaled_Cu18.svg) | ![multi scale](examples/images/caffeine_scaled_multigroup.svg) |
+
 ### Convex hull
 
 | Benzene ring | Anthracene rings | Auto rings | Rotation |

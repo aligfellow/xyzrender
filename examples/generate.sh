@@ -39,6 +39,10 @@ xyzrender "$DIR/asparagine.xyz" --hy --vdw -o "$IMG/asparagine_vdw.svg"  # all a
 xyzrender "$DIR/asparagine.xyz" --hy --vdw "1-6" -o "$IMG/asparagine_vdw_partial.svg"  # some atoms
 xyzrender "$DIR/asparagine.xyz" --hy --vdw --config paton -o "$IMG/asparagine_vdw_paton.svg"  # all atoms
 
+echo "=== Optional scaling ==="
+xyzrender "$DIR/cucl4_demo.xyz" --radius-scale "Cu" 1.8 -o "$IMG/cucl4_scaled_Cu18.svg"
+xyzrender "$DIR/caffeine.xyz" --hy --radius-scale "N,O" 1.4 --radius-scale "H" 0.8 -o "$IMG/caffeine_scaled_multigroup.svg"
+
 echo "=== QM output files ==="
 xyzrender "$DIR/bimp.out" -o "$IMG/bimp_qm.svg" 
 xyzrender "$DIR/mn-h2.log" -o "$IMG/mn-h2_qm.svg" --ts
