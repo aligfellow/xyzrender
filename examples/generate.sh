@@ -83,6 +83,7 @@ xyzrender "$DIR/caffeine_homo.cube" --mo --surface-style mesh -o "$IMG/caffeine_
 xyzrender "$DIR/caffeine_homo.cube" --mo --surface-style contour -o "$IMG/caffeine_homo_contour.svg"
 xyzrender "$DIR/caffeine_homo.cube" --mo --surface-style dot -o "$IMG/caffeine_homo_dot.svg"
 xyzrender "$DIR/caffeine_dens.cube" --dens --surface-style contour -o "$IMG/caffeine_dens_contour.svg"
+xyzrender "$DIR/caffeine_dens.cube" --dens --surface-style dot -o "$IMG/caffeine_dens_dot.svg"
 xyzrender "$DIR/base-pair-dens.cube" --nci-surf "$DIR/base-pair-grad.cube" --surface-style mesh -o "$IMG/base-pair-nci_mesh.svg"
 
 echo "=== Density surface ==="

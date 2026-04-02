@@ -23,6 +23,7 @@ xyzrender benzene.xyz --hull 1-6 --hull-color steelblue --hull-opacity 0.35 -o b
 
 # Multiple subsets with per-hull colors:
 xyzrender anthracene.xyz --hull 1-6 4,6-10 8,10-14 -o anthracene_hull.svg
+# Uses palette-cycling by default (e.g. steelblue, firebrick, mediumseagreen)
 
 # Auto-detect aromatic rings (one hull per ring, colours cycle automatically):
 xyzrender mn-h2.log --ts --hull rings --hull-color teal -o mnh_hull_rings.svg

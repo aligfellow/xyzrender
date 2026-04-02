@@ -6,9 +6,14 @@ Overlay two structures to compare them. When both molecules have the same atoms 
 |---------|---------------|--------------|
 | ![Default overlay](../../../examples/images/isothio_overlay.svg) | ![Custom colour overlay](../../../examples/images/isothio_overlay_custom.svg) | ![Overlay rotation GIF](../../../examples/images/isothio_overlay.gif) |
 
+| Subset-aligned overlay (`--align-atoms`) |
+|-------------------------------------------|
+| ![Aligned overlay](../../../examples/images/isothio_overlay_align.svg) |
+
 ```bash
 xyzrender isothio_xtb.xyz --overlay isothio_uma.xyz -c 1 --hy -o isothio_overlay_rot.svg --gif-rot -go isothio_overlay.gif
 xyzrender isothio_xtb.xyz --overlay isothio_uma.xyz -c 1 --overlay-color green -a 2 --no-orient -o isothio_overlay_custom.svg
+xyzrender isothio_xtb.xyz --overlay isothio_uma.xyz -c 1 --hy --align-atoms 1,2,3 -o isothio_overlay_align.svg
 ```
 
 From Python:

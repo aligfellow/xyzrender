@@ -460,7 +460,10 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     continue
                 gid = f"{an}_{chex[1:]}"
                 if _acfg is not None:
-                    gid += f"_{id(acfg) & 0xFFFF:04x}"
+                    gid += (
+                        f"_{acfg.hue_shift_factor}_{acfg.light_shift_factor}_"
+                        f"{acfg.saturation_shift_factor}_{acfg.atom_gradient_strength}"
+                    )
                 seen[key] = gid
                 hi, me, lo = get_gradient_colors(colors[ai], acfg, strength=acfg.atom_gradient_strength)
                 svg.append(
@@ -1257,7 +1260,10 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 else:
                     gid_suffix = f"{a_nums[ai]}_{_color_hex[ai][1:]}"
                     if _acfg is not None:
-                        gid_suffix += f"_{id(acfg) & 0xFFFF:04x}"
+                        gid_suffix += (
+                            f"_{acfg.hue_shift_factor}_{acfg.light_shift_factor}_"
+                            f"{acfg.saturation_shift_factor}_{acfg.atom_gradient_strength}"
+                        )
                     grad_id = f"g{gid_suffix}"
                     fs_atom = _stroke_atom
                 svg.append(
