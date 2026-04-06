@@ -15,9 +15,9 @@ from xyzrender.colors import _FOG_NEAR, WHITE, Color, blend_fog, get_color, get_
 from xyzrender.dens import dens_layers_svg
 from xyzrender.hull import (
     get_convex_hull_edges_silhouette,
-    get_convex_hull_facets,
     get_ring_edges,
     get_ring_facets,
+    get_silhouette_polygon,
     hull_facets_svg,
     normalize_hull_subsets,
 )
@@ -99,9 +99,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
 
         # Transform pore centroids with the same PCA rotation.
         if cfg.pore_centroids and _pca_rot is not None and _pca_centroid is not None:
-            cfg.pore_centroids = [
-                tuple(float(x) for x in _pca_rot @ (np.array(c) - _pca_centroid)) for c in cfg.pore_centroids
-            ]
+            _rotated = [_pca_rot @ (np.array(c) - _pca_centroid) for c in cfg.pore_centroids]
+            cfg.pore_centroids = [(float(r[0]), float(r[1]), float(r[2])) for r in _rotated]
 
     raw_vdw = np.array(
         [_CENTROID_VDW if s == "*" else DATA.vdw.get(s, 1.5) * (_H_ATOM_SCALE if s == "H" else 1.0) for s in symbols]
@@ -551,7 +550,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             all_facets: list[tuple[np.ndarray, float]] = []
             subset_indices: list[int] = []
             for idx, subset in enumerate(subsets):
-                if cfg.hull_rings:
+                if cfg.hull_ordered:
                     valid = [i for i in subset if 0 <= i < n]
                     sub_facets = get_ring_facets(pos, valid)
                 else:
@@ -559,7 +558,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     for i in subset:
                         if 0 <= i < n:
                             include_mask[i] = True
-                    sub_facets = get_convex_hull_facets(pos, include_mask)
+                    sub_facets = get_silhouette_polygon(pos, include_mask)
                 all_facets.extend(sub_facets)
                 subset_indices.extend([idx] * len(sub_facets))
             facets = all_facets
@@ -574,7 +573,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         elif subsets is None:
             # No indices specified — use all heavy (non-H, non-dummy) atoms
             include_mask = np.array([s not in ("*", "H") for s in symbols]) if n > 0 else None
-            facets = get_convex_hull_facets(pos, include_mask)
+            facets = get_silhouette_polygon(pos, include_mask)
         else:
             # Empty indices list — no hull
             facets = []
@@ -602,7 +601,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             if subsets:
                 for sidx, subset in enumerate(subsets):
                     sub_color = palette[sidx % len(palette)]
-                    if cfg.hull_rings:
+                    if cfg.hull_ordered:
                         valid = [i for i in subset if 0 <= i < n]
                         edges = get_ring_edges(valid)
                     else:
@@ -756,7 +755,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     pore_spheres_flat: list[tuple[float, list[str]]] = []
     pore_sphere_idx = 0
     if cfg.pore_spheres and cfg.pore_node_ids:
-        from xyzrender.pore import pore_size_colors
+        from xyzrender.hull import pore_size_colors
 
         fp_colors = pore_size_colors(cfg.pore_node_ids, graph)
         # Use fingerprint colours only when multiple distinct pore types exist.

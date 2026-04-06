@@ -343,9 +343,9 @@ class RenderConfig:
     hull_atom_indices: list[int] | list[list[int]] | None = None
     # If None, hull uses all non-dummy atoms. If a flat list of ints, one subset (e.g. ring carbons).
     # If a list of lists, multiple subsets: each inner list is 0-based atom indices for one hull.
-    # When hull_rings is True, each subset is an ordered ring — rendered as the actual
-    # polygon rather than a convex hull.
-    hull_rings: bool = False
+    # Auto-set True for "faces"/"pores"/"rings" modes — tells renderer to use
+    # ordered polygon (triangle fan) instead of convex hull for each subset.
+    hull_ordered: bool = False
     # Non-bond hull edges (1-skeleton) drawn as thin lines for better 3D perception.
     # Edge color is auto-derived as a darkened shade of the hull fill color.
     show_hull_edges: bool = True

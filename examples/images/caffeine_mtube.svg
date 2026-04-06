@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 727" width="800" height="727">
   <rect width="100%" height="100%" fill="#ffffff"/>
   <line x1="565.1" y1="481.1" x2="430.4" y2="465.3" stroke="#000000" stroke-width="45.6" stroke-linecap="round"/>
-  <line x1="565.1" y1="481.1" x2="640.6" y2="366.4" stroke="#000000" stroke-width="45.6" stroke-linecap="round"/>
   <line x1="565.1" y1="481.1" x2="623.0" y2="608.2" stroke="#000000" stroke-width="45.6" stroke-linecap="round"/>
-  <line x1="581.1" y1="241.0" x2="443.6" y2="224.2" stroke="#000000" stroke-width="45.6" stroke-linecap="round"/>
+  <line x1="565.1" y1="481.1" x2="640.6" y2="366.4" stroke="#000000" stroke-width="45.6" stroke-linecap="round"/>
   <line x1="581.1" y1="241.0" x2="640.6" y2="366.4" stroke="#000000" stroke-width="45.6" stroke-linecap="round"/>
+  <line x1="581.1" y1="241.0" x2="443.6" y2="224.2" stroke="#000000" stroke-width="45.6" stroke-linecap="round"/>
   <line x1="581.1" y1="241.0" x2="665.8" y2="126.7" stroke="#000000" stroke-width="45.6" stroke-linecap="round"/>
-  <line x1="430.4" y1="465.3" x2="336.4" y2="560.7" stroke="#000000" stroke-width="45.6" stroke-linecap="round"/>
   <line x1="430.4" y1="465.3" x2="371.8" y2="344.1" stroke="#000000" stroke-width="45.6" stroke-linecap="round"/>
+  <line x1="430.4" y1="465.3" x2="336.4" y2="560.7" stroke="#000000" stroke-width="45.6" stroke-linecap="round"/>
   <line x1="336.4" y1="560.7" x2="220.2" y2="501.0" stroke="#000000" stroke-width="45.6" stroke-linecap="round"/>
   <line x1="371.8" y1="344.1" x2="443.6" y2="224.2" stroke="#000000" stroke-width="45.6" stroke-linecap="round"/>
   <line x1="371.8" y1="344.1" x2="238.2" y2="368.7" stroke="#000000" stroke-width="45.6" stroke-linecap="round"/>
@@ -18,21 +18,21 @@
   <circle cx="565.1" cy="481.1" r="0.0" fill="#3050f8" stroke="black" stroke-width="0.0"/>
   <line x1="565.1" y1="481.1" x2="499.8" y2="473.5" stroke="#3050f8" stroke-width="38.0" stroke-linecap="round"/>
   <line x1="499.8" y1="473.5" x2="430.4" y2="465.3" stroke="#aaaaaa" stroke-width="38.0" stroke-linecap="round"/>
-  <line x1="565.1" y1="481.1" x2="601.7" y2="425.5" stroke="#3050f8" stroke-width="38.0" stroke-linecap="round"/>
-  <line x1="601.7" y1="425.5" x2="640.6" y2="366.4" stroke="#aaaaaa" stroke-width="38.0" stroke-linecap="round"/>
   <line x1="565.1" y1="481.1" x2="593.2" y2="542.7" stroke="#3050f8" stroke-width="38.0" stroke-linecap="round"/>
   <line x1="593.2" y1="542.7" x2="623.0" y2="608.2" stroke="#aaaaaa" stroke-width="38.0" stroke-linecap="round"/>
+  <line x1="565.1" y1="481.1" x2="601.7" y2="425.5" stroke="#3050f8" stroke-width="38.0" stroke-linecap="round"/>
+  <line x1="601.7" y1="425.5" x2="640.6" y2="366.4" stroke="#aaaaaa" stroke-width="38.0" stroke-linecap="round"/>
   <circle cx="581.1" cy="241.0" r="0.0" fill="#3050f8" stroke="black" stroke-width="0.0"/>
-  <line x1="581.1" y1="241.0" x2="514.5" y2="232.8" stroke="#3050f8" stroke-width="38.0" stroke-linecap="round"/>
-  <line x1="514.5" y1="232.8" x2="443.6" y2="224.2" stroke="#aaaaaa" stroke-width="38.0" stroke-linecap="round"/>
   <line x1="581.1" y1="241.0" x2="610.0" y2="301.8" stroke="#3050f8" stroke-width="38.0" stroke-linecap="round"/>
   <line x1="610.0" y1="301.8" x2="640.6" y2="366.4" stroke="#aaaaaa" stroke-width="38.0" stroke-linecap="round"/>
+  <line x1="581.1" y1="241.0" x2="514.5" y2="232.8" stroke="#3050f8" stroke-width="38.0" stroke-linecap="round"/>
+  <line x1="514.5" y1="232.8" x2="443.6" y2="224.2" stroke="#aaaaaa" stroke-width="38.0" stroke-linecap="round"/>
   <line x1="581.1" y1="241.0" x2="622.2" y2="185.6" stroke="#3050f8" stroke-width="38.0" stroke-linecap="round"/>
   <line x1="622.2" y1="185.6" x2="665.8" y2="126.7" stroke="#aaaaaa" stroke-width="38.0" stroke-linecap="round"/>
   <circle cx="430.4" cy="465.3" r="0.0" fill="#aaaaaa" stroke="black" stroke-width="0.0"/>
+  <line x1="430.4" y1="465.3" x2="371.8" y2="344.1" stroke="#aaaaaa" stroke-width="38.0" stroke-linecap="round"/>
   <line x1="430.4" y1="465.3" x2="382.0" y2="514.5" stroke="#aaaaaa" stroke-width="38.0" stroke-linecap="round"/>
   <line x1="382.0" y1="514.5" x2="336.4" y2="560.7" stroke="#3050f8" stroke-width="38.0" stroke-linecap="round"/>
-  <line x1="430.4" y1="465.3" x2="371.8" y2="344.1" stroke="#aaaaaa" stroke-width="38.0" stroke-linecap="round"/>
   <circle cx="336.4" cy="560.7" r="0.0" fill="#3050f8" stroke="black" stroke-width="0.0"/>
   <line x1="336.4" y1="560.7" x2="280.0" y2="531.8" stroke="#3050f8" stroke-width="38.0" stroke-linecap="round"/>
   <line x1="280.0" y1="531.8" x2="220.2" y2="501.0" stroke="#aaaaaa" stroke-width="38.0" stroke-linecap="round"/>

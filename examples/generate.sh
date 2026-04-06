@@ -148,6 +148,14 @@ xyzrender "$DIR/anthracene.xyz" --hull 1-6 4,6-10 8,10-14 -o "$IMG/anthracene_hu
 xyzrender "$DIR/CoCl6.xyz" --hull --hull-color teal --hull-opacity 0.5 -o "$IMG/CoCl6_octahedron_hull.svg" --gif-rot -go "$IMG/CoCl6_octahedron_hull.gif"
 xyzrender "$DIR/mn-h2.log" --ts --hull rings --hull-color teal -o "$IMG/mnh_hull_rings.svg"
 
+echo "=== Hull faces & pores ==="
+xyzrender "$DIR/buckyball.xyz" --hull faces --no-bo -o "$IMG/buckyball_faces.svg"
+xyzrender "$DIR/buckyball.xyz" --pore --no-bo -o "$IMG/buckyball_pore.svg"
+xyzrender "$DIR/MOF-5.xyz" --hull faces --no-cell --no-bo --fog -o "$IMG/mof5_faces.svg"
+xyzrender "$DIR/MOF-5.xyz" --pore --no-cell --no-bo --fog -o "$IMG/mof5_pore.svg"
+xyzrender "$DIR/MOF-5.xyz" --hull faces --pore --no-cell --no-bo --fog -o "$IMG/mof5_faces_pore.svg"
+xyzrender "$DIR/MOF-5.xyz" --hull faces --pore --no-cell --no-bo --fog --gif-rot -go "$IMG/mof5_faces_pore.gif"
+
 echo "=== NCI surfaces ==="
 xyzrender "$DIR/base-pair-dens.cube" --nci-surf "$DIR/base-pair-grad.cube" -o "$IMG/base-pair-nci_surf.svg"
 xyzrender "$DIR/phenol_di-dens.cube" --nci-surf "$DIR/phenol_di-grad.cube" -o "$IMG/phenol_di-nci_surf.svg"

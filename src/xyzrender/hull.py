@@ -273,33 +273,17 @@ def get_ring_facets(
     pos_3d: np.ndarray,
     ring_indices: list[int],
 ) -> list[tuple[np.ndarray, float]]:
-    """Triangle-fan facets for an ordered ring polygon.
+    """Single polygon facet for an ordered ring.
 
-    Unlike ``get_convex_hull_facets``, this preserves the actual ring shape
-    (concave rings are rendered correctly, not extended to a convex hull).
-
-    Parameters
-    ----------
-    pos_3d :
-        Shape (N, 3) array of all atom positions.
-    ring_indices :
-        Ordered list of atom indices forming the ring.
-
-    Returns
-    -------
-    list of (triangle_vertices_3d, centroid_z)
+    Returns the ring vertices as one facet (not a triangle fan), avoiding
+    opacity buildup at the centroid.  The z-depth is the mean z of all
+    ring vertices.
     """
-    pts = pos_3d[ring_indices]  # (k, 3)
+    pts = pos_3d[ring_indices]
     if len(pts) < 3:
         return []
-    centroid = pts.mean(axis=0)
-    out: list[tuple[np.ndarray, float]] = []
-    k = len(pts)
-    for i in range(k):
-        tri = np.array([centroid, pts[i], pts[(i + 1) % k]])
-        z = float(tri[:, 2].mean())
-        out.append((tri, z))
-    return out
+    z = float(pts[:, 2].mean())
+    return [(pts, z)]
 
 
 def get_ring_edges(
@@ -314,60 +298,31 @@ def get_ring_edges(
     return out
 
 
-def get_convex_hull_edges(
+def get_silhouette_polygon(
     pos_3d: np.ndarray,
     include_mask: np.ndarray | None = None,
-) -> list[tuple[int, int]]:
-    """Compute convex hull edges (1-skeleton) as graph node index pairs.
+) -> list[tuple[np.ndarray, float]]:
+    """Return the 2D convex hull silhouette as triangle-fan facets.
 
-    Hull edges are the unique vertex pairs from each facet. Use with the
-    molecule's bond set to draw only edges that do not overlap a bond
-    (e.g. as thin gray lines for better 3D visualization).
-
-    Parameters
-    ----------
-    pos_3d :
-        Shape (N, 3) array of 3D positions (e.g. oriented atom positions).
-    include_mask :
-        Optional boolean array of length N. If provided, only positions where
-        True are used for the hull; returned indices are into the full pos_3d
-        (graph node indices).
-
-    Returns
-    -------
-    list of (node_i, node_j)
-        Unique edges with node_i < node_j, in graph (full) index space.
-        Empty list if fewer than 3 points or hull construction fails.
+    Projects to xy, computes the 2D convex hull boundary, then returns
+    a triangle fan from the centroid — giving a single smooth filled
+    polygon instead of many overlapping 3D triangles.
     """
     if include_mask is not None:
         points = pos_3d[np.asarray(include_mask, dtype=bool)]
-        graph_indices = np.flatnonzero(include_mask)
     else:
         points = np.asarray(pos_3d, dtype=float)
-        graph_indices = np.arange(pos_3d.shape[0], dtype=np.intp)
 
     if points.shape[0] < 3:
         return []
 
-    simplices = _convex_hull_3d(points)
-    if simplices.shape[0] == 0:
+    hull_idx = _convex_hull_2d(points[:, :2])
+    if len(hull_idx) < 3:
         return []
 
-    seen: set[tuple[int, int]] = set()
-    out: list[tuple[int, int]] = []
-    for simplex in simplices:
-        for i in range(3):
-            a, b = int(simplex[i]), int(simplex[(i + 1) % 3])
-            if a > b:
-                a, b = b, a
-            if (a, b) in seen:
-                continue
-            seen.add((a, b))
-            ni, nj = int(graph_indices[a]), int(graph_indices[b])
-            if ni > nj:
-                ni, nj = nj, ni
-            out.append((ni, nj))
-    return out
+    hull_pts = points[hull_idx]
+    z = float(hull_pts[:, 2].mean())
+    return [(hull_pts, z)]
 
 
 def get_convex_hull_edges_silhouette(
@@ -466,7 +421,67 @@ def hull_facets_svg(
 
 
 # ---------------------------------------------------------------------------
-# Hull resolution helpers (moved from api.py)
+# Ring colouring (fingerprint-based palette assignment)
+# ---------------------------------------------------------------------------
+
+
+def ring_fingerprint(
+    ring: list[int],
+    graph: nx.Graph | None = None,
+    *,
+    mode: str = "type",
+    shared_atoms: set[int] | None = None,
+) -> tuple[int, tuple]:
+    """Ring fingerprint for colour assignment.
+
+    *mode* controls what distinguishes rings:
+
+    - ``"size"``: ring size only.
+    - ``"type"``: ring size + sorted (element, degree) per atom.
+    - ``"env"``: like ``"type"`` but also marks atoms shared with other
+      rings (fused vs terminal), distinguishing e.g. annulated benzene
+      from isolated phenyl.
+    """
+    size = len(ring)
+    if graph is None or mode == "size":
+        return (size, ())
+    if mode == "env" and shared_atoms is not None:
+        sig = sorted((graph.nodes[n].get("symbol", "C"), graph.degree(n), n in shared_atoms) for n in ring)
+    else:
+        sig = sorted((graph.nodes[n].get("symbol", "C"), graph.degree(n)) for n in ring)
+    return (size, tuple(sig))
+
+
+def _ring_colors(
+    subsets: list[list[int]],
+    graph: nx.Graph | None = None,
+    palette: list[str] | None = None,
+    *,
+    mode: str = "type",
+) -> list[str]:
+    """Map ring subsets to hex colours via fingerprint."""
+    pal = palette or ["steelblue", "firebrick", "mediumseagreen", "mediumpurple", "darkgoldenrod", "cadetblue"]
+    # For "env" mode: precompute atoms shared between rings.
+    shared: set[int] | None = None
+    if mode == "env":
+        from collections import Counter
+
+        atom_counts: Counter[int] = Counter()
+        for s in subsets:
+            atom_counts.update(s)
+        shared = {a for a, c in atom_counts.items() if c > 1}
+    fps = [ring_fingerprint(s, graph, mode=mode, shared_atoms=shared) for s in subsets]
+    unique_fps = sorted(set(fps))
+    fp_map = {fp: pal[i % len(pal)] for i, fp in enumerate(unique_fps)}
+    return [fp_map[fp] for fp in fps]
+
+
+# Keep old name as public alias for external callers.
+pore_size_colors = _ring_colors
+
+
+# ---------------------------------------------------------------------------
+# Hull resolution helpers
 # ---------------------------------------------------------------------------
 
 
@@ -502,6 +517,7 @@ def resolve_hull_pores(
     *,
     max_size: int = 100,
     min_size: int = 0,
+    cell_data: object | None = None,
 ) -> list[list[int]]:
     """Detect 3D pores and return real atom node IDs for hull drawing.
 
@@ -510,8 +526,7 @@ def resolve_hull_pores(
     """
     from xyzrender.pore import find_pores
 
-    _lat = getattr(cfg, "cell_data", None)
-    _lat_arr = getattr(_lat, "lattice", None) if _lat else None
+    _lat_arr = getattr(cell_data, "lattice", None) if cell_data else None
     pore_data = find_pores(graph, max_size=max_size, min_size=min_size, lattice=_lat_arr)
     if not pore_data:
         return []
@@ -526,7 +541,7 @@ def resolve_hull_pores(
     hull_subsets: list[list[int]] = []
     centroids: list[tuple[float, float, float]] = []
     radii: list[float] = []
-    for centroid, radius, verts in pore_data:
+    for centroid, coarse_radius, verts in pore_data:
         subset: list[int] = []
         seen: set[int] = set()
         for v in verts:
@@ -537,7 +552,12 @@ def resolve_hull_pores(
                 subset.append(nearest)
         hull_subsets.append(subset)
         centroids.append(centroid)
-        radii.append(radius)
+        # Use coarse-grained radius (0.7 x min vertex-centroid distance).
+        # The mapped atoms are cluster representatives, not pore-boundary
+        # atoms — linkers are edges in the coarse graph, so their atoms
+        # aren't in the vertex set.  VdW subtraction on cluster atoms
+        # would overestimate the visual pore size.
+        radii.append(coarse_radius)
 
     cfg.pore_node_ids = hull_subsets
     cfg.pore_centroids = centroids
@@ -559,7 +579,7 @@ def resolve_hull_faces(
     boundary-crossing cycles.  *face_planarity* controls how planar
     a face must be in 3D (0 = strict, 1 = permissive).
     """
-    from xyzrender.pore import find_2d_faces
+    from xyzrender.face import find_2d_faces
 
     return find_2d_faces(
         graph,
@@ -575,44 +595,53 @@ def resolve_hull_flag_and_indices(
     graph: nx.Graph | None,
     cfg: RenderConfig | None = None,
     *,
-    pore_max_size: int = 100,
-    pore_min_size: int = 0,
+    ring_max_size: int = 100,
+    ring_min_size: int = 0,
     face_planarity: float = 0.25,
 ) -> tuple[bool | None, list[int] | list[list[int]] | None]:
     r"""Resolve hull option to (show_convex_hull, hull_atom_indices) for config."""
     if hull is None:
         return None, None
-    if hull in {"rings", "ring"}:
-        if graph is None:
-            return None, None
-        ring_indices = resolve_hull_rings(graph)
-        if not ring_indices:
-            return None, None
-        return True, ring_indices
-    if hull in {"pores", "pore"}:
-        if graph is None:
-            return None, None
-        from xyzrender.types import RenderConfig
+    if isinstance(hull, str):
+        if hull in {"rings", "ring"}:
+            if graph is None:
+                return None, None
+            ring_indices = resolve_hull_rings(graph)
+            if not ring_indices:
+                return None, None
+            return True, ring_indices
+        if hull in {"pores", "pore"}:
+            if graph is None:
+                return None, None
+            from xyzrender.types import RenderConfig
 
-        _cfg = cfg if cfg is not None else RenderConfig()
-        pore_indices = resolve_hull_pores(graph, _cfg, max_size=pore_max_size, min_size=pore_min_size)
-        if not pore_indices:
-            return None, None
-        return True, pore_indices
-    if hull in {"faces", "face"}:
-        if graph is None:
-            return None, None
-        _cd = getattr(cfg, "cell_data", None) if cfg is not None else None
-        face_indices = resolve_hull_faces(
-            graph,
-            max_size=pore_max_size,
-            min_size=pore_min_size,
-            cell_data=_cd,
-            face_planarity=face_planarity,
-        )
-        if not face_indices:
-            return None, None
-        return True, face_indices
+            _cfg = cfg if cfg is not None else RenderConfig()
+            _cd = getattr(_cfg, "cell_data", None)
+            pore_indices = resolve_hull_pores(
+                graph,
+                _cfg,
+                max_size=ring_max_size,
+                min_size=ring_min_size,
+                cell_data=_cd,
+            )
+            if not pore_indices:
+                return None, None
+            return True, pore_indices
+        if hull in {"faces", "face"}:
+            if graph is None:
+                return None, None
+            _cd = getattr(cfg, "cell_data", None) if cfg is not None else None
+            face_indices = resolve_hull_faces(
+                graph,
+                max_size=ring_max_size,
+                min_size=ring_min_size,
+                cell_data=_cd,
+                face_planarity=face_planarity,
+            )
+            if not face_indices:
+                return None, None
+            return True, face_indices
+        return None, None
     if isinstance(hull, list):
         return True, hull_indices_to_0indexed(hull)
     if isinstance(hull, bool):
@@ -629,33 +658,48 @@ def apply_hull_to_config(
     hull_edge_width_ratio: float | None,
     graph: nx.Graph | None,
     *,
-    pore_max_size: int = 100,
-    pore_min_size: int = 0,
+    ring_max_size: int = 100,
+    ring_min_size: int = 0,
     face_planarity: float = 0.25,
+    precomputed_indices: list[list[int]] | None = None,
+    hull_color_type: str = "type",
 ) -> None:
-    """Apply hull-related options to *cfg*. Single place for hull semantics."""
-    show_hull, hull_idx = resolve_hull_flag_and_indices(
-        hull,
-        graph,
-        cfg,
-        pore_max_size=pore_max_size,
-        pore_min_size=pore_min_size,
-        face_planarity=face_planarity,
-    )
+    """Apply hull-related options to *cfg*. Single place for hull semantics.
+
+    When *precomputed_indices* is provided (e.g. pre-tiled supercell indices),
+    detection is skipped and those indices are used directly.
+    """
+    if precomputed_indices is not None:
+        show_hull = True
+        hull_idx = precomputed_indices
+    else:
+        show_hull, hull_idx = resolve_hull_flag_and_indices(
+            hull,
+            graph,
+            cfg,
+            ring_max_size=ring_max_size,
+            ring_min_size=ring_min_size,
+            face_planarity=face_planarity,
+        )
     if show_hull is not None:
         cfg.show_convex_hull = show_hull
     if hull_idx is not None:
         cfg.hull_atom_indices = hull_idx
-    # Face/pore hulls are ordered rings — render as actual polygons.
-    if hull in {"pores", "pore", "faces", "face"} and hull_idx is not None:
-        cfg.hull_rings = True
-    # Auto-set per-size colours for pore/face hulls.
-    if hull in {"pores", "pore", "faces", "face"} and hull_idx is not None:
+    # Ordered-ring hull modes — render as actual polygons, not convex hulls.
+    _ring_modes = {"pores", "pore", "faces", "face", "rings", "ring"}
+    _is_ring_mode = isinstance(hull, str) and hull in _ring_modes
+    if _is_ring_mode and hull_idx is not None:
+        cfg.hull_ordered = True
+    # Auto-set per-size colours via ring fingerprint.
+    if _is_ring_mode and hull_idx is not None:
         subsets = normalize_hull_subsets(hull_idx)
         if hull_color is None and subsets:
-            from xyzrender.pore import pore_size_colors
-
-            cfg.hull_colors = pore_size_colors(subsets, graph)
+            cfg.hull_colors = _ring_colors(
+                subsets,
+                graph,
+                palette=cfg.hull_colors,
+                mode=hull_color_type,
+            )
     if hull_color is not None:
         cfg.hull_colors = [hull_color] if isinstance(hull_color, str) else hull_color
     if hull_opacity is not None:

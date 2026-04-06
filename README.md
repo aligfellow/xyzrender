@@ -155,6 +155,12 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |--------------|------------------|------------|----------|
 | ![benzene hull](examples/images/benzene_ring_hull.svg) | ![anthracene hull](examples/images/anthracene_hull.svg) | ![mnh hull](examples/images/mnh_hull_rings.svg) | ![anthracene rot](examples/images/anthracene_hull.gif) |
 
+### Hull faces & pore detection
+
+| Buckyball faces | Buckyball pore | MOF-5 faces | MOF-5 pore | MOF-5 combo | Rotation |
+|-----------------|----------------|-------------|------------|-------------|----------|
+| ![buckyball faces](examples/images/buckyball_faces.svg) | ![buckyball pore](examples/images/buckyball_pore.svg) | ![mof5 faces](examples/images/mof5_faces.svg) | ![mof5 pore](examples/images/mof5_pore.svg) | ![mof5 combo](examples/images/mof5_faces_pore.svg) | ![mof5 rot](examples/images/mof5_faces_pore.gif) |
+
 ### Highlight & molecule color
 
 | Default (orchid) | Custom colour | Multi-group | Mol color + highlight |

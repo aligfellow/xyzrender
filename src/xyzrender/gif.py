@@ -759,6 +759,12 @@ def _render_rot_frame(
         frame_cfg.cell_data.lattice = ctx.orig_lattice @ rot_mat.T
         frame_cfg.cell_data.cell_origin = rot_mat @ (ctx.orig_cell_origin - ctx.atom_centroid) + ctx.atom_centroid
 
+    # Rotate pore centroids with the molecule.
+    if frame_cfg.pore_centroids:
+        _pc = np.array(frame_cfg.pore_centroids)
+        _pc_rot = (rot_mat @ (_pc - centroid).T).T + centroid
+        frame_cfg.pore_centroids = [(float(c[0]), float(c[1]), float(c[2])) for c in _pc_rot]
+
     if ctx.mo_params is not None and ctx.mo_cube is not None:
         from xyzrender.mo import recompute_mo
 

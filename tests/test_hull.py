@@ -1,13 +1,15 @@
-"""Tests for convex hull facet computation and rendering."""
+"""Tests for convex hull, face detection, and pore detection."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
+import pytest
 
 from xyzrender.hull import (
     _convex_hull_2d,
     _convex_hull_3d,
-    get_convex_hull_edges,
     get_convex_hull_facets,
     hull_facets_svg,
     normalize_hull_subsets,
@@ -42,56 +44,6 @@ def test_get_convex_hull_facets_fewer_than_three_points():
     facets = get_convex_hull_facets(np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]]))
     assert len(facets) == 1
     assert facets[0][0].shape == (3, 3)
-
-
-def test_get_convex_hull_edges_tetrahedron():
-    """Tetrahedron has 6 hull edges (all pairs of 4 vertices)."""
-    pos = np.array(
-        [
-            [1.0, 1.0, 1.0],
-            [1.0, -1.0, -1.0],
-            [-1.0, 1.0, -1.0],
-            [-1.0, -1.0, 1.0],
-        ],
-        dtype=float,
-    )
-    edges = get_convex_hull_edges(pos)
-    assert len(edges) == 6
-    for i, j in edges:
-        assert i < j
-        assert 0 <= i < 4
-        assert 0 <= j < 4
-    assert len(set(edges)) == 6
-
-
-def test_get_convex_hull_edges_fewer_than_three_points():
-    """Fewer than 3 points return empty list; exactly 3 returns 3 edges."""
-    assert get_convex_hull_edges(np.array([[0, 0, 0], [1, 0, 0]])) == []
-    edges = get_convex_hull_edges(np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]]))
-    assert len(edges) == 3
-
-
-def test_get_convex_hull_edges_with_include_mask():
-    """Edges are returned in graph (full) index space when include_mask is used."""
-    # 5 points: indices 0,1,2,3 form tetrahedron; index 4 is inside
-    pos = np.array(
-        [
-            [1.0, 1.0, 1.0],
-            [1.0, -1.0, -1.0],
-            [-1.0, 1.0, -1.0],
-            [-1.0, -1.0, 1.0],
-            [0.0, 0.0, 0.0],
-        ],
-        dtype=float,
-    )
-    mask = np.array([True, True, True, True, False])
-    edges = get_convex_hull_edges(pos, include_mask=mask)
-    assert len(edges) == 6
-    # All indices must be in 0..3 (graph indices of the tetrahedron)
-    for i, j in edges:
-        assert i < j
-        assert 0 <= i <= 3
-        assert 0 <= j <= 3
 
 
 def test_get_convex_hull_facets_with_include_mask():
@@ -188,7 +140,7 @@ def test_render_svg_with_single_subset_indices():
     )
     svg = render_svg(g, cfg)
     assert "<polygon" in svg
-    assert svg.count("fill-opacity") >= 4
+    assert svg.count("fill-opacity") >= 1  # single silhouette polygon
 
 
 def test_render_svg_with_multiple_subsets():
@@ -217,9 +169,9 @@ def test_render_svg_with_multiple_subsets():
     )
     svg = render_svg(g, cfg)
     assert "<polygon" in svg
-    # Two tetrahedra -> 4 + 4 = 8 facets
-    assert svg.count("<polygon") == 8
-    assert svg.count("fill-opacity") == 8
+    # Two subsets → 2 silhouette polygons
+    assert svg.count("<polygon") == 2
+    assert svg.count("fill-opacity") == 2
 
 
 def test_render_svg_with_per_subset_colors():
@@ -441,7 +393,7 @@ def _hex_lattice_graph(rows: int = 2, cols: int = 3):
 
 def test_find_2d_faces_hexagonal():
     """Hexagonal lattice yields hexagonal faces."""
-    from xyzrender.pore import find_2d_faces
+    from xyzrender.face import find_2d_faces
 
     g = _hex_lattice_graph(rows=2, cols=3)
     faces = find_2d_faces(g, max_size=30)
@@ -453,7 +405,7 @@ def test_find_2d_faces_triangle():
     """Three nodes forming a triangle yield one face of size 3."""
     import networkx as nx
 
-    from xyzrender.pore import find_2d_faces
+    from xyzrender.face import find_2d_faces
 
     g = nx.Graph()
     g.add_node(0, symbol="C", position=(0.0, 0.0, 0.0))
@@ -463,7 +415,7 @@ def test_find_2d_faces_triangle():
     g.add_edge(1, 2)
     g.add_edge(0, 2)
 
-    faces = find_2d_faces(g, max_size=30)
+    faces = find_2d_faces(g, max_size=30, min_size=3)
     assert len(faces) == 1
     assert len(faces[0]) == 3
 
@@ -472,7 +424,7 @@ def test_find_2d_faces_empty_graph():
     """Empty graph returns no faces."""
     import networkx as nx
 
-    from xyzrender.pore import find_2d_faces
+    from xyzrender.face import find_2d_faces
 
     g = nx.Graph()
     g.add_node(0, symbol="C", position=(0.0, 0.0, 0.0))
@@ -481,7 +433,7 @@ def test_find_2d_faces_empty_graph():
 
 def test_pore_size_colors():
     """pore_size_colors assigns same color to same-size rings."""
-    from xyzrender.pore import pore_size_colors
+    from xyzrender.hull import pore_size_colors
 
     subsets = [[0, 1, 2], [3, 4, 5], [6, 7, 8, 9]]
     colors = pore_size_colors(subsets)
@@ -517,3 +469,204 @@ def test_resolve_hull_pores_no_graph():
     show, indices = resolve_hull_flag_and_indices("pores", None)
     assert show is None
     assert indices is None
+
+
+def test_ring_fingerprint_modes():
+    """ring_fingerprint returns different signatures for size/type/env modes."""
+    import networkx as nx
+
+    from xyzrender.hull import ring_fingerprint
+
+    g = nx.Graph()
+    for i in range(6):
+        g.add_node(i, symbol="C" if i < 5 else "N", position=(0, 0, 0))
+    for i in range(6):
+        g.add_edge(i, (i + 1) % 6)
+
+    ring = list(range(6))
+    fp_size = ring_fingerprint(ring, g, mode="size")
+    fp_type = ring_fingerprint(ring, g, mode="type")
+    fp_env = ring_fingerprint(ring, g, mode="env", shared_atoms={0, 1})
+
+    # size: only size matters
+    assert fp_size == (6, ())
+    # type: includes atom types
+    assert fp_size != fp_type
+    assert len(fp_type[1]) == 6  # 6 atom signatures
+    # env: shared_atoms flag differs from type
+    assert fp_env != fp_type
+
+
+def test_ring_colors_size_vs_type():
+    """_ring_colors produces fewer distinct colours in size mode."""
+    import networkx as nx
+
+    from xyzrender.hull import _ring_colors
+
+    g = nx.Graph()
+    # Two 6-rings: one all-C, one with N — same size but different type.
+    for i in range(12):
+        g.add_node(i, symbol="C" if i < 6 else ("C" if i < 11 else "N"), position=(0, 0, 0))
+    for i in range(6):
+        g.add_edge(i, (i + 1) % 6)
+    for i in range(6, 12):
+        g.add_edge(i, 6 + (i - 6 + 1) % 6)
+
+    subsets = [list(range(6)), list(range(6, 12))]
+    colors_type = _ring_colors(subsets, g, mode="type")
+    colors_size = _ring_colors(subsets, g, mode="size")
+
+    # type: different atom compositions → different colours
+    assert colors_type[0] != colors_type[1]
+    # size: same size → same colour
+    assert colors_size[0] == colors_size[1]
+
+
+def test_silhouette_polygon_single_facet():
+    """get_silhouette_polygon returns a single polygon, not triangle fan."""
+    from xyzrender.hull import get_silhouette_polygon
+
+    pos = np.array(
+        [
+            [1, 1, 0],
+            [1, -1, 0],
+            [-1, -1, 0],
+            [-1, 1, 0],
+            [0, 0, 1],
+        ],
+        dtype=float,
+    )
+    facets = get_silhouette_polygon(pos)
+    assert len(facets) == 1  # single polygon, not multiple triangles
+    verts, _z = facets[0]
+    assert verts.shape[0] >= 4  # convex hull of 5 points projected to xy
+
+
+def test_ring_facets_single_polygon():
+    """get_ring_facets returns one polygon per ring, not triangle fan."""
+    from xyzrender.hull import get_ring_facets
+
+    pos = np.array(
+        [
+            [0, 0, 0],
+            [1, 0, 0],
+            [1.5, 0.87, 0],
+            [1, 1.73, 0],
+            [0, 1.73, 0],
+            [-0.5, 0.87, 0],
+        ],
+        dtype=float,
+    )
+    facets = get_ring_facets(pos, [0, 1, 2, 3, 4, 5])
+    assert len(facets) == 1  # single polygon
+    assert facets[0][0].shape == (6, 3)  # 6 vertices, not 3 (triangle)
+
+
+def test_tile_supercell_indices():
+    """_tile_supercell_indices replicates subsets correctly."""
+    from xyzrender.api import _tile_supercell_indices
+
+    subsets = [[0, 1], [2, 3]]
+    tiled = _tile_supercell_indices(subsets, (2, 1, 1), n_base=10)
+    # 2x1x1 = 2 replicas x 2 subsets = 4 subsets
+    assert len(tiled) == 4
+    assert tiled[0] == [0, 1]  # replica (0,0,0)
+    assert tiled[1] == [2, 3]
+    assert tiled[2] == [10, 11]  # replica (1,0,0), offset = 10
+    assert tiled[3] == [12, 13]
+
+
+def test_hull_list_input_no_crash():
+    """hull=[[0,1,2,3,4]] (list input) should not crash with unhashable type."""
+    import networkx as nx
+
+    from xyzrender.hull import apply_hull_to_config
+    from xyzrender.types import RenderConfig
+
+    g = nx.Graph()
+    for i in range(6):
+        g.add_node(i, symbol="C", position=(float(i), 0.0, 0.0))
+    for i in range(5):
+        g.add_edge(i, i + 1)
+
+    cfg = RenderConfig()
+    # This previously crashed with TypeError: unhashable type: 'list'
+    apply_hull_to_config(cfg, [[0, 1, 2, 3, 4]], None, None, None, None, g)
+    assert cfg.show_convex_hull is True
+    assert cfg.hull_atom_indices is not None
+
+
+# ---------------------------------------------------------------------------
+# Integration tests (real structures)
+# ---------------------------------------------------------------------------
+
+_STRUCTURES = Path(__file__).resolve().parent.parent / "examples" / "structures"
+
+
+def _load(name: str):
+    import xyzrender as xr
+
+    path = _STRUCTURES / name
+    if not path.exists():
+        pytest.skip(f"{name} not in examples/structures/")
+    return xr.load(str(path))
+
+
+def test_buckyball_32_faces():
+    """C60: exactly 12 pentagons + 20 hexagons."""
+    from collections import Counter
+
+    from xyzrender.face import find_2d_faces
+
+    faces = find_2d_faces(_load("buckyball.xyz").graph)
+    sizes = Counter(len(f) for f in faces)
+    assert sizes[5] == 12
+    assert sizes[6] == 20
+
+
+def test_buckyball_cage_pore():
+    """C60 small cycles merge into 1 cage pore."""
+    from xyzrender.pore import find_pores
+
+    pores = find_pores(_load("buckyball.xyz").graph)
+    assert len(pores) == 1
+    assert pores[0][1] > 1.5  # radius
+    assert len(pores[0][2]) > 10  # wall vertices
+
+
+def test_mof5_periodic_pore():
+    """MOF-5 with lattice: 1 pore near cell centre."""
+    from xyzrender.pore import find_pores
+
+    mol = _load("MOF-5.xyz")
+    lat = np.array(mol.cell_data.lattice)
+    pores = find_pores(mol.graph, lattice=lat)
+    assert len(pores) == 1
+    frac = np.linalg.inv(lat) @ np.array(pores[0][0])
+    assert all(0.3 < f < 0.7 for f in frac)
+
+
+def test_render_faces_svg():
+    """render(hull='faces') produces 32 hull polygons for C60."""
+    import re
+    import tempfile
+
+    import xyzrender as xr
+
+    with tempfile.NamedTemporaryFile(suffix=".svg") as f:
+        xr.render(_load("buckyball.xyz"), hull="faces", output=f.name)
+        svg = Path(f.name).read_text()
+    assert len(re.findall(r"<polygon[^>]*fill-opacity", svg)) == 32
+
+
+def test_render_pore_svg():
+    """render(pore=True) produces 1 pore circle for C60."""
+    import re
+    import tempfile
+
+    import xyzrender as xr
+
+    with tempfile.NamedTemporaryFile(suffix=".svg") as f:
+        xr.render(_load("buckyball.xyz"), pore=True, output=f.name)
+        svg = Path(f.name).read_text()
+    assert len(re.findall(r"circle[^>]*pore", svg)) == 1
