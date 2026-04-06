@@ -167,6 +167,12 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |------------------|---------------|-------------|-----------------------|
 | ![hl](examples/images/caffeine_hl.svg) | ![hl custom](examples/images/caffeine_hl_custom.svg) | ![multi hl](examples/images/caffeine_multi_hl.svg) | ![mol color hl](examples/images/caffeine_mol_color_hl_idx.svg) |
 
+### Radius scaling
+
+| Single atom scaled (Co ×2) | Multi-group (N,O ×1.4 + H ×0.8) |
+|------------------------------|----------------------------------|
+| ![Co scaled](examples/images/CoCl6_scaled_Co2.svg) | ![multi scale](examples/images/caffeine_scaled_multigroup.svg) |
+
 ### Depth of field
 
 | DoF | Rotation |

@@ -102,9 +102,15 @@ Groups are assigned colors in order: first group gets `orchid`, second `mediumse
 
 Scale atom radii for selected atoms. Uses the same selector syntax as `--hl`. The factor multiplies on top of the global `--atom-scale` (`-a`). Repeatable.
 
+| Single atom scaled (Co ×2) | Multi-group (N,O ×1.4 + H ×0.8) |
+|------------------------------|----------------------------------|
+| ![Co scaled](../../../examples/images/CoCl6_scaled_Co2.svg) | ![multi scale](../../../examples/images/caffeine_scaled_multigroup.svg) |
+
 ```bash
-xyzrender mol.xyz --radius-scale "N" 2.0                    # double nitrogen radii
-xyzrender mol.xyz --radius-scale "M,67,68" 2 --radius-scale "H" 0.8  # multiple groups
+xyzrender CoCl6.xyz --radius-scale "Co" 2                                   # scale Co up
+xyzrender caffeine.xyz --hy --radius-scale "N,O" 1.4 --radius-scale "H" 0.8 # multiple groups
+xyzrender mol.xyz --radius-scale "1-5,8" 2.0                                # by atom index
+xyzrender mol.xyz --radius-scale "M" 1.5 --radius-scale "3,7-9" 0.6         # mix element + index
 ```
 
 ### Python

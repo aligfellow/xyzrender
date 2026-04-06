@@ -128,6 +128,10 @@ xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" lightseagreen -o "$IMG/caffeine_hl_cu
 xyzrender "$DIR/caffeine.xyz" --hl "1-3,5,10,11,15,16,19,21" darkorchid --hl "4,6-9,12-14,17,18,20,22-24" teal --hy -o "$IMG/caffeine_multi_hl.svg"
 xyzrender "$DIR/caffeine.xyz" --hl "1-3,5,10,11,15,16,19,21" --mol-color mediumseagreen --hy --idx n -o "$IMG/caffeine_mol_color_hl_idx.svg"
 
+echo "=== Optional scaling ==="
+xyzrender "$DIR/CoCl6.xyz" --radius-scale "Co" 2 -o "$IMG/CoCl6_scaled_Co18.svg"
+xyzrender "$DIR/caffeine.xyz" --hy --radius-scale "N,O" 1.4 --radius-scale "H" 0.8 -o "$IMG/caffeine_scaled_multigroup.svg"
+
 echo "=== Depth of field ==="
 xyzrender "$DIR/caffeine.xyz" --dof --no-orient -o "$IMG/caffeine_dof.svg" --gif-rot -go "$IMG/caffeine_dof.gif" 
 
