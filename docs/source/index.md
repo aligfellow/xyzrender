@@ -1,3 +1,9 @@
+```{image} _static/branding/logo_big.svg
+:alt: xyzrender
+:width: 720px
+:align: center
+```
+
 # xyzrender documentation
 
 Publication-quality molecular graphics from XYZ, cube, QM output, and more — as SVG, PNG, PDF, or animated GIF.

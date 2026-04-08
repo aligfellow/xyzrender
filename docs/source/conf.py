@@ -38,6 +38,9 @@ source_suffix = {
 html_theme = "furo"
 html_static_path = ["_static"]
 
+html_logo = "_static/branding/logo_big_no_text.svg"
+html_favicon = "_static/branding/logo_small_no_text.svg"
+
 # ---------------------------------------------------
 
 import sys
