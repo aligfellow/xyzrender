@@ -30,15 +30,26 @@ The `tube` and `wire` presets hide atom circles and colour each bond by its endp
 
 ## Metal tube
 
-The `mtube` preset is designed for metal complexes: non-metals render as tube-only, while metals are highlighted via a preset-defined region. Combines well with `--unbond pi` to remove pi-coordination clutter, or `--haptic` to replace the pi-coordination fan with a single dotted centroid bond.
+The `mtube` preset is designed for metal complexes: non-metals render as tube-only, while metals are highlighted via a preset-defined region. Combines well with `--unbond pi` to remove pi-coordination clutter.
 
-| Caffeine (mtube) | mtube + `unbond pi` | `haptic` |
-|------------------|---------------------|----------|
-| ![mtube](../../../examples/images/caffeine_mtube.svg) | ![mnh mtube](../../../examples/images/mnh_mtube.svg) | ![haptic](../../../examples/images/mnh_haptic.svg) |
+| Caffeine (mtube) | mtube + `unbond pi` |
+|------------------|---------------------|
+| ![mtube](../../../examples/images/caffeine_mtube.svg) | ![mnh mtube](../../../examples/images/mnh_mtube.svg) |
 
 ```bash
 xyzrender caffeine.xyz --config mtube
 xyzrender mnh.xyz --config mtube --unbond pi --hy
+```
+
+## Haptic centroid bonds
+
+Replace the fan of individual metal-to-ring bonds with a single dotted bond from the metal to the ring centroid — the standard crystallographic convention for eta-coordination.
+
+| Default | Haptic |
+|---------|--------|
+| ![mnh mtube](../../../examples/images/mnh_mtube.svg) | ![haptic](../../../examples/images/mnh_haptic.svg) |
+
+```bash
 xyzrender mnh.xyz --haptic
 ```
 
