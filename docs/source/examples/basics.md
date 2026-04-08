@@ -43,7 +43,7 @@ xyzrender mnh.xyz --config mtube --unbond pi --hy
 
 ## Haptic centroid bonds
 
-Replace the fan of individual metal-to-ring bonds with a single dotted bond from the metal to the ring centroid — the standard crystallographic convention for eta-coordination.
+Replace the individual metal-ring bonds with a single dotted bond from the metal to the ring centroid.
 
 | Default | Haptic |
 |---------|--------|
