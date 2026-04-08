@@ -47,7 +47,7 @@ Replace the fan of individual metal-to-ring bonds with a single dotted bond from
 
 | Default | Haptic |
 |---------|--------|
-| ![mnh mtube](../../../examples/images/mnh_mtube.svg) | ![haptic](../../../examples/images/mnh_haptic.svg) |
+| ![mnh](../../../examples/images/mnh.svg) | ![haptic](../../../examples/images/mnh_haptic.svg) |
 
 ```bash
 xyzrender mnh.xyz --haptic
