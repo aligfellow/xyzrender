@@ -73,6 +73,7 @@ Display:
   --bo / --no-bo          Show/hide bond orders
   --unbond SPEC           Hide bonds: M-L  sbm  Fe-het  1-3  pi
   --bond PAIR             Force-show bonds: 1-3  4-5
+  --haptic                Pi-coordination → single centroid bond
   --vdw [ATOMS]           VdW spheres (all or specific atoms/elements: 1,2,6-8,M,H)
   --no-bonds              Hide all bonds
 
@@ -239,6 +240,12 @@ def main() -> None:
         help='Force-show/add bonds: "1-3 4-5" (1-indexed, overrides --unbond)',
     )
     disp_g.add_argument("--bo", action=argparse.BooleanOptionalAction, default=None, help="Bond orders")
+    disp_g.add_argument(
+        "--haptic",
+        action="store_true",
+        default=False,
+        help="Replace pi-coordination bonds with single metal-to-centroid bond",
+    )
     disp_g.add_argument(
         "-k", "--kekule", action="store_true", default=False, help="Use Kekule bond orders (no aromatic 1.5)"
     )
@@ -756,6 +763,8 @@ def main() -> None:
         cmap_symm=args.cmap_symm,
     )
 
+    if args.haptic:
+        cfg.haptic = True
     if args.skeletal_label_color is not None:
         cfg.skeletal_label_color = args.skeletal_label_color
 
@@ -1046,12 +1055,13 @@ def main() -> None:
 
     # --- Bond rules: apply once to mol.graph so render() and render_gif() both
     #     receive the resolved graph; their internal guards then become no-ops. ---
-    if cfg.unbond or cfg.bond:
+    if cfg.unbond or cfg.bond or cfg.haptic:
         from xyzrender.bond_rules import apply_bond_rules
 
         apply_bond_rules(mol.graph, cfg)
         cfg.unbond = []
         cfg.bond = []
+        cfg.haptic = False
 
     # --- Render static SVG ---
     try:

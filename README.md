@@ -24,7 +24,7 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Transition state bonds** — forming/breaking bonds rendered as dashed lines, detected automatically from imaginary frequency vibrations via [`graphRC`](https://github.com/aligfellow/graphRC)
 - **Stereochemistry labels** — R/S, E/Z, axial, planar (metallocene and CIP), and helical chirality labels detected and annotated automatically via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
 - **Non-covalent interactions** — hydrogen bonds and other weak interactions shown as dotted lines, detected automatically via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
-- **Bond display rules** — selectively hide or add bonds using element categories (`M`, `sbm`, `L`, `het`), element pairs (`M-L`, `Fe-het`), pi-coordination (`M-pi`), or atom indices
+- **Bond display rules** — selectively hide or add bonds using element categories (`M`, `sbm`, `L`, `het`), element pairs (`M-L`, `Fe-het`), pi-coordination (`M-pi`), or atom indices; haptic mode replaces pi-coordination fans with single centroid bonds
 - **Surfaces** — molecular orbitals, electron density, ESP colormapping, NCI surfaces, and vdW spheres; solid, mesh, contour, wire, and dot styles
 - **Styling** — highlight & molecule color, radius scaling (by element, category, or index), style regions, atom property colormaps with colorbar, and depth-of-field / depth-fog effects
 - **Annotations** — distances, angles, dihedrals, custom labels, atom indices, and 3D vector arrows (dipoles, forces, fields)
@@ -123,9 +123,14 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |--------|------|------------|-----|
 | ![skeletal](examples/images/caffeine_skeletal.svg) | ![bubble](examples/images/caffeine_bubble.svg) | ![tube](examples/images/caffeine_tube.svg) | ![btube](examples/images/caffeine_btube.svg) |
 
-| Wire | Graph | MTube | MTube (metal) + `unbond pi` |
-|--|--|--|--|
-| ![wire](examples/images/caffeine_wire.svg) | ![graph](examples/images/caffeine_graph.svg) | ![mtube](examples/images/caffeine_mtube.svg) | ![mtube](examples/images/mnh_mtube.svg) | 
+| Wire | Graph | MTube |
+|--|--|--|
+| ![wire](examples/images/caffeine_wire.svg) | ![graph](examples/images/caffeine_graph.svg) | ![mtube](examples/images/caffeine_mtube.svg) |
+
+| MTube + `unbond pi` | `haptic` |
+|--|--|
+| ![mtube](examples/images/mnh_mtube.svg) | ![haptic](examples/images/mnh_haptic.svg) |
+
 
 ### Style regions
 
