@@ -625,9 +625,9 @@ def render(
         Render MO lobes / density isosurface from a cube file loaded via
         :func:`load`.
     esp:
-        Path to an ESP ``.cube`` file (density iso + ESP colour map).
+        Path to an ESP ``.cube`` or ``.cub`` file (density iso + ESP colour map).
     nci:
-        Path to an NCI reduced-density-gradient ``.cube`` file.
+        Path to an NCI reduced-density-gradient ``.cube`` or ``.cub`` file.
     hull:
         ``True`` = hull over all heavy atoms; ``"rings"`` = one hull per
         aromatic ring (auto-detected from the molecular graph); a flat list
@@ -2323,16 +2323,16 @@ def _validate_and_compute_surfaces(
         msg = f"Surface flags are mutually exclusive: {', '.join(active)}"
         raise ValueError(msg)
     if mo and cube_data is None:
-        msg = "mo=True requires a .cube file loaded via load()"
+        msg = "mo=True requires a .cube or .cub file loaded via load()"
         raise ValueError(msg)
     if dens and cube_data is None:
-        msg = "dens=True requires a .cube file loaded via load()"
+        msg = "dens=True requires a .cube or .cub file loaded via load()"
         raise ValueError(msg)
     if esp is not None and cube_data is None:
-        msg = "esp= requires a density .cube file loaded via load()"
+        msg = "esp= requires a density .cube or .cub file loaded via load()"
         raise ValueError(msg)
     if nci is not None and cube_data is None:
-        msg = "nci= requires a density .cube file loaded via load()"
+        msg = "nci= requires a density .cube or .cub file loaded via load()"
         raise ValueError(msg)
 
     has_mo = bool(mo)

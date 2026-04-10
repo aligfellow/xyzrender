@@ -1,6 +1,6 @@
 # Molecular Orbitals
 
-Render MO lobes from `.cube` files with `--mo`. The cube file contains both geometry and the orbital grid — no separate XYZ file needed.
+Render MO lobes from `.cube` or `.cub` files with `--mo`. The cube file contains both geometry and the orbital grid — no separate XYZ file needed.
 
 When auto-orientation is active (default), the molecule is tilted 45° around the x-axis after alignment so lobes above and below the molecular plane are clearly visible. Use `--no-orient` to render in raw cube coordinates, or `-I` to use the [v viewer](https://github.com/briling/v) for interactive orientation.
 
@@ -46,7 +46,7 @@ xyzrender caffeine_homo.cube --mo --surface-style dot
 
 | Flag | Description |
 |------|-------------|
-| `--mo` | Enable MO lobe rendering (required for `.cube` input) |
+| `--mo` | Enable MO lobe rendering (required for `.cube` or `.cub` input) |
 | `--iso` | Isosurface threshold (default: 0.05 — smaller value = larger lobes) |
 | `--opacity` | Surface opacity multiplier (default: 1.0) |
 | `--surface-style STYLE` | Surface rendering style: `solid`, `mesh`, `contour`, `dot` |

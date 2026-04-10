@@ -312,7 +312,7 @@ def load_cube(
     Parameters
     ----------
     path:
-        Path to the ``.cube`` file.
+        Path to the ``.cube`` or ``.cub`` file.
     charge:
         Formal charge override.
     multiplicity:

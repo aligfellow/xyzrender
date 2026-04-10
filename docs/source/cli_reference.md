@@ -96,12 +96,12 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 
 | Flag | Description |
 |------|-------------|
-| `--mo` | Render MO lobes from `.cube` input |
+| `--mo` | Render MO lobes from `.cube` or `.cub` input |
 | `--mo-colors POS NEG` | MO lobe colors (hex or named) |
 | `--mo-blur SIGMA` | MO Gaussian blur sigma (default: 0.8, ADVANCED) |
 | `--mo-upsample N` | MO contour upsample factor (default: 3, ADVANCED) |
 | `--flat-mo` | Render all MO lobes as front-facing (no depth classification) |
-| `--dens` | Render density isosurface from `.cube` input |
+| `--dens` | Render density isosurface from `.cube` or `.cub` input |
 | `--dens-color` | Density surface color (default: `steelblue`) |
 | `--esp CUBE` | ESP cube file for potential coloring (implies `--dens`) |
 | `--nci-surf CUBE` | NCI gradient (RDG) cube — render NCI surface lobes |

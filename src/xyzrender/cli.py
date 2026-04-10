@@ -54,7 +54,7 @@ _COMPACT_HELP = """\
 Usage: xyzrender [input] [options]
 
 Input/Output:
-  input                   .xyz .mol .sdf .mol2 .pdb .cif .cube .com .nw ...
+  input                   .xyz .mol .sdf .mol2 .pdb .cif .cube/.cub .com .nw ...
   -o FILE                 Output file (.svg, .png, .pdf, .tif, .tiff)
   -c N / -m N             Charge / multiplicity (for bond order detection)
   --smi SMILES            Render from SMILES string (requires rdkit)
@@ -94,7 +94,7 @@ GIF Animation:
   -go FILE / --gif-fps N  GIF output path / frames per second
 
 Surfaces:
-  --mo / --dens           MO lobes / density isosurface (.cube input)
+  --mo / --dens           MO lobes / density isosurface (.cube/.cub input)
   --esp CUBE              ESP colour mapping (density + ESP cubes)
   --nci-surf CUBE         NCI interaction surface (density + gradient cubes)
   --iso F                 Isovalue (MO: 0.05, dens: 0.001, NCI: 0.3)
@@ -146,7 +146,7 @@ def main() -> None:
     io_g.add_argument(
         "input",
         nargs="?",
-        help="Input file (.xyz, .mol, .sdf, .mol2, .pdb, .smi, .cif, .cube, "
+        help="Input file (.xyz, .mol, .sdf, .mol2, .pdb, .smi, .cif, .cube/.cub, "
         ".com, .gjf, .inp, .nw, .vasp, POSCAR, .in, …)",
     )
     io_g.add_argument("-o", "--output", help="Output file (.svg, .png, .pdf)")
@@ -263,7 +263,7 @@ def main() -> None:
 
     # --- Surfaces (MO / density / ESP) ---
     surf_g = p.add_argument_group("surfaces")
-    surf_g.add_argument("--mo", action="store_true", default=False, help="Render MO lobes from .cube input")
+    surf_g.add_argument("--mo", action="store_true", default=False, help="Render MO lobes from .cube/.cub input")
     surf_g.add_argument(
         "--mo-colors",
         nargs=2,
@@ -271,7 +271,7 @@ def main() -> None:
         metavar=("POS", "NEG"),
         help="MO lobe colors as hex or named color (default: steelblue maroon)",
     )
-    surf_g.add_argument("--dens", action="store_true", default=False, help="Render density isosurface from .cube input")
+    surf_g.add_argument("--dens", action="store_true", default=False, help="Render density isosurface from .cube/.cub input")
     surf_g.add_argument("--dens-color", default=None, help="Density surface color (hex or named, default: steelblue)")
     surf_g.add_argument(
         "--esp", default=None, metavar="CUBE", help="ESP cube file for potential coloring (implies --dens)"
