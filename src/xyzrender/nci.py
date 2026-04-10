@@ -32,8 +32,6 @@ from xyzrender.contours import (
     project_region_to_contours,
     render_lobe_svg,
 )
-from xyzrender.esp import _build_lut
-
 # Blur is kept tight so the rendered patch faithfully represents the RDG
 # isosurface without over-inflation.
 _NCI_BLUR_SIGMA = 1.0
@@ -60,8 +58,36 @@ _NCI_VMAX: float = +0.5
 # Minimum PNG resolution for the static colored raster (upsampled if below this)
 _NCI_MIN_PNG_RES: int = 300
 
-# 256-entry RGB LUT built once at import (same mechanism as ESP)
-_NCI_LUT = _build_lut(NCI_COLORMAP)
+
+def _build_nci_lut(stops: list[tuple[float, str]]) -> np.ndarray:
+    """Build a 256-entry RGB LUT from NCI's local color-stop definition."""
+    from xyzrender.colors import Color
+
+    color_stops = [Color.from_str(name) for _, name in stops]
+    lut = np.zeros((256, 3), dtype=np.uint8)
+    for i in range(256):
+        t = i / 255.0
+        for j in range(len(color_stops) - 1):
+            c0 = color_stops[j]
+            c1 = color_stops[j + 1]
+            t0 = j / (len(color_stops) - 1)
+            t1 = (j + 1) / (len(color_stops) - 1)
+            if t <= t1:
+                s = (t - t0) / (t1 - t0) if t1 > t0 else 0.0
+                lut[i] = (
+                    int(c0.r + s * (c1.r - c0.r)),
+                    int(c0.g + s * (c1.g - c0.g)),
+                    int(c0.b + s * (c1.b - c0.b)),
+                )
+                break
+        else:
+            c = color_stops[-1]
+            lut[i] = (c.r, c.g, c.b)
+    return lut
+
+
+# 256-entry RGB LUT built once at import
+_NCI_LUT = _build_nci_lut(NCI_COLORMAP)
 
 # 26-connectivity (face + edge + corner neighbours): diagonal NCI sheets viewed at an
 # angle to the grid axes would fragment into isolated voxels under 6-connectivity.

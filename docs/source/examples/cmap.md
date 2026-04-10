@@ -33,3 +33,8 @@ The colormap file has two columns — **1-indexed atom number** and value. Any e
 | `--cmap-palette NAME` | Colormap palette (default: `viridis`) |
 | `--cbar` | Add a vertical colorbar on the right showing the data range |
 | `--label-size PT` | Font size for colorbar tick labels (and all other labels) |
+
+Recommended palette set for `xyzrender`:
+
+- Best for `--cmap`: `viridis`, `plasma`, `coolwarm`
+- Best for ESP: `rainbow`, `coolwarm`, `RdBu`

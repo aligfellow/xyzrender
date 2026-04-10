@@ -58,6 +58,7 @@ Map electrostatic potential onto the density isosurface using two cube files: de
 xyzrender caffeine_dens.cube --esp caffeine_esp.cube -o caffeine_esp.svg
 xyzrender caffeine_dens.cube --esp caffeine_esp.cube --iso 0.005 --opacity 0.75 -o caffeine_esp_custom.svg
 xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cbar -o caffeine_esp_cbar.svg
+xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cmap-palette coolwarm --cbar -o caffeine_esp_coolwarm.svg
 ```
 
 | Flag | Description |
@@ -65,4 +66,5 @@ xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cbar -o caffeine_esp_cbar
 | `--esp CUBE` | ESP cube file to map onto the density isosurface |
 | `--iso` | Isosurface threshold for the density surface (default: 0.05) |
 | `--opacity` | Surface opacity multiplier (default: 1.0) |
+| `--cmap-palette NAME` | Shared scalar palette override for ESP coloring and the ESP legend |
 | `--cbar` | Add a vertical ESP legend on the right using the plotted value range |

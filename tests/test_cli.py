@@ -114,6 +114,23 @@ def test_cub_density_surface(tmp_path):
     assert out.exists()
 
 
+@pytest.mark.skipif(
+    not ((_STRUCTURES / "caffeine_dens.cube").exists() and (_STRUCTURES / "caffeine_esp.cube").exists()),
+    reason="fixtures not found",
+)
+def test_cli_esp_uses_shared_cmap_palette(tmp_path):
+    dens = _STRUCTURES / "caffeine_dens.cube"
+    esp = _STRUCTURES / "caffeine_esp.cube"
+    out = tmp_path / "esp.svg"
+
+    result = _run_cli(str(dens), "--esp", str(esp), "--cmap-palette", "coolwarm", "--cbar", "-o", str(out))
+
+    assert result.returncode == 0
+    svg = out.read_text()
+    assert "#b40426" in svg
+    assert "#3b4cc0" in svg
+
+
 def test_no_input_error():
     result = _run_cli(expect_error=True)
     assert result.returncode != 0

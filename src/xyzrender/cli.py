@@ -403,7 +403,6 @@ def main() -> None:
         dest="ensemble_color",
         help="Palette (viridis, spectral, coolwarm), a single color, or comma-separated colors",
     )
-
     # --- Orientation ---
     orient_g = p.add_argument_group("orientation")
     orient_g.add_argument(
@@ -602,9 +601,9 @@ def main() -> None:
     )
     annot_g.add_argument(
         "--cmap-palette",
-        default="viridis",
+        default=None,
         metavar="NAME",
-        help="Colormap palette name (default: viridis)",
+        help="Shared scalar palette override (default: viridis for --cmap, rainbow for --esp)",
     )
     annot_g.add_argument(
         "--cbar",
@@ -830,7 +829,6 @@ def main() -> None:
         p.error("--ensemble cannot be combined with --gif-ts or --gif-trj (use gif_rot only)")
     if args.ensemble and from_stdin:
         p.error("--ensemble cannot be used with stdin input")
-
     # Validate --smi / --mol-frame / --rebuild usage
     if args.smi and args.input:
         p.error("--smi cannot be combined with a positional input file")
@@ -1035,7 +1033,6 @@ def main() -> None:
             kekule=args.kekule,
             reference_mol=mol,
         )
-
     # --- Crystal ghost resolution ---
     # Ghosts default: on whenever the molecule carries cell_data (auto-detected or explicit)
     _show_ghosts = args.ghosts if args.ghosts is not None else mol.cell_data is not None

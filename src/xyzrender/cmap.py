@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import numpy as np
+
 from xyzrender.colors import CMAP_PALETTE_NAMES, CMAP_PALETTES, Color
 
 
@@ -23,6 +25,16 @@ def get_palette_stops(name: str) -> list[Color]:
 def map_color(t: float, palette: str) -> Color:
     """Map t ∈ [0, 1] to a color using the named palette."""
     return _interpolate(t, get_palette_stops(palette))
+
+
+def build_palette_lut(palette: str, size: int = 256) -> np.ndarray:
+    """Return an RGB LUT sampled from a named palette."""
+    lut = np.zeros((size, 3), dtype=np.uint8)
+    scale = max(size - 1, 1)
+    for i in range(size):
+        color = map_color(i / scale, palette)
+        lut[i] = (color.r, color.g, color.b)
+    return lut
 
 
 # ---------------------------------------------------------------------------

@@ -548,7 +548,6 @@ def load_trajectory_frames(path: str | Path) -> list[dict]:
     logger.info("Loaded %d frames", len(frames))
     return frames
 
-
 def load_stdin(charge: int = 0, multiplicity: int | None = None, kekule: bool = False) -> nx.Graph:
     """Read atoms from stdin — auto-detects XYZ and line-by-line formats.
 

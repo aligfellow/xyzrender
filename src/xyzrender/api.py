@@ -492,6 +492,7 @@ def render(
     idx: bool | str = False,
     cmap: str | os.PathLike | dict[int, float] | None = None,
     cmap_range: tuple[float, float] | None = None,
+    cmap_palette: str | None = None,
     cmap_symm: bool = False,
     cbar: bool = False,
     # --- Annotations ---
@@ -602,6 +603,10 @@ def render(
         Atom property colour map: either a ``{1-indexed atom: value}`` dict,
         or a path to a two-column text file (index value, same format as
         ``--cmap`` in the CLI).
+    cmap_palette:
+        Shared scalar palette override for atom colormaps and ESP surfaces.
+        Defaults to ``viridis`` for ``cmap=...`` and ``rainbow`` for ESP
+        when not specified explicitly.
     labels:
         Inline annotation spec strings (e.g. ``["1 2 d", "3 a", "1 NBO"]``).
     label_file:
@@ -745,6 +750,7 @@ def render(
         idx=idx,
         cmap=cmap,
         cmap_range=cmap_range,
+        cmap_palette=cmap_palette,
         cmap_symm=cmap_symm,
         cbar=cbar,
         opacity=opacity,
@@ -2033,6 +2039,7 @@ def _apply_render_overlays(
     idx: bool | str = False,
     cmap: str | os.PathLike | dict[int, float] | None = None,
     cmap_range: tuple[float, float] | None = None,
+    cmap_palette: str | None = None,
     cmap_symm: bool = False,
     cbar: bool = False,
     opacity: float | None = None,
@@ -2054,6 +2061,8 @@ def _apply_render_overlays(
         cfg.atom_cmap = _resolve_cmap(cmap, graph)
     if cmap_range is not None:
         cfg.cmap_range = cmap_range
+    if cmap_palette is not None:
+        cfg.cmap_palette = cmap_palette
     if cmap_symm:
         cfg.cmap_symm = True
     if cbar:

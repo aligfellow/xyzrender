@@ -7,7 +7,6 @@ import pytest
 from xyzrender import SVGResult, load, render
 from xyzrender.api import EnsembleFrames, _build_ensemble_molecule
 from xyzrender.ensemble import _Z_NUDGE, align, merge_graphs
-
 if TYPE_CHECKING:
     from pathlib import Path
 

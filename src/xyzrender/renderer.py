@@ -10,8 +10,17 @@ import numpy as np
 from xyzgraph import DATA
 
 from xyzrender.cmap import atom_colors as cmap_atom_colors
-from xyzrender.cmap import colorbar_extra_width, colorbar_svg, colorbar_svg_from_stops
-from xyzrender.colors import _FOG_NEAR, WHITE, Color, blend_fog, get_color, get_gradient_colors, resolve_color
+from xyzrender.cmap import colorbar_extra_width, colorbar_svg
+from xyzrender.colors import (
+    _FOG_NEAR,
+    WHITE,
+    Color,
+    blend_fog,
+    get_color,
+    get_gradient_colors,
+    resolve_color,
+    resolve_scalar_palette,
+)
 from xyzrender.dens import dens_layers_svg
 from xyzrender.hull import (
     get_convex_hull_edges_silhouette,
@@ -252,7 +261,14 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         else:
             vmin = min(cmap_vals.values())
             vmax = max(cmap_vals.values())
-        colors = cmap_atom_colors(cmap_vals, n, cfg.cmap_palette, vmin, vmax, cfg.cmap_unlabeled)
+        colors = cmap_atom_colors(
+            cmap_vals,
+            n,
+            resolve_scalar_palette(cfg.cmap_palette, purpose="cmap"),
+            vmin,
+            vmax,
+            cfg.cmap_unlabeled,
+        )
     elif _acfg is not None:
         colors = [get_color(a_nums[ai], _acfg[ai].color_overrides) for ai in range(n)]
     else:
@@ -261,18 +277,14 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     cbar_vmin: float | None = None
     cbar_vmax: float | None = None
     cbar_palette: str | None = None
-    cbar_stops: list[Color] | None = None
     if cfg.cbar and cfg.atom_cmap is not None:
         cbar_vmin = vmin
         cbar_vmax = vmax
-        cbar_palette = cfg.cmap_palette
+        cbar_palette = resolve_scalar_palette(cfg.cmap_palette, purpose="cmap")
     elif cfg.cbar and cfg.esp_surface is not None:
-        from xyzrender.esp import ESP_COLORMAP
-
-        half_range = max(abs(cfg.esp_surface.esp_vmin), abs(cfg.esp_surface.esp_vmax), 1e-10)
-        cbar_vmin = -half_range
-        cbar_vmax = half_range
-        cbar_stops = [Color.from_str(name) for _, name in ESP_COLORMAP]
+        cbar_vmin = cfg.esp_surface.esp_vmin
+        cbar_vmax = cfg.esp_surface.esp_vmax
+        cbar_palette = resolve_scalar_palette(cfg.cmap_palette, purpose="esp")
 
     # Reserve space on the right for the cmap colorbar.
     # canvas_w stays at the molecule width so _proj() keeps the molecule centred there.
@@ -1555,10 +1567,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
 
     # --- Colorbar (right side) ---
     if cfg.cbar and cbar_vmin is not None and cbar_vmax is not None:
-        if cbar_palette is not None:
-            svg.extend(colorbar_svg(cbar_vmin, cbar_vmax, cbar_palette, canvas_w, canvas_h, fs_label, cfg.label_color))
-        elif cbar_stops is not None:
-            svg.extend(colorbar_svg_from_stops(cbar_vmin, cbar_vmax, cbar_stops, canvas_w, canvas_h, fs_label, cfg.label_color))
+        svg.extend(colorbar_svg(cbar_vmin, cbar_vmax, cbar_palette, canvas_w, canvas_h, fs_label, cfg.label_color))
 
     svg.append("</svg>")
     raw = "\n".join(svg)

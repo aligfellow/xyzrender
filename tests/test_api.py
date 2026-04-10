@@ -142,6 +142,14 @@ def test_render_atom_cmap_with_range(caffeine):
     assert str(result).startswith("<svg")
 
 
+def test_render_atom_cmap_with_non_default_palette(caffeine):
+    n = caffeine.graph.number_of_nodes()
+    cmap = {i + 1: float(i) / n for i in range(n)}
+    svg = str(render(caffeine, cmap=cmap, cmap_range=(0.0, 1.0), cmap_palette="coolwarm", cbar=True, orient=False))
+    assert "#b40426" in svg
+    assert "#3b4cc0" in svg
+
+
 # ---------------------------------------------------------------------------
 # render() — hydrogen flags
 # ---------------------------------------------------------------------------

@@ -222,7 +222,7 @@ def build_config(
     idx_format: str = "sn",
     atom_cmap: dict[int, float] | None = None,
     cmap_range: tuple[float, float] | None = None,
-    cmap_palette: str = "viridis",
+    cmap_palette: str | None = None,
     cbar: bool = False,
     cmap_symm: bool = False,
 ) -> RenderConfig:

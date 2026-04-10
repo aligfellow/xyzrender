@@ -181,6 +181,41 @@ def test_render_svg_includes_esp_colorbar(caffeine_graph, caffeine_dens_cube, ca
     assert ".000" in svg
 
 
+def test_render_svg_esp_palette_changes_colorbar(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube):
+    from xyzrender.renderer import render_svg
+
+    cfg = RenderConfig(auto_orient=False, cbar=True, cmap_palette="coolwarm")
+    compute_esp_surface(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
+    svg = render_svg(caffeine_graph, cfg)
+
+    assert "#b40426" in svg
+    assert "#3b4cc0" in svg
+
+
+def test_render_svg_esp_colorbar_uses_actual_range(caffeine_graph):
+    from xyzrender.esp import ESPSurface
+    from xyzrender.renderer import render_svg
+
+    cfg = RenderConfig(auto_orient=False, cbar=True)
+    cfg.esp_surface = ESPSurface(
+        png_data_uri="data:image/png;base64,",
+        resolution=10,
+        x_min=0.0,
+        x_max=1.0,
+        y_min=0.0,
+        y_max=1.0,
+        esp_vmin=-0.029,
+        esp_vmax=0.185,
+    )
+
+    svg = render_svg(caffeine_graph, cfg)
+
+    assert ">0</text>" in svg
+    assert ">.185</text>" in svg
+    assert ">\u22120</text>" in svg
+    assert ">.029</text>" in svg
+
+
 # ---------------------------------------------------------------------------
 # compute_nci_surface
 # ---------------------------------------------------------------------------

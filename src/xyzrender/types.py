@@ -278,7 +278,7 @@ class RenderConfig:
     cmap_range: tuple[float, float] | None = None
     cmap_symm: bool = False  # symmetric range about 0: [-max(|v|), +max(|v|)]
     cmap_unlabeled: str = "#ffffff"  # fill for atoms absent from cmap file
-    cmap_palette: str = "viridis"
+    cmap_palette: str | None = None
     cbar: bool = False  # show a vertical colorbar on the right
     # Surface parameter defaults (populated from preset by build_config)
     mo_isovalue: float = _DEFAULT_MO_ISOVALUE
