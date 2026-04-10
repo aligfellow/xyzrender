@@ -216,9 +216,9 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### Surfaces (cube files)
 
-| MO (HOMO) | MO (LUMO) | Density | ESP | ESP + colorbar |
-|-----------|-----------|---------|-----|----------------|
-| ![homo](examples/images/caffeine_homo.svg) | ![lumo](examples/images/caffeine_lumo.svg) | ![dens](examples/images/caffeine_dens.svg) | ![esp](examples/images/caffeine_esp.svg) | ![esp cbar](examples/images/caffeine_esp_cbar.svg) |
+| MO (HOMO) | MO (LUMO) | Density | ESP | ESP + colorbar | ESP + coolwarm |
+|-----------|-----------|---------|-----|----------------|----------------|
+| ![homo](examples/images/caffeine_homo.svg) | ![lumo](examples/images/caffeine_lumo.svg) | ![dens](examples/images/caffeine_dens.svg) | ![esp](examples/images/caffeine_esp.svg) | ![esp cbar](examples/images/caffeine_esp_cbar.svg) | ![esp coolwarm](examples/images/caffeine_esp_coolwarm.svg) |
 
 | MO mesh | MO contour | MO dot | Density contour |
 |---------|------------|--------|-----------------|

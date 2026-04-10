@@ -65,6 +65,7 @@ xyzrender "$DIR/caffeine.xyz" --hy --cmap "$DIR/caffeine_charges.txt" -o "$IMG/c
 xyzrender "$DIR/caffeine.xyz" --hy --cmap "$DIR/caffeine_charges.txt" -o "$IMG/caffeine_cmap.svg" --cmap-range -0.5 0.5
 xyzrender "$DIR/caffeine.xyz" --hy --cmap "$DIR/caffeine_charges.txt" --cbar -o "$IMG/caffeine_cmap_colorbar.svg"
 xyzrender "$DIR/caffeine_dens.cube" --esp "$DIR/caffeine_esp.cube" --cbar -o "$IMG/caffeine_esp_cbar.svg"
+xyzrender "$DIR/caffeine_dens.cube" --esp "$DIR/caffeine_esp.cube" --cmap-palette coolwarm --cbar -o "$IMG/caffeine_esp_coolwarm.svg"
 xyzrender "$DIR/caffeine.xyz" -l 13 6 9 4 t -l 1 a -l 14 d -l 7 12 8 a -l 11 d -o "$IMG/caffeine_dihedral.svg"
 xyzrender "$DIR/caffeine.xyz" -l 1 best -l 2 "NBO: 0.4" -o "$IMG/caffeine_labels.svg"
 xyzrender "$DIR/sn2.out" --ts --label "$DIR/sn2_label.txt" -o "$IMG/sn2_ts_label.svg" --label-size 40
