@@ -169,6 +169,18 @@ def test_esp_surface_svg_returns_elements(caffeine_graph, caffeine_dens_cube, ca
     assert all(isinstance(e, str) for e in elems)
 
 
+def test_render_svg_includes_esp_colorbar(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube):
+    from xyzrender.renderer import render_svg
+
+    cfg = RenderConfig(auto_orient=False, cbar=True)
+    compute_esp_surface(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
+    svg = render_svg(caffeine_graph, cfg)
+
+    assert "linearGradient" in svg
+    assert "\u2212" in svg
+    assert ".000" in svg
+
+
 # ---------------------------------------------------------------------------
 # compute_nci_surface
 # ---------------------------------------------------------------------------

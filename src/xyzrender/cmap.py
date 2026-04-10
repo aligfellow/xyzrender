@@ -1,4 +1,4 @@
-"""Colormap utilities for --cmap atom coloring."""
+"""Colormap utilities for scalar color legends and ``--cmap`` atom coloring."""
 
 from __future__ import annotations
 
@@ -62,25 +62,25 @@ def colorbar_extra_width(vmin: float, vmax: float, fs: float) -> int:
     return int(_MARGIN + _BAR_W + _TICK_GAP + 3 + (max_int_chars + 4) * char_w + 10)
 
 
-def colorbar_svg(
+def colorbar_svg_from_stops(
     vmin: float,
     vmax: float,
-    palette: str,
+    stops: list[Color],
     mol_canvas_w: float,
     canvas_h: float,
     font_size: float,
     label_color: str,
 ) -> list[str]:
-    """Return SVG element strings for a vertical colorbar to the right of the molecule."""
-    stops = get_palette_stops(palette)
+    """Return SVG element strings for a vertical colorbar using explicit color stops."""
+    if len(stops) < 2:
+        raise ValueError("Colorbar requires at least two color stops")
 
     bar_x = mol_canvas_w + _MARGIN
     bar_h = max(min(canvas_h * 0.80, 400.0), 60.0)
     bar_top = (canvas_h - bar_h) / 2
     bar_bot = bar_top + bar_h
 
-    # Gradient: top = vmax (last stop = brightest), bottom = vmin (first stop = darkest).
-    # Stops in ascending offset order (SVG spec).
+    # Gradient: top = vmax, bottom = vmin.
     n = len(stops)
     grad_stops = "".join(
         f'<stop offset="{int(i / (n - 1) * 100)}%" stop-color="{c.hex}"/>' for i, c in enumerate(reversed(stops))
@@ -116,3 +116,17 @@ def colorbar_svg(
         elems.append(f'  <text x="{decimal_x:.1f}" y="{ty:.1f}" {text_attrs} text-anchor="start">.{frac_part}</text>')
 
     return elems
+
+
+def colorbar_svg(
+    vmin: float,
+    vmax: float,
+    palette: str,
+    mol_canvas_w: float,
+    canvas_h: float,
+    font_size: float,
+    label_color: str,
+) -> list[str]:
+    """Return SVG element strings for a vertical colorbar to the right of the molecule."""
+    stops = get_palette_stops(palette)
+    return colorbar_svg_from_stops(vmin, vmax, stops, mol_canvas_w, canvas_h, font_size, label_color)

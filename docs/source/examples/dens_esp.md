@@ -50,13 +50,14 @@ For density surfaces, `mesh` falls back to `contour` automatically (the molecula
 
 Map electrostatic potential onto the density isosurface using two cube files: density (main input) and ESP (`--esp`). Both must come from the same calculation (identical grid). Colored **blue** (positive/electron-poor) → **green** (zero) → **red** (negative/electron-rich).
 
-| Default | Custom iso + opacity |
-|---------|---------------------|
-| ![Default](../../../examples/images/caffeine_esp.svg) | ![Custom iso + opacity](../../../examples/images/caffeine_esp_custom.svg) |
+| Default | With colorbar | Custom iso + opacity |
+|---------|---------------|---------------------|
+| ![Default](../../../examples/images/caffeine_esp.svg) | ![With colorbar](../../../examples/images/caffeine_esp_cbar.svg) | ![Custom iso + opacity](../../../examples/images/caffeine_esp_custom.svg) |
 
 ```bash
 xyzrender caffeine_dens.cube --esp caffeine_esp.cube -o caffeine_esp.svg
 xyzrender caffeine_dens.cube --esp caffeine_esp.cube --iso 0.005 --opacity 0.75 -o caffeine_esp_custom.svg
+xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cbar -o caffeine_esp_cbar.svg
 ```
 
 | Flag | Description |
@@ -64,3 +65,4 @@ xyzrender caffeine_dens.cube --esp caffeine_esp.cube --iso 0.005 --opacity 0.75 
 | `--esp CUBE` | ESP cube file to map onto the density isosurface |
 | `--iso` | Isosurface threshold for the density surface (default: 0.05) |
 | `--opacity` | Surface opacity multiplier (default: 1.0) |
+| `--cbar` | Add a vertical ESP legend on the right using the plotted value range |

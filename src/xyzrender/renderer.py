@@ -10,7 +10,7 @@ import numpy as np
 from xyzgraph import DATA
 
 from xyzrender.cmap import atom_colors as cmap_atom_colors
-from xyzrender.cmap import colorbar_extra_width, colorbar_svg
+from xyzrender.cmap import colorbar_extra_width, colorbar_svg, colorbar_svg_from_stops
 from xyzrender.colors import _FOG_NEAR, WHITE, Color, blend_fog, get_color, get_gradient_colors, resolve_color
 from xyzrender.dens import dens_layers_svg
 from xyzrender.hull import (
@@ -258,10 +258,26 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     else:
         colors = [get_color(a, cfg.color_overrides) for a in a_nums]
 
+    cbar_vmin: float | None = None
+    cbar_vmax: float | None = None
+    cbar_palette: str | None = None
+    cbar_stops: list[Color] | None = None
+    if cfg.cbar and cfg.atom_cmap is not None:
+        cbar_vmin = vmin
+        cbar_vmax = vmax
+        cbar_palette = cfg.cmap_palette
+    elif cfg.cbar and cfg.esp_surface is not None:
+        from xyzrender.esp import ESP_COLORMAP
+
+        half_range = max(abs(cfg.esp_surface.esp_vmin), abs(cfg.esp_surface.esp_vmax), 1e-10)
+        cbar_vmin = -half_range
+        cbar_vmax = half_range
+        cbar_stops = [Color.from_str(name) for _, name in ESP_COLORMAP]
+
     # Reserve space on the right for the cmap colorbar.
     # canvas_w stays at the molecule width so _proj() keeps the molecule centred there.
     # _cb_svg_w is the full SVG width used only in the viewBox / width attribute.
-    cb_extra_w = colorbar_extra_width(vmin, vmax, fs_label) if (cfg.cbar and cfg.atom_cmap is not None) else 0
+    cb_extra_w = colorbar_extra_width(cbar_vmin, cbar_vmax, fs_label) if cbar_vmin is not None and cbar_vmax is not None else 0
     _cb_svg_w = canvas_w + cb_extra_w
 
     # Override atom colors for overlay (mol2) atoms — must happen before gradient defs
@@ -1537,9 +1553,12 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     canvas_h,
                 )
 
-    # --- Colorbar (right side, only when --cmap-colorbar is active) ---
-    if cfg.cbar and cfg.atom_cmap is not None:
-        svg.extend(colorbar_svg(vmin, vmax, cfg.cmap_palette, canvas_w, canvas_h, fs_label, cfg.label_color))
+    # --- Colorbar (right side) ---
+    if cfg.cbar and cbar_vmin is not None and cbar_vmax is not None:
+        if cbar_palette is not None:
+            svg.extend(colorbar_svg(cbar_vmin, cbar_vmax, cbar_palette, canvas_w, canvas_h, fs_label, cfg.label_color))
+        elif cbar_stops is not None:
+            svg.extend(colorbar_svg_from_stops(cbar_vmin, cbar_vmax, cbar_stops, canvas_w, canvas_h, fs_label, cfg.label_color))
 
     svg.append("</svg>")
     raw = "\n".join(svg)

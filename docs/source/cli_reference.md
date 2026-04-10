@@ -124,7 +124,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--cmap-range VMIN VMAX` | Explicit colormap range (default: auto from file) |
 | `--cmap-symm` | Symmetric colormap range about zero: `[-max(|v|), +max(|v|)]` |
 | `--cmap-palette NAME` | Colormap palette (default: `viridis`) |
-| `--cbar` | Add a vertical colorbar on the right showing the data range |
+| `--cbar` | Add a vertical colorbar on the right for `--cmap` or `--esp` |
 
 ## Vector arrows
 

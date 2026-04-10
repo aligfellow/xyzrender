@@ -157,6 +157,7 @@ def load_molecule(
     ----------
     path:
         Path to the input file.  Supported extensions: ``.xyz``, ``.cube``,
+        ``.cub``,
         ``.mol``, ``.sdf``, ``.mol2``, ``.pdb``, ``.smi``, ``.cif``, and
         any format supported by cclib.
     frame:
@@ -190,7 +191,7 @@ def load_molecule(
     logger.info("Loading %s", p)
     crystal: CellData | None = None
 
-    if p.endswith(".cube"):
+    if p.endswith((".cube", ".cub")):
         graph, _cube = load_cube(p, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick)
     elif p.endswith(".xyz"):
         # Parse charge/mult from extXYZ comment line as defaults

@@ -610,7 +610,7 @@ def main() -> None:
         "--cbar",
         action="store_true",
         default=False,
-        help="Add a vertical colorbar on the right showing the data range",
+        help="Add a vertical colorbar on the right for --cmap or --esp data",
     )
     annot_g.add_argument(
         "--cmap-symm",
@@ -819,7 +819,7 @@ def main() -> None:
     if annotation_flags_used and wants_gif:
         logger.warning("--idx, -l and --label apply to static SVG output only and will not appear in the GIF")
 
-    is_cube = args.input and args.input.endswith(".cube")
+    is_cube = args.input and args.input.endswith((".cube", ".cub"))
 
     # Ensemble overlay is only defined for multi-frame XYZ / QM trajectories
     if args.ensemble and not args.input:

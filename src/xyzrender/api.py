@@ -182,7 +182,7 @@ def load(
     ----------
     molecule:
         Path to the input file, or a SMILES string when *smiles* is ``True``.
-        Supported extensions: ``.xyz``, ``.cube``, ``.mol``, ``.sdf``,
+        Supported extensions: ``.xyz``, ``.cube``, ``.cub``, ``.mol``, ``.sdf``,
         ``.mol2``, ``.pdb``, ``.smi``, ``.cif``, and any QM output
         supported by cclib.
     smiles:
@@ -290,7 +290,7 @@ def load(
     elif not Path(mol_path).is_file():
         raise FileNotFoundError(f"[Errno 2] No such file or directory: '{mol_path}'")
 
-    elif mol_path.suffix.lower() == ".cube":
+    elif mol_path.suffix.lower() in {".cube", ".cub"}:
         from xyzrender.readers import load_cube
 
         graph, cube_data = load_cube(
@@ -2057,8 +2057,6 @@ def _apply_render_overlays(
     if cmap_symm:
         cfg.cmap_symm = True
     if cbar:
-        if cmap is None and cfg.atom_cmap is None:
-            logger.warning("cbar=True has no effect without cmap data")
         cfg.cbar = True
     if opacity is not None:
         cfg.surface_opacity = opacity
