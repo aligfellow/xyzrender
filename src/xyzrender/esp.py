@@ -283,11 +283,10 @@ def build_esp_surface(
         esp_vmin = float(np.percentile(esp_above, 5))
         esp_vmax = float(np.percentile(esp_above, 95))
 
-    # Zero-centered normalization: ESP=0 → t=0.5 (green/neutral).
-    # Positive ESP (electron-poor) → t<0.5 → blue.
-    # Negative ESP (electron-rich) → t>0.5 → red.
-    half_range = max(abs(esp_vmin), abs(esp_vmax), 1e-10)
-    esp_norm = np.clip(0.5 - up_esp / (2 * half_range), 0.0, 1.0)
+    # Normalize across the projected ESP range used for the colorbar so the
+    # rendered surface and legend describe the same field.
+    esp_span = max(esp_vmax - esp_vmin, 1e-10)
+    esp_norm = np.clip((up_esp - esp_vmin) / esp_span, 0.0, 1.0)
     lut = build_palette_lut(palette)
 
     surface_mask = up_dens > isovalue * 0.5
