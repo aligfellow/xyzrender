@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/source/_static/branding/logo_big.svg" alt="xyzrender" width="720" />
+</p>
+
 # xyzrender: Publication-quality molecular graphics.
 
 Render molecular structures as publication-quality SVG, PNG, PDF, and animated GIF from XYZ, mol/SDF, MOL2, PDB, SMILES, CIF, cube files, quantum chemistry input or output — from the command line or from Python/Jupyter.
