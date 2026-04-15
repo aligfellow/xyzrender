@@ -260,123 +260,73 @@ _MAX_FOG = 0.70  # deepest atoms retain at least 30% of their color
 # Colormap palettes
 # ---------------------------------------------------------------------------
 
-_VIRIDIS_STOPS: list[Color] = [
-    Color(68, 1, 84),  # 0.00 — #440154 dark purple
-    Color(49, 104, 142),  # 0.25 — #31688E blue
-    Color(53, 183, 121),  # 0.50 — #35B779 green
-    Color(144, 215, 67),  # 0.75 — #90D743 yellow-green
-    Color(253, 231, 37),  # 1.00 — #FDE725 bright yellow
-]
+PALETTES: dict[str, list[Color]] = {
+    "viridis": [
+        Color.from_str("#440154"),
+        Color.from_str("#31688e"),
+        Color.from_str("#35b779"),
+        Color.from_str("#90d743"),
+        Color.from_str("#fde725"),
+    ],
+    "plasma": [
+        Color.from_str("#0d0887"),
+        Color.from_str("#7e03a8"),
+        Color.from_str("#cc4778"),
+        Color.from_str("#f89441"),
+        Color.from_str("#f0f921"),
+    ],
+    "spectral": [
+        Color.from_str("#9e0142"),
+        Color.from_str("#d53e4f"),
+        Color.from_str("#f46d43"),
+        Color.from_str("#fdae61"),
+        Color.from_str("#abdda4"),
+        Color.from_str("#45aba3"),
+        Color.from_str("#3288bd"),
+    ],
+    "coolwarm": [
+        Color.from_str("#3b4cc0"),
+        Color.from_str("#7c9fed"),
+        Color.from_str("#d2d2d2"),
+        Color.from_str("#e8836b"),
+        Color.from_str("#b40426"),
+    ],
+    "RdBu": [
+        Color.from_str("#67001f"),
+        Color.from_str("#d6604d"),
+        Color.from_str("#f7f7f7"),
+        Color.from_str("#4393c3"),
+        Color.from_str("#053061"),
+    ],
+    "rainbow": [
+        Color.from_str("maroon"),
+        Color.from_str("peru"),
+        Color.from_str("darkseagreen"),
+        Color.from_str("steelblue"),
+        Color.from_str("midnightblue"),
+    ],
+}
 
+PALETTE_NAMES: list[str] = list(PALETTES)
 
-_SPECTRAL_STOPS: list[Color] = [
-    Color(158, 1, 66),  # 0.00 — dark red
-    Color(213, 62, 79),  # 0.17 — red
-    Color(244, 109, 67),  # 0.33 — orange
-    Color(253, 174, 97),  # 0.50 — light orange
-    Color(171, 221, 164),  # 0.67 — light green
-    Color(69, 171, 163),  # 0.83 — teal
-    Color(50, 136, 189),  # 1.00 — blue
-]
-
-_COOLWARM_STOPS: list[Color] = [
-    Color(59, 76, 192),  # 0.00 — cool blue
-    Color(124, 159, 237),  # 0.25 — light blue
-    Color(210, 210, 210),  # 0.50 — neutral grey
-    Color(232, 131, 107),  # 0.75 — light red
-    Color(180, 4, 38),  # 1.00 — warm red
-]
-
-_PLASMA_STOPS: list[Color] = [
-    Color.from_str("#0d0887"),  # 0.00 — deep indigo
-    Color.from_str("#7e03a8"),  # 0.25 — violet
-    Color.from_str("#cc4778"),  # 0.50 — magenta
-    Color.from_str("#f89441"),  # 0.75 — orange
-    Color.from_str("#f0f921"),  # 1.00 — bright yellow
-]
-
-_RDBU_STOPS: list[Color] = [
-    Color(103, 0, 31),  # 0.00 — dark red
-    Color(214, 96, 77),  # 0.25 — warm red
-    Color(247, 247, 247),  # 0.50 — neutral white
-    Color(67, 147, 195),  # 0.75 — light blue
-    Color(5, 48, 97),  # 1.00 — dark blue
-]
-
-_RAINBOW_STOPS: list[Color] = [
-    Color.from_str("maroon"),
-    Color.from_str("peru"),
-    Color.from_str("darkseagreen"),
-    Color.from_str("steelblue"),
-    Color.from_str("midnightblue"),
-]
-
-DEFAULT_ATOM_CMAP_PALETTE = "viridis"
+DEFAULT_CMAP_PALETTE = "viridis"
 DEFAULT_ESP_PALETTE = "rainbow"
 
-SCALAR_PALETTES: dict[str, list[Color]] = {
-    DEFAULT_ATOM_CMAP_PALETTE: _VIRIDIS_STOPS,
-    "plasma": _PLASMA_STOPS,
-    "spectral": _SPECTRAL_STOPS,
-    "coolwarm": _COOLWARM_STOPS,
-    "RdBu": _RDBU_STOPS,
-    DEFAULT_ESP_PALETTE: _RAINBOW_STOPS,
-}
 
-SCALAR_PALETTE_NAMES: list[str] = list(SCALAR_PALETTES)
-CMAP_PALETTES: dict[str, list[Color]] = SCALAR_PALETTES
-CMAP_PALETTE_NAMES: list[str] = SCALAR_PALETTE_NAMES
-
-_PALETTES: dict[str, list[Color]] = {
-    **SCALAR_PALETTES,
-}
-
-PALETTE_NAMES: list[str] = list(_PALETTES)
-
-
-def resolve_scalar_palette(palette: str | None, *, purpose: str) -> str:
-    """Return an explicit scalar palette, falling back to the per-purpose default."""
-    if palette is not None:
-        return palette
-    if purpose == "cmap":
-        return DEFAULT_ATOM_CMAP_PALETTE
-    if purpose == "esp":
-        return DEFAULT_ESP_PALETTE
-    msg = f"Unknown scalar palette purpose {purpose!r}"
-    raise ValueError(msg)
-
-
-def _sample_cmap(stops: list[Color], t: float) -> Color:
-    """Map t in [0, 1] to a color via piecewise-linear interpolation."""
+def palette_color(name: str, t: float) -> Color:
+    """Sample a single point ``t ∈ [0, 1]`` from a named palette."""
+    stops = PALETTES[name]
     t = max(0.0, min(1.0, float(t)))
     n_segs = len(stops) - 1
     seg = min(int(t * n_segs), n_segs - 1)
-    local_t = t * n_segs - seg
-    return stops[seg].blend(stops[seg + 1], local_t)
+    return stops[seg].blend(stops[seg + 1], t * n_segs - seg)
 
 
 def sample_palette(name: str, n: int) -> list[str]:
-    """Sample *n* evenly-spaced hex colours from a named palette.
-
-    Parameters
-    ----------
-    name:
-        One of the names in :data:`PALETTE_NAMES`.
-    n:
-        Number of colours to sample.
-
-    Returns
-    -------
-    list of str
-        Hex colour strings (e.g. ``"#FDE725"``).
-    """
-    if name not in _PALETTES:
-        msg = f"Unknown palette {name!r} (valid: {', '.join(PALETTE_NAMES)})"
-        raise ValueError(msg)
-    stops = _PALETTES[name]
+    """Sample *n* evenly-spaced hex colours from a named palette."""
     if n <= 1:
-        return [_sample_cmap(stops, 0.5).hex]
-    return [_sample_cmap(stops, i / (n - 1)).hex for i in range(n)]
+        return [palette_color(name, 0.5).hex]
+    return [palette_color(name, i / (n - 1)).hex for i in range(n)]
 
 
 def blend_fog(hex_color: str, fog_rgb: np.ndarray, strength: float) -> str:

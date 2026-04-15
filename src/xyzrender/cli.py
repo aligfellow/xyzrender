@@ -271,7 +271,9 @@ def main() -> None:
         metavar=("POS", "NEG"),
         help="MO lobe colors as hex or named color (default: steelblue maroon)",
     )
-    surf_g.add_argument("--dens", action="store_true", default=False, help="Render density isosurface from .cube/.cub input")
+    surf_g.add_argument(
+        "--dens", action="store_true", default=False, help="Render density isosurface from .cube/.cub input"
+    )
     surf_g.add_argument("--dens-color", default=None, help="Density surface color (hex or named, default: steelblue)")
     surf_g.add_argument(
         "--esp", default=None, metavar="CUBE", help="ESP cube file for potential coloring (implies --dens)"
@@ -401,7 +403,8 @@ def main() -> None:
         "--ensemble-color",
         default=None,
         dest="ensemble_color",
-        help="Palette (viridis, spectral, coolwarm), a single color, or comma-separated colors",
+        help="Palette name (viridis, plasma, spectral, coolwarm, RdBu, rainbow), "
+        "a single color, or comma-separated colors",
     )
     # --- Orientation ---
     orient_g = p.add_argument_group("orientation")
@@ -992,19 +995,6 @@ def main() -> None:
     if args.anchor:
         _anchor_atoms = parse_atom_indices(args.anchor, one_indexed=True)
 
-    # --- Parse ensemble color: palette name, single color, or comma-separated list ---
-    _ens_color: str | list[str] | None = None
-    _ens_palette: str | None = None
-    if args.ensemble_color is not None:
-        from xyzrender.colors import PALETTE_NAMES
-
-        val = args.ensemble_color.strip()
-        if val in PALETTE_NAMES:
-            _ens_palette = val
-        else:
-            parts = [c.strip() for c in val.split(",")]
-            _ens_color = parts if len(parts) > 1 else parts[0]
-
     # --- Interactive viewer (operates on the reference frame only) ---
     if args.interactive:
         if args.ref is not None and Path(args.ref).is_file():
@@ -1023,8 +1013,7 @@ def main() -> None:
             args.input,
             ensemble=True,
             align_atoms=_align_atoms,
-            ensemble_color=_ens_color,
-            ensemble_palette=_ens_palette,
+            ensemble_color=args.ensemble_color,
             ensemble_opacity=args.opacity,
             rebuild=args.rebuild,
             nci_detect=args.nci_detect,

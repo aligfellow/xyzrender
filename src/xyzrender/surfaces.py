@@ -122,7 +122,7 @@ def compute_esp_surface(
     params:
         ESP surface parameters (isovalue of the density isosurface).
     """
-    from xyzrender.colors import resolve_scalar_palette
+    from xyzrender.colors import DEFAULT_ESP_PALETTE
     from xyzrender.esp import build_esp_surface
     from xyzrender.utils import resolve_orientation
 
@@ -131,7 +131,7 @@ def compute_esp_surface(
         dens_cube,
         esp_cube,
         params,
-        palette=resolve_scalar_palette(cfg.cmap_palette, purpose="esp"),
+        palette=cfg.cmap_palette or DEFAULT_ESP_PALETTE,
         rot=rot,
         atom_centroid=atom_centroid,
         target_centroid=curr_centroid,

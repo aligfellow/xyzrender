@@ -32,6 +32,7 @@ from xyzrender.contours import (
     project_region_to_contours,
     render_lobe_svg,
 )
+
 # Blur is kept tight so the rendered patch faithfully represents the RDG
 # isosurface without over-inflation.
 _NCI_BLUR_SIGMA = 1.0

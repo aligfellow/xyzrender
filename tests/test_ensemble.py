@@ -7,6 +7,7 @@ import pytest
 from xyzrender import SVGResult, load, render
 from xyzrender.api import EnsembleFrames, _build_ensemble_molecule
 from xyzrender.ensemble import _Z_NUDGE, align, merge_graphs
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -72,7 +73,7 @@ def test_ensemble_opacity(tmp_path: Path) -> None:
 def test_ensemble_palette_colors(tmp_path: Path) -> None:
     """Explicit palette → non-None hex colors for all conformers."""
     xyz_path = _make_traj(tmp_path)
-    mol = _build_ensemble_molecule(xyz_path, ensemble_palette="viridis")
+    mol = _build_ensemble_molecule(xyz_path, ensemble_color="viridis")
     ens = mol.ensemble
     assert ens is not None
 
@@ -81,11 +82,11 @@ def test_ensemble_palette_colors(tmp_path: Path) -> None:
 
 def test_ensemble_single_color_expanded(tmp_path: Path) -> None:
     xyz_path = _make_traj(tmp_path)
-    mol = _build_ensemble_molecule(xyz_path, conformer_colors=["#FF0000"])
+    mol = _build_ensemble_molecule(xyz_path, ensemble_color="#FF0000")
     ens = mol.ensemble
     assert ens is not None
 
-    assert all(c == "#FF0000" for c in ens.colors)
+    assert all(c == "#ff0000" for c in ens.colors)
 
 
 def test_ensemble_reference_frame_nonzero(tmp_path: Path) -> None:
@@ -110,7 +111,7 @@ def test_ensemble_reference_frame_nonzero(tmp_path: Path) -> None:
 
 def test_merge_graphs_structure(tmp_path: Path) -> None:
     xyz_path = _make_traj(tmp_path)
-    mol = _build_ensemble_molecule(xyz_path, ensemble_palette="viridis")
+    mol = _build_ensemble_molecule(xyz_path, ensemble_color="viridis")
     ens = mol.ensemble
     assert ens is not None
 
@@ -143,7 +144,7 @@ def test_merge_graphs_no_colors(tmp_path: Path) -> None:
 
 def test_merge_graphs_bond_color_override(tmp_path: Path) -> None:
     xyz_path = _make_traj(tmp_path)
-    mol = _build_ensemble_molecule(xyz_path, conformer_colors=["#FF0000"])
+    mol = _build_ensemble_molecule(xyz_path, ensemble_color="#FF0000")
     ens = mol.ensemble
     assert ens is not None
 
@@ -181,7 +182,7 @@ def test_merge_graphs_z_nudge(tmp_path: Path) -> None:
 
 def test_ensemble_render_produces_svg(tmp_path: Path) -> None:
     xyz_path = _make_traj(tmp_path)
-    mol = load(xyz_path, ensemble=True, ensemble_palette="spectral", ensemble_opacity=0.5)
+    mol = load(xyz_path, ensemble=True, ensemble_color="spectral", ensemble_opacity=0.5)
     result = render(mol, output=tmp_path / "out.svg")
     assert isinstance(result, SVGResult)
     assert "<svg" in (tmp_path / "out.svg").read_text()

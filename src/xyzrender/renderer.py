@@ -13,13 +13,14 @@ from xyzrender.cmap import atom_colors as cmap_atom_colors
 from xyzrender.cmap import colorbar_extra_width, colorbar_svg
 from xyzrender.colors import (
     _FOG_NEAR,
+    DEFAULT_CMAP_PALETTE,
+    DEFAULT_ESP_PALETTE,
     WHITE,
     Color,
     blend_fog,
     get_color,
     get_gradient_colors,
     resolve_color,
-    resolve_scalar_palette,
 )
 from xyzrender.dens import dens_layers_svg
 from xyzrender.hull import (
@@ -264,7 +265,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         colors = cmap_atom_colors(
             cmap_vals,
             n,
-            resolve_scalar_palette(cfg.cmap_palette, purpose="cmap"),
+            cfg.cmap_palette or DEFAULT_CMAP_PALETTE,
             vmin,
             vmax,
             cfg.cmap_unlabeled,
@@ -280,16 +281,18 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     if cfg.cbar and cfg.atom_cmap is not None:
         cbar_vmin = vmin
         cbar_vmax = vmax
-        cbar_palette = resolve_scalar_palette(cfg.cmap_palette, purpose="cmap")
+        cbar_palette = cfg.cmap_palette or DEFAULT_CMAP_PALETTE
     elif cfg.cbar and cfg.esp_surface is not None:
         cbar_vmin = cfg.esp_surface.esp_vmin
         cbar_vmax = cfg.esp_surface.esp_vmax
-        cbar_palette = resolve_scalar_palette(cfg.cmap_palette, purpose="esp")
+        cbar_palette = cfg.cmap_palette or DEFAULT_ESP_PALETTE
 
     # Reserve space on the right for the cmap colorbar.
     # canvas_w stays at the molecule width so _proj() keeps the molecule centred there.
     # _cb_svg_w is the full SVG width used only in the viewBox / width attribute.
-    cb_extra_w = colorbar_extra_width(cbar_vmin, cbar_vmax, fs_label) if cbar_vmin is not None and cbar_vmax is not None else 0
+    cb_extra_w = (
+        colorbar_extra_width(cbar_vmin, cbar_vmax, fs_label) if cbar_vmin is not None and cbar_vmax is not None else 0
+    )
     _cb_svg_w = canvas_w + cb_extra_w
 
     # Override atom colors for overlay (mol2) atoms — must happen before gradient defs
