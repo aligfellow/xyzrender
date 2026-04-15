@@ -240,6 +240,7 @@ class RenderConfig:
     hide_bonds: bool = False
     unbond: list[str] = field(default_factory=list)  # raw specs: ["M-L", "sbm", "1-3"]
     bond: list[str] = field(default_factory=list)  # raw index pairs: ["4-5"]
+    haptic: bool = False  # replace pi-coordination bonds with single metal-to-centroid bond
     hide_h: bool = False
     show_h_indices: list[int] = field(default_factory=list)
     bond_orders: bool = True

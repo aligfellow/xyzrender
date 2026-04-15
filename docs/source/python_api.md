@@ -71,6 +71,15 @@ Available categories: `M` (all metals), `sbm` (s-block metals), `L` (non-metals)
 Any element symbol also works (`Fe`, `Li`, `O`, etc.).
 NCI and TS overlay edges are never removed by rules.
 
+### Haptic centroid bonds
+
+Replace the fan of individual metal-to-ring bonds with a single dotted bond
+from the metal to the ring centroid:
+
+```python
+render(mol, haptic=True)
+```
+
 ### Hydrogen visibility
 
 Atom indices are **1-indexed**.

@@ -22,6 +22,8 @@ xyzrender "$DIR/caffeine.xyz" --config pmol -o "$IMG/caffeine_pmol.svg"
 xyzrender "$DIR/caffeine.xyz" --config mtube -o "$IMG/caffeine_mtube.svg"
 xyzrender "$DIR/caffeine.xyz" --config btube -o "$IMG/caffeine_btube.svg"
 xyzrender "$DIR/mnh.xyz" --config mtube -o "$IMG/mnh_mtube.svg" --unbond pi --hy
+xyzrender "$DIR/mnh.xyz" -o "$IMG/mnh_haptic.svg" --haptic
+xyzrender "$DIR/mnh.xyz" -o "$IMG/mnh.svg"
 
 echo "=== Style regions ==="
 xyzrender "$DIR/caffeine.xyz" --region "1-3,5,10,11" tube -o "$IMG/caffeine_region.svg"

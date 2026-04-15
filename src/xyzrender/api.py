@@ -470,6 +470,7 @@ def render(
     hide_bonds: bool = False,
     unbond: list[str] | None = None,
     bond: list[str] | None = None,
+    haptic: bool = False,
     hy: bool | list[int] | None = None,
     no_hy: bool = False,
     bo: bool | None = None,
@@ -732,6 +733,9 @@ def render(
             orient=_orient,
         )
 
+    if haptic:
+        cfg.haptic = True
+
     _apply_render_overlays(
         cfg,
         mol.graph,
@@ -952,8 +956,8 @@ def render(
         surface_style=surface_style,
     )
 
-    # --- Bond rules (unbond / bond) ---
-    if cfg.unbond or cfg.bond:
+    # --- Bond rules (unbond / bond / haptic) ---
+    if cfg.unbond or cfg.bond or cfg.haptic:
         from xyzrender.bond_rules import apply_bond_rules
 
         apply_bond_rules(rmol.graph, cfg)
@@ -1086,6 +1090,7 @@ def render_gif(
     hide_bonds: bool = False,
     unbond: list[str] | None = None,
     bond: list[str] | None = None,
+    haptic: bool = False,
     hy: bool | list[int] | None = None,
     no_hy: bool = False,
     bo: bool | None = None,
@@ -1277,6 +1282,9 @@ def render_gif(
             no_hy=no_hy,
             orient=orient,
         )
+
+    if haptic:
+        cfg.haptic = True
 
     from xyzrender.colors import resolve_color
 
@@ -1487,7 +1495,7 @@ def render_gif(
             ref_graph, _ = load_molecule(str(mol_path))
         else:
             ref_graph = copy.deepcopy(ref_graph)
-        if cfg.unbond or cfg.bond:
+        if cfg.unbond or cfg.bond or cfg.haptic:
             from xyzrender.bond_rules import apply_bond_rules
 
             apply_bond_rules(ref_graph, cfg)
@@ -1518,7 +1526,7 @@ def render_gif(
             # corrupt the caller's Molecule, and so _apply_cell_config can add ghost atoms.
             ref_graph = copy.deepcopy(ref_graph)
 
-        if cfg.unbond or cfg.bond:
+        if cfg.unbond or cfg.bond or cfg.haptic:
             from xyzrender.bond_rules import apply_bond_rules
 
             apply_bond_rules(ref_graph, cfg)

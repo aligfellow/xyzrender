@@ -29,6 +29,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--no-bonds` | Hide all bonds (e.g. space-filling style) |
 | `--unbond SPEC [...]` | Hide bonds by rule or index* |
 | `--bond PAIR [...]` | Force-show/add bonds: 1-indexed pairs (`1-3 4-5`). Overrides `--unbond` |
+| `--haptic` | Replace pi-coordination bond fans with single centroid bonds (dotted) |
 | `-B`, `--background` | Background color |
 | `-t`, `--transparent` | Transparent background |
 | `--grad` / `--no-grad` | Radial gradient toggle |

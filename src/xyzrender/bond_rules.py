@@ -12,9 +12,13 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 from xyzrender.selectors import normalize_token, resolve_element_set
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     import networkx as nx
 
     from xyzrender.types import RenderConfig
@@ -119,9 +123,17 @@ def apply_bond_rules(graph: nx.Graph, cfg: RenderConfig) -> None:
             if matched:
                 remove.add((i, j))
 
-    # Pi-coordination (needs ring topology — separate pass over candidate nodes)
+    # Pi-coordination (needs ring topology — single pass, reused for haptic)
+    pi_groups: list[tuple[int, set[int]]] = []
+    if pi_specs or cfg.haptic:
+        pi_groups = list(_iter_pi_groups(graph, sym, source_symbols=None))
+
     for source_syms in pi_specs:
-        remove |= _find_pi_edges(graph, sym, source_syms)
+        for nid, bonded in pi_groups:
+            if source_syms is not None and sym[nid] not in source_syms:
+                continue
+            for ring_atom in bonded:
+                remove.add((nid, ring_atom))
 
     # -- Parse and validate bond additions upfront (before any mutation) ----
     add: set[tuple[int, int]] = set()
@@ -154,6 +166,10 @@ def apply_bond_rules(graph: nx.Graph, cfg: RenderConfig) -> None:
             graph.add_edge(i, j, bond_order=1.0)
             logger.info("bond: added edge %d-%d", i + 1, j + 1)
 
+    # -- Haptic centroid replacement (reuses pi_groups from above) ----------
+    if cfg.haptic:
+        _apply_haptic_centroids_from_groups(graph, pi_groups)
+
 
 # ---------------------------------------------------------------------------
 # Spec parsing
@@ -182,25 +198,23 @@ def _canonical(i: int, j: int) -> tuple[int, int]:
 # ---------------------------------------------------------------------------
 
 
-def _find_pi_edges(
+def _iter_pi_groups(
     graph: nx.Graph,
     sym: dict[int, str],
     source_symbols: frozenset[str] | None,
-) -> set[tuple[int, int]]:
-    """Find eta-coordination edges (≥2 bonds from an external atom to an aromatic ring).
+) -> Iterator[tuple[int, set[int]]]:
+    """Yield ``(external_atom, bonded_ring_atoms)`` for each eta-coordination.
 
-    Only considers atoms that are NOT themselves members of the ring —
-    ring-internal bonds (e.g. C-C within benzene) are never matched.
-
-    *source_symbols* filters which atoms to check.  ``None`` = all atoms.
+    An eta-coordination is ≥2 bonds from an atom *outside* an aromatic ring
+    to atoms *inside* that ring.  *source_symbols* filters which external
+    atoms to consider (``None`` = all).
     """
     rings: list = graph.graph.get("aromatic_rings", [])
     if not rings:
-        return set()
+        return
 
     ring_sets: list[set[int]] = [set(r) for r in rings]
 
-    edges: set[tuple[int, int]] = set()
     for nid, s in sym.items():
         if source_symbols is not None and s not in source_symbols:
             continue
@@ -210,6 +224,42 @@ def _find_pi_edges(
                 continue
             bonded_to_ring = neighbours & ring
             if len(bonded_to_ring) >= 2:
-                for ring_atom in bonded_to_ring:
-                    edges.add((nid, ring_atom))
-    return edges
+                yield nid, bonded_to_ring
+
+
+def _apply_haptic_centroids_from_groups(
+    graph: nx.Graph,
+    pi_groups: list[tuple[int, set[int]]],
+) -> None:
+    """Replace eta-coordination bonds with single metal-to-centroid bonds.
+
+    Consumes pre-collected *pi_groups* (from :func:`_iter_pi_groups`) so the
+    ring/neighbour walk is not repeated.
+    """
+    next_id = max(graph.nodes()) + 1
+
+    for nid, bonded_to_ring in pi_groups:
+        # Filter to edges that still exist (earlier --unbond may have removed some)
+        remaining = {a for a in bonded_to_ring if graph.has_edge(nid, a)}
+        if len(remaining) < 2:
+            continue
+
+        # Compute centroid of bonded ring atoms
+        positions = np.array([graph.nodes[a]["position"] for a in remaining])
+        centroid = positions.mean(axis=0)
+
+        # Add centroid node and bond (NCI=True → dotted style like NCI bonds)
+        graph.add_node(next_id, symbol="*", position=tuple(centroid))
+        graph.add_edge(nid, next_id, bond_order=1.0, NCI=True)
+
+        # Remove individual metal-to-ring-atom bonds
+        for ring_atom in remaining:
+            graph.remove_edge(nid, ring_atom)
+
+        logger.info(
+            "haptic: replaced %d bonds from atom %d with centroid node %d",
+            len(remaining),
+            nid + 1,
+            next_id,
+        )
+        next_id += 1
