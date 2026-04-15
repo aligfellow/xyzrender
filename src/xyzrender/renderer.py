@@ -1566,7 +1566,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 )
 
     # --- Colorbar (right side) ---
-    if cfg.cbar and cbar_vmin is not None and cbar_vmax is not None:
+    if cfg.cbar and cbar_vmin is not None and cbar_vmax is not None and cbar_palette is not None:
         svg.extend(colorbar_svg(cbar_vmin, cbar_vmax, cbar_palette, canvas_w, canvas_h, fs_label, cfg.label_color))
 
     svg.append("</svg>")

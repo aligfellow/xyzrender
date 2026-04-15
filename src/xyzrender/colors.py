@@ -288,11 +288,11 @@ _COOLWARM_STOPS: list[Color] = [
 ]
 
 _PLASMA_STOPS: list[Color] = [
-    Color(13, 8, 135),  # 0.00 — deep indigo
-    Color(126, 3, 168),  # 0.25 — violet
-    Color(204, 71, 120),  # 0.50 — magenta
-    Color(248, 148, 65),  # 0.75 — orange
-    Color(240, 249, 33),  # 1.00 — bright yellow
+    Color.from_str("#0d0887"),  # 0.00 — deep indigo
+    Color.from_str("#7e03a8"),  # 0.25 — violet
+    Color.from_str("#cc4778"),  # 0.50 — magenta
+    Color.from_str("#f89441"),  # 0.75 — orange
+    Color.from_str("#f0f921"),  # 1.00 — bright yellow
 ]
 
 _RDBU_STOPS: list[Color] = [
@@ -303,7 +303,7 @@ _RDBU_STOPS: list[Color] = [
     Color(5, 48, 97),  # 1.00 — dark blue
 ]
 
-_ESP_RAINBOW_STOPS: list[Color] = [
+_RAINBOW_STOPS: list[Color] = [
     Color.from_str("maroon"),
     Color.from_str("peru"),
     Color.from_str("darkseagreen"),
@@ -320,7 +320,7 @@ SCALAR_PALETTES: dict[str, list[Color]] = {
     "spectral": _SPECTRAL_STOPS,
     "coolwarm": _COOLWARM_STOPS,
     "RdBu": _RDBU_STOPS,
-    DEFAULT_ESP_PALETTE: _ESP_RAINBOW_STOPS,
+    DEFAULT_ESP_PALETTE: _RAINBOW_STOPS,
 }
 
 SCALAR_PALETTE_NAMES: list[str] = list(SCALAR_PALETTES)
