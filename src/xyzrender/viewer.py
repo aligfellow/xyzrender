@@ -192,7 +192,7 @@ def orient_hkl_to_view(graph: nx.Graph, cell_data: "CellData", axis_str: str, cf
 
 
 def _run_ase_viewer(atoms: _Atoms, lattice: np.ndarray | None = None) -> str:
-    """Open ASE GUI in-process and return vmol-compatible rotation output.
+    r"""Open ASE GUI in-process and return vmol-compatible rotation output.
 
     Parameters
     ----------
@@ -243,7 +243,7 @@ def _run_ase_viewer(atoms: _Atoms, lattice: np.ndarray | None = None) -> str:
     lines = ["rot:" + ",".join(f"{v:.10f}" for v in rot.flatten())]
     lines.append(str(len(atoms)))
     lines.append("xyzrender ase-gui")
-    for (sym, _), p in zip(atoms, new_pos):
+    for (sym, _), p in zip(atoms, new_pos, strict=True):
         lines.append(f"{sym} {p[0]:.10f} {p[1]:.10f} {p[2]:.10f}")
     return "\n".join(lines)
 
