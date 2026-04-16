@@ -79,7 +79,7 @@ Display:
 
 Orientation:
   --orient / --no-orient  PCA auto-orientation on/off
-  -I                      Interactive viewer (requires vmol)
+  -I                      Interactive viewer (see --viewer; default backend: vmol)
   --ref [FILE]            Save/load orientation reference
 
 TS / NCI:
@@ -411,7 +411,13 @@ def main() -> None:
     orient_g.add_argument(
         "--orient", action=argparse.BooleanOptionalAction, default=None, help="Auto-orientation (default: on)"
     )
-    orient_g.add_argument("-I", "--interactive", action="store_true", help="Open in v viewer for interactive rotation")
+    orient_g.add_argument("-I", "--interactive", action="store_true", help="Open in interactive viewer for rotation (see --viewer)")
+    orient_g.add_argument(
+        "--viewer",
+        choices=["vmol", "ase"],
+        default="vmol",
+        help="Viewer backend for -I: 'vmol' (default, requires vmol) or 'ase' (requires ase)",
+    )
     orient_g.add_argument(
         "--ref",
         nargs="?",
@@ -1003,7 +1009,7 @@ def main() -> None:
                 args.ref,
             )
         else:
-            orient(mol)
+            orient(mol, viewer=args.viewer)
             if not mol.oriented:
                 sys.exit(1)
 

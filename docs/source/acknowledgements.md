@@ -17,7 +17,7 @@ The SVG rendering in xyzrender is built on and heavily inspired by [**xyz2svg**]
 ## Optional dependencies
 
 - [**rdkit**](https://www.rdkit.org/) — SMILES 3D embedding (`pip install 'xyzrender[smi]'`)
-- [**ase**](https://wiki.fysik.dtu.dk/ase/) — CIF parsing (`pip install 'xyzrender[cif]'`)
+- [**ase**](https://wiki.fysik.dtu.dk/ase/) — CIF parsing and ASE GUI viewer (`pip install 'xyzrender[cif]'`)
 - [**v**](https://github.com/briling/v) — interactive molecule orientation (`-I` flag, `pip install xyzrender[v]`, Linux only, not included into `[all]`)
 
 The `paton` colour preset is inspired by the clean styling used by [Rob Paton](https://github.com/patonlab) through PyMOL ([gist](https://gist.github.com/bobbypaton/1cdc4784f3fc8374467bae5eb410edef)).

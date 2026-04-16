@@ -76,7 +76,8 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 
 | Flag | Description |
 |------|-------------|
-| `-I`, `--interactive` | Interactive rotation via `v` viewer |
+| `-I`, `--interactive` | Interactive rotation (see `--viewer`) |
+| `--viewer {vmol,ase}` | Viewer backend for `-I`: `vmol` (default, requires vmol) or `ase` (requires ase). Close the ASE window to confirm; press `z` then `q` in vmol. |
 | `--orient` / `--no-orient` | Auto-orientation toggle |
 | `--ref [FILE]` | Save/load orientation reference (`reference.xyz` by default) |
 
