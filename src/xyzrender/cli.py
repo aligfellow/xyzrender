@@ -302,7 +302,11 @@ def main() -> None:
         "--iso",
         type=float,
         default=None,
-        help="Isosurface threshold (MO default: 0.05, density/ESP default: 0.001, NCI/RDG default: 0.3, IGMH default: 0.005)",
+        help=(
+            "Isosurface threshold "
+            "(MO default: 0.05, density/ESP default: 0.001, "
+            "NCI/RDG default: 0.3, IGMH default: 0.005)"
+        ),
     )
     surf_g.add_argument(
         "--flat-mo",
