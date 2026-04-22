@@ -6,7 +6,7 @@ import networkx as nx
 import numpy as np
 import pytest
 
-from xyzrender.cube import parse_cube
+from xyzrender.cube import CubeData, parse_cube
 from xyzrender.surfaces import (
     compute_dens_surface,
     compute_esp_surface,
@@ -29,6 +29,29 @@ def graph_from_cube(cube_data):
     for i, (sym, pos) in enumerate(cube_data.atoms):
         g.add_node(i, symbol=sym, position=list(pos))
     return g
+
+
+def cube_from_array(
+    data: np.ndarray,
+    *,
+    shape: tuple[int, int, int] | None = None,
+    origin: tuple[float, float, float] = (0.0, 0.0, 0.0),
+    steps: np.ndarray | None = None,
+) -> CubeData:
+    """Construct a minimal CubeData for synthetic surface tests."""
+    arr = np.array(data, dtype=float)
+    if shape is not None:
+        arr = arr.reshape(shape)
+    if steps is None:
+        steps = np.eye(3) * 0.5
+    return CubeData(
+        atoms=[("H", (0.0, 0.0, 0.0))],
+        origin=np.array(origin, dtype=float),
+        steps=np.array(steps, dtype=float),
+        grid_shape=arr.shape,
+        grid_data=arr,
+        mo_index=None,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -110,6 +133,58 @@ def test_find_nci_regions_empty_when_all_above():
     grad = np.ones((8, 8, 8), dtype=float)
     regions = find_nci_regions(grad, np.eye(3), isovalue=0.3)
     assert regions == []
+
+
+def test_find_nci_regions_detects_high_dg_blob_for_igmh():
+    from xyzrender.nci import find_nci_regions
+
+    dg = np.zeros((10, 10, 10), dtype=float)
+    dg[4:6, 4:6, 4:6] = 0.4
+    steps = np.eye(3) * 0.5
+
+    regions = find_nci_regions(dg, steps, isovalue=0.3, mode="igmh_dg")
+    assert len(regions) == 1
+    assert len(regions[0].flat_indices) > 0
+
+
+def test_build_nci_contours_rejects_mismatched_grids():
+    from xyzrender.nci import build_nci_contours
+
+    color_cube = cube_from_array(np.zeros((8, 8, 8), dtype=float))
+    surface_cube = cube_from_array(np.zeros((7, 8, 8), dtype=float))
+
+    with pytest.raises(ValueError, match="same grid shape"):
+        build_nci_contours(surface_cube, color_cube, NCIParams())
+
+
+def test_build_nci_contours_supports_igmh_surface_mode():
+    from xyzrender.nci import build_nci_contours
+
+    sl2r = np.zeros((12, 12, 12), dtype=float)
+    sl2r[4:8, 4:8, 4:8] = -0.2
+    dg = np.zeros((12, 12, 12), dtype=float)
+    dg[4:8, 4:8, 4:8] = 0.4
+
+    color_cube = cube_from_array(sl2r)
+    surface_cube = cube_from_array(dg)
+    contours = build_nci_contours(surface_cube, color_cube, NCIParams(isovalue=0.3), surface_mode="igmh_dg")
+
+    assert contours.lobes
+
+
+def test_build_nci_contours_uses_igmh_default_isovalue_when_nci_default_would_hide_surface():
+    from xyzrender.nci import build_nci_contours
+
+    sl2r = np.zeros((12, 12, 12), dtype=float)
+    sl2r[4:8, 4:8, 4:8] = -0.2
+    dg = np.zeros((12, 12, 12), dtype=float)
+    dg[4:8, 4:8, 4:8] = 0.02
+
+    color_cube = cube_from_array(sl2r)
+    surface_cube = cube_from_array(dg)
+    contours = build_nci_contours(surface_cube, color_cube, NCIParams(), surface_mode="igmh_dg")
+
+    assert contours.lobes
 
 
 # ---------------------------------------------------------------------------
@@ -236,3 +311,15 @@ def test_nci_loops_svg_returns_paths(nci_graph, nci_dens_cube, nci_grad_cube):
     elems = nci_loops_svg(cfg.nci_contours, 0.7, 100.0, 400.0, 400.0, 800, 800)
     assert len(elems) > 0
     assert all("<path" in e for e in elems)
+
+
+def test_compute_nci_surface_supports_explicit_igmh_mode():
+    cfg = RenderConfig(auto_orient=False)
+    sl2r = cube_from_array(np.zeros((12, 12, 12), dtype=float))
+    dg = cube_from_array(np.pad(np.full((4, 4, 4), 0.02, dtype=float), 4))
+    graph = graph_from_cube(sl2r)
+
+    compute_nci_surface(graph, sl2r, dg, cfg, NCIParams(), surface_mode="igmh_dg")
+
+    assert cfg.nci_contours is not None
+    assert cfg.nci_contours.lobes

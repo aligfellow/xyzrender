@@ -505,6 +505,7 @@ def render(
     dens: bool = False,
     esp: str | os.PathLike | None = None,
     nci: str | os.PathLike | None = None,
+    igmh: str | os.PathLike | None = None,
     iso: float | None = None,
     mo_pos_color: str | None = None,
     mo_neg_color: str | None = None,
@@ -922,7 +923,7 @@ def render(
             overlay,
             overlay_color=overlay_color,
             align_atoms=align_atoms,
-            has_surfaces=mo or dens or esp is not None or nci is not None,
+            has_surfaces=mo or dens or esp is not None or nci is not None or igmh is not None,
         )
 
     # --- Warn about ignored surface-specific params ---
@@ -930,7 +931,7 @@ def render(
         logger.warning("MO-specific params ignored (mo not active)")
     if not dens and dens_color is not None:
         logger.warning("dens_color ignored (dens not active)")
-    if nci is None and nci_mode is not None:
+    if nci is None and igmh is None and nci_mode is not None:
         logger.warning("nci_mode ignored (no NCI surface)")
     if hull is None and (hull_color is not None or hull_opacity is not None or hull_edge is not None):
         logger.warning("hull params ignored (hull not active)")
@@ -943,6 +944,7 @@ def render(
         dens=dens,
         esp=esp,
         nci=nci,
+        igmh=igmh,
         vdw=vdw,
         iso=iso,
         mo_pos_color=mo_pos_color,
@@ -2262,6 +2264,7 @@ def _validate_and_compute_surfaces(
     dens: bool,
     esp: "str | os.PathLike | None",
     nci: "str | os.PathLike | None",
+    igmh: "str | os.PathLike | None",
     vdw: "bool | list[int] | None",
     iso: float | None,
     mo_pos_color: str | None,
@@ -2282,10 +2285,12 @@ def _validate_and_compute_surfaces(
     """
     from xyzrender.config import build_surface_params, collect_surf_overrides
 
+    iso_was_explicit = iso is not None
+
     # --- Skeletal-style validation ---
     if cfg.skeletal_style:
-        if mo or dens or esp is not None:
-            msg = "skeletal_style is mutually exclusive with surface rendering (mo/dens/esp)"
+        if mo or dens or esp is not None or nci is not None or igmh is not None:
+            msg = "skeletal_style is mutually exclusive with surface rendering (mo/dens/esp/nci/igmh)"
             raise ValueError(msg)
         if vdw is not None:
             msg = "skeletal_style is mutually exclusive with vdw spheres"
@@ -2294,15 +2299,15 @@ def _validate_and_compute_surfaces(
     # --- Surface validation ---
     cube_data = rmol.cube_data
     _hull_active = cfg.show_convex_hull
-    if _hull_active and (mo or dens or esp is not None or nci is not None):
-        msg = "convex hull and surface rendering (mo/dens/esp/nci) are mutually exclusive"
+    if _hull_active and (mo or dens or esp is not None or nci is not None or igmh is not None):
+        msg = "convex hull and surface rendering (mo/dens/esp/nci/igmh) are mutually exclusive"
         raise ValueError(msg)
-    if vdw is not None and (mo or dens or esp is not None or nci is not None):
-        msg = "vdw spheres and surface rendering (mo/dens/esp/nci) are mutually exclusive"
+    if vdw is not None and (mo or dens or esp is not None or nci is not None or igmh is not None):
+        msg = "vdw spheres and surface rendering (mo/dens/esp/nci/igmh) are mutually exclusive"
         raise ValueError(msg)
-    n_surf = sum([mo, dens, esp is not None, nci is not None])
+    n_surf = sum([mo, dens, esp is not None, nci is not None, igmh is not None])
     if n_surf > 1:
-        active = [n for n, v in [("mo", mo), ("dens", dens), ("esp", esp), ("nci", nci)] if v]
+        active = [n for n, v in [("mo", mo), ("dens", dens), ("esp", esp), ("nci", nci), ("igmh", igmh)] if v]
         msg = f"Surface flags are mutually exclusive: {', '.join(active)}"
         raise ValueError(msg)
     if mo and cube_data is None:
@@ -2317,11 +2322,14 @@ def _validate_and_compute_surfaces(
     if nci is not None and cube_data is None:
         msg = "nci= requires a density .cube or .cub file loaded via load()"
         raise ValueError(msg)
+    if igmh is not None and cube_data is None:
+        msg = "igmh= requires a .cube or .cub file loaded via load()"
+        raise ValueError(msg)
 
     has_mo = bool(mo)
     has_dens = bool(dens)
     has_esp = esp is not None
-    has_nci = nci is not None
+    has_nci = nci is not None or igmh is not None
 
     if not (has_mo or has_dens or has_esp or has_nci):
         return
@@ -2364,7 +2372,18 @@ def _validate_and_compute_surfaces(
 
     if nci_params is not None and nci is not None and cube_data is not None:
         nci_cube = parse_cube(str(nci))
-        compute_nci_surface(rmol.graph, cube_data, nci_cube, cfg, nci_params)
+        compute_nci_surface(rmol.graph, cube_data, nci_cube, cfg, nci_params, iso_was_explicit=iso_was_explicit)
+    if nci_params is not None and igmh is not None and cube_data is not None:
+        igmh_cube = parse_cube(str(igmh))
+        compute_nci_surface(
+            rmol.graph,
+            cube_data,
+            igmh_cube,
+            cfg,
+            nci_params,
+            surface_mode="igmh_dg",
+            iso_was_explicit=iso_was_explicit,
+        )
 
 
 def _apply_cell_config(

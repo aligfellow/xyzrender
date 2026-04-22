@@ -144,6 +144,9 @@ def compute_nci_surface(
     grad_cube: CubeData,
     cfg: RenderConfig,
     params: NCIParams,
+    *,
+    surface_mode: str = "rdg_nci",
+    iso_was_explicit: bool = False,
 ) -> None:
     """Build NCI contours and store on ``cfg.nci_contours``.
 
@@ -162,6 +165,10 @@ def compute_nci_surface(
         updated in-place.
     params:
         NCI surface parameters (isovalue, color, color_mode, dens_cutoff).
+    surface_mode:
+        Surface interpretation mode: ``rdg_nci`` or ``igmh_dg``.
+    iso_was_explicit:
+        Whether the isovalue came from an explicit user override.
     """
     from xyzrender.nci import build_nci_contours
     from xyzrender.utils import resolve_orientation
@@ -175,4 +182,6 @@ def compute_nci_surface(
         atom_centroid=atom_centroid,
         target_centroid=curr_centroid,
         surface_style=cfg.surface_style,
+        surface_mode=surface_mode,
+        iso_was_explicit=iso_was_explicit,
     )

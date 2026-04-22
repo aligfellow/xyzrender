@@ -236,6 +236,10 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |-----------------------|------------------------|----------|---------------|
 | ![nci surf](examples/images/base-pair-nci_surf.svg) | ![nci pi](examples/images/phenol_di-nci_surf.svg) | ![nci mesh](examples/images/base-pair-nci_mesh.svg) | ![vectors](examples/images/ethanol_dip.svg) |
 
+| IGMH Inter | IGMH Intra |
+|------------|------------|
+| ![igmh inter](examples/images/phenol_di_igmh_inter.svg) | ![igmh intra](examples/images/phenol_di_igmh_intra.svg) |
+
 ### File formats
 
 | PDB | SMILES |
