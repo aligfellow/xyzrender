@@ -72,13 +72,11 @@ All NCI surface flags:
 | Flag | Description |
 |------|-------------|
 | `--nci-surf GRAD_CUBE` | Reduced density gradient cube file for standard NCIPLOT-style NCI rendering |
-| `--igmh-surf DG_CUBE` | IGMH `δg` cube file used with an `sl2r.cub` main input |
+| `--igmh-surf DG_CUBE` | IGMH `δg` cube file for IGMH surface rendering |
 | `--nci-mode MODE` | Coloring: `avg` (default), `pixel`, `uniform`, or a colour name/hex |
 | `--iso` | Surface isovalue threshold. Standard NCI/RDG uses the usual NCI default; IGMH `dg*` surfaces typically use `0.005` a.u. |
 | `--opacity` | Surface opacity multiplier (default: 1.0) |
 | `--surface-style STYLE` | `solid` or `mesh` recommended; `contour`, `dot` also available. These use avg lobe colour |
 | `--nci-cutoff CUTOFF` | Density magnitude cutoff (advanced — not needed for standard NCIPLOT output) |
-
-For the Multiwfn IGMH export described above, `density.cub --nci-surf dg_inter.cub` is not the intended pairing. The colouring field is `sl2r.cub`, and in the supplied example the plain density cube also does not share the same grid as the `dg*` cubes. The Multiwfn tutorial commonly uses `0.005` a.u. for `δg_inter`; `δg_intra` often needs larger values such as `0.2` or `0.3`.
 
 Sample structures from [NCIPlot](https://github.com/juliacontrerasgarcia/NCIPLOT-4.2/tree/master/tests).
