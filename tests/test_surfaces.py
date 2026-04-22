@@ -216,6 +216,40 @@ def test_render_svg_esp_colorbar_uses_actual_range(caffeine_graph):
     assert ">.029</text>" in svg
 
 
+def test_esp_surface_uses_manual_cmap_range(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube):
+    cfg = RenderConfig(auto_orient=False, cmap_range=(-0.003, 0.003))
+    compute_esp_surface(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
+    assert cfg.esp_surface is not None
+    assert cfg.esp_surface.esp_vmin == pytest.approx(-0.003)
+    assert cfg.esp_surface.esp_vmax == pytest.approx(0.003)
+
+
+def test_esp_surface_uses_symmetric_cmap_range(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube):
+    cfg = RenderConfig(auto_orient=False, cmap_symm=True)
+    compute_esp_surface(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
+    assert cfg.esp_surface is not None
+    assert cfg.esp_surface.esp_vmin == pytest.approx(-cfg.esp_surface.esp_vmax)
+
+
+def test_render_svg_esp_colorbar_uses_manual_cmap_range(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube):
+    from xyzrender.renderer import render_svg
+
+    cfg = RenderConfig(auto_orient=False, cbar=True, cmap_range=(-0.003, 0.003))
+    compute_esp_surface(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
+    svg = render_svg(caffeine_graph, cfg)
+
+    assert "\u22120</text>" in svg
+    assert ">.003</text>" in svg
+
+
+def test_esp_cmap_range_and_symm_are_mutually_exclusive():
+    from xyzrender.api import load, render
+
+    mol = load(str(STRUCTURES / "caffeine_dens.cube"))
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        render(mol, esp=str(STRUCTURES / "caffeine_esp.cube"), cmap_range=(-0.003, 0.003), cmap_symm=True)
+
+
 # ---------------------------------------------------------------------------
 # compute_nci_surface
 # ---------------------------------------------------------------------------

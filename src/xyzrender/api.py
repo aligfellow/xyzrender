@@ -2357,6 +2357,9 @@ def _validate_and_compute_surfaces(
         compute_dens_surface(rmol.graph, cube_data, cfg, dens_params)
 
     if esp_params is not None and esp is not None and cube_data is not None:
+        if cfg.cmap_range is not None and cfg.cmap_symm:
+            msg = "--cmap-range and --cmap-symm are mutually exclusive"
+            raise ValueError(msg)
         if cfg.surface_style != "solid":
             logger.info("ESP uses raster rendering; --surface-style %s is ignored", cfg.surface_style)
         esp_cube = parse_cube(str(esp))

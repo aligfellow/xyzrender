@@ -135,6 +135,8 @@ def compute_esp_surface(
         rot=rot,
         atom_centroid=atom_centroid,
         target_centroid=curr_centroid,
+        esp_range=cfg.cmap_range,
+        esp_symm=cfg.cmap_symm,
     )
 
 
