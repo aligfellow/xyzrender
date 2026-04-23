@@ -486,7 +486,9 @@ def main() -> None:
     orient_g.add_argument(
         "--orient", action=argparse.BooleanOptionalAction, default=None, help="Auto-orientation (default: on)"
     )
-    orient_g.add_argument("-I", "--interactive", action="store_true", help="Open in interactive viewer for rotation (see --viewer)")
+    orient_g.add_argument(
+        "-I", "--interactive", action="store_true", help="Open in interactive viewer for rotation (see --viewer)"
+    )
     orient_g.add_argument(
         "--viewer",
         choices=["vmol", "ase"],
