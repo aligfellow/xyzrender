@@ -6,7 +6,8 @@ import pytest
 
 from xyzrender import SVGResult, load, render
 from xyzrender.api import EnsembleFrames, _build_ensemble_molecule
-from xyzrender.ensemble import _Z_NUDGE, align, merge_graphs
+from xyzrender.ensemble import align, merge_graphs
+from xyzrender.merge import _Z_NUDGE
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -70,6 +71,23 @@ def test_ensemble_opacity(tmp_path: Path) -> None:
             assert op == 0.4
 
 
+def test_ensemble_no_align_preserves_raw_positions(tmp_path: Path) -> None:
+    """auto_align=False uses each frame's raw coordinates — no Kabsch."""
+    xyz_path = _make_traj(tmp_path)
+    mol = _build_ensemble_molecule(xyz_path, auto_align=False)
+    ens = mol.ensemble
+    assert ens is not None
+
+    import numpy as np
+
+    from xyzrender.readers import load_trajectory_frames
+
+    raw = load_trajectory_frames(xyz_path)
+    for fi, fr in enumerate(raw):
+        expected = np.array(fr["positions"], dtype=float)
+        assert np.allclose(ens.positions[fi], expected)
+
+
 def test_ensemble_palette_colors(tmp_path: Path) -> None:
     """Explicit palette → non-None hex colors for all conformers."""
     xyz_path = _make_traj(tmp_path)
@@ -124,22 +142,22 @@ def test_merge_graphs_structure(tmp_path: Path) -> None:
     for i, j, d in g.edges(data=True):
         assert g.nodes[i]["molecule_index"] == g.nodes[j]["molecule_index"] == d["molecule_index"]
 
-    # With palette: reference atoms get no ensemble_color; non-reference atoms do
+    # With palette: reference atoms get no structure_color; non-reference atoms do
     ref = [n for n in g.nodes() if g.nodes[n]["molecule_index"] == 0]
     non_ref = [n for n in g.nodes() if g.nodes[n]["molecule_index"] > 0]
-    assert all("ensemble_color" not in g.nodes[n] for n in ref)
-    assert all(g.nodes[n].get("ensemble_color", "").startswith("#") for n in non_ref)
+    assert all("structure_color" not in g.nodes[n] for n in ref)
+    assert all(g.nodes[n].get("structure_color", "").startswith("#") for n in non_ref)
 
 
 def test_merge_graphs_no_colors(tmp_path: Path) -> None:
-    """Default (no palette): merge_graphs sets no ensemble_color — CPK used by renderer."""
+    """Default (no palette): merge_graphs sets no structure_color — CPK used by renderer."""
     xyz_path = _make_traj(tmp_path)
     mol = _build_ensemble_molecule(xyz_path)
     ens = mol.ensemble
     assert ens is not None
 
     g = merge_graphs(mol.graph, ens.positions, conformer_colors=ens.colors)
-    assert all("ensemble_color" not in g.nodes[n] for n in g.nodes())
+    assert all("structure_color" not in g.nodes[n] for n in g.nodes())
 
 
 def test_merge_graphs_bond_color_override(tmp_path: Path) -> None:

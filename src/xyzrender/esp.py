@@ -89,6 +89,7 @@ def build_esp_surface(
     n_layers: int = _N_LAYERS,
     upsample: int = 6,
     esp_range: tuple[float, float] | None = None,
+    esp_symm: bool = False,
     normals_phys: np.ndarray | None = None,
 ) -> ESPSurface:
     """Build an ESP surface: heatmap PNG + density contour layers.
@@ -123,6 +124,9 @@ def build_esp_surface(
         Integer upsampling factor for the ESP heatmap raster.
     esp_range:
         Optional ``(vmin, vmax)`` range for ESP color mapping.
+    esp_symm:
+        If ``True``, use a symmetric ESP range about zero based on the
+        projected ESP values on the visible surface.
     normals_phys:
         Pre-computed surface normals in physical space (cached).
 
@@ -277,9 +281,12 @@ def build_esp_surface(
         )
 
     # Use fixed ESP range if provided (stabilizes colors across GIF frames),
-    # otherwise compute from this frame's projected data.
+    # otherwise derive it from this frame's projected data.
     if esp_range is not None:
         esp_vmin, esp_vmax = esp_range
+    elif esp_symm:
+        abs_max = max(abs(float(esp_above.min())), abs(float(esp_above.max())))
+        esp_vmin, esp_vmax = -abs_max, abs_max
     else:
         esp_vmin = float(np.percentile(esp_above, 5))
         esp_vmax = float(np.percentile(esp_above, 95))
@@ -426,8 +433,6 @@ def build_esp_surface(
         esp_vmin=esp_vmin,
         esp_vmax=esp_vmax,
     )
-
-
 # ---------------------------------------------------------------------------
 # ESP SVG rendering — PNG heatmap clipped by density contour rings
 # ---------------------------------------------------------------------------

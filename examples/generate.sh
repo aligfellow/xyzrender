@@ -145,6 +145,9 @@ xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 --hy -o "
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 -o "$IMG/isothio_overlay_custom.svg" --no-orient --overlay-color green -a 2
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 --hy --align-atoms "1,2,3" -o "$IMG/isothio_overlay_align.svg"
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_bridged.xyz" -c 1 --hy -o "$IMG/isothio_overlay_cross.svg" --gif-rot -go "$IMG/isothio_overlay_cross.gif"
+xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 --overlay-color teal --opacity 0.5 --overlay-atom-scale 1.5 --overlay-bond-width 15 -o "$IMG/isothio_overlay_styled.svg"
+
+xyzrender "$DIR/caffeine.xyz" --atom-opacity "1-6" 0.5 --radius-scale "4-8" 1.5 -o "$IMG/caffeine_atom_opacity.svg"
 
 echo "=== Ensemble ==="
 xyzrender "$DIR/triphenylbenzol.xyz" --ensemble -o "$IMG/triphenylbenzol_ensemble.svg" --gif-rot -go "$IMG/triphenylbenzol_ensemble.gif"

@@ -50,9 +50,9 @@ For density surfaces, `mesh` falls back to `contour` automatically (the molecula
 
 Map electrostatic potential onto the density isosurface using two cube files: density (main input) and ESP (`--esp`). Both must come from the same calculation (identical grid). Colored **blue** (positive/electron-poor) → **green** (zero) → **red** (negative/electron-rich).
 
-| Default | With colorbar | Coolwarm + colorbar | Custom iso + opacity |
-|---------|---------------|---------------------|----------------------|
-| ![Default](../../../examples/images/caffeine_esp.svg) | ![With colorbar](../../../examples/images/caffeine_esp_cbar.svg) | ![Coolwarm + colorbar](../../../examples/images/caffeine_esp_coolwarm.svg) | ![Custom iso + opacity](../../../examples/images/caffeine_esp_custom.svg) |
+| Default | With colorbar | Coolwarm + colorbar | Fixed range (`±0.003`) | Custom iso + opacity |
+|---------|---------------|---------------------|-----------------------|----------------------|
+| ![Default](../../../examples/images/caffeine_esp.svg) | ![With colorbar](../../../examples/images/caffeine_esp_cbar.svg) | ![Coolwarm + colorbar](../../../examples/images/caffeine_esp_coolwarm.svg) | ![Fixed range](../../../examples/images/caffeine_esp_cmap_range.svg) | ![Custom iso + opacity](../../../examples/images/caffeine_esp_custom.svg) |
 
 ```bash
 xyzrender caffeine_dens.cube --esp caffeine_esp.cube -o caffeine_esp.svg
@@ -61,10 +61,28 @@ xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cbar -o caffeine_esp_cbar
 xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cmap-palette coolwarm --cbar -o caffeine_esp_coolwarm.svg
 ```
 
+For cross-structure comparison, prefer a fixed manual range and show the colorbar explicitly:
+
+```bash
+xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cmap-range -0.003 0.003 --cbar -o caffeine_esp_fixed_range.svg
+```
+
+This keeps the ESP scale identical between renders, which is usually more informative than letting each figure auto-scale independently.
+
+If you want an automatic zero-centered range instead, use:
+
+```bash
+xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cmap-symm --cmap-palette coolwarm --cbar -o caffeine_esp_symm.svg
+```
+
+`--cmap-symm` chooses a symmetric range about zero using `[-max(|v|), +max(|v|)]`, where `v` is the plotted ESP data. This is useful with diverging palettes such as `coolwarm` when you want balanced positive/negative coloring without manually choosing bounds. For direct figure-to-figure comparison, prefer an explicit fixed range such as `--cmap-range -0.003 0.003`.
+
 | Flag | Description |
 |------|-------------|
 | `--esp CUBE` | ESP cube file to map onto the density isosurface |
 | `--iso` | Isosurface threshold for the density surface (default: 0.05) |
 | `--opacity` | Surface opacity multiplier (default: 1.0) |
+| `--cmap-range VMIN VMAX` | Explicit ESP plotting range; recommended for direct comparison across structures |
+| `--cmap-symm` | Automatic zero-centered symmetric range: `[-max(|v|), +max(|v|)]` |
 | `--cmap-palette NAME` | Shared scalar palette override for ESP coloring and the ESP legend |
 | `--cbar` | Add a vertical ESP legend on the right using the plotted projected-value range |

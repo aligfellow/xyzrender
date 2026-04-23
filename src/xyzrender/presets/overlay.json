@@ -1,0 +1,13 @@
+{
+  "bond_orders": true,
+  "background": "white",
+  "auto_align": false,
+  "hide_h": false,
+  "overlay": {
+    "color": "teal",
+    "opacity": 1.0,
+    "atom_scale": 1.2,
+    "bond_width": 0,
+    "atom_stroke_width": 6
+  }
+}

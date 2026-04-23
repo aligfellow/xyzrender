@@ -13,6 +13,7 @@ from xyzrender.types import (
     ESPParams,
     MOParams,
     NCIParams,
+    OverlayConfig,
     RenderConfig,
 )
 
@@ -71,6 +72,23 @@ def load_config(name_or_path: str) -> dict:
     raise FileNotFoundError(msg)
 
 
+_PASSTHROUGH_COLORS = frozenset({"atom"})  # literal markers the renderer handles specially
+
+
+def _resolve_color_fields(kw: dict, fields: tuple[str, ...]) -> None:
+    """Resolve each CSS-name / hex entry in *kw* for the given *fields* to a hex string.
+
+    Used to normalise preset JSON colour values (``"teal"`` → ``"#008080"``)
+    both for top-level :class:`RenderConfig` fields and for the nested
+    :class:`OverlayConfig` block.  ``None`` values and passthrough literals
+    (e.g. ``"atom"`` = use per-element CPK) are left untouched.
+    """
+    for key in fields:
+        v = kw.get(key)
+        if v is not None and v not in _PASSTHROUGH_COLORS:
+            kw[key] = resolve_color(v)
+
+
 def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
     """Merge config dict with CLI overrides into a RenderConfig.
 
@@ -121,15 +139,22 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
         "mo_pos_color",
         "mo_neg_color",
         "dens_color",
-        "overlay_color",
         "mol_color",
     )
-    _passthrough_colors = {"atom"}
-    for key in _color_fields:
-        if key in merged and merged[key] is not None:
-            if merged[key] in _passthrough_colors:
-                continue
-            merged[key] = resolve_color(merged[key])
+    _resolve_color_fields(merged, _color_fields)
+
+    # Hydrate the preset JSON "overlay" block into an OverlayConfig instance.
+    # Colour fields go through the same CSS-name → hex resolution as the top-level
+    # fields above; a nested "config" sub-block is built through this same
+    # preset machinery so any RenderConfig key is valid inside it.
+    overlay_raw = merged.pop("overlay", None)
+    if isinstance(overlay_raw, dict):
+        overlay_kw: dict = dict(overlay_raw)
+        _resolve_color_fields(overlay_kw, ("color", "atom_stroke_color", "bond_color", "bond_outline_color"))
+        ov_inner = overlay_kw.get("config")
+        if isinstance(ov_inner, dict):
+            overlay_kw["config"] = build_render_config(ov_inner, {})
+        merged["overlay"] = OverlayConfig(**overlay_kw)
 
     # nci_mode can be a mode name ("avg", "pixel", "uniform") or a color — resolve if color
     if "nci_mode" in merged and merged["nci_mode"] not in ("avg", "pixel", "uniform", None):

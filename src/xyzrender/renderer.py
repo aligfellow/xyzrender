@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import itertools
 import logging
+from typing import NamedTuple
 
 import networkx as nx
 import numpy as np
@@ -18,6 +19,7 @@ from xyzrender.colors import (
     WHITE,
     Color,
     blend_fog,
+    bond_color_from_atom,
     get_color,
     get_gradient_colors,
     resolve_color,
@@ -48,6 +50,22 @@ _REF_CANVAS = 800  # reference canvas size (px) — bond/label widths are define
 _CENTROID_VDW = 0.5  # VdW radius (Å) for NCI pi-system centroid dummy nodes
 _H_ATOM_SCALE = 0.6  # display-radius shrink factor for H atoms (ball-and-stick)
 _H_VDW_SCALE = 0.65  # VdW-sphere shrink factor for H atoms
+
+
+class _BondAttrs(NamedTuple):
+    """Per-bond lookup-cache entry.
+
+    ``order`` and ``style`` come from the edge; the four ``*_override`` fields
+    are stamped by :mod:`xyzrender.merge` (overlay / ensemble) and consumed by
+    ``add_bond`` — each ``None`` means "use the primary/style-region config".
+    """
+
+    order: float
+    style: BondStyle
+    color: str | None = None
+    width: float | None = None
+    outline_width: float | None = None
+    outline_color: str | None = None
 
 
 def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, _unique_ids: bool = True) -> str:
@@ -115,11 +133,17 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     raw_vdw = np.array(
         [_CENTROID_VDW if s == "*" else DATA.vdw.get(s, 1.5) * (_H_ATOM_SCALE if s == "H" else 1.0) for s in symbols]
     )
+    # Per-atom absolute scale: start from cfg (or style-region _acfg), then
+    # overlay / ensemble extras replace it when structure_atom_scale is set.
     if _acfg is not None:
-        _atom_scales = np.array([_acfg[ai].atom_scale for ai in range(n)])
-        radii = raw_vdw * _atom_scales * _RADIUS_SCALE
+        _atom_scale_per = np.array([_acfg[ai].atom_scale for ai in range(n)])
     else:
-        radii = raw_vdw * cfg.atom_scale * _RADIUS_SCALE
+        _atom_scale_per = np.full(n, cfg.atom_scale)
+    for ai, nid in enumerate(node_ids):
+        sa = graph.nodes[nid].get("structure_atom_scale")
+        if sa is not None:
+            _atom_scale_per[ai] = sa
+    radii = raw_vdw * _atom_scale_per * _RADIUS_SCALE
 
     # Per-atom scale multipliers (--scale "N,M" 2.0 or API scale=[("N,M", 2.0)])
     _per_atom_mult: np.ndarray | None = None
@@ -222,10 +246,21 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     _mesh_sw = max(2.0, 6.0 * scale_ratio)
     _mesh_inner_sw = max(1.5, 3.5 * scale_ratio)
 
-    # Per-atom stroke width overrides for style regions
+    # Per-atom stroke overrides (read here so the _atom_sw block below sees them).
+    struct_stroke_widths: list[float | None] = [graph.nodes[nid].get("structure_atom_stroke_width") for nid in node_ids]
+    struct_stroke_colors: list[str | None] = [graph.nodes[nid].get("structure_atom_stroke_color") for nid in node_ids]
+
+    # Per-atom stroke width overrides: style regions first, then structure
+    # (overlay / ensemble) absolute overrides replace those values.
     _atom_sw: np.ndarray | None = None
     if _acfg is not None:
         _atom_sw = np.array([_acfg[ai].atom_stroke_width * scale_ratio for ai in range(n)])
+    if any(v is not None for v in struct_stroke_widths):
+        if _atom_sw is None:
+            _atom_sw = np.full(n, sw)
+        for ai, sv in enumerate(struct_stroke_widths):
+            if sv is not None:
+                _atom_sw[ai] = sv * scale_ratio
 
     if _log:
         logger.debug(
@@ -295,32 +330,34 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     )
     _cb_svg_w = canvas_w + cb_extra_w
 
-    # Override atom colors for overlay (mol2) atoms — must happen before gradient defs
-    has_overlay = any(graph.nodes[nid].get("overlay", False) for nid in node_ids)
-    if has_overlay:
-        overlay_atom_color = Color.from_str(cfg.overlay_color)
-        for ai in range(n):
-            if graph.nodes[node_ids[ai]].get("overlay", False):
-                colors[ai] = overlay_atom_color
-
-    # Override atom colors for ensemble conformers with per-conformer colours.
-    # Single pass: extract and apply in one loop (avoids any() scan + second pass).
-    ens_colors: list[str | None] = [graph.nodes[nid].get("ensemble_color") for nid in node_ids]
+    # Per-structure colour override (overlay mol2 atoms and ensemble non-reference
+    # conformers both stamp `structure_color` on their nodes — single code path).
+    struct_colors: list[str | None] = [graph.nodes[nid].get("structure_color") for nid in node_ids]
     for ai in range(n):
-        ec = ens_colors[ai]
-        if ec:
-            colors[ai] = Color.from_str(ec)
+        sc = struct_colors[ai]
+        if sc:
+            colors[ai] = Color.from_str(sc)
 
-    # Pre-extract ensemble_opacity per atom — avoids two dict lookups per atom inside the main loop.
-    ens_opacities: list[float | None] = [graph.nodes[nid].get("ensemble_opacity") for nid in node_ids]
+    # Pre-extract structure_opacity per atom — avoids two dict lookups per atom inside the main loop.
+    struct_opacities: list[float | None] = [graph.nodes[nid].get("structure_opacity") for nid in node_ids]
 
-    # Molecule color: override all atom + bond colors with a single color
+    # Per-atom opacity override (cfg.atom_opacity is 0-indexed).  Affects the
+    # atom's own fill-opacity in the render loop; bonds are NOT read from this
+    # list so an atom can be faded without dimming its connectivity.
+    _atom_only_op: list[float | None] = (
+        [cfg.atom_opacity.get(ai) for ai in range(n)] if cfg.atom_opacity else [None] * n
+    )
+
+    # Molecule color: override atom + bond colors with a single color.
+    # Skip atoms that carry structure_color (overlay mol2 / ensemble extras)
+    # so those structures keep their own colour rather than being over-painted.
     mol_bond_color: str | None = None
     if cfg.mol_color is not None:
         flat = Color.from_str(cfg.mol_color)
         for ai in range(n):
-            colors[ai] = flat
-        mol_bond_color = flat.blend(Color(0, 0, 0), 0.3).hex
+            if struct_colors[ai] is None:
+                colors[ai] = flat
+        mol_bond_color = bond_color_from_atom(flat)
 
     # Highlight: override colors for user-specified atom groups
     hl_atom_group: dict[int, int] = {}  # atom_idx → group_id
@@ -328,7 +365,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     if cfg.highlight_groups:
         for gid, group in enumerate(cfg.highlight_groups):
             gc = Color.from_str(group.color)
-            hl_group_bond_color.append(gc.blend(Color(0, 0, 0), 0.3).hex)
+            hl_group_bond_color.append(bond_color_from_atom(gc))
             for ai in group._index_set:
                 colors[ai] = gc
                 hl_atom_group[ai] = gid
@@ -336,44 +373,49 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     # Pre-cache hex strings so .hex property isn't recomputed in the render loop
     _color_hex = [c.hex for c in colors]
 
-    # Bond lookup: (bond_order, style, color_override)
-    bonds: dict[tuple[int, int], tuple[float, BondStyle, str | None]] = {}
+    # Bond lookup: per-edge attrs needed by the render loop.
+    bonds: dict[tuple[int, int], _BondAttrs] = {}
     if not cfg.hide_bonds:
         for i, j, d in graph.edges(data=True):
-            bo = d.get("bond_order", 1.0)  # always store raw; bond_orders flag applied per-bond at render
             if d.get("TS", False):
                 style = BondStyle.DASHED
             elif d.get("NCI", False):
                 style = BondStyle.DOTTED
             else:
                 style = BondStyle.SOLID
-            color_ov: str | None = d.get("bond_color_override")
-            bonds[(i, j)] = bonds[(j, i)] = (bo, style, color_ov)
+            attrs = _BondAttrs(
+                order=d.get("bond_order", 1.0),  # always store raw; bond_orders flag applied per-bond at render
+                style=style,
+                color=d.get("bond_color_override"),
+                width=d.get("bond_width_override"),
+                outline_width=d.get("bond_outline_width_override"),
+                outline_color=d.get("bond_outline_color_override"),
+            )
+            bonds[(i, j)] = bonds[(j, i)] = attrs
         # Manual overrides (add or restyle)
+        _default = _BondAttrs(order=1.0, style=BondStyle.SOLID)
         for i, j in cfg.ts_bonds:
-            existing = bonds.get((i, j), (1.0, BondStyle.SOLID, None))
-            bonds[(i, j)] = bonds[(j, i)] = (existing[0], BondStyle.DASHED, existing[2])
+            bonds[(i, j)] = bonds[(j, i)] = bonds.get((i, j), _default)._replace(style=BondStyle.DASHED)
         for i, j in cfg.nci_bonds:
-            existing = bonds.get((i, j), (1.0, BondStyle.SOLID, None))
-            bonds[(i, j)] = bonds[(j, i)] = (existing[0], BondStyle.DOTTED, existing[2])
+            bonds[(i, j)] = bonds[(j, i)] = bonds.get((i, j), _default)._replace(style=BondStyle.DOTTED)
         # Molecule color: paint all SOLID bonds with darkened mol_color
         if mol_bond_color is not None:
-            for (i, j), (bo, style, c_ov) in list(bonds.items()):
-                if c_ov is None and style == BondStyle.SOLID:
-                    bonds[(i, j)] = bonds[(j, i)] = (bo, style, mol_bond_color)
+            for (i, j), attrs in list(bonds.items()):
+                if attrs.color is None and attrs.style == BondStyle.SOLID:
+                    bonds[(i, j)] = bonds[(j, i)] = attrs._replace(color=mol_bond_color)
         # Highlight: color bonds between two atoms in the SAME highlight group.
         # Only SOLID covalent bonds — TS/NCI are structural overlays.
         # Overrides mol_color bond coloring (but not explicit per-edge overrides).
         if hl_atom_group:
-            for (i, j), (bo, style, c_ov) in list(bonds.items()):
+            for (i, j), attrs in list(bonds.items()):
                 gi, gj = hl_atom_group.get(i), hl_atom_group.get(j)
                 if (
                     gi is not None
                     and gi == gj
-                    and style == BondStyle.SOLID
-                    and (c_ov is None or c_ov == mol_bond_color)
+                    and attrs.style == BondStyle.SOLID
+                    and (attrs.color is None or attrs.color == mol_bond_color)
                 ):
-                    bonds[(i, j)] = bonds[(j, i)] = (bo, style, hl_group_bond_color[gi])
+                    bonds[(i, j)] = bonds[(j, i)] = attrs._replace(color=hl_group_bond_color[gi])
 
     # Pre-build adjacency list for O(degree) bond lookup in render loop
     bond_adj: dict[int, list[int]] = {}
@@ -468,7 +510,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 hi, me, lo = get_gradient_colors(colors[ai], acfg, strength=acfg.atom_gradient_strength)
                 t = min(fog_f[ai] ** 2 * 0.7, 0.70)
                 hi, me, lo = hi.blend(WHITE, t), me.blend(WHITE, t), lo.blend(WHITE, t)
-                _base_stroke = colors[ai].hex if acfg.atom_stroke_color == "atom" else acfg.atom_stroke_color
+                _stroke_src = struct_stroke_colors[ai] or acfg.atom_stroke_color
+                _base_stroke = colors[ai].hex if _stroke_src == "atom" else _stroke_src
                 atom_fog_stroke[ai] = blend_fog(_base_stroke, fog_rgb, fog_f[ai])
                 svg.append(
                     f'    <radialGradient id="g{ai}" cx=".5" cy=".5" fx=".33" fy=".33" r=".66">'
@@ -1038,7 +1081,17 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         else:
             _bond_line(lx1, ly1, lx2, ly2, w, color_hex, lpx, lpy, shade, op_attr, dash)
 
-    def add_bond(ai, aj, bo, style, opacity: float = 1.0, color_override: str | None = None):
+    def add_bond(
+        ai,
+        aj,
+        bo,
+        style,
+        opacity: float = 1.0,
+        color_override: str | None = None,
+        width_override: float | None = None,
+        outline_width_override: float | None = None,
+        outline_color_override: str | None = None,
+    ):
         """Render bond — closure captures shared rendering state."""
         # Config: use base config unless style regions exist and bond is solid
         if _acfg is not None and style == BondStyle.SOLID:
@@ -1063,6 +1116,15 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             _stroke_color = bcfg.bond_outline_color
             _stroke_width = bcfg.bond_outline_width * scale_ratio
             _scfg = bcfg if bcfg.bond_gradient else None
+
+        # Per-edge overlay / structure overrides beat base and style-region values.
+        if width_override is not None:
+            _bw = width_override * scale_ratio
+            _gap = bcfg.bond_gap * _bw
+        if outline_width_override is not None:
+            _stroke_width = outline_width_override * scale_ratio
+        if outline_color_override is not None:
+            _stroke_color = outline_color_override
 
         if style != BondStyle.SOLID:
             _bw = min(_bw, 20.0 * scale_ratio)
@@ -1336,10 +1398,14 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         is_image = _is_image[ai]
         if is_image:
             atom_op = cfg.periodic_image_opacity
-        elif ens_opacities[ai] is not None:
-            atom_op = ens_opacities[ai]
+        elif struct_opacities[ai] is not None:
+            atom_op = struct_opacities[ai]
         else:
             atom_op = 1.0
+        # Per-atom fill override: composes multiplicatively with whatever is above
+        # so fading a specific atom on a half-opaque overlay still fades it further.
+        if _atom_only_op[ai] is not None:
+            atom_op = min(atom_op, _atom_only_op[ai])
         op_attr_atom = f' opacity="{atom_op:.2f}"' if atom_op < 1.0 else ""
 
         # Atom graphics / labels — per-atom config for style regions.
@@ -1366,7 +1432,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             # Atom circle (gradient or flat fill)
             _sw_ai = _atom_sw[ai] if _atom_sw is not None else sw
             _grad_ai = _atom_use_grad[ai] if _atom_use_grad is not None else use_grad
-            _stroke_atom = _color_hex[ai] if acfg.atom_stroke_color == "atom" else acfg.atom_stroke_color
+            _stroke_src = struct_stroke_colors[ai] or acfg.atom_stroke_color
+            _stroke_atom = _color_hex[ai] if _stroke_src == "atom" else _stroke_src
             dof_attr = f' filter="url(#dof{dof_buckets[ai]})"' if cfg.dof else ""
             if _grad_ai:
                 if use_per_atom_grad:
@@ -1415,15 +1482,15 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             for aj_int in bond_adj.get(ai, ()):
                 if aj_int in hidden or _z_rank[aj_int] <= idx:
                     continue
-                bo, style, color_ov = bonds[(ai, aj_int)]
+                battrs = bonds[(ai, aj_int)]
                 # Use periodic_image_opacity if either endpoint is an image atom
                 _aj_image = _is_image[aj_int]
-                _aj_ens_op = ens_opacities[aj_int] if not _aj_image else None
-                _ai_ens_op = ens_opacities[ai]
+                _aj_struct_op = struct_opacities[aj_int] if not _aj_image else None
+                _ai_struct_op = struct_opacities[ai]
                 if is_image or _aj_image:
                     bond_op = cfg.periodic_image_opacity
-                elif _ai_ens_op is not None or _aj_ens_op is not None:
-                    bond_op = min(v for v in (_ai_ens_op, _aj_ens_op) if v is not None)
+                elif _ai_struct_op is not None or _aj_struct_op is not None:
+                    bond_op = min(v for v in (_ai_struct_op, _aj_struct_op) if v is not None)
                 else:
                     bond_op = 1.0
                 # Diffuse GIF: fade stretched bonds
@@ -1432,7 +1499,17 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     bond_op = min(bond_op, _diff_op)
                 if bond_op < 0.01:
                     continue  # skip invisible bonds
-                add_bond(ai, aj_int, bo, style, opacity=bond_op, color_override=color_ov)
+                add_bond(
+                    ai,
+                    aj_int,
+                    battrs.order,
+                    battrs.style,
+                    opacity=bond_op,
+                    color_override=battrs.color,
+                    width_override=battrs.width,
+                    outline_width_override=battrs.outline_width,
+                    outline_color_override=battrs.outline_color,
+                )
 
     # Insert edge stroke shadow layer at the base of the molecule group
     if _bond_outline_layer:
@@ -1594,7 +1671,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
 
 def _compute_aromatic_rings(
     graph,
-    bonds: dict[tuple[int, int], tuple[float, BondStyle, str | None]],
+    bonds: dict[tuple[int, int], _BondAttrs],
 ) -> list[set[int]]:
     """Return list of aromatic ring atom index sets, with fallback when graph has no ring data.
 
@@ -1610,14 +1687,14 @@ def _compute_aromatic_rings(
                 if (rl[ii], rl[jj]) in bonds or (rl[jj], rl[ii]) in bonds:
                     aromatic_ring_edges.add((min(rl[ii], rl[jj]), max(rl[ii], rl[jj])))
     missing = False
-    for (i, j), (bo, _style, _col) in bonds.items():
-        if i < j and 1.3 < bo < 1.7 and (i, j) not in aromatic_ring_edges:
+    for (i, j), attrs in bonds.items():
+        if i < j and 1.3 < attrs.order < 1.7 and (i, j) not in aromatic_ring_edges:
             missing = True
             break
     if missing:
         arom_g = nx.Graph()
-        for (i, j), (bo, _style, _col) in bonds.items():
-            if i < j and 1.3 < bo < 1.7:
+        for (i, j), attrs in bonds.items():
+            if i < j and 1.3 < attrs.order < 1.7:
                 arom_g.add_edge(i, j)
         if arom_g.number_of_edges() > 0:
             aromatic_rings = [set(c) for c in nx.minimum_cycle_basis(arom_g)]

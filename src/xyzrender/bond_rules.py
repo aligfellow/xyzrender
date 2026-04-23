@@ -48,6 +48,7 @@ def apply_bond_rules(graph: nx.Graph, cfg: RenderConfig) -> None:
     standalone_specs: list[frozenset[str]] = []
     between_specs: list[tuple[frozenset[str], frozenset[str]]] = []
     pi_specs: list[frozenset[str] | None] = []
+    unbond_all = False
 
     for spec in cfg.unbond:
         pair = _parse_index_pair(spec)
@@ -56,6 +57,9 @@ def apply_bond_rules(graph: nx.Graph, cfg: RenderConfig) -> None:
             continue
         if "-" not in spec:
             stripped = spec.strip()
+            if stripped in {"all", "*"}:
+                unbond_all = True
+                continue
             # Standalone atom index: remove all bonds from that atom
             if stripped.isdigit() and int(stripped) >= 1:
                 idx = int(stripped) - 1
@@ -84,6 +88,13 @@ def apply_bond_rules(graph: nx.Graph, cfg: RenderConfig) -> None:
 
     # -- Collect edges to remove (single edge traversal) -------------------
     remove: set[tuple[int, int]] = set()
+
+    # "all" / "*": remove every covalent bond (keep NCI / TS overlays — they're
+    # structural annotations, not covalent bonds).
+    if unbond_all:
+        for i, j, d in graph.edges(data=True):
+            if not d.get("NCI", False) and not d.get("TS", False):
+                remove.add((i, j))
 
     # Index pairs (skip NCI/TS overlay edges)
     for i, j in pair_specs:
@@ -248,9 +259,32 @@ def _apply_haptic_centroids_from_groups(
         positions = np.array([graph.nodes[a]["position"] for a in remaining])
         centroid = positions.mean(axis=0)
 
+        # Inherit per-structure style from the external atom so the centroid node
+        # and its bond match the overlay / conformer colour instead of defaulting
+        # to the primary CPK / NCI palette.
+        nid_data = graph.nodes[nid]
+        node_attrs: dict = {"symbol": "*", "position": tuple(centroid)}
+        if "molecule_index" in nid_data:
+            node_attrs["molecule_index"] = nid_data["molecule_index"]
+        if "structure_color" in nid_data:
+            node_attrs["structure_color"] = nid_data["structure_color"]
+        if "structure_opacity" in nid_data:
+            node_attrs["structure_opacity"] = nid_data["structure_opacity"]
+
+        edge_attrs: dict = {"bond_order": 1.0, "NCI": True}
+        if "molecule_index" in nid_data:
+            edge_attrs["molecule_index"] = nid_data["molecule_index"]
+        # One of the original eta bonds carries the overlay's bond_color_override;
+        # reuse it for the centroid bond so the dotted stroke matches.
+        for a in remaining:
+            ov = graph.edges[nid, a].get("bond_color_override")
+            if ov is not None:
+                edge_attrs["bond_color_override"] = ov
+                break
+
         # Add centroid node and bond (NCI=True → dotted style like NCI bonds)
-        graph.add_node(next_id, symbol="*", position=tuple(centroid))
-        graph.add_edge(nid, next_id, bond_order=1.0, NCI=True)
+        graph.add_node(next_id, **node_attrs)
+        graph.add_edge(nid, next_id, **edge_attrs)
 
         # Remove individual metal-to-ring-atom bonds
         for ring_atom in remaining:

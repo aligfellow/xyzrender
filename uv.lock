@@ -2147,7 +2147,7 @@ wheels = [
 
 [[package]]
 name = "xyzgraph"
-version = "1.6.7"
+version = "1.6.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -2156,14 +2156,14 @@ dependencies = [
     { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "rdkit" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9c/1b/4bc99da1336144c7191cb65f446319e4a51341e25fc62dc724fbd5627625/xyzgraph-1.6.7.tar.gz", hash = "sha256:3aa0a05d2c21ac3eb0bf0858114e2601ffc6a7f6d01ab455912d5370968feaf2", size = 166502, upload-time = "2026-03-27T14:03:12.72Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/69/28/c2b71cafab920e6358bbae3896a00fcbed7e8ee61b33db26466c004ac212/xyzgraph-1.6.9.tar.gz", hash = "sha256:8dd4f593b78087ae5707a3b7c2b5083a0f9fa5818aa101ab1f59b1cfd0c9a571", size = 173947, upload-time = "2026-04-16T07:17:38.46Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6b/0f/6819dfcbf93e368dc3ea35c3b366e605991e342ed6c2b87af373ed881c0c/xyzgraph-1.6.7-py3-none-any.whl", hash = "sha256:43e619d9b96e9dbc497abbcaf302f3f6fa8fcc75dc2f3a52c5581cbb489fd325", size = 123745, upload-time = "2026-03-27T14:03:10.94Z" },
+    { url = "https://files.pythonhosted.org/packages/18/c9/6df5319faf4ff427a72aa7d59e6cdc148150d811c6b5b024e19fab6cb3e5/xyzgraph-1.6.9-py3-none-any.whl", hash = "sha256:5d48a4f4ea2154b7f2bbb860d1aebf54834235103e65f1440f8d25e0648fa0c1", size = 129183, upload-time = "2026-04-16T07:17:36.599Z" },
 ]
 
 [[package]]
 name = "xyzrender"
-version = "0.2.3"
+version = "0.2.6"
 source = { editable = "." }
 dependencies = [
     { name = "cairosvg" },
@@ -2220,7 +2220,7 @@ requires-dist = [
     { name = "resvg-py" },
     { name = "vmol", marker = "extra == 'all'", specifier = ">=3.0rc7" },
     { name = "vmol", marker = "extra == 'v'", specifier = ">=3.0rc7" },
-    { name = "xyzgraph", specifier = ">=1.6.7" },
+    { name = "xyzgraph", specifier = ">=1.6.8" },
 ]
 provides-extras = ["smi", "cif", "v", "all"]
 

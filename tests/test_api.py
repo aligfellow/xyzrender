@@ -506,3 +506,88 @@ def test_render_cif_with_cell_data():
     assert isinstance(mol.cell_data, CellData)
     svg = str(render(mol, orient=False))
     assert svg.startswith("<svg")
+
+
+def test_atom_opacity_affects_atom_not_bonds(caffeine):
+    """Per-atom fill opacity renders on the atom circle without dimming adjacent bonds."""
+    import re
+
+    # API uses 1-indexed keys; 1 and 2 are the first two atoms (bonded in caffeine).
+    svg = str(
+        render(
+            caffeine,
+            atom_opacity={1: 0.3},
+            orient=False,
+            gradient=False,
+            fog=False,
+            bo=False,
+        )
+    )
+    # At least one atom circle carries opacity="0.30".
+    assert 'opacity="0.30"' in svg
+    # No bond stroke inherits the 0.30 value — the per-atom flag must be bond-agnostic.
+    # Every <path/line with stroke-opacity must not use 0.30 unless structure_opacity set it.
+    bond_ops = re.findall(r'<(?:path|line)[^>]*stroke-opacity="([0-9.]+)"', svg)
+    assert all(op != "0.30" for op in bond_ops), f"bond inherited per-atom opacity: {bond_ops}"
+
+
+@pytest.mark.parametrize("spec", ["all", "*"])
+def test_atom_opacity_all_fades_every_atom(caffeine, spec):
+    """`all` / `*` selectors fade every (real) atom in one shot."""
+    from xyzrender.api import _resolve_atom_opacity
+
+    resolved = _resolve_atom_opacity([(spec, 0.3)], caffeine.graph)
+    n_real = sum(1 for _, d in caffeine.graph.nodes(data=True) if d.get("symbol", "") != "*")
+    assert len(resolved) == n_real
+    assert all(v == pytest.approx(0.3) for v in resolved.values())
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        [("1-6", 0.4)],  # string range
+        [([1, 2, 3, 4, 5, 6], 0.4)],  # bare 1-indexed list
+        [("1-3", 0.4), ("4-6", 0.4)],  # two specs coalesce
+    ],
+)
+def test_atom_opacity_selector_form(caffeine, spec):
+    """Selector-list spec (mirroring radius_scale) resolves the same as the dict form."""
+    svg = str(
+        render(
+            caffeine,
+            atom_opacity=spec,
+            orient=False,
+            gradient=False,
+            fog=False,
+            bo=False,
+        )
+    )
+    # 6 atoms faded → 6 atom circles carry opacity="0.40".
+    assert svg.count('opacity="0.40"') >= 6
+
+
+def test_atom_opacity_selector_overwrites_earlier(caffeine):
+    """Later selector spec overwrites earlier values for overlapping atoms."""
+    from xyzrender.api import _resolve_atom_opacity
+
+    resolved = _resolve_atom_opacity([("1-3", 0.3), ("2", 0.7)], caffeine.graph)
+    # Atom 2 (0-indexed 1) should carry the later value.
+    assert resolved[0] == pytest.approx(0.3)
+    assert resolved[1] == pytest.approx(0.7)
+    assert resolved[2] == pytest.approx(0.3)
+
+
+@pytest.mark.parametrize("spec", ["all", "*"])
+def test_unbond_all_removes_every_covalent_bond(caffeine, spec):
+    """``--unbond all`` (or ``*``) strips every covalent bond while keeping atoms."""
+    import copy
+
+    from xyzrender.bond_rules import apply_bond_rules
+
+    g = copy.deepcopy(caffeine.graph)
+    assert g.number_of_edges() > 0
+    cfg = build_config("default")
+    cfg.unbond = [spec]
+    apply_bond_rules(g, cfg)
+    assert g.number_of_edges() == 0
+    assert g.number_of_nodes() == caffeine.graph.number_of_nodes()

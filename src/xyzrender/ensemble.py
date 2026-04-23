@@ -11,16 +11,17 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from xyzrender.colors import Color
+from xyzrender.merge import (
+    _Z_NUDGE,
+    merge_aromatic_rings,
+    stamp_structure_edges,
+    stamp_structure_nodes,
+)
 from xyzrender.overlay import _node_list
 from xyzrender.utils import kabsch_align
 
 if TYPE_CHECKING:
     import networkx as nx
-
-
-# Tiny z-offset between conformers to avoid z-fighting in SVG rendering.
-_Z_NUDGE: float = -1e-3
 
 
 def align(
@@ -82,6 +83,7 @@ def merge_graphs(
     aligned_positions: list[np.ndarray] | np.ndarray,  # list or (n_conformers, n_atoms, 3)
     *,
     conformer_colors: list[str | None] | None = None,
+    conformer_opacities: list[float | None] | None = None,
     conformer_graphs: list[nx.Graph] | None = None,
     z_nudge: bool = True,
 ) -> nx.Graph:
@@ -93,24 +95,17 @@ def merge_graphs(
         The graph for the reference conformer (frame 0).
     aligned_positions:
         One (N, 3) position array per frame (including reference).
-    conformer_colors:
-        Optional list of hex colour strings, one per conformer.  When given,
-        non-reference atoms get ``ensemble_color`` and bonds get
-        ``bond_color_override`` attributes (30 % darkened).  The reference
-        conformer (index 0) colour is ignored (uses CPK).
+    conformer_colors, conformer_opacities:
+        Optional per-conformer overrides (one value per frame, including the
+        reference).  The reference frame's values are ignored (uses CPK / full
+        opacity).  Non-reference atoms get ``structure_color`` /
+        ``structure_opacity`` node attributes and bonds get the matching
+        ``bond_color_override`` edge attribute (30 % darkened).
     conformer_graphs:
         Optional per-frame graphs (one per frame, including reference).  When
         given, each conformer uses its own graph's edges instead of copying
         the reference frame's edges.  Useful for trajectories where bonding
         or NCI interactions differ between frames.
-
-    Node attributes added:
-    - ``molecule_index``: conformer index (0 for reference frame).
-    - ``ensemble_color``: hex colour (only when *conformer_colors* given, non-ref).
-
-    Edge attributes added:
-    - ``molecule_index``: conformer index for that bond set.
-    - ``bond_color_override``: hex colour (only when *conformer_colors* given, non-ref).
     """
     import networkx as nx
 
@@ -136,22 +131,15 @@ def merge_graphs(
     merged.graph.update(reference_graph.graph)
 
     # Reference conformer (index 0): keep original node IDs.
-    pos0 = aligned_positions[0]
-    for k, nid in enumerate(real_nodes):
-        data = dict(reference_graph.nodes[nid])
-        data["molecule_index"] = 0
-        x, y, z = pos0[k]
-        data["position"] = (float(x), float(y), float(z))
-        merged.add_node(nid, **data)
+    ref_map = {nid: nid for nid in real_nodes}
+    stamp_structure_nodes(merged, reference_graph, ref_map, aligned_positions[0], molecule_index=0)
+    stamp_structure_edges(merged, reference_graph, ref_map, molecule_index=0)
 
-    # Add NCI centroid nodes (reference frame only) with their existing positions.
+    # NCI centroid dummy nodes (reference frame only) keep their existing positions.
     for nid in centroid_nodes:
         data = dict(reference_graph.nodes[nid])
         data["molecule_index"] = 0
         merged.add_node(nid, **data)
-
-    for i, j, d in reference_graph.edges(data=True):
-        merged.add_edge(i, j, **dict(d), molecule_index=0)
 
     # Additional conformers: copy node/edge attributes, renumbering node IDs.
     next_id = max(all_nodes) + 1 if all_nodes else 0
@@ -164,36 +152,33 @@ def merge_graphs(
             )
             raise ValueError(msg)
 
-        # Per-conformer colour overrides
-        atom_color_hex: str | None = None
-        bond_color_hex: str | None = None
-        if conformer_colors is not None and conf_idx < len(conformer_colors):
-            atom_color_hex = conformer_colors[conf_idx]
-            if atom_color_hex is not None:
-                bond_color_hex = Color.from_str(atom_color_hex).darken(strength=0.30).hex
-
-        # Use per-frame graph if available, otherwise copy reference edges.
+        color = (
+            conformer_colors[conf_idx] if conformer_colors is not None and conf_idx < len(conformer_colors) else None
+        )
+        opacity = (
+            conformer_opacities[conf_idx]
+            if conformer_opacities is not None and conf_idx < len(conformer_opacities)
+            else None
+        )
         frame_graph = conformer_graphs[conf_idx] if conformer_graphs is not None else reference_graph
 
         id_map = {old: next_id + i for i, old in enumerate(real_nodes)}
+        # Slight z-offset so conformers don't z-fight; scaled by index so later
+        # frames sit further back than earlier ones.
+        z_offset = conf_idx * _Z_NUDGE if z_nudge else 0.0
 
-        for k, old_id in enumerate(real_nodes):
-            data = dict(reference_graph.nodes[old_id])
-            data["molecule_index"] = conf_idx
-            x, y, z = pos[k]
-            # Optionally nudge z slightly so conformers don't z-fight in SVG rendering.
-            nudge = conf_idx * _Z_NUDGE if z_nudge else 0.0
-            data["position"] = (float(x), float(y), float(z) + nudge)
-            if atom_color_hex is not None:
-                data["ensemble_color"] = atom_color_hex
-            merged.add_node(id_map[old_id], **data)
-
-        edge_attrs: dict = {"molecule_index": conf_idx}
-        if bond_color_hex is not None:
-            edge_attrs["bond_color_override"] = bond_color_hex
-        for i, j, d in frame_graph.edges(data=True):
-            if i in id_map and j in id_map:
-                merged.add_edge(id_map[i], id_map[j], **dict(d), **edge_attrs)
+        stamp_structure_nodes(
+            merged,
+            reference_graph,  # source of node attributes (symbols, etc.) — per-frame positions come from `pos`
+            id_map,
+            pos,
+            molecule_index=conf_idx,
+            color=color,
+            opacity=opacity,
+            z_offset=z_offset,
+        )
+        stamp_structure_edges(merged, frame_graph, id_map, molecule_index=conf_idx, color=color)
+        merge_aromatic_rings(merged, frame_graph, id_map)
 
         next_id += n_real
 
