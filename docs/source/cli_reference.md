@@ -27,9 +27,10 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--bond-outline-color` | Bond edge stroke color (default: black) |
 | `--bond-outline-width` | Bond edge stroke width in px (0 = off) |
 | `--no-bonds` | Hide all bonds (e.g. space-filling style) |
-| `--unbond SPEC [...]` | Hide bonds by rule or index* |
+| `--unbond SPEC [...]` | Hide bonds by rule or index*. `all` / `*` hides every covalent bond. |
 | `--bond PAIR [...]` | Force-show/add bonds: 1-indexed pairs (`1-3 4-5`). Overrides `--unbond` |
-| `--haptic` | Replace pi-coordination bond fans with single centroid bonds (dotted) |
+| `--haptic` | Replace pi-coordination bond fans with single centroid bonds (dotted). Inherits overlay / ensemble colour from the metal atom. |
+| `--atom-opacity ATOMS VALUE` | Per-atom fill opacity (repeatable), e.g. `--atom-opacity "1-5" 0.3`. Affects the atom circle only; adjacent bonds stay fully opaque. |
 | `-B`, `--background` | Background color |
 | `-t`, `--transparent` | Transparent background |
 | `--grad` / `--no-grad` | Radial gradient toggle |
@@ -66,10 +67,16 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | Flag | Description |
 |------|-------------|
 | `--overlay FILE` | Second structure to overlay (RMSD-aligned onto the primary). Different atom counts are handled automatically via shared-scaffold alignment |
-| `--overlay-color COLOR` | Color for the overlay structure (hex or named) |
+| `--overlay-color COLOR` | Overlay atom colour (bonds rendered 30 % darker automatically) |
+| `--opacity FLOAT` | Transparency 0–1. Applied to the overlay when `--overlay` is set, to the ensemble when `--ensemble` is set, else to surfaces |
+| `--overlay-atom-scale FLOAT` | Absolute atom radius scale for the overlay only (mirrors `--atom-scale`) |
+| `--overlay-bond-width FLOAT` | Absolute bond width for the overlay only |
+| *(preset JSON / Python only)* | `atom_stroke_width`, `atom_stroke_color`, `bond_color`, `bond_outline_width`, `bond_outline_color` — set inside the `overlay` block of a preset JSON or on `OverlayConfig` to fine-tune styling without CLI flag bloat |
+| `--overlay-unbond SPEC [...]` | Hide bonds on the overlay only (same grammar as `--unbond`; applied pre-merge so indices are overlay-local) |
+| `--overlay-bond PAIR [...]` | Force-show / add bonds on the overlay only (1-indexed, overlay-local) |
+| `--align` / `--no-align` | Force / skip Kabsch/MCS alignment for `--overlay` and `--ensemble`. Default: on. `--align` is useful to override a preset with `auto_align: false`; `--no-align` keeps each structure's raw coordinates (interactive `-I` rotation of the base still propagates to the overlay) |
 | `--ensemble` | Ensemble overlay for multi-frame XYZ trajectories; conformers default to CPK atom colours |
 | `--ensemble-color VALUE` | Palette name (`viridis`, `plasma`, `spectral`, `coolwarm`, `RdBu`, `rainbow`), a single colour, or comma-separated colours |
-| `--opacity FLOAT` | Opacity for non-reference conformers (0–1) |
 | `--align-atoms INDICES` | Atom subset for Kabsch alignment (min 3), e.g. `1,2,3`, `1-6`. Works with `--overlay` and `--ensemble` |
 
 ## Orientation

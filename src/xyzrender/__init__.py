@@ -6,13 +6,14 @@ from importlib.metadata import version
 from xyzrender.annotations import load_cmap
 from xyzrender.api import Molecule, load, measure, orient, render, render_gif
 from xyzrender.config import build_config
-from xyzrender.types import GIFResult, RenderConfig, StyleRegion, SVGResult
+from xyzrender.types import GIFResult, OverlayConfig, RenderConfig, StyleRegion, SVGResult
 
 __version__ = version("xyzrender")
 
 __all__ = [
     "GIFResult",
     "Molecule",
+    "OverlayConfig",
     "RenderConfig",
     "SVGResult",
     "StyleRegion",

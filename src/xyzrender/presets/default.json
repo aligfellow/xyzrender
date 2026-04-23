@@ -40,7 +40,7 @@
   "axis_colors": ["firebrick", "forestgreen", "royalblue"],
   "axis_width_scale": 2.0,
   "highlight_colors": ["orchid", "mediumseagreen", "goldenrod", "coral", "mediumpurple", "hotpink"],
-  "overlay_color": "mediumorchid",
+  "overlay": {"color": "mediumorchid"},
   "vector_scale": 1.0,
   "vector_color": "firebrick",
   "hull_opacity": 0.2,

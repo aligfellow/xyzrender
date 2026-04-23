@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from xyzrender.types import CellData, VectorArrow
 
 from xyzrender.colors import resolve_color
-from xyzrender.types import GIFResult, RenderConfig, SVGResult
+from xyzrender.types import GIFResult, OverlayConfig, RenderConfig, SVGResult
 from xyzrender.utils import parse_atom_indices
 
 logger = logging.getLogger(__name__)
@@ -173,6 +173,7 @@ def load(
     align_atoms: str | list[int] | None = None,
     ensemble_color: str | list[str] | None = None,
     ensemble_opacity: float | None = None,
+    auto_align: bool = True,
     reference_mol: Molecule | None = None,
 ) -> Molecule:
     """Load a molecule from file (or SMILES string) and return a :class:`Molecule`.
@@ -233,6 +234,10 @@ def load(
         comma-separated list, or an explicit list of colours.
     ensemble_opacity:
         Opacity for non-reference conformer atoms (0-1).
+    auto_align:
+        ``True`` (default) runs Kabsch alignment onto *reference_frame*.
+        ``False`` keeps each frame's raw coordinates — useful when absolute
+        geometry matters (e.g. IRC paths).
     reference_mol:
         Optional pre-loaded (and possibly oriented) :class:`Molecule` for the
         reference frame.  When given, its graph and positions are used directly
@@ -252,6 +257,7 @@ def load(
             align_atoms=align_atoms,
             ensemble_color=ensemble_color,
             ensemble_opacity=ensemble_opacity,
+            auto_align=auto_align,
             charge=charge,
             multiplicity=multiplicity,
             kekule=kekule,
@@ -340,7 +346,7 @@ def load(
     return Molecule(graph=graph, cube_data=cube_data, cell_data=cell_data)
 
 
-def orient(mol: Molecule) -> None:
+def orient(mol: Molecule, also: list[Molecule] | None = None) -> None:
     """Open molecule in v viewer to set orientation interactively.
 
     The user rotates the molecule and presses ``z`` to output coordinates,
@@ -356,10 +362,15 @@ def orient(mol: Molecule) -> None:
     ----------
     mol:
         Molecule returned by :func:`load`.
+    also:
+        Optional list of additional Molecules that should receive the same
+        rigid rotation about *mol*'s centroid.  Use this for overlay structures
+        you want to track *mol*'s orientation (matters when combined with
+        ``auto_align=False`` — otherwise Kabsch realigns anyway).
     """
     from xyzrender.viewer import rotate_with_viewer
 
-    rot, _c1, _c2 = rotate_with_viewer(mol.graph)
+    rot, c1, c2 = rotate_with_viewer(mol.graph)
     if rot is None:
         logger.warning("orient(): no orientation received from viewer; mol.oriented not set")
         return
@@ -372,6 +383,19 @@ def orient(mol: Molecule) -> None:
         mol.cell_data.lattice = np.array(mol.graph.graph["lattice"], dtype=float)
         mol.cell_data.cell_origin = np.array(mol.graph.graph.get("lattice_origin", [0, 0, 0]), dtype=float)
     mol.oriented = True
+
+    # Propagate the same rigid transform to any "also" molecules so their
+    # geometry tracks *mol* (needed when auto_align is off — otherwise Kabsch
+    # re-aligns them anyway and this step is a harmless no-op).
+    for other in also or ():
+        nodes = list(other.graph.nodes())
+        if not nodes:
+            continue
+        p = np.array([other.graph.nodes[n]["position"] for n in nodes], dtype=float)
+        q = (p - c1) @ rot.T + c2
+        for i, n in enumerate(nodes):
+            other.graph.nodes[n]["position"] = tuple(q[i])
+        other.oriented = True
 
 
 def measure(
@@ -489,6 +513,11 @@ def render(
     cmap_palette: str | None = None,
     cmap_symm: bool = False,
     cbar: bool = False,
+    # Per-atom fill opacity.  Either a ``{1-indexed atom: value}`` dict or a
+    # selector list ``[(sel, value), ...]`` with the same grammar as
+    # ``radius_scale`` (strings like "1-5,8", "M", "het"; or bare 1-indexed
+    # lists).  Affects the atom circle only; adjacent bonds stay opaque.
+    atom_opacity: dict[int, float] | list[tuple[str | list[int], float]] | None = None,
     # --- Annotations ---
     labels: list[str] | None = None,
     label_file: str | None = None,
@@ -544,8 +573,10 @@ def render(
     # --- Overlay ---
     overlay: str | os.PathLike | Molecule | None = None,
     overlay_color: str | None = None,
+    overlay_config: "OverlayConfig | None" = None,
     # --- Alignment (overlay subset alignment) ---
     align_atoms: str | list[int] | None = None,
+    auto_align: bool | None = None,
     # --- Output ---
     output: str | os.PathLike | None = None,
 ) -> SVGResult:
@@ -597,6 +628,14 @@ def render(
         Atom property colour map: either a ``{1-indexed atom: value}`` dict,
         or a path to a two-column text file (index value, same format as
         ``--cmap`` in the CLI).
+    atom_opacity:
+        Per-atom fill opacity.  Accepts either a ``{1-indexed atom: value}``
+        dict (use for per-atom levels) or a selector list
+        ``[(selector, value), ...]`` with the same grammar as ``radius_scale``
+        — strings (``"1-5,8"``, ``"M"``, ``"het"``) are resolved against the
+        molecular graph; bare lists are treated as 1-indexed atom indices.
+        Affects the atom circle only; adjacent bonds stay fully opaque.
+        Composes with overlay / ensemble opacity via ``min``.
     cmap_palette:
         Shared scalar palette override for atom colormaps and ESP surfaces.
         Defaults to ``viridis`` for ``cmap=...`` and ``rainbow`` for ESP
@@ -640,6 +679,32 @@ def render(
         Fill opacity for all hull surfaces.
     hull_edge, hull_edge_width_ratio:
         Draw hull edges that are not bonds as thin lines.
+    overlay:
+        Second structure to overlay (path, ``Molecule``, or ``None``).  The
+        overlay is Kabsch-aligned onto the primary (MCS fallback for different
+        atom counts).  Mutually exclusive with crystal display and surfaces.
+    overlay_color:
+        Shortcut for ``overlay_config.color``; wins when both are set.
+    overlay_config:
+        :class:`~xyzrender.types.OverlayConfig` carrying per-overlay style
+        overrides (``color``, ``opacity``, ``atom_scale``, ``bond_width``,
+        ``atom_stroke_*``, ``bond_outline_*``, ``unbond``, ``bond``, ``show``,
+        ``config``).  All fields are absolute (same semantics as on
+        :class:`RenderConfig`) and individually optional — unset fields inherit
+        the primary config.
+
+        Precedence when multiple entry points are used at once: the flat
+        ``overlay_color`` / ``opacity`` kwargs on :func:`render` override
+        matching fields on *overlay_config*, which overrides the preset's
+        ``overlay`` block, which overrides the ``OverlayConfig`` defaults.
+    auto_align:
+        ``True`` (default) runs Kabsch/MCS to align the overlay onto the
+        primary.  ``False`` keeps each structure's raw coordinates; the
+        interactive viewer rotation via :func:`orient` still propagates.
+    opacity:
+        Transparency 0 to 1.  Applied to the overlay when ``overlay`` is
+        given, to the ensemble when the molecule is an ensemble, else to the
+        active surface.  The three modes are mutually exclusive.
 
     Returns
     -------
@@ -689,10 +754,13 @@ def render(
 
     # --- Config resolution ---
     if not isinstance(config, str):
-        # Pre-built RenderConfig — shallow copy so we don't mutate the caller's object
+        # Pre-built RenderConfig — shallow copy so we don't mutate the caller's object.
+        # Also detach mutable containers and the nested OverlayConfig (which _apply_overlay
+        # mutates) so later field writes can't leak back to the caller's config.
         cfg = copy.copy(config)
         cfg.vectors = list(cfg.vectors)
         cfg.annotations = list(cfg.annotations)
+        cfg.overlay = copy.copy(cfg.overlay)
         if _orient is not None:
             cfg.auto_orient = _orient
         elif mol.oriented:
@@ -735,6 +803,10 @@ def render(
     if haptic:
         cfg.haptic = True
 
+    # --opacity steering: when an overlay is active it applies to the overlay
+    # molecule (set later via _apply_overlay); otherwise it's a surface setting.
+    # The two paths are mutually exclusive, so a single flag covers both.
+    _surface_opacity = None if overlay is not None else opacity
     _apply_render_overlays(
         cfg,
         mol.graph,
@@ -747,7 +819,8 @@ def render(
         cmap_palette=cmap_palette,
         cmap_symm=cmap_symm,
         cbar=cbar,
-        opacity=opacity,
+        opacity=_surface_opacity,
+        atom_opacity=atom_opacity,
     )
 
     from xyzrender.colors import resolve_color
@@ -854,16 +927,10 @@ def render(
             rmol.graph,
             ens.positions,
             conformer_colors=ens.colors,
+            conformer_opacities=ens.opacities,
             conformer_graphs=ens.conformer_graphs,
             z_nudge=True,
         )
-        # Apply per-conformer opacity stored in EnsembleFrames
-        for nid in merged_graph.nodes():
-            conf_idx = merged_graph.nodes[nid].get("molecule_index", 0)
-            if conf_idx > 0:
-                op = ens.opacities[conf_idx]
-                if op is not None:
-                    merged_graph.nodes[nid]["ensemble_opacity"] = op
         rmol = Molecule(
             graph=merged_graph,
             cube_data=rmol.cube_data,
@@ -914,6 +981,12 @@ def render(
         cfg.annotations.extend(build_stereo_annotations(rmol.graph, rs_style=stereo_style, classes=_cls))
 
     # --- Overlay ---
+    if overlay_config is not None:
+        # Explicit OverlayConfig overrides preset defaults; flat kwargs below
+        # (overlay_color, opacity) still win over matching fields on it.
+        cfg.overlay = overlay_config
+    if auto_align is not None:
+        cfg.auto_align = auto_align
     if overlay is not None:
         rmol = _apply_overlay(
             mol,
@@ -921,6 +994,7 @@ def render(
             cfg,
             overlay,
             overlay_color=overlay_color,
+            overlay_opacity=opacity,
             align_atoms=align_atoms,
             has_surfaces=mo or dens or esp is not None or nci is not None,
         )
@@ -1111,6 +1185,10 @@ def render_gif(
     # --- Structural overlay (gif_rot only) ---
     overlay: str | os.PathLike | Molecule | None = None,
     overlay_color: str | None = None,
+    overlay_config: "OverlayConfig | None" = None,
+    auto_align: bool | None = None,
+    # Applies to the overlay molecule (gif_rot only); mutually exclusive with surfaces.
+    opacity: float | None = None,
     # --- Orientation reference (gif_ts / gif_trj: graph after orient()) ---
     reference_graph: "nx.Graph | None" = None,
     # --- NCI detection (gif_ts / gif_trj / gif_rot) ---
@@ -1248,6 +1326,7 @@ def render_gif(
         cfg = copy.copy(config)
         cfg.vectors = list(cfg.vectors)
         cfg.annotations = list(cfg.annotations)
+        cfg.overlay = copy.copy(cfg.overlay)
     else:
         cfg = build_config(
             config,
@@ -1526,11 +1605,6 @@ def render_gif(
             # corrupt the caller's Molecule, and so _apply_cell_config can add ghost atoms.
             ref_graph = copy.deepcopy(ref_graph)
 
-        if cfg.unbond or cfg.bond or cfg.haptic:
-            from xyzrender.bond_rules import apply_bond_rules
-
-            apply_bond_rules(ref_graph, cfg)
-
         # --- Orientation reference (gif_rot only) ---
         if ref is not None:
             _ref_path = Path(ref)
@@ -1550,31 +1624,40 @@ def render_gif(
                 ref_graph,
                 ens.positions,
                 conformer_colors=ens.colors,
+                conformer_opacities=ens.opacities,
                 conformer_graphs=ens.conformer_graphs,
                 z_nudge=False,
             )
-            for nid in ref_graph.nodes():
-                conf_idx = ref_graph.nodes[nid].get("molecule_index", 0)
-                if conf_idx > 0:
-                    op = ens.opacities[conf_idx]
-                    if op is not None:
-                        ref_graph.nodes[nid]["ensemble_opacity"] = op
 
         # --- Overlay alignment (gif_rot only) ---
+        if overlay_config is not None:
+            cfg.overlay = overlay_config
+        if auto_align is not None:
+            cfg.auto_align = auto_align
         if overlay is not None:
-            from xyzrender.overlay import align, merge_graphs
+            # Disable PCA-orient inside _apply_overlay — gif_rot already handled orientation above.
+            _prev_auto = cfg.auto_orient
+            cfg.auto_orient = False
+            _ov_base = molecule if isinstance(molecule, Molecule) else Molecule(graph=ref_graph)
+            _ov_rmol = _apply_overlay(
+                _ov_base,
+                Molecule(graph=ref_graph),
+                cfg,
+                overlay,
+                overlay_color=overlay_color,
+                overlay_opacity=opacity,
+                align_atoms=None,
+                has_surfaces=False,
+            )
+            ref_graph = _ov_rmol.graph
+            cfg.auto_orient = _prev_auto
 
-            if isinstance(overlay, Molecule):
-                overlay_mol = overlay
-            else:
-                _ov_charge = _gif_graph.graph.get("total_charge", 0)
-                _ov_mult = _gif_graph.graph.get("multiplicity")
-                overlay_mol = load(overlay, charge=_ov_charge, multiplicity=_ov_mult)
-            if overlay_color is not None:
-                cfg.overlay_color = resolve_color(overlay_color)
-            g2 = copy.deepcopy(overlay_mol.graph)
-            aligned2 = align(ref_graph, g2)
-            ref_graph = merge_graphs(ref_graph, g2, aligned2, overlay_color=cfg.overlay_color)
+        # Bond rules run after overlay merge so haptic sees both molecules'
+        # aromatic rings (merged.graph["aromatic_rings"] is the union).
+        if cfg.unbond or cfg.bond or cfg.haptic:
+            from xyzrender.bond_rules import apply_bond_rules
+
+            apply_bond_rules(ref_graph, cfg)
 
         # --- Vectors (user-supplied + crystal axes; gif_rot only) ---
         _cell_data_for_vecs = molecule.cell_data if isinstance(molecule, Molecule) else None
@@ -1688,6 +1771,7 @@ def _build_ensemble_molecule(
     align_atoms: str | list[int] | None = None,
     ensemble_color: str | list[str] | None = None,
     ensemble_opacity: float | None = None,
+    auto_align: bool = True,
     charge: int = 0,
     multiplicity: int | None = None,
     kekule: bool = False,
@@ -1775,8 +1859,12 @@ def _build_ensemble_molecule(
         real_nodes = [n for n in _node_list(ref_graph) if ref_graph.nodes[n].get("symbol") != "*"]
         frames[reference_frame]["positions"] = [list(ref_graph.nodes[n]["position"]) for n in real_nodes]
 
-    _align_0 = parse_atom_indices(align_atoms) if align_atoms is not None else None
-    aligned_positions = ensemble_align(frames, reference_frame=reference_frame, align_atoms=_align_0)
+    if auto_align:
+        _align_0 = parse_atom_indices(align_atoms) if align_atoms is not None else None
+        aligned_positions = ensemble_align(frames, reference_frame=reference_frame, align_atoms=_align_0)
+    else:
+        # --no-align: keep each frame's raw coordinates; no Kabsch step.
+        aligned_positions = [np.array(fr["positions"], dtype=float) for fr in frames]
 
     # NCI detection and per-frame graph building happen *after* alignment so that
     # centroid dummy nodes don't interfere with position array sizes.
@@ -2017,10 +2105,12 @@ def _apply_render_overlays(
     cmap_symm: bool = False,
     cbar: bool = False,
     opacity: float | None = None,
+    atom_opacity: dict[int, float] | list[tuple[str | list[int], float]] | None = None,
 ) -> None:
     """Apply render()-specific overlays to cfg (mutates in place).
 
-    All atom indices in ts_bonds, nci_bonds, vdw are 1-indexed (user-facing).
+    All atom indices in ts_bonds, nci_bonds, vdw, atom_opacity are 1-indexed
+    (user-facing); they are converted to 0-indexed storage on *cfg*.
     """
     if ts_bonds is not None:
         cfg.ts_bonds = [(a - 1, b - 1) for a, b in ts_bonds]
@@ -2043,6 +2133,39 @@ def _apply_render_overlays(
         cfg.cbar = True
     if opacity is not None:
         cfg.surface_opacity = opacity
+    if atom_opacity is not None:
+        cfg.atom_opacity = _resolve_atom_opacity(atom_opacity, graph)
+
+
+def _resolve_atom_opacity(
+    spec: dict[int, float] | list[tuple[str | list[int], float]],
+    graph: "nx.Graph",
+) -> dict[int, float]:
+    """Resolve *spec* to a 0-indexed ``{atom_idx: opacity}`` dict.
+
+    Accepts either:
+    - a ``{1-indexed atom: value}`` dict — converted to 0-indexed, OR
+    - a selector list ``[(selector, value), ...]`` with the same grammar as
+      ``radius_scale`` — strings (``"1-5,8"``, ``"M"``, ``"het"``) are resolved
+      against *graph*, bare lists are treated as 1-indexed atom indices.
+      Later specs overwrite earlier ones for overlapping atoms.
+    """
+    if isinstance(spec, dict):
+        return {int(k) - 1: float(v) for k, v in spec.items()}
+
+    from xyzrender.selectors import resolve_atom_indices
+    from xyzrender.utils import parse_atom_indices
+
+    out: dict[int, float] = {}
+    for sel, val in spec:
+        if isinstance(sel, str):
+            indices = resolve_atom_indices(sel, graph)
+        else:
+            indices = set(parse_atom_indices(sel))  # 1-indexed list → 0-indexed
+        fval = float(val)
+        for idx in indices:
+            out[idx] = fval
+    return out
 
 
 def _resolve_cmap(
@@ -2202,14 +2325,16 @@ def _apply_overlay(
     overlay: "str | os.PathLike | Molecule",
     *,
     overlay_color: str | None,
+    overlay_opacity: float | None,
     align_atoms: "str | list[int] | None",
     has_surfaces: bool,
 ) -> Molecule:
     """Load, align, and merge an overlay molecule onto *rmol*.
 
     Validates mutual exclusivity with crystal and surface modes, PCA-orients
-    the main molecule, Kabsch-aligns the overlay, and returns a new
-    :class:`Molecule` with the merged graph.
+    the main molecule, Kabsch-aligns the overlay, resolves any per-overlay
+    style overrides onto ``cfg.overlay``, and returns a new :class:`Molecule`
+    with the merged graph.
     """
     from xyzrender.colors import resolve_color
     from xyzrender.overlay import align, merge_graphs
@@ -2231,23 +2356,79 @@ def _apply_overlay(
     g1 = rmol.graph
     g2 = copy.deepcopy(overlay_mol.graph)
 
-    # PCA-orient g1 (the already-copied mol graph) to set the viewing frame
+    # PCA-orient g1 (the already-copied mol graph) to set the viewing frame.
+    # Capture the (rotation, centroid) applied so we can mirror it onto g2
+    # below when auto_align is off — otherwise mol2 stays in the file frame
+    # while mol1 is rotated/centred, and the two separate visually.
+    _pca_rot: np.ndarray | None = None
+    _pca_centroid: np.ndarray | None = None
     if cfg.auto_orient and g1.number_of_nodes() > 1:
         nodes1 = list(g1.nodes())
         pos1 = np.array([g1.nodes[n]["position"] for n in nodes1], dtype=float)
         atom_mask = np.array([g1.nodes[n]["symbol"] != "*" for n in nodes1])
         fit_mask = atom_mask if not atom_mask.all() else None
-        pos1_oriented = pca_orient(pos1, fit_mask=fit_mask)
+        _fit_pos = pos1[fit_mask] if fit_mask is not None else pos1
+        _pca_centroid = _fit_pos.mean(axis=0)
+        pos1_oriented, _pca_rot = pca_orient(pos1, fit_mask=fit_mask, return_matrix=True)
         for k, nid in enumerate(nodes1):
             g1.nodes[nid]["position"] = tuple(float(v) for v in pos1_oriented[k])
     cfg.auto_orient = False
 
     if overlay_color is not None:
-        cfg.overlay_color = resolve_color(overlay_color)
-    _ov_align = parse_atom_indices(align_atoms) if align_atoms is not None else None
-    aligned2 = align(g1, g2, align_atoms=_ov_align)
+        cfg.overlay.color = resolve_color(overlay_color)
+    if overlay_opacity is not None:
+        cfg.overlay.opacity = overlay_opacity
+
+    # Overlay-only bond rules applied pre-merge so index specs refer to mol2's
+    # own 1-indexed atoms (not the renumbered merged-graph IDs).
+    if cfg.overlay.unbond or cfg.overlay.bond:
+        from xyzrender.bond_rules import apply_bond_rules
+
+        _ov_cfg = copy.copy(cfg)
+        _ov_cfg.unbond = list(cfg.overlay.unbond)
+        _ov_cfg.bond = list(cfg.overlay.bond)
+        _ov_cfg.haptic = False  # haptic is global; runs post-merge on the full graph
+        apply_bond_rules(g2, _ov_cfg)
+
+    if cfg.auto_align:
+        _ov_align = parse_atom_indices(align_atoms) if align_atoms is not None else None
+        aligned2 = align(g1, g2, align_atoms=_ov_align)
+    else:
+        # Keep mol2's raw coordinates — but mirror whatever rigid transform mol1
+        # received during PCA-orientation so the two stay co-registered when the
+        # files were already aligned.
+        aligned2 = np.array([g2.nodes[n]["position"] for n in g2.nodes()], dtype=float)
+        if _pca_rot is not None:
+            aligned2 = (aligned2 - _pca_centroid) @ _pca_rot.T
+
+    # Visibility filter applied AFTER alignment (so Kabsch uses the full
+    # scaffold) and AFTER the overlay unbond/bond rules (so index specs refer
+    # to the original 1-indexed overlay atoms).  Dropping nodes also drops
+    # their incident edges — bonds to hidden atoms are removed cleanly.
+    if cfg.overlay.show:
+        from xyzrender.selectors import resolve_atom_indices
+
+        nodes_before = list(g2.nodes())
+        keep_0idx = resolve_atom_indices(",".join(cfg.overlay.show), g2)
+        keep_mask = [idx in keep_0idx for idx in range(len(nodes_before))]
+        aligned2 = aligned2[keep_mask]
+        drop = [nid for idx, nid in enumerate(nodes_before) if not keep_mask[idx]]
+        g2.remove_nodes_from(drop)
+
+    merged = merge_graphs(g1, g2, aligned2, cfg)
+
+    # Full-config escape hatch: when cfg.overlay.config is set, attach it as a
+    # StyleRegion over the mol2 node IDs so every per-atom/bond field the
+    # renderer reads via _acfg takes effect on the overlay.  Scalar shortcuts
+    # from OverlayConfig still win via their per-node / per-edge overrides.
+    if cfg.overlay.config is not None:
+        from xyzrender.types import StyleRegion
+
+        mol2_nodes = [nid for nid, d in merged.nodes(data=True) if d.get("molecule_index", 0) == 1]
+        cfg.style_regions = [*cfg.style_regions, StyleRegion(indices=mol2_nodes, config=cfg.overlay.config)]
+
     return Molecule(
-        graph=merge_graphs(g1, g2, aligned2, overlay_color=cfg.overlay_color),
+        graph=merged,
         cube_data=None,
         cell_data=None,
         oriented=True,

@@ -125,6 +125,10 @@ def resolve_atom_indices(spec: str, graph: nx.Graph) -> set[int]:
             if stripped:
                 result |= resolve_atom_indices(stripped, graph)
         return result
+    # "all" / "*": every atom in the graph (symbol != "*" excludes NCI centroid
+    # dummy nodes, which aren't real atoms).
+    if spec.strip() in {"all", "*"}:
+        return {nid for nid, data in graph.nodes(data=True) if data.get("symbol", "") != "*"}
     # Numeric range?  Check BEFORE normalize_token (which rejects digits).
     if re.fullmatch(r"\d+(-\d+)?", spec.strip()):
         stripped = spec.strip()

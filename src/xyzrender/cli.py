@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import logging
 import sys
 from pathlib import Path
@@ -71,11 +72,12 @@ Styling:
 Display:
   --hy [ATOMS] / --no-hy  Show/hide H atoms (all or specific indices)
   --bo / --no-bo          Show/hide bond orders
-  --unbond SPEC           Hide bonds: M-L  sbm  Fe-het  1-3  pi
+  --unbond SPEC           Hide bonds: M-L  sbm  Fe-het  1-3  pi  all
   --bond PAIR             Force-show bonds: 1-3  4-5
   --haptic                Pi-coordination → single centroid bond
   --vdw [ATOMS]           VdW spheres (all or specific atoms/elements: 1,2,6-8,M,H)
   --no-bonds              Hide all bonds
+  --atom-opacity A V      Per-atom fill opacity (repeatable; bond-agnostic)
 
 Orientation:
   --orient / --no-orient  PCA auto-orientation on/off
@@ -102,8 +104,12 @@ Surfaces:
   --surface-style STYLE   solid, mesh, contour, dot
 
 Overlay / Ensemble:
-  --overlay FILE          Overlay molecule (aligned, drawn in magenta)
+  --overlay FILE          Overlay molecule (Kabsch/MCS aligned)
+  --overlay-color COLOR   Overlay colour (see --help for more style flags)
+  --opacity F             Overlay / ensemble transparency 0..1
+  --align / --no-align    Force / skip Kabsch/MCS alignment (default: on)
   --ensemble              Multi-frame overlay from trajectory
+  --ensemble-color VALUE  Palette name, single colour, or comma list
 
 Annotations:
   --idx [FMT]             Atom index labels: sn (C1), s (C), n (1)
@@ -191,6 +197,17 @@ def main() -> None:
         metavar=("ATOMS", "FACTOR"),
         help='Scale atom radii: --radius-scale "1,2-4,M" 2.0. Repeatable. Multiplies on top of -a.',
     )
+    style_g.add_argument(
+        "--atom-opacity",
+        nargs=2,
+        action="append",
+        default=None,
+        metavar=("ATOMS", "VALUE"),
+        help=(
+            'Per-atom fill opacity: --atom-opacity "1-5" 0.3. Repeatable. '
+            "Affects the atom circle only; adjacent bonds stay fully opaque."
+        ),
+    )
     style_g.add_argument("-b", "--bond-width", type=float, default=None)
     style_g.add_argument("-s", "--atom-stroke-width", type=float, default=None)
     style_g.add_argument("--bond-color", default=None, help="Bond color (hex or named)")
@@ -230,7 +247,10 @@ def main() -> None:
         nargs="+",
         default=[],
         metavar="SPEC",
-        help='Hide bonds by rule or index pair: "M-L sbm Fe-het 1-3" (comma or space separated)',
+        help=(
+            'Hide bonds by rule or index pair: "M-L sbm Fe-het 1-3" (comma or space separated). '
+            '"all" or "*" hides every covalent bond.'
+        ),
     )
     disp_g.add_argument(
         "--bond",
@@ -399,6 +419,61 @@ def main() -> None:
         dest="align_atoms",
         help='Atom indices (min 3) for alignment subset, e.g. "1,2,3", "1-6"',
     )
+    ov_g.add_argument(
+        "--align",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        dest="align",
+        help=(
+            "Kabsch/MCS alignment toggle for --overlay and --ensemble (default: on). "
+            "Use --no-align to skip alignment and keep each structure's raw coordinates; "
+            "--align forces it on even when a preset set auto_align=false."
+        ),
+    )
+    ov_g.add_argument(
+        "--overlay-unbond",
+        nargs="+",
+        default=[],
+        dest="overlay_unbond",
+        metavar="SPEC",
+        help="Hide bonds on the overlay molecule only (same syntax as --unbond).",
+    )
+    ov_g.add_argument(
+        "--overlay-bond",
+        nargs="+",
+        default=[],
+        dest="overlay_bond",
+        metavar="PAIR",
+        help="Force-show / add bonds on the overlay molecule only (1-indexed pairs, overlay-local).",
+    )
+    ov_g.add_argument(
+        "--overlay-show",
+        nargs="+",
+        default=[],
+        dest="overlay_show",
+        metavar="SPEC",
+        help=(
+            "Render only these atoms of the overlay (same selector grammar as --hl: "
+            'ranges, element symbols, "M", "het", "all"). Applied after alignment '
+            "so the Kabsch/MCS fit still uses the whole scaffold."
+        ),
+    )
+    ov_g.add_argument(
+        "--overlay-atom-scale",
+        type=float,
+        default=None,
+        dest="overlay_atom_scale",
+        help="Absolute atom scale for the overlay only (mirrors --atom-scale; independent of primary).",
+    )
+    ov_g.add_argument(
+        "--overlay-bond-width",
+        type=float,
+        default=None,
+        dest="overlay_bond_width",
+        help="Bond width for the overlay only (mirrors --bond-width; independent of primary).",
+    )
+    # Fine-tune overlay styling (atom_stroke_*, bond_color, bond_outline_*) lives
+    # in preset JSON / OverlayConfig only — kept off the CLI to avoid flag bloat.
     ov_g.add_argument(
         "--ensemble-color",
         default=None,
@@ -1003,7 +1078,13 @@ def main() -> None:
                 args.ref,
             )
         else:
-            orient(mol)
+            # Pre-loaded overlay (if any) receives the same rigid rotation so its
+            # geometry tracks the base under --no-align.  With Kabsch alignment
+            # this is a harmless no-op (Kabsch re-aligns).
+            from xyzrender.api import Molecule as _Molecule
+
+            _also = [args.overlay] if isinstance(args.overlay, _Molecule) else None
+            orient(mol, also=_also)
             if not mol.oriented:
                 sys.exit(1)
 
@@ -1015,6 +1096,7 @@ def main() -> None:
             align_atoms=_align_atoms,
             ensemble_color=args.ensemble_color,
             ensemble_opacity=args.opacity,
+            auto_align=True if args.align is None else args.align,
             rebuild=args.rebuild,
             nci_detect=args.nci_detect,
             charge=args.charge,
@@ -1040,14 +1122,52 @@ def main() -> None:
             p.error("--supercell requires a non-zero 3x3 lattice matrix.")
 
     # --- Bond rules: apply once to mol.graph so render() and render_gif() both
-    #     receive the resolved graph; their internal guards then become no-ops. ---
-    if cfg.unbond or cfg.bond or cfg.haptic:
+    #     receive the resolved graph; their internal guards then become no-ops.
+    #     Skip when an overlay is active — render() applies rules after merging
+    #     so the rules see both molecules' atoms / aromatic rings (needed for
+    #     haptic on the overlay, for example).
+    if (cfg.unbond or cfg.bond or cfg.haptic) and not args.overlay:
         from xyzrender.bond_rules import apply_bond_rules
 
         apply_bond_rules(mol.graph, cfg)
         cfg.unbond = []
         cfg.bond = []
         cfg.haptic = False
+
+    # Per-atom opacity: validate numeric values up-front, then hand selector specs
+    # to the shared resolver (same path the Python API uses).  Later specs overwrite
+    # earlier ones for atoms that appear in multiple specs.
+    if args.atom_opacity is not None:
+        from xyzrender.api import _resolve_atom_opacity
+
+        _specs: list[tuple[str | list[int], float]] = []
+        for sel, val in args.atom_opacity:
+            try:
+                _specs.append((sel, float(val)))
+            except ValueError as e:
+                p.error(f"--atom-opacity: value must be a number, got {val!r}: {e}")
+        cfg.atom_opacity = _resolve_atom_opacity(_specs, mol.graph)
+
+    # --- Overlay config: fold per-overlay CLI flags onto the preset defaults.
+    # Only built when there's something overlay-specific to say; else None lets
+    # render() keep using cfg.overlay (preset + --overlay-color / --opacity).
+    _overlay_config = None
+    _has_overlay_flags = (
+        args.overlay_unbond
+        or args.overlay_bond
+        or args.overlay_show
+        or args.overlay_atom_scale is not None
+        or args.overlay_bond_width is not None
+    )
+    if _has_overlay_flags:
+        _overlay_config = copy.copy(cfg.overlay)
+        _overlay_config.unbond = list(args.overlay_unbond)
+        _overlay_config.bond = list(args.overlay_bond)
+        _overlay_config.show = list(args.overlay_show)
+        if args.overlay_atom_scale is not None:
+            _overlay_config.atom_scale = args.overlay_atom_scale
+        if args.overlay_bond_width is not None:
+            _overlay_config.bond_width = args.overlay_bond_width
 
     # --- Render static SVG ---
     try:
@@ -1080,7 +1200,9 @@ def main() -> None:
             opacity=args.opacity,
             overlay=args.overlay,
             overlay_color=args.overlay_color,
+            overlay_config=_overlay_config,
             align_atoms=_align_atoms,
+            auto_align=args.align,  # None = preset default; True/False = explicit override
             vector=args.vector,
             vector_scale=args.vector_scale,
             hull=_hull_arg,
@@ -1145,6 +1267,9 @@ def main() -> None:
                 ts_frame=args.ts_frame,
                 overlay=args.overlay,
                 overlay_color=args.overlay_color,
+                overlay_config=_overlay_config,
+                auto_align=args.align,  # None = preset default; True/False = explicit override
+                opacity=args.opacity,
                 reference_graph=_ref_graph,
                 detect_nci=args.nci_detect,
                 mo=args.mo,
