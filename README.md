@@ -299,7 +299,7 @@ Falls back to CairoSVG automatically (filters silently ignored). SVG output alwa
 Optional dependencies:
 
 - [**rdkit**](https://www.rdkit.org/) — SMILES 3D embedding (`pip install 'xyzrender[smi]'`)
-- [**ase**](https://wiki.fysik.dtu.dk/ase/) — CIF parsing (`pip install 'xyzrender[cif]'`)
+- [**ase**](https://wiki.fysik.dtu.dk/ase/) — CIF parsing, and ASE viewer integration (`pip install 'xyzrender[cif]'`)
 - [**v**](https://github.com/briling/v) — interactive molecule orientation (`pip install xyzrender[v]`, Linux only, not included into `[all]`)
 
 Contributors:
