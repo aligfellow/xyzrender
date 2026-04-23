@@ -96,9 +96,8 @@ GIF Animation:
 Surfaces:
   --mo / --dens           MO lobes / density isosurface (.cube/.cub input)
   --esp CUBE              ESP colour mapping (density + ESP cubes)
-  --nci-surf CUBE         NCI interaction surface (density + gradient cubes)
-  --igmh-surf CUBE        IGMH interaction surface (sl2r main cube + dg surface cube)
-  --iso F                 Isovalue (MO: 0.05, dens: 0.001, NCI: 0.3, IGMH: 0.005)
+  --nci-surf CUBE         Interaction surface cube (auto low_field / high_field)
+  --iso F                 Isovalue (MO: 0.05, dens: 0.001, low_field: 0.3, high_field: 0.005)
   --hull [INDICES]        Convex hull (all / "rings" / atom subsets)
   --surface-style STYLE   solid, mesh, contour, dot
 
@@ -284,14 +283,7 @@ def main() -> None:
         default=None,
         metavar="CUBE",
         dest="nci_surf",
-        help="NCI gradient cube file — find patches where RDG is low (implies density rendering)",
-    )
-    surf_g.add_argument(
-        "--igmh-surf",
-        default=None,
-        metavar="CUBE",
-        dest="igmh_surf",
-        help="IGMH delta-g cube file — use sl2r as the main input and dg* as the surface cube",
+        help="Interaction surface cube file — auto-classified as low_field or high_field",
     )
     surf_g.add_argument(
         "--nci-mode",
@@ -305,7 +297,7 @@ def main() -> None:
         help=(
             "Isosurface threshold "
             "(MO default: 0.05, density/ESP default: 0.001, "
-            "NCI/RDG default: 0.3, IGMH default: 0.005)"
+            "low_field default: 0.3, high_field default: 0.005)"
         ),
     )
     surf_g.add_argument(
@@ -1080,7 +1072,6 @@ def main() -> None:
             dens=args.dens,
             esp=args.esp,
             nci=args.nci_surf,
-            igmh=args.igmh_surf,
             iso=args.iso,
             mo_pos_color=args.mo_colors[0] if args.mo_colors else None,
             mo_neg_color=args.mo_colors[1] if args.mo_colors else None,

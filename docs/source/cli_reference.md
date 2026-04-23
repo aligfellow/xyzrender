@@ -104,7 +104,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--dens` | Render density isosurface from `.cube` or `.cub` input |
 | `--dens-color` | Density surface color (default: `steelblue`) |
 | `--esp CUBE` | ESP cube file for potential coloring (implies `--dens`) |
-| `--nci-surf CUBE` | NCI gradient (RDG) cube — render NCI surface lobes |
+| `--nci-surf CUBE` | Interaction surface cube — auto-classified as `low_field` or `high_field` before applying the isovalue |
 | `--nci-mode MODE` | NCI surface coloring: `avg` (default), `pixel`, `uniform`, or a colour name/hex |
 | `--iso` | Isosurface threshold (MO default: 0.05, density/ESP: 0.001, NCI: 0.3) |
 | `--opacity` | Surface opacity multiplier (default: 1.0) |

@@ -90,7 +90,8 @@ def test_full_help():
     assert result.returncode == 0
     # Full argparse help includes "usage:" header
     assert "usage:" in result.stdout
-    assert "--igmh-surf" in result.stdout
+    assert "--nci-surf" in result.stdout
+    assert "--igmh-surf" not in result.stdout
 
 
 @pytest.mark.skipif(not _CAFFEINE.exists(), reason="fixture not found")
@@ -154,14 +155,9 @@ def test_hl_too_many_args():
     result = _run_cli(str(_CAFFEINE), "--hl", "1-5", "red", "extra", expect_error=True)
     assert result.returncode != 0
 
-
-def test_nci_and_igmh_surface_flags_are_mutually_exclusive():
-    result = _run_cli(
-        str(_CAFFEINE),
-        "--nci-surf",
-        "grad.cube",
-        "--igmh-surf",
-        "dg_inter.cub",
-        expect_error=True,
-    )
-    assert result.returncode != 0
+def test_help_mentions_low_and_high_field_defaults():
+    result = _run_cli("--help")
+    assert result.returncode == 0
+    assert "low_field default: 0.3" in result.stdout
+    assert "high_field" in result.stdout
+    assert "default: 0.005" in result.stdout

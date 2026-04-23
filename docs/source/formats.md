@@ -98,6 +98,7 @@ xyzrender homo.cube --mo
 xyzrender dens.cube --dens
 xyzrender dens.cube --esp esp.cube
 xyzrender dens.cube --nci-surf grad.cube
+xyzrender sl2r.cub --nci-surf dg_inter.cub --iso 0.005
 ```
 
 ## Periodic structures

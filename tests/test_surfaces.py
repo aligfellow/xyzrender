@@ -97,6 +97,16 @@ def nci_graph(nci_dens_cube):
     return graph_from_cube(nci_dens_cube)
 
 
+@pytest.fixture(scope="module")
+def igmh_inter_cube():
+    return parse_cube(STRUCTURES / "phenol_di-dg_inter.cub")
+
+
+@pytest.fixture(scope="module")
+def igmh_intra_cube():
+    return parse_cube(STRUCTURES / "phenol_di-dg_intra.cub")
+
+
 # ---------------------------------------------------------------------------
 # nci.find_nci_regions — unit tests with synthetic data
 # ---------------------------------------------------------------------------
@@ -147,6 +157,19 @@ def test_find_nci_regions_detects_high_dg_blob_for_igmh():
     assert len(regions[0].flat_indices) > 0
 
 
+def test_classify_surface_field_identifies_nci_grad_as_low_field(nci_grad_cube):
+    from xyzrender.nci import classify_surface_field
+
+    assert classify_surface_field(nci_grad_cube.grid_data) == "low_field"
+
+
+def test_classify_surface_field_identifies_igmh_cubes_as_high_field(igmh_inter_cube, igmh_intra_cube):
+    from xyzrender.nci import classify_surface_field
+
+    assert classify_surface_field(igmh_inter_cube.grid_data) == "high_field"
+    assert classify_surface_field(igmh_intra_cube.grid_data) == "high_field"
+
+
 def test_build_nci_contours_rejects_mismatched_grids():
     from xyzrender.nci import build_nci_contours
 
@@ -183,6 +206,21 @@ def test_build_nci_contours_uses_igmh_default_isovalue_when_nci_default_would_hi
     color_cube = cube_from_array(sl2r)
     surface_cube = cube_from_array(dg)
     contours = build_nci_contours(surface_cube, color_cube, NCIParams(), surface_mode="igmh_dg")
+
+    assert contours.lobes
+
+
+def test_build_nci_contours_auto_classifies_high_field_surface():
+    from xyzrender.nci import build_nci_contours
+
+    sl2r = np.zeros((12, 12, 12), dtype=float)
+    sl2r[4:8, 4:8, 4:8] = -0.2
+    dg = np.zeros((12, 12, 12), dtype=float)
+    dg[4:8, 4:8, 4:8] = 0.02
+
+    color_cube = cube_from_array(sl2r)
+    surface_cube = cube_from_array(dg)
+    contours = build_nci_contours(surface_cube, color_cube, NCIParams())
 
     assert contours.lobes
 
@@ -320,6 +358,18 @@ def test_compute_nci_surface_supports_explicit_igmh_mode():
     graph = graph_from_cube(sl2r)
 
     compute_nci_surface(graph, sl2r, dg, cfg, NCIParams(), surface_mode="igmh_dg")
+
+    assert cfg.nci_contours is not None
+    assert cfg.nci_contours.lobes
+
+
+def test_compute_nci_surface_auto_classifies_high_field_surface():
+    cfg = RenderConfig(auto_orient=False)
+    sl2r = cube_from_array(np.zeros((12, 12, 12), dtype=float))
+    dg = cube_from_array(np.pad(np.full((4, 4, 4), 0.02, dtype=float), 4))
+    graph = graph_from_cube(sl2r)
+
+    compute_nci_surface(graph, sl2r, dg, cfg, NCIParams())
 
     assert cfg.nci_contours is not None
     assert cfg.nci_contours.lobes

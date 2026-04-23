@@ -140,8 +140,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_SURFACE_MODE_AUTO = "auto"
 _SURFACE_MODE_RDG = "rdg_nci"
 _SURFACE_MODE_IGMH = "igmh_dg"
+_FIELD_CLASS_LOW = "low_field"
+_FIELD_CLASS_HIGH = "high_field"
 _DEFAULT_NCI_ISOVALUE = 0.3
 _DEFAULT_IGMH_ISOVALUE = 0.005
 
@@ -264,6 +267,52 @@ def _validate_surface_cube_compatibility(color_cube: "CubeData", surface_cube: "
     if not np.allclose(color_cube.steps, surface_cube.steps, atol=1e-6):
         msg = "Color cube and interaction surface cube must share the same grid step vectors"
         raise ValueError(msg)
+
+
+def classify_surface_field(surface_data: np.ndarray) -> str:
+    """Classify a surface cube as ``low_field`` or ``high_field``.
+
+    ``low_field`` means the points of interest lie in the low end of the field,
+    so the surface should be extracted with ``data < iso``.
+
+    ``high_field`` means the points of interest lie in the high end of the
+    field, so the surface should be extracted with ``data > iso``.
+    """
+    finite = surface_data[np.isfinite(surface_data)]
+    if finite.size == 0:
+        return _FIELD_CLASS_LOW
+
+    vmax = float(np.max(finite))
+    if np.isclose(vmax, 0.0):
+        return _FIELD_CLASS_LOW
+
+    median = float(np.median(finite))
+    ratio = median / vmax
+    field_class = _FIELD_CLASS_LOW if ratio > 0.2 else _FIELD_CLASS_HIGH
+    logger.debug(
+        "Surface cube classified as %s (median=%.6g, max=%.6g, median/max=%.6g)",
+        field_class,
+        median,
+        vmax,
+        ratio,
+    )
+    return field_class
+
+
+def _surface_mode_from_field_class(field_class: str) -> str:
+    if field_class == _FIELD_CLASS_LOW:
+        return _SURFACE_MODE_RDG
+    if field_class == _FIELD_CLASS_HIGH:
+        return _SURFACE_MODE_IGMH
+    msg = f"Unknown surface field class: {field_class!r}"
+    raise ValueError(msg)
+
+
+def _resolve_surface_mode(surface_cube: "CubeData", surface_mode: str) -> str:
+    """Resolve the effective threshold interpretation for a surface cube."""
+    if surface_mode == _SURFACE_MODE_AUTO:
+        return _surface_mode_from_field_class(classify_surface_field(surface_cube.grid_data))
+    return surface_mode
 
 
 def _resolve_surface_isovalue(
@@ -455,7 +504,7 @@ def build_nci_contours(
     fixed_bounds: tuple[float, float, float, float] | None = None,
     regions_3d: list[Lobe3D] | None = None,
     surface_style: str = "solid",
-    surface_mode: str = _SURFACE_MODE_RDG,
+    surface_mode: str = _SURFACE_MODE_AUTO,
     iso_was_explicit: bool = False,
 ) -> NCIContours:
     """Build interaction contour data from a surface cube file.
@@ -489,13 +538,14 @@ def build_nci_contours(
     NCIContours
         Contour loops and coloring data ready for SVG rendering.
     surface_mode:
-        Explicit surface interpretation.
+        Surface interpretation, or ``auto`` to classify the cube numerically.
     iso_was_explicit:
         Whether the isovalue came from an explicit user override.
     """
     from xyzrender.colors import resolve_color
 
     _validate_surface_cube_compatibility(dens_cube, grad_cube)
+    surface_mode = _resolve_surface_mode(grad_cube, surface_mode)
     isovalue = _resolve_surface_isovalue(params.isovalue, surface_mode, user_provided=iso_was_explicit)
     color = resolve_color(params.color)
     color_mode = params.color_mode

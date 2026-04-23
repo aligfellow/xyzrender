@@ -145,7 +145,7 @@ def compute_nci_surface(
     cfg: RenderConfig,
     params: NCIParams,
     *,
-    surface_mode: str = "rdg_nci",
+    surface_mode: str = "auto",
     iso_was_explicit: bool = False,
 ) -> None:
     """Build NCI contours and store on ``cfg.nci_contours``.
@@ -166,7 +166,7 @@ def compute_nci_surface(
     params:
         NCI surface parameters (isovalue, color, color_mode, dens_cutoff).
     surface_mode:
-        Surface interpretation mode: ``rdg_nci`` or ``igmh_dg``.
+        Surface interpretation mode: ``auto``, ``rdg_nci``, or ``igmh_dg``.
     iso_was_explicit:
         Whether the isovalue came from an explicit user override.
     """
