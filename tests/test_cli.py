@@ -158,6 +158,6 @@ def test_hl_too_many_args():
 def test_help_mentions_low_and_high_field_defaults():
     result = _run_cli("--help")
     assert result.returncode == 0
-    assert "low_field default: 0.3" in result.stdout
-    assert "high_field" in result.stdout
-    assert "default: 0.005" in result.stdout
+    assert "NCI (low-field)" in result.stdout
+    assert "(high-field)" in result.stdout
+    assert "0.005" in result.stdout

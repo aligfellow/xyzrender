@@ -97,7 +97,7 @@ Surfaces:
   --mo / --dens           MO lobes / density isosurface (.cube/.cub input)
   --esp CUBE              ESP colour mapping (density + ESP cubes)
   --nci-surf CUBE         Interaction surface cube (auto low_field / high_field)
-  --iso F                 Isovalue (MO: 0.05, dens: 0.001, low_field: 0.3, high_field: 0.005)
+  --iso F                 Isovalue (MO: 0.05, dens: 0.001, NCI low-field: 0.3, NCI high-field: 0.005)
   --hull [INDICES]        Convex hull (all / "rings" / atom subsets)
   --surface-style STYLE   solid, mesh, contour, dot
 
@@ -297,7 +297,7 @@ def main() -> None:
         help=(
             "Isosurface threshold "
             "(MO default: 0.05, density/ESP default: 0.001, "
-            "low_field default: 0.3, high_field default: 0.005)"
+            "NCI (low-field) default: 0.3, NCI (high-field) default: 0.005)"
         ),
     )
     surf_g.add_argument(
