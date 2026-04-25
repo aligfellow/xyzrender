@@ -85,7 +85,7 @@ All interaction surface flags:
 |------|-------------|
 | `--nci-surf SURFACE_CUBE` | Interaction surface cube file. Auto-classified as `low_field` or `high_field` from the cube values |
 | `--nci-mode MODE` | Coloring: `avg` (default), `pixel`, `uniform`, or a colour name/hex |
-| `--iso` | Surface isovalue threshold. NCI (low-field) cubes default to `0.3`; NCI (high-field) cubes default to `0.005` |
+| `--iso` | Surface isovalue threshold. NCI (low-field) surfaces render where `data < iso` (default `0.3`); NCI (high-field) surfaces render where `data > iso` (default `0.005`) |
 | `--opacity` | Surface opacity multiplier (default: 1.0) |
 | `--surface-style STYLE` | `solid` or `mesh` recommended; `contour`, `dot` also available. These use avg lobe colour |
 | `--nci-cutoff CUTOFF` | Density magnitude cutoff (advanced — not needed for standard NCIPLOT output) |
