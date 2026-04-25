@@ -46,10 +46,10 @@ As an alternative analysis technique, IGMH-style interaction surfaces can be sim
 
 ```bash
 # intermolecular interaction surface
-xyzrender phenol_di-sl2r.cub --nci-surf phenol_di-dg_inter.cub --nci-mode pixel --iso 0.005 -o phenol_di_igmh_inter.svg
+xyzrender phenol_di-sl2r.cub --nci-surf phenol_di-dg_inter.cub --iso 0.005 -o phenol_di_igmh_inter.svg
 
 # intramolecular interaction surface
-xyzrender phenol_di-sl2r.cub --nci-surf phenol_di-dg_intra.cub --nci-mode pixel --iso 0.2 -o phenol_di_igmh_intra.svg
+xyzrender phenol_di-sl2r.cub --nci-surf phenol_di-dg_intra.cub --iso 0.2 -o phenol_di_igmh_intra.svg
 ```
 
 Coloring modes (`--nci-mode`):
