@@ -532,15 +532,15 @@ def build_nci_contours(
         Fixed ``(x_min, x_max, y_min, y_max)`` in Å (cached between GIF frames).
     regions_3d:
         Pre-computed 3D NCI regions (cached between GIF frames).
+    surface_mode:
+        Surface interpretation, or ``auto`` to classify the cube numerically.
+    iso_was_explicit:
+        Whether the isovalue came from an explicit user override.
 
     Returns
     -------
     NCIContours
         Contour loops and coloring data ready for SVG rendering.
-    surface_mode:
-        Surface interpretation, or ``auto`` to classify the cube numerically.
-    iso_was_explicit:
-        Whether the isovalue came from an explicit user override.
     """
     from xyzrender.colors import resolve_color
 

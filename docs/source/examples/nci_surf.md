@@ -28,9 +28,6 @@ The surface is rendered as individual flat-filled patches per interaction region
 xyzrender base-pair-dens.cube --nci-surf base-pair-grad.cube -o base-pair-nci_surf.svg
 xyzrender phenol_di-dens.cube --nci-surf phenol_di-grad.cube -o phenol_di-nci_surf.svg
 
-# alternative high-field analysis: sl2r colour field + δg surface
-xyzrender sl2r.cub --nci-surf dg_inter.cub --iso 0.005 -o igmh_dg_inter.svg
-
 # per-pixel (more detail)
 xyzrender base-pair-dens.cube --nci-surf base-pair-grad.cube --nci-mode pixel
 
@@ -57,10 +54,18 @@ xyzrender phenol_di-sl2r.cub --nci-surf phenol_di-dg_intra.cub --nci-mode pixel 
 
 Coloring modes (`--nci-mode`):
 
+| Pixel (base pair) |
+|-------------------|
+| ![NCI pixel (base pair)](../../../examples/images/base-pair-nci_pixel.svg) |
+
+```bash
+xyzrender base-pair-dens.cube --nci-surf base-pair-grad.cube --nci-mode pixel -o base-pair-nci_pixel.svg
+```
+
 | Mode | Description |
 |------|-------------|
 | `avg` (default) | Each NCI lobe filled with its mean `sign(λ₂)·ρ`: **blue** = H-bond, **green** = vdW, **red** = steric |
-| `pixel` | Per-pixel `sign(λ₂)·ρ` raster — shows intra-lobe variation (not a very nice render styling at the moment) |
+| `pixel` | Per-pixel `sign(λ₂)·ρ` raster — shows intra-lobe variation |
 | `uniform` | Flat single color for all NCI regions (default: `forestgreen`) |
 | *colour* | Any colour name or hex — shorthand for uniform mode with that colour |
 
