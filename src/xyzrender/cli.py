@@ -93,6 +93,7 @@ GIF Animation:
   --gif-trj               Trajectory - requires mutiframe .xyz or calculation output
   --gif-ts                TS vibration GIF - required vib trj or output with Hessian
   --gif-diffuse           Diffuse assembly GIF
+  --bounce DEG            Bounce GIF: 0° -> +DEG -> 0° -> -DEG (default axis: y)
   -go FILE / --gif-fps N  GIF output path / frames per second
 
 Surfaces:
@@ -534,6 +535,13 @@ def main() -> None:
     gif_g.add_argument("-go", "--gif-output", default=None, help="GIF output path")
     gif_g.add_argument("--gif-fps", type=int, default=10, help="GIF frames per second (default: 10)")
     gif_g.add_argument("--rot-frames", type=int, default=120, help="Rotation frames (default: 120)")
+    gif_g.add_argument(
+        "--bounce",
+        type=float,
+        default=None,
+        metavar="DEG",
+        help="Bounce rotation amplitude in degrees (uses --gif-rot axis, default y)",
+    )
     gif_g.add_argument("--diffuse-frames", type=int, default=60, help="Number of diffuse frames (default: 60)")
     gif_g.add_argument("--diffuse-noise", type=float, default=0.3, help="Per-frame random walk noise (default: 0.3)")
     gif_g.add_argument(
@@ -890,10 +898,18 @@ def main() -> None:
         supported = ", ".join("." + e for e in sorted(_SUPPORTED_EXTENSIONS))
         p.error(f"Unsupported static output format: .{static_ext} (use {supported})")
 
-    wants_gif = args.gif_ts or args.gif_rot or args.gif_trj or args.gif_diffuse
+    wants_gif = args.gif_ts or args.gif_rot or args.gif_trj or args.gif_diffuse or args.bounce is not None
 
     if args.gif_diffuse and (args.gif_ts or args.gif_trj):
         p.error("--gif-diffuse cannot be combined with --gif-ts or --gif-trj")
+
+    if args.bounce is not None:
+        if args.bounce <= 0:
+            p.error("--bounce must be > 0")
+        if args.gif_ts or args.gif_trj or args.gif_diffuse:
+            p.error("--bounce cannot be combined with --gif-ts, --gif-trj, or --gif-diffuse")
+        if not args.gif_rot:
+            args.gif_rot = "y"
 
     # --diffuse-rot without --gif-rot implies y-axis rotation
     if args.gif_diffuse and args.diffuse_rot is not None and not args.gif_rot:
@@ -1260,6 +1276,7 @@ def main() -> None:
                 mol_color=args.mol_color,
                 highlight=_highlight,
                 gif_rot=args.gif_rot or None,
+                bounce=args.bounce,
                 gif_trj=args.gif_trj,
                 gif_ts=args.gif_ts,
                 gif_diffuse=args.gif_diffuse,

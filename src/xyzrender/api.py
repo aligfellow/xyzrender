@@ -1124,6 +1124,7 @@ def render_gif(
     molecule: str | os.PathLike | Molecule,
     *,
     gif_rot: str | None = None,
+    bounce: float | None = None,
     gif_trj: bool = False,
     gif_ts: bool = False,
     gif_diffuse: bool = False,
@@ -1240,7 +1241,7 @@ def render_gif(
     The result displays the GIF inline in Jupyter via ``_repr_html_``.
     Access the file path via ``result.path``.
 
-    At least one of *gif_rot*, *gif_trj*, *gif_ts* must be set.
+    At least one of *gif_rot*, *bounce*, *gif_trj*, *gif_ts*, or *gif_diffuse* must be set.
 
     Parameters
     ----------
@@ -1253,6 +1254,9 @@ def render_gif(
         …), or a 3-digit Miller index (``"111"``).
     gif_trj:
         Trajectory animation — *molecule* must be a multi-frame XYZ.
+    bounce:
+        Bounce rotation amplitude in degrees (0° -> +X° -> 0° -> -X°) around
+        the *gif_rot* axis. If *gif_rot* is omitted, axis ``"y"`` is used.
     gif_ts:
         Transition-state vibration animation (requires ``xyzrender[ts]``).
     output:
@@ -1274,6 +1278,7 @@ def render_gif(
     from xyzrender.config import build_config
     from xyzrender.gif import (
         ROTATION_AXES,
+        render_bounce_gif,
         render_diffuse_gif,
         render_rotation_gif,
         render_trajectory_gif,
@@ -1281,8 +1286,8 @@ def render_gif(
         render_vibration_rotation_gif,
     )
 
-    if not (gif_rot or gif_trj or gif_ts or gif_diffuse):
-        msg = "render_gif: set gif_rot, gif_trj=True, gif_ts=True, or gif_diffuse=True"
+    if not (gif_rot or bounce is not None or gif_trj or gif_ts or gif_diffuse):
+        msg = "render_gif: set gif_rot, bounce, gif_trj=True, gif_ts=True, or gif_diffuse=True"
         raise ValueError(msg)
 
     if gif_ts and gif_trj:
@@ -1292,6 +1297,16 @@ def render_gif(
     if gif_diffuse and (gif_ts or gif_trj):
         msg = "render_gif: gif_diffuse is mutually exclusive with gif_ts / gif_trj"
         raise ValueError(msg)
+
+    if bounce is not None:
+        if bounce <= 0:
+            msg = "render_gif: bounce must be > 0"
+            raise ValueError(msg)
+        if gif_ts or gif_trj or gif_diffuse:
+            msg = "render_gif: bounce is mutually exclusive with gif_ts / gif_trj / gif_diffuse"
+            raise ValueError(msg)
+        if not gif_rot:
+            gif_rot = "y"
 
     if (mo or dens) and (gif_ts or gif_trj or gif_diffuse):
         active_surf = "mo" if mo else "dens"
@@ -1321,7 +1336,7 @@ def render_gif(
             msg = f"render_gif: invalid gif_rot {gif_rot!r} — use 'x', 'y', 'z', or 3-digit Miller index"
             raise ValueError(msg)
 
-    if rot_frames != 120 and not gif_rot:
+    if rot_frames != 120 and not gif_rot and bounce is None:
         logger.warning("rot_frames has no effect without gif_rot")
 
     # Resolve config
@@ -1721,18 +1736,33 @@ def render_gif(
                 has_esp=False,
                 has_nci=False,
             )
-        render_rotation_gif(
-            ref_graph,
-            cfg,
-            str(gif_path),
-            n_frames=rot_frames,
-            fps=gif_fps,
-            axis=gif_rot or "y",
-            mo_params=mo_params,
-            mo_cube=cube_data if mo_params is not None else None,
-            dens_params=dens_params,
-            dens_cube=cube_data if dens_params is not None else None,
-        )
+        if bounce is not None:
+            render_bounce_gif(
+                ref_graph,
+                cfg,
+                str(gif_path),
+                bounce_degrees=float(bounce),
+                n_frames=rot_frames,
+                fps=gif_fps,
+                axis=gif_rot or "y",
+                mo_params=mo_params,
+                mo_cube=cube_data if mo_params is not None else None,
+                dens_params=dens_params,
+                dens_cube=cube_data if dens_params is not None else None,
+            )
+        else:
+            render_rotation_gif(
+                ref_graph,
+                cfg,
+                str(gif_path),
+                n_frames=rot_frames,
+                fps=gif_fps,
+                axis=gif_rot or "y",
+                mo_params=mo_params,
+                mo_cube=cube_data if mo_params is not None else None,
+                dens_params=dens_params,
+                dens_cube=cube_data if dens_params is not None else None,
+            )
 
     logger.info("GIF written to %s", gif_path)
     return GIFResult(gif_path)
