@@ -17,7 +17,7 @@ def test_blend():
 def test_frozen():
     c = Color(1, 2, 3)
     with pytest.raises(AttributeError):
-        c.r = 5  # type: ignore[misc]
+        c.r = 5  # ty: ignore[invalid-assignment]
 
 
 @pytest.mark.parametrize(

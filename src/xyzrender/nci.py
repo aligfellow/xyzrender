@@ -495,14 +495,11 @@ def build_nci_contours(
     if surface_mode == _SURFACE_MODE_AUTO:
         surface_mode = classify_surface_field(grad_cube.grid_data)
     isovalue = params.isovalue
-    if (
-        not iso_was_explicit
-        and surface_mode == _SURFACE_MODE_HIGH
-        and np.isclose(isovalue, _DEFAULT_LOW_ISOVALUE)
-    ):
+    if not iso_was_explicit and surface_mode == _SURFACE_MODE_HIGH and np.isclose(isovalue, _DEFAULT_LOW_ISOVALUE):
         logger.info(
             "High-field surface detected; using isovalue %.4g instead of low-field default %.4g",
-            _DEFAULT_HIGH_ISOVALUE, _DEFAULT_LOW_ISOVALUE,
+            _DEFAULT_HIGH_ISOVALUE,
+            _DEFAULT_LOW_ISOVALUE,
         )
         isovalue = _DEFAULT_HIGH_ISOVALUE
     color = resolve_color(params.color)

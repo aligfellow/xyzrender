@@ -106,6 +106,9 @@ docstring-code-format = true
 # ===== ty =====
 [tool.ty]
 
+[tool.ty.src]
+exclude = ["examples/examples.ipynb"]
+
 # ===== Pytest =====
 [tool.pytest.ini_options]
 testpaths = ["tests"]
