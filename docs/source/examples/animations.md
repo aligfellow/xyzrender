@@ -21,6 +21,25 @@ Control speed and length:
 xyzrender caffeine.xyz --gif-rot --gif-fps 20 --rot-frames 60 -go fast.gif
 ```
 
+## Bounce GIF
+
+```{image} ../../../examples/images/caffeine_bounce_50.gif
+:width: 50%
+:alt: Bounce animation (caffeine, 50 degrees)
+```
+
+```bash
+xyzrender caffeine.xyz --bounce 50 -go caffeine_bounce_50.gif
+```
+
+`--bounce DEG` starts at the original orientation, then rotates to `+DEG`,
+back through `0`, and to `-DEG` on the rotation axis (`y` by default).
+Set an explicit axis with `--gif-rot`:
+
+```bash
+xyzrender caffeine.xyz --gif-rot x --bounce 50 -go caffeine_bounce_x50.gif
+```
+
 ## TS vibration
 
 | TS vibration (mn-h2) | TS + rotation (bimp) |
