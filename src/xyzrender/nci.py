@@ -282,19 +282,22 @@ def classify_surface_field(surface_data: np.ndarray) -> str:
     if finite.size == 0:
         return _FIELD_CLASS_LOW
 
+    vmin = float(np.min(finite))
     vmax = float(np.max(finite))
-    if np.isclose(vmax, 0.0):
+    span = vmax - vmin
+    if span < 1e-12 or np.isclose(vmax, 0.0):
         return _FIELD_CLASS_LOW
 
     median = float(np.median(finite))
-    ratio = median / vmax
-    field_class = _FIELD_CLASS_LOW if ratio > 0.2 else _FIELD_CLASS_HIGH
+    normalized_bg = (median - vmin) / span
+    field_class = _FIELD_CLASS_LOW if normalized_bg > 0.5 else _FIELD_CLASS_HIGH
     logger.debug(
-        "Surface cube classified as %s (median=%.6g, max=%.6g, median/max=%.6g)",
+        "Surface cube classified as %s (median=%.6g, vmin=%.6g, vmax=%.6g, normalized_bg=%.4g)",
         field_class,
         median,
+        vmin,
         vmax,
-        ratio,
+        normalized_bg,
     )
     return field_class
 

@@ -17,6 +17,10 @@ For standard NCIPlot output, use `sign(λ₂)·ρ` density as the main input and
 
 As an alternative analysis technique, Multiwfn-style `δg` surfaces use `sl2r.cub` as the main input and `dg.cub`, `dg_inter.cub`, or `dg_intra.cub` as `--nci-surf`. These cubes are typically classified as `high_field`.
 
+```{note}
+The default `--iso` values are *starting points*, not universal thresholds. They reflect the original NCIPLOT (RDG = 0.3) and Multiwfn IGMH (δg = 0.005) literature conventions. In practice you will need to tune `--iso` per cube — especially for IGMH, where `dg_intra` cubes have a much larger value range than `dg_inter` and typically need `--iso` between 0.05 and 0.3 for clean surfaces.
+```
+
 The surface is rendered as individual flat-filled patches per interaction region. Coloring is based on the sign of `λ₂` weighted by density: **blue** = strong attractive (H-bond), **green** = weak/vdW, **red** = repulsive (steric).
 
 | H-bond (base pair) | π-stacking (phenol dimer) |
@@ -85,7 +89,7 @@ All interaction surface flags:
 |------|-------------|
 | `--nci-surf SURFACE_CUBE` | Interaction surface cube file. Auto-classified as `low_field` or `high_field` from the cube values |
 | `--nci-mode MODE` | Coloring: `avg` (default), `pixel`, `uniform`, or a colour name/hex |
-| `--iso` | Surface isovalue threshold. NCI (low-field) displays regions below the cutoff (default `0.3`); NCI (high-field) displays regions above it (default `0.005`) |
+| `--iso` | Surface isovalue threshold (starting point — tune per cube). Low-field (NCIPLOT RDG) renders regions *below* the cutoff (default `0.3`). High-field (Multiwfn IGMH δg) renders regions *above* the cutoff: default `0.005` for `dg_inter`; `dg_intra` typically needs `0.05`–`0.3` |
 | `--opacity` | Surface opacity multiplier (default: 1.0) |
 | `--surface-style STYLE` | `solid` or `mesh` recommended; `contour`, `dot` also available. These use avg lobe colour |
 | `--nci-cutoff CUTOFF` | Density magnitude cutoff (advanced — not needed for standard NCIPLOT output) |

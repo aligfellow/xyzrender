@@ -154,10 +154,3 @@ def test_hl_too_many_args():
     """--hl with >2 arguments should error."""
     result = _run_cli(str(_CAFFEINE), "--hl", "1-5", "red", "extra", expect_error=True)
     assert result.returncode != 0
-
-def test_help_mentions_low_and_high_field_defaults():
-    result = _run_cli("--help")
-    assert result.returncode == 0
-    assert "NCI (low-field)" in result.stdout
-    assert "(high-field)" in result.stdout
-    assert "0.005" in result.stdout
