@@ -152,7 +152,7 @@ def test_find_nci_regions_detects_high_dg_blob_for_igmh():
     dg[4:6, 4:6, 4:6] = 0.4
     steps = np.eye(3) * 0.5
 
-    regions = find_nci_regions(dg, steps, isovalue=0.3, mode="igmh_dg")
+    regions = find_nci_regions(dg, steps, isovalue=0.3, mode="high_field")
     assert len(regions) == 1
     assert len(regions[0].flat_indices) > 0
 
@@ -190,7 +190,7 @@ def test_build_nci_contours_supports_igmh_surface_mode():
 
     color_cube = cube_from_array(sl2r)
     surface_cube = cube_from_array(dg)
-    contours = build_nci_contours(surface_cube, color_cube, NCIParams(isovalue=0.3), surface_mode="igmh_dg")
+    contours = build_nci_contours(surface_cube, color_cube, NCIParams(isovalue=0.3), surface_mode="high_field")
 
     assert contours.lobes
 
@@ -205,7 +205,7 @@ def test_build_nci_contours_uses_igmh_default_isovalue_when_nci_default_would_hi
 
     color_cube = cube_from_array(sl2r)
     surface_cube = cube_from_array(dg)
-    contours = build_nci_contours(surface_cube, color_cube, NCIParams(), surface_mode="igmh_dg")
+    contours = build_nci_contours(surface_cube, color_cube, NCIParams(), surface_mode="high_field")
 
     assert contours.lobes
 
@@ -391,7 +391,7 @@ def test_compute_nci_surface_supports_explicit_igmh_mode():
     dg = cube_from_array(np.pad(np.full((4, 4, 4), 0.02, dtype=float), 4))
     graph = graph_from_cube(sl2r)
 
-    compute_nci_surface(graph, sl2r, dg, cfg, NCIParams(), surface_mode="igmh_dg")
+    compute_nci_surface(graph, sl2r, dg, cfg, NCIParams(), surface_mode="high_field")
 
     assert cfg.nci_contours is not None
     assert cfg.nci_contours.lobes

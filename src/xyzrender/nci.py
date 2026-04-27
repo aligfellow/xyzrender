@@ -141,12 +141,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _SURFACE_MODE_AUTO = "auto"
-_SURFACE_MODE_RDG = "rdg_nci"
-_SURFACE_MODE_IGMH = "igmh_dg"
-_FIELD_CLASS_LOW = "low_field"
-_FIELD_CLASS_HIGH = "high_field"
-_DEFAULT_NCI_ISOVALUE = 0.3
-_DEFAULT_IGMH_ISOVALUE = 0.005
+_SURFACE_MODE_LOW = "low_field"
+_SURFACE_MODE_HIGH = "high_field"
+_DEFAULT_LOW_ISOVALUE = 0.3
+_DEFAULT_HIGH_ISOVALUE = 0.005
 
 
 @dataclass
@@ -187,23 +185,13 @@ def find_nci_regions(
     steps: np.ndarray,
     isovalue: float = 0.3,
     *,
-    mode: str = _SURFACE_MODE_RDG,
+    mode: str = _SURFACE_MODE_LOW,
 ) -> list[Lobe3D]:
     """Find connected 3D interaction regions via BFS flood-fill.
 
-    RDG/NCI mode uses voxels below *isovalue*. IGMH mode uses voxels above it.
-
-    Parameters
-    ----------
-    grad_data:
-        3D array of the surface-defining field.
-    steps:
-        (3, 3) step vectors in Bohr (from grad_cube.steps).
-    isovalue:
-        Surface threshold.
-    mode:
-        ``rdg_nci`` selects voxels with ``data < isovalue``;
-        ``igmh_dg`` selects voxels with ``data > isovalue``.
+    *mode* selects the polarity: ``"low_field"`` extracts ``data < isovalue``
+    (NCIPLOT RDG), ``"high_field"`` extracts ``data > isovalue`` (Multiwfn
+    IGMH δg), and ``"auto"`` classifies from the data distribution.
     """
     shape = grad_data.shape
     s1, s2 = shape[1] * shape[2], shape[2]
@@ -212,13 +200,14 @@ def find_nci_regions(
     min_cells = max(2, int(_NCI_MIN_REGION_VOLUME_BOHR3 / voxel_vol + 0.5))
     logger.debug("NCI voxel volume: %.4g Bohr³, min region cells: %d", voxel_vol, min_cells)
 
-    if mode == _SURFACE_MODE_RDG:
+    if mode == _SURFACE_MODE_AUTO:
+        mode = classify_surface_field(grad_data)
+    if mode == _SURFACE_MODE_LOW:
         mask = grad_data < isovalue
-    elif mode == _SURFACE_MODE_IGMH:
+    elif mode == _SURFACE_MODE_HIGH:
         mask = grad_data > isovalue
     else:
-        msg = f"Unknown NCI/IGMH surface mode: {mode!r}"
-        raise ValueError(msg)
+        raise ValueError(f"Unknown surface mode: {mode!r}")
 
     visited = np.zeros(shape, dtype=bool)
     visited[~mask] = True  # non-mask cells don't need visiting
@@ -270,72 +259,27 @@ def _validate_surface_cube_compatibility(color_cube: "CubeData", surface_cube: "
 
 
 def classify_surface_field(surface_data: np.ndarray) -> str:
-    """Classify a surface cube as ``low_field`` or ``high_field``.
+    """Classify a surface cube as ``"low_field"`` or ``"high_field"``.
 
-    ``low_field`` means the points of interest lie in the low end of the field,
-    so the surface should be extracted with ``data < iso``.
+    ``low_field`` → surface extracted with ``data < iso`` (e.g. NCIPLOT RDG, where
+    the bulk of voxels sit at a high sentinel and the interaction wells are low).
+    ``high_field`` → surface extracted with ``data > iso`` (e.g. Multiwfn IGMH δg,
+    where the bulk of voxels sit near zero and interaction peaks are high).
 
-    ``high_field`` means the points of interest lie in the high end of the
-    field, so the surface should be extracted with ``data > iso``.
+    Detection uses the median's position in the value range: if the median sits
+    in the upper half of [vmin, vmax], the background is high and the surface
+    is low; otherwise the background is low and the surface is high.
     """
     finite = surface_data[np.isfinite(surface_data)]
     if finite.size == 0:
-        return _FIELD_CLASS_LOW
-
+        return _SURFACE_MODE_LOW
     vmin = float(np.min(finite))
     vmax = float(np.max(finite))
     span = vmax - vmin
     if span < 1e-12 or np.isclose(vmax, 0.0):
-        return _FIELD_CLASS_LOW
-
+        return _SURFACE_MODE_LOW
     median = float(np.median(finite))
-    normalized_bg = (median - vmin) / span
-    field_class = _FIELD_CLASS_LOW if normalized_bg > 0.5 else _FIELD_CLASS_HIGH
-    logger.debug(
-        "Surface cube classified as %s (median=%.6g, vmin=%.6g, vmax=%.6g, normalized_bg=%.4g)",
-        field_class,
-        median,
-        vmin,
-        vmax,
-        normalized_bg,
-    )
-    return field_class
-
-
-def _surface_mode_from_field_class(field_class: str) -> str:
-    if field_class == _FIELD_CLASS_LOW:
-        return _SURFACE_MODE_RDG
-    if field_class == _FIELD_CLASS_HIGH:
-        return _SURFACE_MODE_IGMH
-    msg = f"Unknown surface field class: {field_class!r}"
-    raise ValueError(msg)
-
-
-def _resolve_surface_mode(surface_cube: "CubeData", surface_mode: str) -> str:
-    """Resolve the effective threshold interpretation for a surface cube."""
-    if surface_mode == _SURFACE_MODE_AUTO:
-        return _surface_mode_from_field_class(classify_surface_field(surface_cube.grid_data))
-    return surface_mode
-
-
-def _resolve_surface_isovalue(
-    requested_isovalue: float,
-    surface_mode: str,
-    *,
-    user_provided: bool = False,
-) -> float:
-    """Pick the effective surface isovalue for the selected interpretation."""
-    if surface_mode != _SURFACE_MODE_IGMH:
-        return requested_isovalue
-    if user_provided or not np.isclose(requested_isovalue, _DEFAULT_NCI_ISOVALUE):
-        return requested_isovalue
-
-    logger.info(
-        "IGMH surface selected; using isovalue %.4g instead of the generic NCI default %.4g",
-        _DEFAULT_IGMH_ISOVALUE,
-        _DEFAULT_NCI_ISOVALUE,
-    )
-    return _DEFAULT_IGMH_ISOVALUE
+    return _SURFACE_MODE_LOW if (median - vmin) / span > 0.5 else _SURFACE_MODE_HIGH
 
 
 # ---------------------------------------------------------------------------
@@ -548,8 +492,19 @@ def build_nci_contours(
     from xyzrender.colors import resolve_color
 
     _validate_surface_cube_compatibility(dens_cube, grad_cube)
-    surface_mode = _resolve_surface_mode(grad_cube, surface_mode)
-    isovalue = _resolve_surface_isovalue(params.isovalue, surface_mode, user_provided=iso_was_explicit)
+    if surface_mode == _SURFACE_MODE_AUTO:
+        surface_mode = classify_surface_field(grad_cube.grid_data)
+    isovalue = params.isovalue
+    if (
+        not iso_was_explicit
+        and surface_mode == _SURFACE_MODE_HIGH
+        and np.isclose(isovalue, _DEFAULT_LOW_ISOVALUE)
+    ):
+        logger.info(
+            "High-field surface detected; using isovalue %.4g instead of low-field default %.4g",
+            _DEFAULT_HIGH_ISOVALUE, _DEFAULT_LOW_ISOVALUE,
+        )
+        isovalue = _DEFAULT_HIGH_ISOVALUE
     color = resolve_color(params.color)
     color_mode = params.color_mode
 

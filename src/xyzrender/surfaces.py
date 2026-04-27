@@ -168,7 +168,7 @@ def compute_nci_surface(
     params:
         NCI surface parameters (isovalue, color, color_mode, dens_cutoff).
     surface_mode:
-        Surface interpretation mode: ``auto``, ``rdg_nci``, or ``igmh_dg``.
+        Surface interpretation mode: ``auto``, ``low_field``, or ``high_field``.
     iso_was_explicit:
         Whether the isovalue came from an explicit user override.
     """

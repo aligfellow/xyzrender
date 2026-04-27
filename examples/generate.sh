@@ -169,7 +169,13 @@ xyzrender "$DIR/MOF-5.xyz" --hull faces --pore --no-cell --no-bo --fog -o "$IMG/
 xyzrender "$DIR/MOF-5.xyz" --hull faces --pore --no-cell --no-bo --fog --gif-rot -go "$IMG/mof5_faces_pore.gif"
 
 echo "=== NCI surfaces ==="
+# NCIPLOT (low-field RDG) — defaults: --iso 0.3, classified as low_field automatically
 xyzrender "$DIR/base-pair-dens.cube" --nci-surf "$DIR/base-pair-grad.cube" -o "$IMG/base-pair-nci_surf.svg"
 xyzrender "$DIR/phenol_di-dens.cube" --nci-surf "$DIR/phenol_di-grad.cube" -o "$IMG/phenol_di-nci_surf.svg"
+xyzrender "$DIR/base-pair-dens.cube" --nci-surf "$DIR/base-pair-grad.cube" --nci-mode pixel -o "$IMG/base-pair-nci_pixel.svg"
+
+# Multiwfn IGMH (high-field δg) — auto-classified as high_field; iso must be tuned per cube
+xyzrender "$DIR/phenol_di-sl2r.cub" --nci-surf "$DIR/phenol_di-dg_inter.cub" --iso 0.005 -o "$IMG/phenol_di_igmh_inter.svg"
+xyzrender "$DIR/phenol_di-sl2r.cub" --nci-surf "$DIR/phenol_di-dg_intra.cub" --iso 0.2 -o "$IMG/phenol_di_igmh_intra.svg"
 
 echo "Done! Outputs written to $IMG/"
