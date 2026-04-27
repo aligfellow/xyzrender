@@ -33,9 +33,18 @@ xyzrender triphenylbenzol.xyz --ensemble --align-atoms 21,22,23 -o ensemble_alig
 xyzrender isothio_xtb.xyz --overlay isothio_uma.xyz --align-atoms 1-6 -o overlay_align.svg
 ```
 
+## Skip alignment
+
+`--no-align` disables Kabsch entirely and renders each frame at its raw coordinates, preserving the trajectory's native geometry. Useful for trajectories where the absolute frame matters.
+
+```bash
+xyzrender triphenylbenzol.xyz --ensemble --no-align -o ensemble_raw.svg
+```
+
 | Flag | Description |
 |------|-------------|
 | `--ensemble` | Enable ensemble mode for multi-frame XYZ trajectories |
 | `--ensemble-color VALUE` | Palette name (`viridis`, `plasma`, `spectral`, `coolwarm`, `RdBu`, `rainbow`), a single colour, or comma-separated colours |
 | `--opacity FLOAT` | Opacity for non-reference conformers (0–1, default: 1.0) |
 | `--align-atoms INDICES` | 1-indexed atom subset for alignment (min 3), e.g. `21,22,23` or `1-6` |
+| `--align` / `--no-align` | Force / skip Kabsch alignment (default: on) |

@@ -30,9 +30,9 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Non-covalent interactions** — hydrogen bonds and other weak interactions shown as dotted lines, detected automatically via [`xyzgraph`](https://github.com/aligfellow/xyzgraph)
 - **Bond display rules** — selectively hide or add bonds using element categories (`M`, `sbm`, `L`, `het`), element pairs (`M-L`, `Fe-het`), pi-coordination (`M-pi`), or atom indices; haptic mode replaces pi-coordination fans with single centroid bonds
 - **Surfaces** — molecular orbitals, electron density, ESP colormapping, NCI surfaces, and vdW spheres; solid, mesh, contour, wire, and dot styles
-- **Styling** — highlight & molecule color, radius scaling (by element, category, or index), style regions, atom property colormaps with colorbar, and depth-of-field / depth-fog effects
+- **Styling** — highlight & molecule color, radius scaling (by element, category, or index), per-atom fill opacity (bond-agnostic), style regions, atom property colormaps with colorbar, and depth-of-field / depth-fog effects
 - **Annotations** — distances, angles, dihedrals, custom labels, atom indices, and 3D vector arrows (dipoles, forces, fields)
-- **Structural overlay** — RMSD-align two structures and render in contrasting colours; works across different atom counts via automatic scaffold detection
+- **Structural overlay** — RMSD-align two structures and render in contrasting colours; works across different atom counts via automatic scaffold detection. Independent style overrides (atom/bond size, stroke, opacity, per-overlay bond rules), and `--no-align` to skip alignment when geometries already share a frame
 - **Conformer ensemble** — overlay all frames from a multi-frame XYZ trajectory, with palette colouring and opacity control
 - **Convex hull, hull faces & pores** — semi-transparent facets over selected atoms or rings, exposed faces of molecular cages, and pore rendering
 - **GIF animations** — rotation, TS vibration, trajectory, diffuse/assembly, and depth-of-field animations
@@ -172,11 +172,9 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |------------------|---------------|-------------|-----------------------|
 | ![hl](examples/images/caffeine_hl.svg) | ![hl custom](examples/images/caffeine_hl_custom.svg) | ![multi hl](examples/images/caffeine_multi_hl.svg) | ![mol color hl](examples/images/caffeine_mol_color_hl_idx.svg) |
 
-### Radius scaling
-
-| Single atom scaled (Co ×2) | Multi-group (N,O ×1.4 + H ×0.8) |
-|------------------------------|----------------------------------|
-| ![Co scaled](examples/images/CoCl6_scaled_Co2.svg) | ![multi scale](examples/images/caffeine_scaled_multigroup.svg) |
+| Single atom scaled (Co ×2) | Multi-group (N,O ×1.4 + H ×0.8) | Per-atom opacity + radius scale |
+|------------------------------|----------------------------------|---------------------------------|
+| ![Co scaled](examples/images/CoCl6_scaled_Co2.svg) | ![multi scale](examples/images/caffeine_scaled_multigroup.svg) | ![atom opacity](examples/images/caffeine_atom_opacity.svg) |
 
 ### Depth of field
 
@@ -186,9 +184,9 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### Structural overlay & ensemble
 
-| Overlay | Custom colour | Cross-molecule |
-|---------|---------------|----------------|
-| ![overlay](examples/images/isothio_overlay.svg) | ![overlay custom](examples/images/isothio_overlay_custom.svg) | ![cross-molecule overlay](examples/images/isothio_overlay_cross.svg) |
+| Overlay | Custom colour | Cross-molecule | Per-overlay style |
+|---------|---------------|----------------|-----------------------|
+| ![overlay](examples/images/isothio_overlay.svg) | ![overlay custom](examples/images/isothio_overlay_custom.svg) | ![cross-molecule overlay](examples/images/isothio_overlay_cross.svg) | ![overlay styled](examples/images/isothio_overlay_styled.svg) |
 
 | Ensemble (CPK) | Ensemble (viridis) |
 |----------------|--------------------|
@@ -224,9 +222,9 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |-----------|-----------|---------|
 | ![homo](examples/images/caffeine_homo.svg) | ![lumo](examples/images/caffeine_lumo.svg) | ![dens](examples/images/caffeine_dens.svg) |
 
-| ESP | ESP + colorbar | ESP + coolwarm |
-|-----|----------------|----------------|
-| ![esp](examples/images/caffeine_esp.svg) | ![esp cbar](examples/images/caffeine_esp_cbar.svg) | ![esp coolwarm](examples/images/caffeine_esp_coolwarm.svg) |
+| ESP | ESP + colorbar | ESP + coolwarm | ESP fixed range (`±0.003`) |
+|-----|----------------|----------------|---------------------------|
+| ![esp](examples/images/caffeine_esp.svg) | ![esp cbar](examples/images/caffeine_esp_cbar.svg) | ![esp coolwarm](examples/images/caffeine_esp_coolwarm.svg) | ![esp fixed range](examples/images/caffeine_esp_cmap_range.svg) |
 
 | MO mesh | MO contour | MO dot | Density contour |
 |---------|------------|--------|-----------------|
@@ -305,7 +303,7 @@ Falls back to CairoSVG automatically (filters silently ignored). SVG output alwa
 Optional dependencies:
 
 - [**rdkit**](https://www.rdkit.org/) — SMILES 3D embedding (`pip install 'xyzrender[smi]'`)
-- [**ase**](https://wiki.fysik.dtu.dk/ase/) — CIF parsing (`pip install 'xyzrender[cif]'`)
+- [**ase**](https://wiki.fysik.dtu.dk/ase/) — CIF parsing, and ASE viewer integration (`pip install 'xyzrender[cif]'`)
 - [**v**](https://github.com/briling/v) — interactive molecule orientation (`pip install xyzrender[v]`, Linux only, not included into `[all]`)
 
 Contributors:
@@ -314,7 +312,7 @@ Contributors:
 - [Sander Cohen-Janes (@scohenjanes5)](https://github.com/scohenjanes5) — crystal/periodic structure support (VASP, Quantum ESPRESSO, ghost atoms, crystallographic axes), vector annotations and gif parallelisation, gaussian input parsing
 - [Rubén Laplaza (@rlaplaza)](https://github.com/rlaplaza) — convex hull facets
 - [Iñigo Iribarren Aguirre (@iribirii)](https://github.com/iribirii) — logo design, radial gradients respecting colour space (pseudo-3D), skeletal rendering, ensemble display, supercell projection, metal tube preset
-- [James O'Brien (@JamesOBrien2)](https://github.com/JamesOBrien2) — stereochemistry detection and integration, nci/ts colour control, graph styling, pmol styling, colour palette extension
+- [James O'Brien (@JamesOBrien2)](https://github.com/JamesOBrien2) — stereochemistry detection and integration, nci/ts colour control, graph styling, pmol styling, colour palette extension, ase viewer integration
 - [Vinicius Port (@caprilesport)](https://github.com/caprilesport) — `v` binary path discovery
 - [Lucas Attia (@lucasattia)](https://github.com/lucasattia) — transparent background
 

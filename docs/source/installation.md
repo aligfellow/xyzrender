@@ -40,7 +40,8 @@ Some features require additional packages:
 
 ```bash
 pip install 'xyzrender[smi]'      # SMILES input (rdkit)
-pip install 'xyzrender[cif]'      # CIF input (ase)
+pip install 'xyzrender[cif]'      # CIF input + ASE GUI viewer (ase)
+pip install 'xyzrender[v]'        # v viewer for interactive rotation (vmol)
 pip install 'xyzrender[all]'      # everything above
 ```
 

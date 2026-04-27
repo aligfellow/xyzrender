@@ -2156,14 +2156,14 @@ dependencies = [
     { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "rdkit" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/70/d0/9bb6c63c0b622814c13ae5dd875d860cf33ee4d669e8614c17eecaf0eac6/xyzgraph-1.6.10.tar.gz", hash = "sha256:64f94e3ae126517cdbc4dad3ea9e60c2b6962f7d8b9d3ff657e6bb4d450e4671", size = 175181, upload-time = "2026-04-24T20:21:46.682Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/69/28/c2b71cafab920e6358bbae3896a00fcbed7e8ee61b33db26466c004ac212/xyzgraph-1.6.9.tar.gz", hash = "sha256:8dd4f593b78087ae5707a3b7c2b5083a0f9fa5818aa101ab1f59b1cfd0c9a571", size = 173947, upload-time = "2026-04-16T07:17:38.46Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/91/23/a0d255a405677ffcb9e27979b471e3db26c076ae4dc2697e3d496abc2631/xyzgraph-1.6.10-py3-none-any.whl", hash = "sha256:0167d15a33f6817a3c6098369ff2b4ceca1a701d8f45057333367d26c93e9249", size = 129186, upload-time = "2026-04-24T20:21:44.137Z" },
+    { url = "https://files.pythonhosted.org/packages/18/c9/6df5319faf4ff427a72aa7d59e6cdc148150d811c6b5b024e19fab6cb3e5/xyzgraph-1.6.9-py3-none-any.whl", hash = "sha256:5d48a4f4ea2154b7f2bbb860d1aebf54834235103e65f1440f8d25e0648fa0c1", size = 129183, upload-time = "2026-04-16T07:17:36.599Z" },
 ]
 
 [[package]]
 name = "xyzrender"
-version = "0.2.6"
+version = "0.2.7"
 source = { editable = "." }
 dependencies = [
     { name = "cairosvg" },

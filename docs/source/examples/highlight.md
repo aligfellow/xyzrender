@@ -120,3 +120,42 @@ render(mol, radius_scale=[("N", 2.0)])
 render(mol, radius_scale=[("M,67,68", 2.0), ("H", 0.8)])
 render(mol, radius_scale=[([1, 2, 3], 3.0)])  # 1-indexed list
 ```
+
+## Per-atom opacity
+
+Fade specific atoms of the primary molecule to push them visually into the background while keeping their connectivity intact — `--atom-opacity` affects the atom circle only; adjacent bonds stay fully opaque. Same selector syntax as `--hl`; repeatable for distinct fade levels. Stacks with other per-atom flags like `--radius-scale`, so you can fade one subset and enlarge an overlapping one in the same render.
+
+![Per-atom opacity + radius scale](../../../examples/images/caffeine_atom_opacity.svg)
+
+```bash
+# Fade one ring and simultaneously enlarge a (partially overlapping) subset
+xyzrender caffeine.xyz --atom-opacity "1-6" 0.5 --radius-scale "4-8" 1.5
+
+# Fade the entire primary molecule (useful when combined with --overlay)
+xyzrender caffeine.xyz --atom-opacity all 0.4
+
+# Element selectors, repeat for multiple fade levels
+xyzrender mol.xyz --atom-opacity "M" 0.4 --atom-opacity "het" 0.7
+```
+
+### Python
+
+```python
+# Selector form (same grammar as --atom-opacity on the CLI, matches radius_scale):
+render(
+    mol,
+    atom_opacity=[("1-6", 0.5)],     # one spec, multiple atoms
+    radius_scale=[("4-8", 1.5)],     # stacks independently
+)
+render(mol, atom_opacity=[("M", 0.4), ("het", 0.7)])   # element categories
+render(mol, atom_opacity=[([1, 2, 3], 0.5)])           # bare 1-indexed list
+```
+
+Or a plain ``{1-indexed atom: value}`` dict when you want per-atom values:
+
+```python
+render(mol, atom_opacity={1: 0.3, 2: 0.5, 7: 0.8})     # per-atom levels
+render(mol, atom_opacity=dict.fromkeys([1, 2, 3], 0.5))  # one value, broadcast
+```
+
+Composes with overlay / ensemble opacity by taking the `min` of both.

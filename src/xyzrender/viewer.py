@@ -1,8 +1,8 @@
-"""Interactive v-viewer integration for xyzrender.
+"""Interactive viewer integration for xyzrender.
 
-Provides :func:`rotate_with_viewer` which opens the molecule in the ``v``
-viewer, lets the user rotate it interactively, then reads back the new
-coordinates so subsequent rendering uses the chosen orientation.
+Provides :func:`rotate_with_viewer` which opens the molecule in an
+interactive viewer (vmol or ASE GUI), lets the user rotate it, then reads
+back the new coordinates so subsequent rendering uses the chosen orientation.
 """
 
 from __future__ import annotations
@@ -23,50 +23,56 @@ _Atoms: TypeAlias = list[tuple[str, tuple[float, float, float]]]
 
 def rotate_with_viewer(
     graph: nx.Graph,
+    backend: str = "vmol",
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray] | tuple[None, None, None]:
-    """Open graph in v viewer for interactive rotation, update positions in-place.
+    """Open graph in an interactive viewer for rotation, update positions in-place.
 
-    Writes a temp XYZ from current positions, launches v, and reads back
-    the rotated coordinates.  All edge attributes (TS labels, bond orders, etc.)
-    are preserved.  If the graph has a lattice, it is rotated by the same
+    Writes a temp XYZ from current positions, launches the viewer, and reads
+    back the rotated coordinates.  All edge attributes (TS labels, bond orders,
+    etc.) are preserved.  If the graph has a lattice, it is rotated by the same
     transformation and the cell origin is updated accordingly.
 
     Parameters
     ----------
     graph:
         Molecular graph whose node positions are updated in-place.
+    backend:
+        Viewer backend to use: ``"vmol"`` (default) or ``"ase"``.
 
     Returns
     -------
     tuple of (rot, c1, c2) : (ndarray, ndarray, ndarray)
         Kabsch rotation matrix and centroid before/after rotation (in Å).
-        Returns ``(None, None, None)`` if the user quit without pressing z.
+        Returns ``(None, None, None)`` if the user quit without confirming.
     """
     import logging
 
     logger = logging.getLogger(__name__)
 
-    try:
-        from vmol import vmol as viewer
-    except ImportError:
-        msg = "Interactive viewer requires vmol: `pip install xyzrender[v]` or pip install vmol"
-        raise ImportError(msg) from None
-
-    logger.info("Using viewer: %s", viewer)
     n = graph.number_of_nodes()
     symbols = [graph.nodes[i]["symbol"] for i in range(n)]
     orig_pos = np.array([graph.nodes[i]["position"] for i in range(n)], dtype=float)
     lattice = graph.graph.get("lattice")
 
     atoms: _Atoms = list(zip(symbols, [tuple(row) for row in orig_pos], strict=True))
-    rotated_text = _run_viewer_with_atoms(viewer, atoms, lattice=lattice)
+
+    if backend == "ase":
+        rotated_text = _run_ase_viewer(atoms, lattice=lattice)
+    else:
+        try:
+            from vmol import vmol as viewer
+        except ImportError:
+            msg = "Interactive viewer requires vmol: `pip install xyzrender[v]` or pip install vmol"
+            raise ImportError(msg) from None
+        logger.info("Using viewer: %s", viewer)
+        rotated_text = _run_viewer_with_atoms(viewer, atoms, lattice=lattice)
 
     if not rotated_text or not rotated_text.strip():
         logger.warning("No output from viewer.")
         return None, None, None
 
-    # Extract rotation matrix from vmol 'u' output (rot:r00,r01,...,r22)
-    # and strip rotation lines so _parse_auto sees clean XYZ.
+    # Extract rotation matrix (rot:r00,r01,...,r22) emitted by both backends
+    # and strip any verbose rotation lines so _parse_auto sees clean XYZ.
     rot = None
     xyz_lines: list[str] = []
     for line in rotated_text.splitlines():
@@ -183,6 +189,63 @@ def orient_hkl_to_view(graph: nx.Graph, cell_data: "CellData", axis_str: str, cf
     if hasattr(cfg, "vectors"):
         for vec in cfg.vectors:
             vec.vector, vec.origin = _apply_rot_to_vecs(rot_view, vec.vector, vec.origin, centroid)
+
+
+def _run_ase_viewer(atoms: _Atoms, lattice: np.ndarray | None = None) -> str:
+    r"""Open ASE GUI in-process and return vmol-compatible rotation output.
+
+    Parameters
+    ----------
+    atoms:
+        List of ``(symbol, (x, y, z))`` tuples.
+    lattice:
+        Optional ``(3, 3)`` lattice matrix.  When provided, the periodic cell
+        is shown in ASE GUI.
+
+    Returns
+    -------
+    str
+        ``rot:<9 floats>\\n<XYZ block>`` matching vmol output format.
+        Returns ``""`` only if ``gui.axes`` is inaccessible after the window
+        closes (should not occur in normal use).
+    """
+    try:
+        from ase import Atoms as AseAtoms
+        from ase.gui.gui import GUI
+        from ase.gui.images import Images
+    except ImportError as exc:
+        msg = "ASE GUI viewer requires ase: `pip install ase` or `pip install xyzrender[cif]`"
+        raise ImportError(msg) from exc
+
+    symbols = [s for s, _ in atoms]
+    positions = [list(p) for _, p in atoms]
+    ase_atoms = AseAtoms(symbols=symbols, positions=positions)
+
+    if lattice is not None:
+        ase_atoms.cell = np.asarray(lattice, dtype=float)
+        ase_atoms.pbc = True
+
+    gui = GUI(Images([ase_atoms]))
+    gui.run()  # blocks until user closes the window
+
+    try:
+        axes = gui.axes  # 3x3: screen_coords = world_coords @ axes
+    except AttributeError:
+        return ""
+
+    pos = ase_atoms.positions
+    centroid = pos.mean(axis=0)
+    new_pos = (pos - centroid) @ axes + centroid
+
+    # vmol convention: new_pos = (rot @ (orig - c1).T).T + c2
+    # => rot = axes.T
+    rot = axes.T
+    lines = ["rot:" + ",".join(f"{v:.10f}" for v in rot.flatten())]
+    lines.append(str(len(atoms)))
+    lines.append("xyzrender ase-gui")
+    for (sym, _), p in zip(atoms, new_pos, strict=True):
+        lines.append(f"{sym} {p[0]:.10f} {p[1]:.10f} {p[2]:.10f}")
+    return "\n".join(lines)
 
 
 def _run_viewer(viewer: Vmol, mol: dict, extra_args: list[str] | None = None) -> str:

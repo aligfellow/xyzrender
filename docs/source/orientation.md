@@ -13,14 +13,36 @@ Auto-orientation is disabled automatically when reading from stdin.
 
 ## Interactive rotation (`-I`)
 
-The `-I` flag opens the molecule in the [**v** molecular viewer](https://github.com/briling/v) by [Ksenia Briling **@briling**](https://github.com/briling)
-for interactive rotation. Rotate the molecule to the desired orientation
-and close the window with `q` or `esc`.  
+The `-I` flag opens the molecule in an interactive viewer for rotation.
 `xyzrender` captures the rotated coordinates and renders from those.
 
+Two viewer backends are supported via `--viewer`:
+
+### vmol (default)
+
+Opens the molecule in the [**v** molecular viewer](https://github.com/briling/v) by [Ksenia Briling **@briling**](https://github.com/briling).
+Rotate with the mouse or arrow keys, then press `z` to output the orientation
+and `q` or `Esc` to quit.
+
 ```bash
-xyzrender molecule.xyz -I
+xyzrender molecule.xyz -I               # uses vmol by default
+xyzrender molecule.xyz -I --viewer vmol # explicit
 ```
+
+Requires `pip install xyzrender[v]` (or `pip install vmol`).
+
+### ASE GUI
+
+Opens the molecule in [ASE](https://wiki.fysik.dtu.dk/ase/)'s built-in graphical viewer.
+Rotate with the mouse, then **close the window** to confirm the orientation.
+
+```bash
+xyzrender molecule.xyz -I --viewer ase
+```
+
+Requires `pip install xyzrender[cif]` (or `pip install ase`).
+
+For periodic structures, the unit cell is shown in the viewer automatically.
 
 ## Orientation reference (`--ref`)
 
@@ -90,11 +112,12 @@ v molecule.xyz | xyzrender
 
 Orient the molecule, press `z` to output reoriented coordinates, then `q` or `esc` to close.
 
-## v installation
+## Viewer installation
 
-This is an *optional* dependency (Linux only) and should be installed by using either:
+Both viewer backends are optional dependencies:
+
 ```bash
-pip install xyzrender[v]
-# or directly with
-pip install vmol 
+pip install 'xyzrender[v]'    # vmol (v viewer)
+pip install 'xyzrender[cif]'  # ASE GUI
+pip install 'xyzrender[all]'  # both
 ```

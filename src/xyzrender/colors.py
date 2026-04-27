@@ -329,6 +329,20 @@ def sample_palette(name: str, n: int) -> list[str]:
     return [palette_color(name, i / (n - 1)).hex for i in range(n)]
 
 
+_BOND_DARKEN_T: float = 0.3  # blend toward black — shared by mol_color, highlight, overlay
+
+
+def bond_color_from_atom(atom: Color) -> str:
+    """Derive a bond colour from its atom colour: 30 % blend toward black.
+
+    Shared by the three "set one colour, darken for bonds" paths (mol_color,
+    highlight groups, overlay / ensemble per-structure).  Inline callers used
+    to duplicate this with two different maths (``.darken`` vs ``.blend``);
+    consolidating here keeps the three sites visually identical.
+    """
+    return atom.blend(Color(0, 0, 0), _BOND_DARKEN_T).hex
+
+
 def blend_fog(hex_color: str, fog_rgb: np.ndarray, strength: float) -> str:
     """Blend color toward fog using strength**2, capped so atoms stay visible."""
     s = min(strength**2, _MAX_FOG)

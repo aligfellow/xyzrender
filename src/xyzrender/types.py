@@ -207,6 +207,36 @@ class HighlightGroup:
 
 
 @dataclass
+class OverlayConfig:
+    """Per-overlay style overrides.
+
+    Scalar fields (``color``, ``atom_scale``, ``bond_width``, stroke / outline
+    variants) are the CLI- and preset-friendly shortcuts.  All are absolute —
+    same semantics as :class:`RenderConfig` — and ``None``/empty means inherit
+    the primary.  For fields without a dedicated shortcut (``bond_gap``, fog,
+    gradient strengths, ``skeletal_style``, ...), set ``config`` to a full
+    :class:`RenderConfig`; it's attached as a :class:`StyleRegion` over the
+    overlay's node IDs at merge time.  Scalar shortcuts still win over values
+    inside ``config`` because the renderer applies per-node / per-edge override
+    attributes on top of the style-region config.
+    """
+
+    color: str = "mediumorchid"
+    opacity: float | None = None
+    atom_scale: float | None = None
+    atom_stroke_width: float | None = None
+    atom_stroke_color: str | None = None  # "atom" literal = use per-element fill
+    bond_width: float | None = None
+    bond_color: str | None = None  # explicit; overrides the auto-darkened `color`
+    bond_outline_width: float | None = None
+    bond_outline_color: str | None = None
+    unbond: list[str] = field(default_factory=list)  # overlay-only bond-hide rules
+    bond: list[str] = field(default_factory=list)  # overlay-only bond force-show / add
+    show: list[str] = field(default_factory=list)  # visibility filter (selector grammar)
+    config: "RenderConfig | None" = None  # full escape hatch; see class docstring
+
+
+@dataclass
 class RenderConfig:
     """Rendering settings."""
 
@@ -251,6 +281,9 @@ class RenderConfig:
     vdw_scale: float = 1.0
     vdw_gradient_strength: float = 1.6  # strength for VdW sphere gradient darken
     auto_orient: bool = False
+    # Kabsch/MCS alignment applied when merging an overlay or ensemble frames.
+    # Disable with --no-align to keep each structure's raw coordinates.
+    auto_align: bool = True
     background: str = "#ffffff"
     transparent: bool = False
     dpi: int = 300
@@ -273,6 +306,9 @@ class RenderConfig:
     label_font_size: float = 11.0
     label_color: str = "#222222"
     label_offset: float = 0.5  # perpendicular label offset as a fraction of font size (bond: -, dihedral: +)
+    # Per-atom fill opacity override (0-indexed).  Affects the atom circle only;
+    # adjacent bonds remain fully opaque so connectivity stays readable.
+    atom_opacity: dict[int, float] = field(default_factory=dict)
     # Atom property colormap (--cmap)
     atom_cmap: dict[int, float] | None = None
     cmap_range: tuple[float, float] | None = None
@@ -305,8 +341,8 @@ class RenderConfig:
     # Depth of field
     dof: bool = False
     dof_strength: float = 3.0  # max blur stdDeviation in SVG units
-    # Overlay
-    overlay_color: str = "mediumorchid"
+    # Overlay (nested sub-config so new per-overlay knobs slot in without churn)
+    overlay: OverlayConfig = field(default_factory=OverlayConfig)
     # Ensemble
     ensemble_colors: list[str] | None = None  # resolved hex per conformer (None = CPK)
     # Skeletal formula line rendering
