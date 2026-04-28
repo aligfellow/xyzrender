@@ -222,8 +222,8 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |-----------|-----------|---------|
 | ![homo](examples/images/caffeine_homo.svg) | ![lumo](examples/images/caffeine_lumo.svg) | ![dens](examples/images/caffeine_dens.svg) |
 
-| ESP | ESP + colorbar | ESP + coolwarm | ESP fixed range (`±0.003`) |
-|-----|----------------|----------------|---------------------------|
+| ESP | ESP + colorbar | ESP + coolwarm | ESP fixed range (`±0.03`) |
+|-----|----------------|----------------|--------------------------|
 | ![esp](examples/images/caffeine_esp.svg) | ![esp cbar](examples/images/caffeine_esp_cbar.svg) | ![esp coolwarm](examples/images/caffeine_esp_coolwarm.svg) | ![esp fixed range](examples/images/caffeine_esp_cmap_range.svg) |
 
 | MO mesh | MO contour | MO dot | Density contour |

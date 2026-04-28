@@ -66,6 +66,12 @@ xyzrender "$DIR/caffeine.xyz" --hy --cmap "$DIR/caffeine_charges.txt" -o "$IMG/c
 xyzrender "$DIR/caffeine.xyz" --hy --cmap "$DIR/caffeine_charges.txt" --cbar -o "$IMG/caffeine_cmap_colorbar.svg"
 xyzrender "$DIR/caffeine_dens.cube" --esp "$DIR/caffeine_esp.cube" --cbar -o "$IMG/caffeine_esp_cbar.svg"
 xyzrender "$DIR/caffeine_dens.cube" --esp "$DIR/caffeine_esp.cube" --cmap-palette coolwarm --cbar -o "$IMG/caffeine_esp_coolwarm.svg"
+xyzrender "$DIR/caffeine_dens.cube" --esp "$DIR/caffeine_esp.cube" --cmap-palette coolwarm --cmap-range -0.03 0.03 --cbar -o "$IMG/caffeine_esp_cmap_range.svg"
+xyzrender "$DIR/caffeine_dens.cube" --esp "$DIR/caffeine_esp.cube" --cmap-palette batlow --cbar -o "$IMG/caffeine_esp_batlow.svg"
+xyzrender "$DIR/caffeine_dens.cube" --esp "$DIR/caffeine_esp.cube" --cmap-palette roma --cbar -o "$IMG/caffeine_esp_roma.svg"
+xyzrender "$DIR/caffeine_dens.cube" --esp "$DIR/caffeine_esp.cube" --cmap-palette vik --cbar -o "$IMG/caffeine_esp_vik.svg"
+xyzrender "$DIR/caffeine_dens.cube" --esp "$DIR/caffeine_esp.cube" --cmap-palette bam --cbar -o "$IMG/caffeine_esp_bam.svg"
+xyzrender "$DIR/caffeine_dens.cube" --esp "$DIR/caffeine_esp.cube" --cmap-palette managua --cbar -o "$IMG/caffeine_esp_managua.svg"
 xyzrender "$DIR/caffeine.xyz" -l 13 6 9 4 t -l 1 a -l 14 d -l 7 12 8 a -l 11 d -o "$IMG/caffeine_dihedral.svg"
 xyzrender "$DIR/caffeine.xyz" -l 1 best -l 2 "NBO: 0.4" -o "$IMG/caffeine_labels.svg"
 xyzrender "$DIR/sn2.out" --ts --label "$DIR/sn2_label.txt" -o "$IMG/sn2_ts_label.svg" --label-size 40

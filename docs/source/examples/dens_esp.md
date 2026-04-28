@@ -50,7 +50,7 @@ For density surfaces, `mesh` falls back to `contour` automatically (the molecula
 
 Map electrostatic potential onto the density isosurface using two cube files: density (main input) and ESP (`--esp`). Both must come from the same calculation (identical grid). Colored **blue** (positive/electron-poor) → **green** (zero) → **red** (negative/electron-rich).
 
-| Default | With colorbar | Coolwarm + colorbar | Fixed range (`±0.003`) | Custom iso + opacity |
+| Default | With colorbar | Coolwarm + colorbar | Fixed range (`±0.03`) | Custom iso + opacity |
 |---------|---------------|---------------------|-----------------------|----------------------|
 | ![Default](../../../examples/images/caffeine_esp.svg) | ![With colorbar](../../../examples/images/caffeine_esp_cbar.svg) | ![Coolwarm + colorbar](../../../examples/images/caffeine_esp_coolwarm.svg) | ![Fixed range](../../../examples/images/caffeine_esp_cmap_range.svg) | ![Custom iso + opacity](../../../examples/images/caffeine_esp_custom.svg) |
 
@@ -64,7 +64,7 @@ xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cmap-palette coolwarm --c
 For cross-structure comparison, prefer a fixed manual range and show the colorbar explicitly:
 
 ```bash
-xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cmap-range -0.003 0.003 --cbar -o caffeine_esp_fixed_range.svg
+xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cmap-palette coolwarm --cmap-range -0.03 0.03 --cbar -o caffeine_esp_cmap_range.svg
 ```
 
 This keeps the ESP scale identical between renders, which is usually more informative than letting each figure auto-scale independently.
@@ -76,6 +76,22 @@ xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cmap-symm --cmap-palette 
 ```
 
 `--cmap-symm` chooses a symmetric range about zero using `[-max(|v|), +max(|v|)]`, where `v` is the plotted ESP data. This is useful with diverging palettes such as `coolwarm` when you want balanced positive/negative coloring without manually choosing bounds. For direct figure-to-figure comparison, prefer an explicit fixed range such as `--cmap-range -0.003 0.003`.
+
+### CVD-friendly palettes
+
+Additional palettes optimised for accessibility and publication: `batlow`, `roma`, `vik`, `bam`, `managua`.
+
+| batlow | roma | vik | bam | managua |
+|--------|------|-----|-----|---------|
+| ![batlow](../../../examples/images/caffeine_esp_batlow.svg) | ![roma](../../../examples/images/caffeine_esp_roma.svg) | ![vik](../../../examples/images/caffeine_esp_vik.svg) | ![bam](../../../examples/images/caffeine_esp_bam.svg) | ![managua](../../../examples/images/caffeine_esp_managua.svg) |
+
+```bash
+xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cmap-palette batlow --cbar -o caffeine_esp_batlow.svg
+xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cmap-palette roma --cbar -o caffeine_esp_roma.svg
+xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cmap-palette vik --cbar -o caffeine_esp_vik.svg
+xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cmap-palette bam --cbar -o caffeine_esp_bam.svg
+xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cmap-palette managua --cbar -o caffeine_esp_managua.svg
+```
 
 | Flag | Description |
 |------|-------------|
