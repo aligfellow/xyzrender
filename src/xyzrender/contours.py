@@ -547,18 +547,19 @@ def _find_iso_crossing(field_1d: np.ndarray, isovalue: float, from_start: bool) 
     Returns a fractional index into *field_1d*.
     """
     n = len(field_1d)
-    if from_start:
-        for i in range(n - 1):
-            if field_1d[i] < isovalue <= field_1d[i + 1]:
-                t = (isovalue - field_1d[i]) / max(field_1d[i + 1] - field_1d[i], 1e-12)
-                return i + t
-        return 0.0
-    else:
-        for i in range(n - 1, 0, -1):
-            if field_1d[i] < isovalue <= field_1d[i - 1]:
-                t = (isovalue - field_1d[i]) / max(field_1d[i - 1] - field_1d[i], 1e-12)
-                return i - t
-        return float(n - 1)
+
+    # Define traversal parameters based on direction
+    range_args = (0, n - 1, 1) if from_start else (n - 1, 0, -1)
+    step = range_args[2]
+
+    for i in range(*range_args):
+        v_curr, v_next = field_1d[i], field_1d[i + step]
+
+        if v_curr < isovalue <= v_next:
+            t = (isovalue - v_curr) / max(v_next - v_curr, 1e-12)
+            return i + t * step
+
+    return float(range_args[0])
 
 
 def _bilinear_sample(field: np.ndarray, rows: np.ndarray, cols: np.ndarray) -> np.ndarray:
