@@ -226,10 +226,6 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |-----|----------------|----------------|--------------------------|
 | ![esp](examples/images/caffeine_esp.svg) | ![esp cbar](examples/images/caffeine_esp_cbar.svg) | ![esp coolwarm](examples/images/caffeine_esp_coolwarm.svg) | ![esp fixed range](examples/images/caffeine_esp_cmap_range.svg) |
 
-| ESP batlow | ESP roma | ESP vik | ESP bam | ESP managua |
-|------------|----------|---------|---------|-------------|
-| ![esp batlow](examples/images/caffeine_esp_batlow.svg) | ![esp roma](examples/images/caffeine_esp_roma.svg) | ![esp vik](examples/images/caffeine_esp_vik.svg) | ![esp bam](examples/images/caffeine_esp_bam.svg) | ![esp managua](examples/images/caffeine_esp_managua.svg) |
-
 | MO mesh | MO contour | MO dot | Density contour |
 |---------|------------|--------|-----------------|
 | ![mesh](examples/images/caffeine_homo_mesh.svg) | ![contour](examples/images/caffeine_homo_contour.svg) | ![dot](examples/images/caffeine_homo_dot.svg) | ![dens contour](examples/images/caffeine_dens_contour.svg) |
