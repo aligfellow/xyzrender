@@ -450,13 +450,19 @@ def _tile_supercell_indices(
 ) -> list[list[int]]:
     """Replicate index subsets across supercell replicas."""
     sc_m, sc_n, sc_l = supercell
-    return [
-        [idx + (ii * sc_n * sc_l + jj * sc_l + kk) * n_base for idx in sub]
-        for ii in range(sc_m)
-        for jj in range(sc_n)
-        for kk in range(sc_l)
-        for sub in subsets
-    ]
+    if not subsets or (sc_m, sc_n, sc_l) == (1, 1, 1):
+        return subsets
+
+    ii, jj, kk = np.mgrid[0:sc_m, 0:sc_n, 0:sc_l]
+    offsets = (ii * sc_n * sc_l + jj * sc_l + kk).ravel() * n_base
+
+    lens = list(map(len, subsets))
+    flat_subs = np.concatenate(subsets)
+    tiled_flat = (flat_subs[None, :] + offsets[:, None]).ravel()
+    split_idx = np.cumsum(np.tile(lens, len(offsets)))[:-1]
+    return list(map(np.ndarray.tolist, np.split(tiled_flat, split_idx)))
+
+
 def _tile_pore_centroids_radii(
     centroids: list[tuple[float, float, float]],
     radii: list[float] | None,
