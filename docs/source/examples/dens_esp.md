@@ -81,13 +81,9 @@ xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cmap-symm --cmap-palette 
 
 Additional palettes optimised for accessibility and publication: `batlow`, `roma`, `vik`, `bam`, `managua`.
 
-| batlow | roma | vik | bam |
-|--------|------|-----|-----|
-| ![batlow](../../../examples/images/caffeine_esp_batlow.svg) | ![roma](../../../examples/images/caffeine_esp_roma.svg) | ![vik](../../../examples/images/caffeine_esp_vik.svg) | ![bam](../../../examples/images/caffeine_esp_bam.svg) |
-
-| managua |
-|---------|
-| ![managua](../../../examples/images/caffeine_esp_managua.svg) |
+| batlow | roma | vik | bam | managua |
+|--------|------|-----|-----|---------|
+| ![batlow](../../../examples/images/caffeine_esp_batlow.svg) | ![roma](../../../examples/images/caffeine_esp_roma.svg) | ![vik](../../../examples/images/caffeine_esp_vik.svg) | ![bam](../../../examples/images/caffeine_esp_bam.svg) | ![managua](../../../examples/images/caffeine_esp_managua.svg) |
 
 ```bash
 xyzrender caffeine_dens.cube --esp caffeine_esp.cube --cmap-palette batlow --cbar -o caffeine_esp_batlow.svg
