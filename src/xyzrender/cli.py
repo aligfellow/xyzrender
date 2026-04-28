@@ -690,7 +690,7 @@ def main() -> None:
         default=None,
         metavar="NAME",
         help="Shared scalar palette override (viridis, plasma, spectral, coolwarm, RdBu, rainbow, "
-        "batlow, roma, "vik, bam, managua; default: viridis for --cmap, rainbow for --esp)",
+        "batlow, roma, vik, bam, managua; default: viridis for --cmap, rainbow for --esp)",
     )
     annot_g.add_argument(
         "--cbar",
