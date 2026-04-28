@@ -98,8 +98,9 @@ GIF Animation:
 Surfaces:
   --mo / --dens           MO lobes / density isosurface (.cube/.cub input)
   --esp CUBE              ESP colour mapping (density + ESP cubes)
-  --nci-surf CUBE         NCI interaction surface (density + gradient cubes)
-  --iso F                 Isovalue (MO: 0.05, dens: 0.001, NCI: 0.3)
+  --nci-surf CUBE         Interaction surface cube (auto low_field / high_field)
+  --iso F                 Isovalue — MO: 0.05, dens: 0.001; tune per cube for interaction surfaces:
+                          NCIPLOT RDG: 0.3, IGMH δg_inter: 0.005, IGMH δg_intra: 0.05-0.3
   --hull [INDICES]        Convex hull (all / "rings" / atom subsets)
   --surface-style STYLE   solid, mesh, contour, dot
 
@@ -303,7 +304,7 @@ def main() -> None:
         default=None,
         metavar="CUBE",
         dest="nci_surf",
-        help="NCI gradient cube file — find patches where RDG is low (implies density rendering)",
+        help="Interaction surface cube file — auto-classified as low_field or high_field",
     )
     surf_g.add_argument(
         "--nci-mode",
@@ -314,7 +315,13 @@ def main() -> None:
         "--iso",
         type=float,
         default=None,
-        help="Isosurface threshold (MO default: 0.05, density/ESP default: 0.001, NCI/RDG default: 0.3)",
+        help=(
+            "Isosurface threshold. "
+            "MO default: 0.05, density/ESP default: 0.001. "
+            "For interaction surfaces, defaults are starting points and should be tuned per cube: "
+            "NCI low-field (NCIPLOT RDG): 0.3; "
+            "NCI high-field (Multiwfn IGMH δg_inter): 0.005, IGMH δg_intra typically 0.05-0.3"
+        ),
     )
     surf_g.add_argument(
         "--flat-mo",

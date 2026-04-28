@@ -90,6 +90,8 @@ def test_full_help():
     assert result.returncode == 0
     # Full argparse help includes "usage:" header
     assert "usage:" in result.stdout
+    assert "--nci-surf" in result.stdout
+    assert "--igmh-surf" not in result.stdout
 
 
 @pytest.mark.skipif(not _CAFFEINE.exists(), reason="fixture not found")

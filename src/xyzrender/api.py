@@ -2467,10 +2467,12 @@ def _validate_and_compute_surfaces(
     """
     from xyzrender.config import build_surface_params, collect_surf_overrides
 
+    iso_was_explicit = iso is not None
+
     # --- Skeletal-style validation ---
     if cfg.skeletal_style:
-        if mo or dens or esp is not None:
-            msg = "skeletal_style is mutually exclusive with surface rendering (mo/dens/esp)"
+        if mo or dens or esp is not None or nci is not None:
+            msg = "skeletal_style is mutually exclusive with surface rendering (mo/dens/esp/nci)"
             raise ValueError(msg)
         if vdw is not None:
             msg = "skeletal_style is mutually exclusive with vdw spheres"
@@ -2502,7 +2504,6 @@ def _validate_and_compute_surfaces(
     if nci is not None and cube_data is None:
         msg = "nci= requires a density .cube or .cub file loaded via load()"
         raise ValueError(msg)
-
     has_mo = bool(mo)
     has_dens = bool(dens)
     has_esp = esp is not None
@@ -2552,7 +2553,7 @@ def _validate_and_compute_surfaces(
 
     if nci_params is not None and nci is not None and cube_data is not None:
         nci_cube = parse_cube(str(nci))
-        compute_nci_surface(rmol.graph, cube_data, nci_cube, cfg, nci_params)
+        compute_nci_surface(rmol.graph, cube_data, nci_cube, cfg, nci_params, iso_was_explicit=iso_was_explicit)
 
 
 def _apply_cell_config(

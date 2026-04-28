@@ -140,6 +140,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_SURFACE_MODE_AUTO = "auto"
+_SURFACE_MODE_LOW = "low_field"
+_SURFACE_MODE_HIGH = "high_field"
+_DEFAULT_LOW_ISOVALUE = 0.3
+_DEFAULT_HIGH_ISOVALUE = 0.005
+
 
 @dataclass
 class NCIContours:
@@ -178,19 +184,14 @@ def find_nci_regions(
     grad_data: np.ndarray,
     steps: np.ndarray,
     isovalue: float = 0.3,
+    *,
+    mode: str = _SURFACE_MODE_LOW,
 ) -> list[Lobe3D]:
-    """Find connected 3D NCI patches via BFS flood-fill.
+    """Find connected 3D interaction regions via BFS flood-fill.
 
-    Regions are where the reduced density gradient (RDG) is below *isovalue*.
-
-    Parameters
-    ----------
-    grad_data:
-        3D array of RDG values (from grad.cube).
-    steps:
-        (3, 3) step vectors in Bohr (from grad_cube.steps).
-    isovalue:
-        RDG threshold.  Voxels with s < isovalue are NCI candidates.
+    *mode* selects the polarity: ``"low_field"`` extracts ``data < isovalue``
+    (NCIPLOT RDG), ``"high_field"`` extracts ``data > isovalue`` (Multiwfn
+    IGMH δg), and ``"auto"`` classifies from the data distribution.
     """
     shape = grad_data.shape
     s1, s2 = shape[1] * shape[2], shape[2]
@@ -199,7 +200,14 @@ def find_nci_regions(
     min_cells = max(2, int(_NCI_MIN_REGION_VOLUME_BOHR3 / voxel_vol + 0.5))
     logger.debug("NCI voxel volume: %.4g Bohr³, min region cells: %d", voxel_vol, min_cells)
 
-    mask = grad_data < isovalue
+    if mode == _SURFACE_MODE_AUTO:
+        mode = classify_surface_field(grad_data)
+    if mode == _SURFACE_MODE_LOW:
+        mask = grad_data < isovalue
+    elif mode == _SURFACE_MODE_HIGH:
+        mask = grad_data > isovalue
+    else:
+        raise ValueError(f"Unknown surface mode: {mode!r}")
 
     visited = np.zeros(shape, dtype=bool)
     visited[~mask] = True  # non-mask cells don't need visiting
@@ -233,8 +241,45 @@ def find_nci_regions(
     if n_discarded:
         logger.debug("Discarded %d NCI regions smaller than %d voxels", n_discarded, min_cells)
 
-    logger.debug("Found %d NCI regions at RDG isovalue %.4g", len(regions), isovalue)
+    logger.debug("Found %d interaction regions at isovalue %.4g (mode=%s)", len(regions), isovalue, mode)
     return regions
+
+
+def _validate_surface_cube_compatibility(color_cube: "CubeData", surface_cube: "CubeData") -> None:
+    """Ensure the coloring cube and surface cube are voxel-aligned."""
+    if color_cube.grid_shape != surface_cube.grid_shape:
+        msg = "Color cube and interaction surface cube must share the same grid shape"
+        raise ValueError(msg)
+    if not np.allclose(color_cube.origin, surface_cube.origin, atol=1e-6):
+        msg = "Color cube and interaction surface cube must share the same grid origin"
+        raise ValueError(msg)
+    if not np.allclose(color_cube.steps, surface_cube.steps, atol=1e-6):
+        msg = "Color cube and interaction surface cube must share the same grid step vectors"
+        raise ValueError(msg)
+
+
+def classify_surface_field(surface_data: np.ndarray) -> str:
+    """Classify a surface cube as ``"low_field"`` or ``"high_field"``.
+
+    ``low_field`` → surface extracted with ``data < iso`` (e.g. NCIPLOT RDG, where
+    the bulk of voxels sit at a high sentinel and the interaction wells are low).
+    ``high_field`` → surface extracted with ``data > iso`` (e.g. Multiwfn IGMH δg,
+    where the bulk of voxels sit near zero and interaction peaks are high).
+
+    Detection uses the median's position in the value range: if the median sits
+    in the upper half of [vmin, vmax], the background is high and the surface
+    is low; otherwise the background is low and the surface is high.
+    """
+    finite = surface_data[np.isfinite(surface_data)]
+    if finite.size == 0:
+        return _SURFACE_MODE_LOW
+    vmin = float(np.min(finite))
+    vmax = float(np.max(finite))
+    span = vmax - vmin
+    if span < 1e-12 or np.isclose(vmax, 0.0):
+        return _SURFACE_MODE_LOW
+    median = float(np.median(finite))
+    return _SURFACE_MODE_LOW if (median - vmin) / span > 0.5 else _SURFACE_MODE_HIGH
 
 
 # ---------------------------------------------------------------------------
@@ -406,18 +451,20 @@ def build_nci_contours(
     fixed_bounds: tuple[float, float, float, float] | None = None,
     regions_3d: list[Lobe3D] | None = None,
     surface_style: str = "solid",
+    surface_mode: str = _SURFACE_MODE_AUTO,
+    iso_was_explicit: bool = False,
 ) -> NCIContours:
-    """Build NCI contour data from a grad cube file.
+    """Build interaction contour data from a surface cube file.
 
-    Each connected low-RDG region is projected and contoured independently
-    (MO-style), giving individual flat-filled patches for each interaction.
+    Supports both NCIPLOT-style low-RDG surfaces and Multiwfn IGMH δg surfaces.
 
     Parameters
     ----------
     grad_cube:
-        Gaussian cube file containing the reduced density gradient (RDG) values.
+        Gaussian cube file containing the surface-defining scalar field.
     dens_cube:
-        Gaussian cube file containing the electron density (sign(lambda2)*rho values).
+        Gaussian cube file containing the coloring field (for example
+        sign(lambda2)*rho / sl2r).
     params:
         NCI surface parameters (isovalue, color, color_mode, dens_cutoff).
     rot:
@@ -432,6 +479,10 @@ def build_nci_contours(
         Fixed ``(x_min, x_max, y_min, y_max)`` in Å (cached between GIF frames).
     regions_3d:
         Pre-computed 3D NCI regions (cached between GIF frames).
+    surface_mode:
+        Surface interpretation, or ``auto`` to classify the cube numerically.
+    iso_was_explicit:
+        Whether the isovalue came from an explicit user override.
 
     Returns
     -------
@@ -440,7 +491,17 @@ def build_nci_contours(
     """
     from xyzrender.colors import resolve_color
 
+    _validate_surface_cube_compatibility(dens_cube, grad_cube)
+    if surface_mode == _SURFACE_MODE_AUTO:
+        surface_mode = classify_surface_field(grad_cube.grid_data)
     isovalue = params.isovalue
+    if not iso_was_explicit and surface_mode == _SURFACE_MODE_HIGH and np.isclose(isovalue, _DEFAULT_LOW_ISOVALUE):
+        logger.info(
+            "High-field surface detected; using isovalue %.4g instead of low-field default %.4g",
+            _DEFAULT_HIGH_ISOVALUE,
+            _DEFAULT_LOW_ISOVALUE,
+        )
+        isovalue = _DEFAULT_HIGH_ISOVALUE
     color = resolve_color(params.color)
     color_mode = params.color_mode
 
@@ -478,12 +539,13 @@ def build_nci_contours(
         y_min -= y_pad
         y_max += y_pad
 
-    # Find 3D NCI regions (BFS flood-fill on low-RDG mask)
+    # Find 3D interaction regions using the selected surface interpretation.
     if regions_3d is None:
         regions_3d = find_nci_regions(
             grad_cube.grid_data,
             grad_cube.steps,
             isovalue=isovalue,
+            mode=surface_mode,
         )
 
     # Project each region to 2D
@@ -535,16 +597,18 @@ def build_nci_contours(
     total_loops = sum(len(lc.loops) for lc in lobe_contours)
     if total_loops == 0:
         logger.warning(
-            "No NCI patches found at RDG isovalue %.4g — try adjusting --iso",
+            "No interaction patches found at isovalue %.4g (mode=%s) — try adjusting --iso",
             isovalue,
+            surface_mode,
         )
     else:
         logger.debug(
-            "NCI contours: %d regions (%d loops total, RDG isovalue=%.4g, mode=%s)",
+            "Interaction contours: %d regions (%d loops total, isovalue=%.4g, color_mode=%s, surface_mode=%s)",
             len(lobe_contours),
             total_loops,
             isovalue,
             color_mode,
+            surface_mode,
         )
 
     # Per-pixel raster only for pixel mode (PIL encode is expensive)

@@ -433,6 +433,8 @@ def build_esp_surface(
         esp_vmin=esp_vmin,
         esp_vmax=esp_vmax,
     )
+
+
 # ---------------------------------------------------------------------------
 # ESP SVG rendering — PNG heatmap clipped by density contour rings
 # ---------------------------------------------------------------------------

@@ -156,6 +156,7 @@ dens_cube = load("caffeine_dens.cube")
 render(dens_cube, dens=True)                       # density isosurface
 render(dens_cube, esp="caffeine_esp.cube")         # ESP mapped onto density
 render(dens_cube, nci="caffeine_grad.cube")        # NCI surface
+render(load("phenol_di-sl2r.cub"), nci="phenol_di-dg_inter.cub", iso=0.005)  # high_field surface
 ```
 
 See [Molecular Orbitals](examples/mo.md), [Electron Density and ESP](examples/dens_esp.md), and [NCI Surface](examples/nci_surf.md).

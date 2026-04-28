@@ -150,7 +150,7 @@ echo "=== Overlays ==="
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 --hy -o "$IMG/isothio_overlay.svg" --gif-rot -go "$IMG/isothio_overlay.gif"
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 -o "$IMG/isothio_overlay_custom.svg" --no-orient --overlay-color green -a 2
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 --hy --align-atoms "1,2,3" -o "$IMG/isothio_overlay_align.svg"
-xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_bridged.xyz" -c 1 --hy -o "$IMG/isothio_overlay_cross.svg" --gif-rot -go "$IMG/isothio_overlay_cross.gif"
+xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_fused.xyz" -c 1 --hy -o "$IMG/isothio_overlay_cross.svg" --gif-rot -go "$IMG/isothio_overlay_cross.gif"
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 --overlay-color teal --opacity 0.5 --overlay-atom-scale 1.5 --overlay-bond-width 15 -o "$IMG/isothio_overlay_styled.svg"
 
 xyzrender "$DIR/caffeine.xyz" --atom-opacity "1-6" 0.5 --radius-scale "4-8" 1.5 -o "$IMG/caffeine_atom_opacity.svg"
@@ -175,7 +175,13 @@ xyzrender "$DIR/MOF-5.xyz" --hull faces --pore --no-cell --no-bo --fog -o "$IMG/
 xyzrender "$DIR/MOF-5.xyz" --hull faces --pore --no-cell --no-bo --fog --gif-rot -go "$IMG/mof5_faces_pore.gif"
 
 echo "=== NCI surfaces ==="
+# NCIPLOT (low-field RDG) — defaults: --iso 0.3, classified as low_field automatically
 xyzrender "$DIR/base-pair-dens.cube" --nci-surf "$DIR/base-pair-grad.cube" -o "$IMG/base-pair-nci_surf.svg"
 xyzrender "$DIR/phenol_di-dens.cube" --nci-surf "$DIR/phenol_di-grad.cube" -o "$IMG/phenol_di-nci_surf.svg"
+xyzrender "$DIR/base-pair-dens.cube" --nci-surf "$DIR/base-pair-grad.cube" --nci-mode pixel -o "$IMG/base-pair-nci_pixel.svg"
+
+# Multiwfn IGMH (high-field δg) — auto-classified as high_field; iso must be tuned per cube
+xyzrender "$DIR/phenol_di-sl2r.cub" --nci-surf "$DIR/phenol_di-dg_inter.cub" --iso 0.005 -o "$IMG/phenol_di_igmh_inter.svg"
+xyzrender "$DIR/phenol_di-sl2r.cub" --nci-surf "$DIR/phenol_di-dg_intra.cub" --iso 0.2 -o "$IMG/phenol_di_igmh_intra.svg"
 
 echo "Done! Outputs written to $IMG/"
