@@ -1538,125 +1538,115 @@ def render_gif(
         raise ValueError(msg)
 
     # --- Dispatch ---
-    if gif_ts and gif_rot:
-        render_vibration_rotation_gif(
-            str(mol_path),
-            cfg,
-            str(gif_path),
-            ts_frame=ts_frame,
-            fps=gif_fps,
-            axis=gif_rot,
-            n_frames=rot_frames,
-            reference_graph=reference_graph,
-            detect_nci=detect_nci,
-        )
+    from xyzrender.readers import load_molecule
 
-    elif gif_ts:
-        render_vibration_gif(
-            str(mol_path),
-            cfg,
-            str(gif_path),
-            ts_frame=ts_frame,
-            fps=gif_fps,
-            reference_graph=reference_graph,
-            detect_nci=detect_nci,
-        )
+    # Determine the primary reference graph
+    if ref_graph is None:
+        ref_graph, _ = load_molecule(str(mol_path))
+    else:
+        ref_graph = copy.deepcopy(ref_graph)
+
+    # Cache for frequent checks
+    mol_obj = molecule if isinstance(molecule, Molecule) else None
+
+    if gif_ts:
+        if gif_rot:
+            render_vibration_rotation_gif(
+                path=str(mol_path),
+                config=cfg,
+                output=str(gif_path),
+                fps=gif_fps,
+                ts_frame=ts_frame,
+                reference_graph=reference_graph,
+                detect_nci=detect_nci,
+                axis=gif_rot,
+                n_frames=rot_frames,
+            )
+        else:
+            render_vibration_gif(
+                path=str(mol_path),
+                config=cfg,
+                output=str(gif_path),
+                fps=gif_fps,
+                ts_frame=ts_frame,
+                reference_graph=reference_graph,
+                detect_nci=detect_nci,
+            )
+        logger.info("GIF written to %s", gif_path)
+        return GIFResult(gif_path)
 
     elif gif_trj:
-        from xyzrender.readers import load_molecule, load_trajectory_frames
+        from xyzrender.readers import load_trajectory_frames
 
         frames = load_trajectory_frames(str(mol_path))
         if len(frames) < 2:
-            msg = "render_gif(gif_trj=True) requires a multi-frame XYZ file"
-            raise ValueError(msg)
-        _trj_ref = reference_graph
-        if _trj_ref is None:
-            graph, _ = load_molecule(str(mol_path))
-            _trj_ref = graph
+            raise ValueError("render_gif(gif_trj=True) requires a multi-frame XYZ file")
+
         render_trajectory_gif(
-            frames,
-            cfg,
-            str(gif_path),
+            frames=frames,
+            config=cfg,
+            output=str(gif_path),
             fps=gif_fps,
-            reference_graph=_trj_ref,
-            detect_nci=detect_nci,
+            reference_graph=reference_graph or ref_graph,
             axis=gif_rot,
+            detect_nci=detect_nci,
         )
+        logger.info("GIF written to %s", gif_path)
+        return GIFResult(gif_path)
 
     elif gif_diffuse:
-        if ref_graph is None:
-            from xyzrender.readers import load_molecule
+        from xyzrender.diffuse import parse_anchor
 
-            ref_graph, _ = load_molecule(str(mol_path))
-        else:
-            ref_graph = copy.deepcopy(ref_graph)
         if cfg.unbond or cfg.bond or cfg.haptic:
             from xyzrender.bond_rules import apply_bond_rules
 
             apply_bond_rules(ref_graph, cfg)
-        from xyzrender.diffuse import parse_anchor
 
         render_diffuse_gif(
-            ref_graph,
-            cfg,
-            str(gif_path),
+            graph=ref_graph,
+            config=cfg,
+            output=str(gif_path),
+            fps=gif_fps,
             n_frames=diffuse_frames,
             noise=diffuse_noise,
             bonds=diffuse_bonds,
             reverse=diffuse_reverse,
-            fps=gif_fps,
             rotation_axis=gif_rot,
             rotation_degrees=float(diffuse_rot) if diffuse_rot else 360.0,
             anchor=parse_anchor(anchor),
         )
+        logger.info("GIF written to %s", gif_path)
+        return GIFResult(gif_path)
 
     else:
-        # gif_rot only
-        if ref_graph is None:
-            from xyzrender.readers import load_molecule
-
-            ref_graph, _ = load_molecule(str(mol_path))
-        else:
-            # Deep-copy so render_rotation_gif (which mutates positions in-place) doesn't
-            # corrupt the caller's Molecule, and so _apply_cell_config can add ghost atoms.
-            ref_graph = copy.deepcopy(ref_graph)
-
-        # --- Orientation reference (gif_rot only) ---
+        # Orientation & Ensemble
         if ref is not None:
-            _ref_path = Path(ref)
             _ref_mol = Molecule(graph=ref_graph)
-            if _ref_path.is_file():
-                _apply_ref_orientation(_ref_mol, _ref_path, cfg)
-            else:
-                _apply_and_save_ref(_ref_mol, cfg, _ref_path)
+            _ref_path = Path(ref)
+            _apply_ref_orientation(_ref_mol, _ref_path, cfg) if _ref_path.is_file() else _apply_and_save_ref(
+                _ref_mol, cfg, _ref_path
+            )
             ref_graph = _ref_mol.graph
 
-        # --- Ensemble: build scratch merged graph (z_nudge=False — meaningless for rotation) ---
         if isinstance(molecule, Molecule) and molecule.ensemble is not None:
-            from xyzrender.ensemble import merge_graphs as _ensemble_merge_graphs
+            from xyzrender.ensemble import merge_graphs
 
             ens = molecule.ensemble
-            ref_graph = _ensemble_merge_graphs(
-                ref_graph,
-                ens.positions,
-                conformer_colors=ens.colors,
-                conformer_opacities=ens.opacities,
-                conformer_graphs=ens.conformer_graphs,
-                z_nudge=False,
+            ref_graph = merge_graphs(
+                ref_graph, ens.positions, conformer_colors=ens.colors, conformer_opacities=ens.opacities, z_nudge=False
             )
 
-        # --- Overlay alignment (gif_rot only) ---
-        if overlay_config is not None:
-            cfg.overlay = overlay_config
-        if auto_align is not None:
-            cfg.auto_align = auto_align
+        # Overlay & Bond Rules
         if overlay is not None:
-            # Disable PCA-orient inside _apply_overlay — gif_rot already handled orientation above.
-            _prev_auto = cfg.auto_orient
+            cfg.overlay, cfg.auto_align, _prev_auto = (
+                (overlay_config or cfg.overlay),
+                (auto_align or cfg.auto_align),
+                cfg.auto_orient,
+            )
             cfg.auto_orient = False
-            _ov_base = molecule if isinstance(molecule, Molecule) else Molecule(graph=ref_graph)
-            _ov_rmol = _apply_overlay(
-                _ov_base,
+            base_mol = mol_obj if mol_obj is not None else Molecule(graph=ref_graph)
+            ref_graph = _apply_overlay(
+                base_mol,
                 Molecule(graph=ref_graph),
                 cfg,
                 overlay,
@@ -1664,39 +1654,29 @@ def render_gif(
                 overlay_opacity=opacity,
                 align_atoms=None,
                 has_surfaces=False,
-            )
-            ref_graph = _ov_rmol.graph
+            ).graph
             cfg.auto_orient = _prev_auto
 
-        # Bond rules run after overlay merge so haptic sees both molecules'
-        # aromatic rings (merged.graph["aromatic_rings"] is the union).
         if cfg.unbond or cfg.bond or cfg.haptic:
             from xyzrender.bond_rules import apply_bond_rules
 
             apply_bond_rules(ref_graph, cfg)
 
-        # --- Vectors (user-supplied + crystal axes; gif_rot only) ---
-        _cell_data_for_vecs = molecule.cell_data if isinstance(molecule, Molecule) else None
-        _gif_show_axes = (not no_cell) if axes is None else axes
+        # Vectors & Cell Config
         _combine_vector_sources(
             cfg,
             ref_graph,
             vector=vector,
             vector_scale=vector_scale,
-            vector_color=vector_color,
-            cell_data=_cell_data_for_vecs,
-            axes=_gif_show_axes,
+            cell_data=mol_obj.cell_data if mol_obj is not None else None,
+            axes=(not no_cell) if axes is None else axes,
         )
 
-        cube_data = molecule.cube_data if isinstance(molecule, Molecule) else None
-
-        # Apply crystal/cell config when the molecule carries cell_data
-        if isinstance(molecule, Molecule) and molecule.cell_data is not None:
+        if mol_obj is not None and mol_obj.cell_data is not None:
             _cell_mol = Molecule(
                 graph=ref_graph,
-                cube_data=None,
-                cell_data=copy.deepcopy(molecule.cell_data),
-                oriented=molecule.oriented,
+                cell_data=copy.deepcopy(mol_obj.cell_data),
+                oriented=mol_obj.oriented,
             )
             _apply_cell_config(
                 _cell_mol,
@@ -1711,43 +1691,31 @@ def render_gif(
                 bo_explicit=bo,
             )
             ref_graph = _cell_mol.graph
-        # Build surface params when a cube is present
-        mo_params = dens_params = None
+
+        # Surfaces
+        cube_data = mol_obj.cube_data if mol_obj is not None else None
+        mo_p = dens_p = None
         if cube_data is not None and (mo or dens):
             from xyzrender.config import build_surface_params, collect_surf_overrides
 
-            surf_overrides = collect_surf_overrides(
-                iso=iso,
-                mo_pos_color=mo_pos_color,
-                mo_neg_color=mo_neg_color,
-                mo_blur=mo_blur,
-                mo_upsample=mo_upsample,
-                flat_mo=flat_mo,
-                dens_color=dens_color,
+            mo_p, dens_p, _, _ = build_surface_params(
+                cfg, collect_surf_overrides(iso=iso, mo_blur=mo_blur), has_mo=mo, has_dens=dens
             )
-            mo_params, dens_params, _, _ = build_surface_params(
-                cfg,
-                surf_overrides,
-                has_mo=mo,
-                has_dens=dens,
-                has_esp=False,
-                has_nci=False,
-            )
-        render_rotation_gif(
-            ref_graph,
-            cfg,
-            str(gif_path),
-            n_frames=rot_frames,
-            fps=gif_fps,
-            axis=gif_rot or "y",
-            mo_params=mo_params,
-            mo_cube=cube_data if mo_params is not None else None,
-            dens_params=dens_params,
-            dens_cube=cube_data if dens_params is not None else None,
-        )
 
-    logger.info("GIF written to %s", gif_path)
-    return GIFResult(gif_path)
+        render_rotation_gif(
+            graph=ref_graph,
+            config=cfg,
+            output=str(gif_path),
+            fps=gif_fps,
+            n_frames=rot_frames,
+            axis=gif_rot or "y",
+            mo_params=mo_p,
+            mo_cube=cube_data if mo_p else None,
+            dens_params=dens_p,
+            dens_cube=cube_data if dens_p else None,
+        )
+        logger.info("GIF written to %s", gif_path)
+        return GIFResult(gif_path)
 
 
 # ---------------------------------------------------------------------------
