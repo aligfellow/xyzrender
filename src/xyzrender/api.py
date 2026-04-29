@@ -1354,7 +1354,6 @@ def render_gif(
         render_rotation_gif,
         render_trajectory_gif,
         render_vibration_gif,
-        render_vibration_rotation_gif,
     )
 
     if not (gif_rot or gif_trj or gif_ts or gif_diffuse):
@@ -1550,28 +1549,17 @@ def render_gif(
     mol_obj = molecule if isinstance(molecule, Molecule) else None
 
     if gif_ts:
-        if gif_rot:
-            render_vibration_rotation_gif(
-                path=str(mol_path),
-                config=cfg,
-                output=str(gif_path),
-                fps=gif_fps,
-                ts_frame=ts_frame,
-                reference_graph=reference_graph,
-                detect_nci=detect_nci,
-                axis=gif_rot,
-                n_frames=rot_frames,
-            )
-        else:
-            render_vibration_gif(
-                path=str(mol_path),
-                config=cfg,
-                output=str(gif_path),
-                fps=gif_fps,
-                ts_frame=ts_frame,
-                reference_graph=reference_graph,
-                detect_nci=detect_nci,
-            )
+        render_vibration_gif(
+            path=str(mol_path),
+            config=cfg,
+            output=str(gif_path),
+            fps=gif_fps,
+            ts_frame=ts_frame,
+            reference_graph=reference_graph,
+            detect_nci=detect_nci,
+            axis=gif_rot,
+            n_frames=rot_frames if gif_rot else None,
+        )
         logger.info("GIF written to %s", gif_path)
         return GIFResult(gif_path)
 
