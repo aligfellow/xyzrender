@@ -533,49 +533,48 @@ def _apply_hull_pore_workflow(
     if graph is None:
         return
 
-    unit_cell_hull_indices: list[list[int]] | None = None
-    unit_cell_n_base: int | None = None
-    hull_is_str = isinstance(hull, str)
+    # 1. Flag Initialization
+    is_face = hull in {"face", "faces"}
+    is_pore = hull in {"pore", "pores"}
+    is_supercell = supercell != (1, 1, 1)
+    has_pores = pore or bool(cfg.pore_node_ids)
+    unit_cell_hull_indices = None
 
-    if (hull_is_str and hull in {"faces", "face", "pores", "pore"}) or pore:
-        if hull_is_str and hull in {"faces", "face"}:
-            unit_cell_hull_indices = resolve_hull_faces(
-                graph,
-                max_size=ring_max_size,
-                min_size=ring_min_size,
-                cell_data=cell_data,
-                face_planarity=face_planarity,
-            )
-        if hull in {"pores", "pore"} or pore:
-            # resolve_hull_pores handles detection, node mapping, and storing
-            # centroids/radii on cfg — single path for both --hull pore and --pore.
-            pore_indices = resolve_hull_pores(
-                graph,
-                cfg,
-                max_size=ring_max_size,
-                min_size=ring_min_size,
-                cell_data=cell_data,
-            )
-            if hull in {"pores", "pore"}:
-                unit_cell_hull_indices = pore_indices
+    # 2. Resolve Faces / Pores
+    if is_face:
+        unit_cell_hull_indices = resolve_hull_faces(
+            graph,
+            max_size=ring_max_size,
+            min_size=ring_min_size,
+            cell_data=cell_data,
+            face_planarity=face_planarity,
+        )
 
-        if unit_cell_hull_indices or cfg.pore_node_ids:
-            unit_cell_n_base = graph.number_of_nodes()
+    if is_pore or pore:
+        pore_indices = resolve_hull_pores(
+            graph,
+            cfg,
+            max_size=ring_max_size,
+            min_size=ring_min_size,
+            cell_data=cell_data,
+        )
+        if is_pore:
+            unit_cell_hull_indices = pore_indices
 
+    # 3. Graph Normalization & Tiling Selection
     subsets = None
-    if unit_cell_hull_indices and hull_is_str and hull in {"faces", "face", "pores", "pore"}:
+    if unit_cell_hull_indices and (is_face or is_pore):
         subsets = normalize_hull_subsets(unit_cell_hull_indices)
-        if supercell != (1, 1, 1) and unit_cell_n_base is not None:
-            subsets = _tile_supercell_indices(subsets, supercell, unit_cell_n_base)
+        if is_supercell:
+            subsets = _tile_supercell_indices(subsets, supercell, graph.number_of_nodes())
 
-    if color_graph is not None:
-        _apply_graph = color_graph
-    elif (
-        supercell != (1, 1, 1) and unit_cell_hull_indices and hull_is_str and hull in {"faces", "face", "pores", "pore"}
-    ):
-        _apply_graph = None
-    else:
-        _apply_graph = graph
+    # Calculate fallback for apply_graph flatly
+    _apply_graph = color_graph
+    if _apply_graph is None:
+        hide_graph = is_supercell and unit_cell_hull_indices and (is_face or is_pore)
+        _apply_graph = None if hide_graph else graph
+
+    # 4. Apply Hull Configuration
     if hull is not None and not (skip_hull_if_active and cfg.show_convex_hull):
         apply_hull_to_config(
             cfg,
@@ -590,24 +589,23 @@ def _apply_hull_pore_workflow(
             hull_color_type=hull_color_type,
         )
 
-    if pore or cfg.pore_node_ids:
-        if cfg.pore_node_ids:
-            # Tile pore node IDs and centroids across supercell replicas.
-            if supercell != (1, 1, 1) and unit_cell_n_base is not None:
-                cfg.pore_node_ids = _tile_supercell_indices(cfg.pore_node_ids, supercell, unit_cell_n_base)
-                if cfg.pore_centroids and cell_data is not None:
-                    _lat = np.array(cell_data.lattice)
-                    cfg.pore_centroids, cfg.pore_radii = _tile_pore_centroids_radii(
-                        cfg.pore_centroids,
-                        cfg.pore_radii,
-                        supercell,
-                        _lat,
-                    )
-            cfg.pore_spheres = True
-        if pore_color is not None:
-            cfg.pore_sphere_color = pore_color
-        if pore_opacity is not None:
-            cfg.pore_sphere_opacity = pore_opacity
+    # 5. Apply Pore Configuration (Flattened)
+    if cfg.pore_node_ids and is_supercell:
+        cfg.pore_node_ids = _tile_supercell_indices(cfg.pore_node_ids, supercell, graph.number_of_nodes())
+
+        if cfg.pore_centroids and cell_data is not None:
+            cfg.pore_centroids, cfg.pore_radii = _tile_pore_centroids_radii(
+                cfg.pore_centroids, cfg.pore_radii, supercell, np.array(cell_data.lattice)
+            )
+
+    if cfg.pore_node_ids:
+        cfg.pore_spheres = True
+
+    if has_pores and pore_color is not None:
+        cfg.pore_sphere_color = pore_color
+
+    if has_pores and pore_opacity is not None:
+        cfg.pore_sphere_opacity = pore_opacity
 
 
 def render(
