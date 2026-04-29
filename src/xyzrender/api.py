@@ -506,6 +506,110 @@ def _tile_pore_centroids_radii(
     return tiled_c, tiled_r
 
 
+def _apply_hull_pore_workflow(
+    cfg: "RenderConfig",
+    graph: "nx.Graph | None",
+    *,
+    hull: bool | str | list[int] | list[list[int]] | None,
+    hull_color: str | list[str] | None,
+    hull_opacity: float | None,
+    hull_edge: bool | None,
+    hull_edge_width_ratio: float | None,
+    hull_color_type: str,
+    pore: bool,
+    pore_color: str | None,
+    pore_opacity: float | None,
+    supercell: tuple[int, int, int],
+    ring_max_size: int,
+    ring_min_size: int,
+    face_planarity: float,
+    cell_data: "CellData | None",
+    skip_hull_if_active: bool = False,
+    color_graph: "nx.Graph | None" = None,
+) -> None:
+    """Detect hull faces/pores and apply hull + pore settings."""
+    from xyzrender.hull import apply_hull_to_config, normalize_hull_subsets, resolve_hull_faces, resolve_hull_pores
+
+    if graph is None:
+        return
+
+    unit_cell_hull_indices: list[list[int]] | None = None
+    unit_cell_n_base: int | None = None
+    hull_is_str = isinstance(hull, str)
+
+    if (hull_is_str and hull in {"faces", "face", "pores", "pore"}) or pore:
+        if hull_is_str and hull in {"faces", "face"}:
+            unit_cell_hull_indices = resolve_hull_faces(
+                graph,
+                max_size=ring_max_size,
+                min_size=ring_min_size,
+                cell_data=cell_data,
+                face_planarity=face_planarity,
+            )
+        if hull in {"pores", "pore"} or pore:
+            # resolve_hull_pores handles detection, node mapping, and storing
+            # centroids/radii on cfg — single path for both --hull pore and --pore.
+            pore_indices = resolve_hull_pores(
+                graph,
+                cfg,
+                max_size=ring_max_size,
+                min_size=ring_min_size,
+                cell_data=cell_data,
+            )
+            if hull in {"pores", "pore"}:
+                unit_cell_hull_indices = pore_indices
+
+        if unit_cell_hull_indices or cfg.pore_node_ids:
+            unit_cell_n_base = graph.number_of_nodes()
+
+    subsets = None
+    if unit_cell_hull_indices and hull_is_str and hull in {"faces", "face", "pores", "pore"}:
+        subsets = normalize_hull_subsets(unit_cell_hull_indices)
+        if supercell != (1, 1, 1) and unit_cell_n_base is not None:
+            subsets = _tile_supercell_indices(subsets, supercell, unit_cell_n_base)
+
+    if color_graph is not None:
+        _apply_graph = color_graph
+    elif (
+        supercell != (1, 1, 1) and unit_cell_hull_indices and hull_is_str and hull in {"faces", "face", "pores", "pore"}
+    ):
+        _apply_graph = None
+    else:
+        _apply_graph = graph
+    if hull is not None and not (skip_hull_if_active and cfg.show_convex_hull):
+        apply_hull_to_config(
+            cfg,
+            hull,
+            hull_color,
+            hull_opacity,
+            hull_edge,
+            hull_edge_width_ratio,
+            _apply_graph,
+            face_planarity=face_planarity,
+            precomputed_indices=subsets,
+            hull_color_type=hull_color_type,
+        )
+
+    if pore or cfg.pore_node_ids:
+        if cfg.pore_node_ids:
+            # Tile pore node IDs and centroids across supercell replicas.
+            if supercell != (1, 1, 1) and unit_cell_n_base is not None:
+                cfg.pore_node_ids = _tile_supercell_indices(cfg.pore_node_ids, supercell, unit_cell_n_base)
+                if cfg.pore_centroids and cell_data is not None:
+                    _lat = np.array(cell_data.lattice)
+                    cfg.pore_centroids, cfg.pore_radii = _tile_pore_centroids_radii(
+                        cfg.pore_centroids,
+                        cfg.pore_radii,
+                        supercell,
+                        _lat,
+                    )
+            cfg.pore_spheres = True
+        if pore_color is not None:
+            cfg.pore_sphere_color = pore_color
+        if pore_opacity is not None:
+            cfg.pore_sphere_opacity = pore_opacity
+
+
 def render(
     molecule: str | os.PathLike | Molecule,
     *,
@@ -909,34 +1013,6 @@ def render(
     # --- Hull faces / pores: detect on unit cell BEFORE supercell expansion ---
     # This avoids running expensive cycle detection on a larger supercell graph.
     # Indices are tiled across supercell replicas after expansion.
-    _unit_cell_hull_indices: list[list[int]] | None = None
-    _unit_cell_n_base: int | None = None
-    _hull_is_str = isinstance(hull, str)
-    if (_hull_is_str and hull in {"faces", "face", "pores", "pore"}) or pore:
-        from xyzrender.hull import resolve_hull_faces, resolve_hull_pores
-
-        if _hull_is_str and hull in {"faces", "face"}:
-            _unit_cell_hull_indices = resolve_hull_faces(
-                mol.graph,
-                max_size=ring_max_size,
-                min_size=ring_min_size,
-                cell_data=mol.cell_data,
-                face_planarity=face_planarity,
-            )
-        if hull in {"pores", "pore"} or pore:
-            # resolve_hull_pores handles detection, node mapping, and storing
-            # centroids/radii on cfg — single path for both --hull pore and --pore.
-            _pore_indices = resolve_hull_pores(
-                mol.graph,
-                cfg,
-                max_size=ring_max_size,
-                min_size=ring_min_size,
-                cell_data=mol.cell_data,
-            )
-            if hull in {"pores", "pore"}:
-                _unit_cell_hull_indices = _pore_indices
-        if _unit_cell_hull_indices or cfg.pore_node_ids:
-            _unit_cell_n_base = mol.graph.number_of_nodes()
 
     # --- Surface style ---
     if surface_style is not None:
@@ -1087,62 +1163,25 @@ def render(
 
         apply_bond_rules(rmol.graph, cfg)
 
-    # --- Convex hull ---
-    from xyzrender.hull import apply_hull_to_config
-
-    if _unit_cell_hull_indices and _hull_is_str and hull in {"faces", "face", "pores", "pore"}:
-        # Tile unit-cell face/pore indices across supercell replicas.
-        from xyzrender.hull import normalize_hull_subsets
-
-        subsets = normalize_hull_subsets(_unit_cell_hull_indices)
-        if supercell != (1, 1, 1) and _unit_cell_n_base is not None:
-            subsets = _tile_supercell_indices(subsets, supercell, _unit_cell_n_base)
-        # Apply via the standard path — hull_ordered, colours, opacity all handled.
-        apply_hull_to_config(
-            cfg,
-            hull,
-            hull_color,
-            hull_opacity,
-            hull_edge,
-            hull_edge_width_ratio,
-            rmol.graph,
-            face_planarity=face_planarity,
-            precomputed_indices=subsets,
-            hull_color_type=hull_color_type,
-        )
-    elif hull is not None:
-        apply_hull_to_config(
-            cfg,
-            hull,
-            hull_color,
-            hull_opacity,
-            hull_edge,
-            hull_edge_width_ratio,
-            rmol.graph,
-            face_planarity=face_planarity,
-            hull_color_type=hull_color_type,
-        )
-
-    # --- Pore spheres ---
-    if pore or cfg.pore_node_ids:
-        if cfg.pore_node_ids:
-            # Tile pore node IDs and centroids across supercell replicas.
-            if supercell != (1, 1, 1) and _unit_cell_n_base is not None:
-                cfg.pore_node_ids = _tile_supercell_indices(cfg.pore_node_ids, supercell, _unit_cell_n_base)
-                if cfg.pore_centroids:
-                    _lat = np.array(mol.cell_data.lattice) if mol.cell_data else None
-                    if _lat is not None:
-                        cfg.pore_centroids, cfg.pore_radii = _tile_pore_centroids_radii(
-                            cfg.pore_centroids,
-                            cfg.pore_radii,
-                            supercell,
-                            _lat,
-                        )
-            cfg.pore_spheres = True
-        if pore_color is not None:
-            cfg.pore_sphere_color = pore_color
-        if pore_opacity is not None:
-            cfg.pore_sphere_opacity = pore_opacity
+    # --- Convex hull + pore spheres ---
+    _apply_hull_pore_workflow(
+        cfg,
+        rmol.graph,
+        hull=hull,
+        hull_color=hull_color,
+        hull_opacity=hull_opacity,
+        hull_edge=hull_edge,
+        hull_edge_width_ratio=hull_edge_width_ratio,
+        hull_color_type=hull_color_type,
+        pore=pore,
+        pore_color=pore_color,
+        pore_opacity=pore_opacity,
+        supercell=supercell,
+        face_planarity=face_planarity,
+        cell_data=mol.cell_data,
+        ring_max_size=ring_max_size,
+        ring_min_size=ring_min_size,
+    )
 
     # --- Render ---
     svg = render_svg(rmol.graph, cfg)
@@ -1364,7 +1403,8 @@ def render_gif(
         logger.warning("rot_frames has no effect without gif_rot")
 
     # Resolve config
-    _gif_graph = molecule.graph if isinstance(molecule, Molecule) else load(molecule).graph
+    _gif_mol = molecule if isinstance(molecule, Molecule) else load(molecule)
+    _gif_graph = _gif_mol.graph
     if not isinstance(config, str):
         cfg = copy.copy(config)
         cfg.vectors = list(cfg.vectors)
@@ -1441,81 +1481,25 @@ def render_gif(
         cfg.radius_scale = radius_scale
 
     # --- Convex hull / pore (detection + config) ---
-    from xyzrender.hull import apply_hull_to_config
-
-    _hull_is_str = isinstance(hull, str)
-
-    # --- Face/pore detection (needs molecule loading) ---
-    if (_hull_is_str and hull in {"faces", "face"}) or pore:
-        from xyzrender.hull import normalize_hull_subsets, resolve_hull_faces, resolve_hull_pores
-
-        _mol = molecule if isinstance(molecule, Molecule) else load(molecule)
-        _cd = _mol.cell_data
-        _n_base = _gif_graph.number_of_nodes()
-
-        if _hull_is_str and hull in {"faces", "face"}:
-            face_idx = resolve_hull_faces(
-                _gif_graph,
-                max_size=ring_max_size,
-                min_size=ring_min_size,
-                cell_data=_cd,
-                face_planarity=face_planarity,
-            )
-            if face_idx:
-                subsets = normalize_hull_subsets(face_idx)
-                _color_graph = _gif_graph
-                if supercell != (1, 1, 1):
-                    subsets = _tile_supercell_indices(subsets, supercell, _n_base)
-                    _color_graph = None
-                apply_hull_to_config(
-                    cfg,
-                    hull,
-                    hull_color,
-                    hull_opacity,
-                    hull_edge,
-                    hull_edge_width_ratio,
-                    _color_graph,
-                    face_planarity=face_planarity,
-                    precomputed_indices=subsets,
-                    hull_color_type=hull_color_type,
-                )
-        if pore:
-            resolve_hull_pores(
-                _gif_graph,
-                cfg,
-                max_size=ring_max_size,
-                min_size=ring_min_size,
-                cell_data=_cd,
-            )
-            if cfg.pore_node_ids:
-                if supercell != (1, 1, 1):
-                    cfg.pore_node_ids = _tile_supercell_indices(cfg.pore_node_ids, supercell, _n_base)
-                    if cfg.pore_centroids and _cd is not None:
-                        _lat = np.array(_cd.lattice)
-                        cfg.pore_centroids, cfg.pore_radii = _tile_pore_centroids_radii(
-                            cfg.pore_centroids,
-                            cfg.pore_radii,
-                            supercell,
-                            _lat,
-                        )
-                cfg.pore_spheres = True
-            if pore_color is not None:
-                cfg.pore_sphere_color = pore_color
-            if pore_opacity is not None:
-                cfg.pore_sphere_opacity = pore_opacity
-
-    # --- Hull (independent of face/pore detection) ---
-    if hull is not None and not cfg.show_convex_hull:
-        apply_hull_to_config(
-            cfg,
-            hull,
-            hull_color,
-            hull_opacity,
-            hull_edge,
-            hull_edge_width_ratio,
-            _gif_graph,
-            hull_color_type=hull_color_type,
-        )
+    _apply_hull_pore_workflow(
+        cfg,
+        _gif_graph,
+        hull=hull,
+        hull_color=hull_color,
+        hull_opacity=hull_opacity,
+        hull_edge=hull_edge,
+        hull_edge_width_ratio=hull_edge_width_ratio,
+        hull_color_type=hull_color_type,
+        pore=pore,
+        pore_color=pore_color,
+        pore_opacity=pore_opacity,
+        supercell=supercell,
+        face_planarity=face_planarity,
+        cell_data=_gif_mol.cell_data,
+        ring_max_size=ring_max_size,
+        ring_min_size=ring_min_size,
+        skip_hull_if_active=True,
+    )
 
     # --- Surface style ---
     if surface_style is not None:
@@ -1710,14 +1694,14 @@ def render_gif(
 
         # Apply crystal/cell config when the molecule carries cell_data
         if isinstance(molecule, Molecule) and molecule.cell_data is not None:
-            _gif_mol = Molecule(
+            _cell_mol = Molecule(
                 graph=ref_graph,
                 cube_data=None,
                 cell_data=copy.deepcopy(molecule.cell_data),
                 oriented=molecule.oriented,
             )
             _apply_cell_config(
-                _gif_mol,
+                _cell_mol,
                 cfg,
                 no_cell=no_cell,
                 axis=axis,
@@ -1728,7 +1712,7 @@ def render_gif(
                 ghost_opacity=ghost_opacity,
                 bo_explicit=bo,
             )
-            ref_graph = _gif_mol.graph
+            ref_graph = _cell_mol.graph
         # Build surface params when a cube is present
         mo_params = dens_params = None
         if cube_data is not None and (mo or dens):
