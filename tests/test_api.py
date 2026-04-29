@@ -167,6 +167,44 @@ def test_render_hy_specific(caffeine):
     render(caffeine, hy=[1], orient=False)
 
 
+def test_render_no_hy_keeps_h_in_manual_nci_bond(caffeine):
+    """A C-H referenced by a manual NCI bond must stay visible under --no-hy.
+
+    Manual nci_bonds live on cfg only (not in the graph), so without the
+    auto-show carve-out the renderer would hide the H and leave the dotted
+    bond pointing to nothing.
+    """
+    # Find a C-H hydrogen and an O/N partner
+    h_idx = next(
+        n
+        for n in caffeine.graph.nodes()
+        if caffeine.graph.nodes[n]["symbol"] == "H"
+        and all(caffeine.graph.nodes[m]["symbol"] == "C" for m in caffeine.graph.neighbors(n))
+    )
+    heavy_idx = next(n for n in caffeine.graph.nodes() if caffeine.graph.nodes[n]["symbol"] in ("O", "N"))
+
+    n_no_hy = str(render(caffeine, no_hy=True, orient=False)).count("<circle")
+    n_with_nci = str(render(caffeine, no_hy=True, nci_bonds=[(h_idx + 1, heavy_idx + 1)], orient=False)).count(
+        "<circle"
+    )
+    assert n_with_nci == n_no_hy + 1
+
+
+def test_render_no_hy_keeps_h_in_manual_ts_bond(caffeine):
+    """Same auto-show carve-out applies to manual ts_bonds."""
+    h_idx = next(
+        n
+        for n in caffeine.graph.nodes()
+        if caffeine.graph.nodes[n]["symbol"] == "H"
+        and all(caffeine.graph.nodes[m]["symbol"] == "C" for m in caffeine.graph.neighbors(n))
+    )
+    heavy_idx = next(n for n in caffeine.graph.nodes() if caffeine.graph.nodes[n]["symbol"] in ("O", "N"))
+
+    n_no_hy = str(render(caffeine, no_hy=True, orient=False)).count("<circle")
+    n_with_ts = str(render(caffeine, no_hy=True, ts_bonds=[(h_idx + 1, heavy_idx + 1)], orient=False)).count("<circle")
+    assert n_with_ts == n_no_hy + 1
+
+
 # ---------------------------------------------------------------------------
 # render() — style params
 # ---------------------------------------------------------------------------

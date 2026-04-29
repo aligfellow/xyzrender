@@ -429,6 +429,14 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     hidden = set()
     if cfg.hide_h:
         show = set(cfg.show_h_indices)
+        # Auto-show H atoms involved in manual NCI/TS pairs — these aren't in
+        # graph.edges (cfg.{nci,ts}_bonds is renderer-only), so the C-only
+        # neighbour check below would otherwise hide them and orphan the bond.
+        for i, j in (*cfg.nci_bonds, *cfg.ts_bonds):
+            if 0 <= i < n and symbols[i] == "H":
+                show.add(i)
+            if 0 <= j < n and symbols[j] == "H":
+                show.add(j)
         for ai in range(n):
             if symbols[ai] == "H" and ai not in show:
                 neighbours = list(graph.neighbors(ai))

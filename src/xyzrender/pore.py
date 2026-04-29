@@ -156,23 +156,41 @@ def _build_metal_net(
     return net
 
 
+def _tile_positions(
+    positions: np.ndarray,
+    lattice: np.ndarray,
+    ranges: tuple[tuple[int, int], tuple[int, int], tuple[int, int]],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Tile positions across lattice shifts defined by ranges.
+
+    Returns (shifts, tiled_positions) where tiled_positions has shape
+    (n_shifts, n_positions, 3).
+    """
+    lat = np.array(lattice, dtype=float)
+    r0, r1, r2 = ranges
+    ii, jj, kk = np.mgrid[r0[0] : r0[1], r1[0] : r1[1], r2[0] : r2[1]]
+    shifts = ii.ravel()[:, None] * lat[0] + jj.ravel()[:, None] * lat[1] + kk.ravel()[:, None] * lat[2]
+    pos_arr = np.array(positions, dtype=float).reshape(-1, 3)
+    tiled = shifts[:, None, :] + pos_arr[None, :, :]
+    return shifts, tiled
+
+
 def _tile_pbc(
     cycle_graph: nx.Graph,
     cpos_fn: collections.abc.Callable,
     lattice: np.ndarray,
 ) -> tuple[nx.Graph, list[np.ndarray], list[int]]:
     """3x3x3 PBC tiling of cycle graph. Returns (tiled_graph, positions, source_ids)."""
-    lat = np.array(lattice, dtype=float)
     nodes = list(cycle_graph.nodes())
-    tiled_pos: list[np.ndarray] = []
-    tiled_src: list[int] = []
-    for n in nodes:
-        c = cpos_fn(n)
-        for i in range(-1, 2):
-            for j in range(-1, 2):
-                for k in range(-1, 2):
-                    tiled_pos.append(c + i * lat[0] + j * lat[1] + k * lat[2])
-                    tiled_src.append(n)
+    pos_arr = np.array([cpos_fn(n) for n in nodes], dtype=float)
+    shifts, tiled_arr = _tile_positions(
+        pos_arr,
+        lattice,
+        ((-1, 2), (-1, 2), (-1, 2)),
+    )
+    tiled_flat = tiled_arr.reshape(-1, 3)
+    tiled_pos = list(tiled_flat)
+    tiled_src = list(np.tile(nodes, shifts.shape[0]))
 
     max_edge = max((float(np.linalg.norm(cpos_fn(u) - cpos_fn(v))) for u, v in cycle_graph.edges()), default=15.0) + 1.0
     # Build edge set for source-node connectivity lookup.

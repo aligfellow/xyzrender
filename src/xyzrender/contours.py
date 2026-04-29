@@ -93,13 +93,13 @@ MOContours = SurfaceContours
 def cube_corners_ang(cube: CubeData) -> np.ndarray:
     """Compute the 8 corner positions of the cube grid in Angstrom."""
     n1, n2, n3 = cube.grid_shape
-    corners = np.empty((8, 3))
-    idx = 0
-    for i in (0, n1 - 1):
-        for j in (0, n2 - 1):
-            for k in (0, n3 - 1):
-                corners[idx] = cube.origin + i * cube.steps[0] + j * cube.steps[1] + k * cube.steps[2]
-                idx += 1
+    ii, jj, kk = np.mgrid[0:2, 0:2, 0:2]
+    ii = ii * (n1 - 1)
+    jj = jj * (n2 - 1)
+    kk = kk * (n3 - 1)
+    corners = (
+        cube.origin + ii[..., None] * cube.steps[0] + jj[..., None] * cube.steps[1] + kk[..., None] * cube.steps[2]
+    ).reshape(-1, 3)
     return corners * BOHR_TO_ANG
 
 
