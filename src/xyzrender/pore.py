@@ -21,6 +21,8 @@ from typing import TYPE_CHECKING
 import networkx as nx
 import numpy as np
 
+from xyzrender.utils import graph_positions
+
 if TYPE_CHECKING:
     import collections.abc
 
@@ -352,7 +354,7 @@ def find_pores(
     if sub.number_of_edges() == 0:
         return []
 
-    positions_arr = np.array([graph.nodes[n]["position"] for n in sorted(sub.nodes())])
+    positions_arr = graph_positions(graph, sorted(sub.nodes()))
     if _is_effectively_2d(positions_arr):
         logger.info("2D structure — no 3D pores (use --hull faces for ring detection)")
         return []
@@ -360,7 +362,7 @@ def find_pores(
     logger.info("3D structure detected, using coarse-grained pore detection")
 
     # Coarse-grain.
-    positions = {n: np.array(graph.nodes[n]["position"]) for n in heavy}
+    positions = dict(zip(heavy, graph_positions(graph, heavy), strict=True))
     cr = _coarse_grain(sub.copy(), positions)
     cg = cr.graph
     if cg.number_of_edges() == 0:

@@ -28,6 +28,7 @@ from xyzgraph import DATA, build_graph
 from xyzgraph.parameters import BondThresholds
 
 from xyzrender.types import CellData
+from xyzrender.utils import graph_positions, graph_symbols
 
 _bond_thresholds = BondThresholds()
 
@@ -395,8 +396,8 @@ def _add_crystal_images_generic(graph: nx.Graph, crystal_data: CellData) -> int:
     if not cell_ids:
         return 0
 
-    cell_syms_list = [graph.nodes[i]["symbol"] for i in cell_ids]
-    cell_pos_arr = np.array([graph.nodes[i]["position"] for i in cell_ids])  # (n, 3)
+    cell_syms_list = graph_symbols(graph)
+    cell_pos_arr = graph_positions(graph)  # (n, 3)
 
     elem_thresh, eidx, max_cutoff = _build_elem_thresh(cell_syms_list)
 
@@ -479,8 +480,8 @@ def _add_crystal_images_supercell(
     if not cell_ids:
         return 0
 
-    cell_syms_list = [graph.nodes[i]["symbol"] for i in cell_ids]
-    cell_pos_arr = np.array([graph.nodes[i]["position"] for i in cell_ids])
+    cell_syms_list = graph_symbols(graph)
+    cell_pos_arr = graph_positions(graph)
 
     is_h = [s == "H" for s in cell_syms_list]
     is_c = [s == "C" for s in cell_syms_list]

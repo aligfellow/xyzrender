@@ -12,9 +12,8 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
-import numpy as np
-
 from xyzrender.selectors import normalize_token, resolve_element_set
+from xyzrender.utils import graph_centroid
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -256,8 +255,7 @@ def _apply_haptic_centroids_from_groups(
             continue
 
         # Compute centroid of bonded ring atoms
-        positions = np.array([graph.nodes[a]["position"] for a in remaining])
-        centroid = positions.mean(axis=0)
+        centroid = graph_centroid(graph, list(remaining))
 
         # Inherit per-structure style from the external atom so the centroid node
         # and its bond match the overlay / conformer colour instead of defaulting

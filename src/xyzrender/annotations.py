@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 
 from xyzrender.measure import _pos
+from xyzrender.utils import graph_centroid
 
 logger = logging.getLogger(__name__)
 
@@ -407,8 +408,7 @@ def load_vectors(
     real_ids = [i for i in node_ids if graph.nodes[i].get("symbol", graph.nodes[i].get("element", "")) != "*"]
     if not real_ids:
         real_ids = node_ids
-    positions = np.array([graph.nodes[i]["position"] for i in real_ids], dtype=float)
-    centroid = positions.mean(axis=0)
+    centroid = graph_centroid(graph, real_ids)
     _log.debug("load_vectors COM: %s (from %d real atoms)", centroid, len(real_ids))
 
     arrows: list[VectorArrow] = []

@@ -21,6 +21,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from xyzrender.utils import graph_positions
+
 if TYPE_CHECKING:
     import collections.abc
 
@@ -193,7 +195,7 @@ def find_2d_faces(
 
     node_list = sorted(sub.nodes())
     node_to_idx = {n: i for i, n in enumerate(node_list)}
-    positions = np.array([work_graph.nodes[n]["position"] for n in node_list])
+    positions = graph_positions(work_graph, node_list)
     is_2d = _is_effectively_2d(positions)
 
     seen: set[frozenset[int]] = set()
@@ -214,7 +216,7 @@ def find_2d_faces(
         return out
 
     def _planar(ids: list[int]) -> bool:
-        pts = np.array([work_graph.nodes[n]["position"] for n in ids])
+        pts = graph_positions(work_graph, ids)
         c = pts - pts.mean(axis=0)
         sv = np.linalg.svd(c, compute_uv=False)
         return sv[0] < 1e-10 or float(sv[2] / sv[0]) < face_planarity

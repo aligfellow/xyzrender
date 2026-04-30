@@ -492,7 +492,7 @@ def recompute_mo(
     _cache:
         Mutable dict for inter-frame caching.  Populated on first call.
     """
-    from xyzrender.utils import kabsch_rotation
+    from xyzrender.utils import graph_centroid, graph_positions, kabsch_rotation
 
     # Cache lobes and positions on first call
     if "lobes_3d" not in _cache:
@@ -500,9 +500,9 @@ def recompute_mo(
         _cache["pos_flat_ang"] = compute_grid_positions(cube)
 
     orig = np.array([p for _, p in cube.atoms], dtype=float)
-    curr = np.array([graph.nodes[i]["position"] for i in graph.nodes()], dtype=float)
+    curr = graph_positions(graph)
     atom_centroid = orig.mean(axis=0)
-    target_centroid = curr.mean(axis=0)
+    target_centroid = graph_centroid(graph)
 
     # Cache bounding sphere: rotation-invariant bounds from cube corners.
     if "_bounding_radius" not in _cache:

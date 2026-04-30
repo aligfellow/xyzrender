@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from xyzrender.utils import graph_bond_length_map, graph_positions, graph_radials, graph_symbols
+
 if TYPE_CHECKING:
     import networkx as nx
 
@@ -56,23 +58,24 @@ def diffuse_frames(
     _sigma = 4.0
     _radial_bias = 0.5
 
-    nodes = list(graph.nodes())
-    positions = np.array([graph.nodes[n]["position"] for n in nodes])
-    symbols = [graph.nodes[n]["symbol"] for n in nodes]
-    n_atoms = len(nodes)
+    positions = graph_positions(graph)
+    symbols = graph_symbols(graph)
+    n_atoms = len(symbols)
     anchor = anchor or set()
 
-    centroid = positions.mean(axis=0)
     rng = np.random.default_rng(seed)
 
     # Radial unit vectors (away from centroid)
-    radial = positions - centroid
+    radial = graph_radials(graph)
     norms = np.linalg.norm(radial, axis=1, keepdims=True)
     at_center = (norms < 1e-8).flatten()
-    random_dirs = rng.standard_normal(radial.shape)
-    random_dirs /= np.linalg.norm(random_dirs, axis=1, keepdims=True)
-    radial[at_center] = random_dirs[at_center]
-    norms[at_center.reshape(-1, 1)] = 1.0
+    if np.any(at_center):
+        random_dirs = rng.standard_normal(radial.shape)
+        random_dirs /= np.linalg.norm(random_dirs, axis=1, keepdims=True)
+        radial = radial.copy()
+        radial[at_center] = random_dirs[at_center]
+        norms = norms.copy()
+        norms[at_center.reshape(-1, 1)] = 1.0
     r_hat = radial / norms
 
     # Per-atom drift direction = blend of radial + isotropic
@@ -92,10 +95,7 @@ def diffuse_frames(
         walk_history.append(walk.copy())
 
     # Equilibrium bond lengths for opacity fading
-    eq_lengths: dict[tuple[int, int], float] = {}
-    for i, j in graph.edges():
-        d = float(np.linalg.norm(positions[i] - positions[j]))
-        eq_lengths[(i, j)] = eq_lengths[(j, i)] = d
+    eq_lengths = graph_bond_length_map(graph)
 
     frames = []
     for fi in range(n_frames):

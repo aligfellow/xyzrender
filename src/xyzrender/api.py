@@ -46,7 +46,7 @@ if TYPE_CHECKING:
 
 from xyzrender.colors import resolve_color
 from xyzrender.types import GIFResult, OverlayConfig, RenderConfig, SVGResult
-from xyzrender.utils import parse_atom_indices
+from xyzrender.utils import graph_positions, graph_symbols, parse_atom_indices
 
 logger = logging.getLogger(__name__)
 
@@ -395,7 +395,7 @@ def orient(mol: Molecule, viewer: str = "vmol", also: list[Molecule] | None = No
         nodes = list(other.graph.nodes())
         if not nodes:
             continue
-        p = np.array([other.graph.nodes[n]["position"] for n in nodes], dtype=float)
+        p = graph_positions(other.graph)
         q = (p - c1) @ rot.T + c2
         for i, n in enumerate(nodes):
             other.graph.nodes[n]["position"] = tuple(q[i])
@@ -1888,10 +1888,9 @@ def _build_ensemble_molecule(
     # in the trajectory data so alignment targets the oriented coordinates.
     # Only extract real atom positions (exclude NCI centroid dummy nodes with symbol="*").
     if reference_mol is not None:
-        from xyzrender.overlay import _node_list
-
-        real_nodes = [n for n in _node_list(ref_graph) if ref_graph.nodes[n].get("symbol") != "*"]
-        frames[reference_frame]["positions"] = [list(ref_graph.nodes[n]["position"]) for n in real_nodes]
+        symbols = graph_symbols(ref_graph)
+        real_nodes = [n for n in ref_graph.nodes() if symbols[n] != "*"]
+        frames[reference_frame]["positions"] = graph_positions(ref_graph, real_nodes).tolist()
 
     if auto_align:
         _align_0 = parse_atom_indices(align_atoms) if align_atoms is not None else None
@@ -2295,8 +2294,8 @@ def _apply_ref_orientation(rmol: Molecule, ref_path: Path, cfg: "RenderConfig") 
     real_local = [k for k, n in enumerate(all_nodes) if rmol.graph.nodes[n]["symbol"] != "*"]
     mol_nodes = [all_nodes[k] for k in real_local]
 
-    ref_pos = np.array([ref_mol.graph.nodes[n]["position"] for n in ref_nodes], dtype=float)
-    all_pos = np.array([rmol.graph.nodes[n]["position"] for n in all_nodes], dtype=float)
+    ref_pos = graph_positions(ref_mol.graph, ref_nodes)
+    all_pos = graph_positions(rmol.graph)
 
     from xyzrender.utils import mcs_kabsch_align
 
@@ -2352,10 +2351,9 @@ def _apply_and_save_ref(rmol: Molecule, cfg: "RenderConfig", ref_path: Path) -> 
     if cfg.auto_orient and rmol.graph.number_of_nodes() > 1:
         from xyzrender.utils import pca_orient
 
-        nodes = list(rmol.graph.nodes())
-        pos = np.array([rmol.graph.nodes[n]["position"] for n in nodes], dtype=float)
+        pos = graph_positions(rmol.graph)
         pos = pca_orient(pos)
-        for k, nid in enumerate(nodes):
+        for k, nid in enumerate(rmol.graph.nodes()):
             rmol.graph.nodes[nid]["position"] = tuple(pos[k].tolist())
 
     cfg.auto_orient = False
@@ -2407,14 +2405,13 @@ def _apply_overlay(
     _pca_rot: np.ndarray | None = None
     _pca_centroid: np.ndarray | None = None
     if cfg.auto_orient and g1.number_of_nodes() > 1:
-        nodes1 = list(g1.nodes())
-        pos1 = np.array([g1.nodes[n]["position"] for n in nodes1], dtype=float)
-        atom_mask = np.array([g1.nodes[n]["symbol"] != "*" for n in nodes1])
+        pos1 = graph_positions(g1)
+        atom_mask = np.array([g1.nodes[n]["symbol"] != "*" for n in g1.nodes()])
         fit_mask = atom_mask if not atom_mask.all() else None
         _fit_pos = pos1[fit_mask] if fit_mask is not None else pos1
         _pca_centroid = _fit_pos.mean(axis=0)
         pos1_oriented, _pca_rot = pca_orient(pos1, fit_mask=fit_mask, return_matrix=True)
-        for k, nid in enumerate(nodes1):
+        for k, nid in enumerate(g1.nodes()):
             g1.nodes[nid]["position"] = tuple(float(v) for v in pos1_oriented[k])
     cfg.auto_orient = False
 
@@ -2441,7 +2438,7 @@ def _apply_overlay(
         # Keep mol2's raw coordinates — but mirror whatever rigid transform mol1
         # received during PCA-orientation so the two stay co-registered when the
         # files were already aligned.
-        aligned2 = np.array([g2.nodes[n]["position"] for n in g2.nodes()], dtype=float)
+        aligned2 = graph_positions(g2)
         if _pca_rot is not None:
             aligned2 = (aligned2 - _pca_centroid) @ _pca_rot.T
 

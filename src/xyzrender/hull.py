@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
+from xyzrender.utils import graph_positions, graph_symbols
+
 if TYPE_CHECKING:
     import networkx as nx
 
@@ -500,7 +502,10 @@ def resolve_hull_rings(graph: nx.Graph) -> list[list[int]]:
     if not rings and "aromatic_rings" not in graph.graph:
         from xyzgraph import build_graph
 
-        atoms = [(graph.nodes[i]["symbol"], tuple(graph.nodes[i]["position"])) for i in graph.nodes()]
+        atoms = [
+            (symbol, tuple(position))
+            for symbol, position in zip(graph_symbols(graph), graph_positions(graph), strict=True)
+        ]
         charge = graph.graph.get("total_charge", 0)
         mult = graph.graph.get("multiplicity")
         tmp = build_graph(atoms, charge=charge, multiplicity=mult)
@@ -536,7 +541,7 @@ def resolve_hull_pores(
     import numpy as np
 
     all_nodes = list(graph.nodes())
-    all_pos = np.array([graph.nodes[n]["position"] for n in all_nodes])
+    all_pos = graph_positions(graph)
 
     hull_subsets: list[list[int]] = []
     centroids: list[tuple[float, float, float]] = []

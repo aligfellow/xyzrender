@@ -17,18 +17,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
-
 from xyzrender.merge import (
     _Z_NUDGE,
     merge_aromatic_rings,
     stamp_structure_edges,
     stamp_structure_nodes,
 )
-from xyzrender.utils import kabsch_align
+from xyzrender.utils import graph_positions, graph_symbols, kabsch_align
 
 if TYPE_CHECKING:
     import networkx as nx
+    import numpy as np
 
     from xyzrender.types import RenderConfig
 
@@ -38,20 +37,10 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
-def _node_list(graph: nx.Graph) -> list:
-    return list(graph.nodes())
-
-
-def _positions(graph: nx.Graph) -> tuple[np.ndarray, list]:
-    nodes = _node_list(graph)
-    pos = np.array([graph.nodes[n]["position"] for n in nodes], dtype=float)
-    return pos, nodes
-
-
 def _elements_match(g1: nx.Graph, g2: nx.Graph) -> bool:
     """Check if both graphs have the same element sequence (ignoring ghosts)."""
-    syms1 = [g1.nodes[n]["symbol"] for n in g1.nodes() if g1.nodes[n].get("symbol", "") != "*"]
-    syms2 = [g2.nodes[n]["symbol"] for n in g2.nodes() if g2.nodes[n].get("symbol", "") != "*"]
+    syms1 = [s for s in graph_symbols(g1) if s != "*"]
+    syms2 = [s for s in graph_symbols(g2) if s != "*"]
     return syms1 == syms2
 
 
@@ -88,9 +77,11 @@ def align(
     np.ndarray, shape (n2, 3)
         Aligned 3-D positions for mol2 nodes in their original graph order.
     """
-    pos1, nodes1 = _positions(mol1_graph)
-    pos2, nodes2 = _positions(mol2_graph)
-    n1, n2 = len(nodes1), len(pos2)
+    nodes1 = list(mol1_graph.nodes())
+    nodes2 = list(mol2_graph.nodes())
+    pos1 = graph_positions(mol1_graph, nodes1)
+    pos2 = graph_positions(mol2_graph, nodes2)
+    n1, n2 = len(nodes1), len(nodes2)
 
     # Fast path: same molecule, same ordering
     if n1 == n2 and (align_atoms is not None or _elements_match(mol1_graph, mol2_graph)):
@@ -154,14 +145,12 @@ def merge_graphs(
     if "aromatic_rings" in mol1_graph.graph:
         merged.graph["aromatic_rings"] = [set(r) for r in mol1_graph.graph["aromatic_rings"]]
 
-    mol1_ids = _node_list(mol1_graph)
-    mol1_map = {nid: nid for nid in mol1_ids}
-    mol1_positions = np.array([mol1_graph.nodes[n]["position"] for n in mol1_ids], dtype=float)
+    mol1_map = {nid: nid for nid in mol1_graph.nodes()}
+    mol1_positions = graph_positions(mol1_graph)
     stamp_structure_nodes(merged, mol1_graph, mol1_map, mol1_positions, molecule_index=0)
     stamp_structure_edges(merged, mol1_graph, mol1_map, molecule_index=0)
 
-    mol2_ids = _node_list(mol2_graph)
-    mol2_map = {old: n1 + k for k, old in enumerate(mol2_ids)}
+    mol2_map = {old: n1 + k for k, old in enumerate(mol2_graph.nodes())}
     stamp_structure_nodes(
         merged,
         mol2_graph,

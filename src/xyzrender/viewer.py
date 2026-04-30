@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, TypeAlias
 
 import numpy as np
 
+from xyzrender.utils import graph_centroid, graph_positions, graph_symbols
+
 if TYPE_CHECKING:
     import networkx as nx
     from vmol import Vmol
@@ -49,9 +51,8 @@ def rotate_with_viewer(
 
     logger = logging.getLogger(__name__)
 
-    n = graph.number_of_nodes()
-    symbols = [graph.nodes[i]["symbol"] for i in range(n)]
-    orig_pos = np.array([graph.nodes[i]["position"] for i in range(n)], dtype=float)
+    symbols = graph_symbols(graph)
+    orig_pos = graph_positions(graph)
     lattice = graph.graph.get("lattice")
 
     atoms: _Atoms = list(zip(symbols, [tuple(row) for row in orig_pos], strict=True))
@@ -87,20 +88,22 @@ def rotate_with_viewer(
     from xyzrender.readers import _parse_auto
 
     rotated_atoms = _parse_auto("\n".join(xyz_lines))
-    if not rotated_atoms or len(rotated_atoms) != n:
+    if not rotated_atoms or len(rotated_atoms) != len(graph.nodes()):
         logger.warning("Could not parse viewer output.")
         return None, None, None
 
+    new_graph = graph.copy()
     new_pos = np.array([pos for _sym, pos in rotated_atoms], dtype=float)
-    for i in range(n):
-        graph.nodes[i]["position"] = tuple(new_pos[i])
+    for nid, pos in zip(new_graph.nodes(), new_pos, strict=True):
+        new_graph.nodes[nid]["position"] = tuple(pos)
+    assert np.allclose(graph_positions(new_graph), new_pos), "Failed to set new positions"
 
     if rot is None:
         logger.warning("No rotation matrix from viewer.")
         return None, None, None
 
-    c1 = orig_pos.mean(axis=0)
-    c2 = new_pos.mean(axis=0)
+    c1 = graph_centroid(graph)
+    c2 = graph_centroid(new_graph)
 
     # Check if the viewer applied cell wrapping (atoms moved relative to
     # each other, not just rotated).
@@ -118,17 +121,6 @@ def rotate_with_viewer(
 
     if wrapped:
         logger.info("Cell wrapping detected (RMSD=%.3f Å), rebuilding bonds", rmsd)
-        from xyzgraph import build_graph as _build_graph
-
-        new_graph = _build_graph(
-            list(zip(symbols, [tuple(row) for row in new_pos], strict=True)),
-            charge=0,
-            multiplicity=None,
-            kekule=False,
-            quick=True,
-        )
-        graph.remove_edges_from(list(graph.edges()))
-        graph.add_edges_from(new_graph.edges(data=True))
 
     return rot, c1, c2
 
@@ -175,12 +167,11 @@ def orient_hkl_to_view(graph: nx.Graph, cell_data: "CellData", axis_str: str, cf
         s_a = float(np.sqrt(max(0.0, 1.0 - cos_a**2)))
         ax_cross = np.array([[0, -ax[2], ax[1]], [ax[2], 0, -ax[0]], [-ax[1], ax[0], 0]])
         rot_view = cos_a * np.eye(3) + s_a * ax_cross + (1 - cos_a) * np.outer(ax, ax)
-    node_ids = list(graph.nodes())
-    pos = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
-    centroid = pos.mean(axis=0)
+    pos = graph_positions(graph)
+    centroid = graph_centroid(graph)
     pos_rot = (rot_view @ (pos - centroid).T).T + centroid
-    for idx, nid in enumerate(node_ids):
-        graph.nodes[nid]["position"] = tuple(pos_rot[idx].tolist())
+    for nid, pos in zip(graph.nodes(), pos_rot, strict=True):
+        graph.nodes[nid]["position"] = tuple(pos)
     from xyzrender.utils import _apply_rot_to_vecs
 
     cell_data.lattice, cell_data.cell_origin = _apply_rot_to_vecs(

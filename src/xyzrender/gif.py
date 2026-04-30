@@ -14,7 +14,7 @@ import numpy as np
 
 from xyzrender.export import svg_to_png_bytes
 from xyzrender.renderer import render_svg
-from xyzrender.utils import kabsch_rotation, pca_matrix
+from xyzrender.utils import graph_centroid, graph_positions, graph_symbols, kabsch_rotation, pca_matrix
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ def _orient_frames(frames: list[dict], vt: np.ndarray) -> list[dict]:
 def _orient_graph(graph, vt: np.ndarray) -> None:
     """Apply PCA rotation to graph node positions in-place."""
     nodes = list(graph.nodes())
-    pos = np.array([graph.nodes[n]["position"] for n in nodes])
+    pos = graph_positions(graph, nodes)
     centroid = pos.mean(axis=0)
     rotated = (pos - centroid) @ vt.T
     for i, nid in enumerate(nodes):
@@ -296,7 +296,7 @@ def render_vibration_rotation_gif(
 
 
 def render_rotation_gif(
-    graph: nx.Graph,
+    graph: "nx.Graph",
     config: RenderConfig,
     output: str,
     *,
@@ -319,12 +319,10 @@ def render_rotation_gif(
     If *dens_params* and *dens_cube* are provided, density contours are
     recomputed for each frame to match the rotation.
     """
-    nodes = list(graph.nodes())
-
     # PCA: apply once to initial positions so GIF matches static SVG orientation
     if config.auto_orient:
-        _pca_pos = np.array([graph.nodes[n]["position"] for n in nodes])
-        _pca_centroid = _pca_pos.mean(axis=0)
+        _pca_pos = graph_positions(graph)
+        _pca_centroid = graph_centroid(graph)
         _pca_vt = pca_matrix(_pca_pos)
         _orient_graph(graph, _pca_vt)
         if config.vectors:
@@ -351,10 +349,10 @@ def render_rotation_gif(
             theta = np.radians(-30.0)
             c, s = np.cos(theta), np.sin(theta)
             rx = np.array([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]])
-            _pos = np.array([graph.nodes[n]["position"] for n in nodes])
+            _pos = graph_positions(graph)
             _tilted = _pos @ rx.T  # centroid ≈ 0 after _orient_graph, so no translation needed
-            for i, nid in enumerate(nodes):
-                graph.nodes[nid]["position"] = tuple(_tilted[i].tolist())
+            for nid, pos in zip(graph.nodes(), _tilted, strict=True):
+                graph.nodes[nid]["position"] = tuple(pos)
 
     # Set up the cell origin (0,0,0) so it rotates it around
     # the molecular centre of mass, not around the origin.
@@ -362,7 +360,7 @@ def render_rotation_gif(
     if "lattice" in graph.graph and "lattice_origin" not in graph.graph:
         graph.graph["lattice_origin"] = np.zeros(3)
 
-    original_pos_array = np.array([graph.nodes[n]["position"] for n in nodes], dtype=float)
+    original_pos_array = graph_positions(graph)
     original_lattice = np.array(graph.graph["lattice"], dtype=float) if "lattice" in graph.graph else None
     original_lattice_origin = (
         np.array(graph.graph["lattice_origin"], dtype=float) if "lattice_origin" in graph.graph else None
@@ -371,7 +369,7 @@ def render_rotation_gif(
     # Pass lattice to _rotation_axis for crystallographic hkl axis strings
     _lattice = config.cell_data.lattice if config.cell_data is not None else None
     axis_vec, axis_sign = _rotation_axis(axis, lattice=_lattice)
-    frame = {"positions": original_pos_array.tolist(), "symbols": [graph.nodes[n]["symbol"] for n in nodes]}
+    frame = {"positions": original_pos_array.tolist(), "symbols": graph_symbols(graph)}
     rot_cfg = _fixed_viewport([frame], config, rotation_axis=axis_vec)
 
     # Save original crystal state so we can recompute the rotated box each frame.
@@ -381,7 +379,7 @@ def render_rotation_gif(
     if rot_cfg.cell_data is not None:
         _orig_lattice = rot_cfg.cell_data.lattice.copy()
         _orig_cell_origin = rot_cfg.cell_data.cell_origin.copy()
-        _atom_centroid = original_pos_array.mean(axis=0)
+        _atom_centroid = graph_centroid(graph)
 
     # Expand viewport if density surface extends beyond atoms
     if dens_params is not None and dens_cube is not None:
@@ -445,7 +443,7 @@ def render_rotation_gif(
         _render_rot_frame,
         graph=graph,
         config=config,
-        nodes=nodes,
+        nodes=graph.nodes(),
         original_pos_array=original_pos_array,
         original_lattice=original_lattice,
         original_lattice_origin=original_lattice_origin,
@@ -453,8 +451,8 @@ def render_rotation_gif(
     )
     pngs = _parallel_render(worker, range(n_frames), n_frames)
 
-    for i, n in enumerate(nodes):
-        graph.nodes[n]["position"] = tuple(original_pos_array[i].tolist())
+    for n, pos in zip(graph.nodes(), original_pos_array, strict=True):
+        graph.nodes[n]["position"] = tuple(pos)
 
     _stitch_gif(pngs, output, fps)
     logger.info("Wrote %s", output)
@@ -561,7 +559,7 @@ def render_diffuse_gif(
     import copy
 
     if config.auto_orient:
-        vt = pca_matrix(np.array([graph.nodes[n]["position"] for n in graph.nodes()]))
+        vt = pca_matrix(graph_positions(graph))
         _orient_graph(graph, vt)
         config = copy.copy(config)
         config.auto_orient = False
@@ -682,9 +680,8 @@ def _rotate_vectors_in_cfg(
 
 def _compute_rotation(original_graph: nx.Graph, rotated_graph: nx.Graph) -> np.ndarray:
     """Compute 3x3 rotation matrix from original to rotated graph positions."""
-    n = original_graph.number_of_nodes()
-    orig = np.array([original_graph.nodes[i]["position"] for i in range(n)])
-    rot = np.array([rotated_graph.nodes[i]["position"] for i in range(n)])
+    orig = graph_positions(original_graph)
+    rot = graph_positions(rotated_graph)
     return kabsch_rotation(orig, rot)
 
 
@@ -819,8 +816,8 @@ def _render_traj_frame(
 
     idx, frame = idx_frame
     positions = frame["positions"]
-    for i, (x, y, z) in enumerate(positions):
-        graph.nodes[i]["position"] = (float(x), float(y), float(z))
+    for nid, (x, y, z) in zip(graph.nodes(), positions, strict=True):
+        graph.nodes[nid]["position"] = (float(x), float(y), float(z))
 
     # Apply per-frame bond opacities (from diffuse GIF: fades stretched bonds)
     bond_opacities = frame.get("bond_opacities")
@@ -843,8 +840,7 @@ def _render_traj_frame(
         frame_config = copy.copy(config)
         frame_config.hull_opacity = config.hull_opacity * hull_factor
     if rotation_axis is not None:
-        _rg_nodes = list(render_graph.nodes())
-        _rg_centroid = np.mean([render_graph.nodes[n]["position"] for n in _rg_nodes], axis=0)
+        _rg_centroid = graph_centroid(render_graph)
         rot_mat = _axis_angle_matrix(rotation_axis, rotation_sign * step * idx)
         apply_axis_angle_rotation(render_graph, rotation_axis, rotation_sign * step * idx)
         if config.vectors:

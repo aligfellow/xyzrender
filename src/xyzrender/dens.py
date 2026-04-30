@@ -235,7 +235,7 @@ def recompute_dens(
     _cache:
         Mutable dict for inter-frame caching.  Populated on first call.
     """
-    from xyzrender.utils import kabsch_rotation
+    from xyzrender.utils import graph_centroid, graph_positions, kabsch_rotation
 
     # Cache invariants on first call
     if "flat_indices" not in _cache:
@@ -253,8 +253,8 @@ def recompute_dens(
 
     orig = _cache["_orig_atoms"]
     atom_centroid = _cache["_atom_centroid"]
-    curr = np.array([graph.nodes[i]["position"] for i in graph.nodes()], dtype=float)
-    target_centroid = curr.mean(axis=0)
+    curr = graph_positions(graph)
+    target_centroid = graph_centroid(graph)
 
     r = _cache["_bounding_radius"]
     fixed_bounds = (

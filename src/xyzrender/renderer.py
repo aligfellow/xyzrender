@@ -39,7 +39,7 @@ from xyzrender.mo import (
     mo_front_lobes_svg,
 )
 from xyzrender.types import BondStyle, RenderConfig
-from xyzrender.utils import pca_orient
+from xyzrender.utils import graph_positions, graph_symbols, pca_orient
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +73,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     cfg = config or RenderConfig()
     node_ids = list(graph.nodes())
     n = len(node_ids)
-    symbols = [graph.nodes[i]["symbol"] for i in node_ids]
-    pos = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
+    symbols = graph_symbols(graph)
+    pos = graph_positions(graph)
     a_nums = [DATA.s2n.get(s, 0) for s in symbols]  # 0 for NCI centroid nodes ("*")
 
     # Per-atom config resolution for style regions (None = no regions, zero overhead)

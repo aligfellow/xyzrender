@@ -17,8 +17,7 @@ from xyzrender.merge import (
     stamp_structure_edges,
     stamp_structure_nodes,
 )
-from xyzrender.overlay import _node_list
-from xyzrender.utils import kabsch_align
+from xyzrender.utils import graph_symbols, kabsch_align
 
 if TYPE_CHECKING:
     import networkx as nx
@@ -113,10 +112,11 @@ def merge_graphs(
         msg = "ensemble.merge_graphs: aligned_positions must contain at least one frame"
         raise ValueError(msg)
 
-    all_nodes = _node_list(reference_graph)
+    all_nodes = list(reference_graph.nodes())
     # Separate real atoms from NCI centroid dummy nodes (symbol="*").
-    real_nodes = [n for n in all_nodes if reference_graph.nodes[n].get("symbol") != "*"]
-    centroid_nodes = [n for n in all_nodes if reference_graph.nodes[n].get("symbol") == "*"]
+    symbols = graph_symbols(reference_graph)
+    real_nodes = [n for n in all_nodes if symbols[n] != "*"]
+    centroid_nodes = [n for n in all_nodes if symbols[n] == "*"]
     n_real = len(real_nodes)
     n_frames = len(aligned_positions)
 
