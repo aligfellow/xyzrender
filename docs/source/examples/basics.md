@@ -105,3 +105,15 @@ xyzrender caffeine.xyz --dof --dof-strength 6.0 --no-orient # stronger blur
 render(mol, dof=True, orient=False)
 render(mol, dof=True, dof_strength=6.0, orient=False)
 ```
+
+## Glow
+
+Render selected atoms with a blurred glow layer under the atom circle.
+
+| Glow (N,O atoms) |
+|------------------|
+| ![Glow](../../../examples/images/caffeine_glow.svg) |
+
+```bash
+xyzrender caffeine.xyz --glow "N,O" --glow-strength 4 -o caffeine_glow.svg
+```

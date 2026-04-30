@@ -147,6 +147,9 @@ xyzrender "$DIR/caffeine.xyz" --hy --radius-scale "N,O" 1.4 --radius-scale "H" 0
 echo "=== Depth of field ==="
 xyzrender "$DIR/caffeine.xyz" --dof --no-orient -o "$IMG/caffeine_dof.svg" --gif-rot -go "$IMG/caffeine_dof.gif" 
 
+echo "=== Glow ==="
+xyzrender "$DIR/caffeine.xyz" --glow "N,O" --glow-strength 4 -o "$IMG/caffeine_glow.svg"
+
 echo "=== Overlays ==="
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 --hy -o "$IMG/isothio_overlay.svg" --gif-rot -go "$IMG/isothio_overlay.gif"
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 -o "$IMG/isothio_overlay_custom.svg" --no-orient --overlay-color green -a 2

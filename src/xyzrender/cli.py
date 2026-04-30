@@ -78,6 +78,8 @@ Styling:
   --grad / --no-grad      Atom gradients on/off
   --fog / --no-fog        Depth fog on/off
   --dof                   Depth of field - blur "back" atoms (not bonds)
+  --glow ATOMS            Add blurred glow under selected atoms
+  --glow-strength F       Glow blur strength (default: same as --dof-strength)
 
 Display:
   --hy [ATOMS] / --no-hy  Show/hide H atoms (all or specific indices)
@@ -635,6 +637,19 @@ def main() -> None:
     dof_g.add_argument(
         "--dof-strength", type=float, default=None, metavar="FLOAT", help="DoF max blur strength (default: 3.0)"
     )
+    dof_g.add_argument(
+        "--glow",
+        default=None,
+        metavar="ATOMS",
+        help='Glow selected atoms with blur, e.g. "1-5,8", "N,O", "M", "all"',
+    )
+    dof_g.add_argument(
+        "--glow-strength",
+        type=float,
+        default=None,
+        metavar="FLOAT",
+        help="Glow blur strength (default: same as --dof-strength)",
+    )
 
     # --- Measurements & annotations ---
     annot_g = p.add_argument_group("measurements & annotations")
@@ -901,6 +916,10 @@ def main() -> None:
         cfg.dof = True
     if args.dof_strength is not None:
         cfg.dof_strength = args.dof_strength
+    if args.glow_strength is not None:
+        if args.glow_strength < 0:
+            p.error("--glow-strength must be >= 0")
+        cfg.glow_strength = args.glow_strength
 
     # Per-atom radius scale
     if args.radius_scale is not None:
@@ -1021,6 +1040,8 @@ def main() -> None:
             cfg.vdw_indices = []
         else:
             cfg.vdw_indices = sorted(resolve_atom_indices(args.vdw, mol.graph))
+    if args.glow is not None:
+        cfg.glow_indices = sorted(resolve_atom_indices(args.glow, mol.graph))
 
     # Style regions (user-defined + preset-defined from JSON)
     from xyzrender.api import _apply_style_regions
@@ -1248,6 +1269,8 @@ def main() -> None:
             auto_align=args.align,  # None = preset default; True/False = explicit override
             vector=args.vector,
             vector_scale=args.vector_scale,
+            glow=args.glow,
+            glow_strength=args.glow_strength,
             hull=_hull_arg,
             hull_color=args.hull_color,
             hull_opacity=args.hull_opacity,
@@ -1339,6 +1362,8 @@ def main() -> None:
                 ghost_opacity=args.ghost_opacity,
                 vector=args.vector,
                 vector_scale=args.vector_scale,
+                glow=args.glow,
+                glow_strength=args.glow_strength,
                 ref=args.ref,
                 hull=_hull_arg,
                 hull_color=args.hull_color,

@@ -621,6 +621,8 @@ def render(
     # --- Depth of field ---
     dof: bool = False,
     dof_strength: float | None = None,
+    glow: str | list[int] | None = None,
+    glow_strength: float | None = None,
     # --- Overlay ---
     overlay: str | os.PathLike | Molecule | None = None,
     overlay_color: str | None = None,
@@ -901,6 +903,13 @@ def render(
         cfg.dof = True
     if dof_strength is not None:
         cfg.dof_strength = dof_strength
+    if glow_strength is not None:
+        if glow_strength < 0:
+            msg = "glow_strength must be >= 0"
+            raise ValueError(msg)
+        cfg.glow_strength = glow_strength
+    if glow is not None:
+        cfg.glow_indices = sorted(_resolve_glow_indices(glow, mol.graph))
 
     # --- Per-atom radius scale ---
     if radius_scale is not None:
@@ -1226,6 +1235,8 @@ def render_gif(
     # --- Depth of field ---
     dof: bool = False,
     dof_strength: float | None = None,
+    glow: str | list[int] | None = None,
+    glow_strength: float | None = None,
     # --- Structural overlay (gif_rot only) ---
     overlay: str | os.PathLike | Molecule | None = None,
     overlay_color: str | None = None,
@@ -1461,6 +1472,13 @@ def render_gif(
         cfg.dof = True
     if dof_strength is not None:
         cfg.dof_strength = dof_strength
+    if glow_strength is not None:
+        if glow_strength < 0:
+            msg = "render_gif: glow_strength must be >= 0"
+            raise ValueError(msg)
+        cfg.glow_strength = glow_strength
+    if glow is not None:
+        cfg.glow_indices = sorted(_resolve_glow_indices(glow, _gif_graph))
 
     # --- Per-atom radius scale ---
     if radius_scale is not None:
@@ -2227,6 +2245,20 @@ def _resolve_atom_opacity(
         for idx in indices:
             out[idx] = fval
     return out
+
+
+def _resolve_glow_indices(
+    spec: str | list[int],
+    graph: "nx.Graph",
+) -> set[int]:
+    """Resolve glow atom selection to 0-indexed atom indices."""
+    if isinstance(spec, str):
+        from xyzrender.selectors import resolve_atom_indices
+
+        return set(resolve_atom_indices(spec, graph))
+    from xyzrender.utils import parse_atom_indices
+
+    return set(parse_atom_indices(spec))
 
 
 def _resolve_cmap(
