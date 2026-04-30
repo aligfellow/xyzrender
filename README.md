@@ -223,8 +223,8 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |-----------|-----------|---------|
 | ![homo](examples/images/caffeine_homo.svg) | ![lumo](examples/images/caffeine_lumo.svg) | ![dens](examples/images/caffeine_dens.svg) |
 
-| ESP | ESP + colorbar | ESP + coolwarm | ESP fixed range (`±0.003`) |
-|-----|----------------|----------------|---------------------------|
+| ESP | ESP + colorbar | ESP + coolwarm | ESP fixed range (`±0.03`) |
+|-----|----------------|----------------|--------------------------|
 | ![esp](examples/images/caffeine_esp.svg) | ![esp cbar](examples/images/caffeine_esp_cbar.svg) | ![esp coolwarm](examples/images/caffeine_esp_coolwarm.svg) | ![esp fixed range](examples/images/caffeine_esp_cmap_range.svg) |
 
 | MO mesh | MO contour | MO dot | Density contour |
@@ -313,7 +313,7 @@ Contributors:
 - [Sander Cohen-Janes (@scohenjanes5)](https://github.com/scohenjanes5) — crystal/periodic structure support (VASP, Quantum ESPRESSO, ghost atoms, crystallographic axes), vector annotations and gif parallelisation, gaussian input parsing
 - [Rubén Laplaza (@rlaplaza)](https://github.com/rlaplaza) — convex hull facets
 - [Iñigo Iribarren Aguirre (@iribirii)](https://github.com/iribirii) — logo design, radial gradients respecting colour space (pseudo-3D), skeletal rendering, ensemble display, supercell projection, metal tube preset
-- [James O'Brien (@JamesOBrien2)](https://github.com/JamesOBrien2) — stereochemistry detection and integration, nci/ts colour control, graph styling, pmol styling, colour palette extension, ase viewer integration
+- [James O'Brien (@JamesOBrien2)](https://github.com/JamesOBrien2) — stereochemistry detection and integration, nci/ts colour control, graph styling, pmol styling, colour palette extension, ase viewer integration, igmh cubes
 - [Vinicius Port (@caprilesport)](https://github.com/caprilesport) — `v` binary path discovery
 - [Lucas Attia (@lucasattia)](https://github.com/lucasattia) — transparent background
 

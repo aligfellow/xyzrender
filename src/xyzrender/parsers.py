@@ -592,13 +592,13 @@ def parse_smiles(smiles: str, kekule: bool = False) -> MolData:
         raise ValueError(msg)
 
     mol = Chem.AddHs(mol)
-    params = AllChem.ETKDGv3()  # type: ignore[attr-defined]
+    params = AllChem.ETKDGv3()  # ty: ignore[unresolved-attribute]
     params.randomSeed = 42
-    cids = AllChem.EmbedMultipleConfs(mol, 10, params)  # type: ignore[attr-defined]
+    cids = AllChem.EmbedMultipleConfs(mol, 10, params)  # ty: ignore[unresolved-attribute]
     if not cids:
         msg = f"rdkit failed to embed SMILES {smiles!r} in 3D"
         raise ValueError(msg)
-    res = AllChem.MMFFOptimizeMoleculeConfs(mol)  # type: ignore[attr-defined]
+    res = AllChem.MMFFOptimizeMoleculeConfs(mol)  # ty: ignore[unresolved-attribute]
     best_i = min(
         (i for i, (rc, _) in enumerate(res) if rc == 0),
         key=lambda i: res[i][1],

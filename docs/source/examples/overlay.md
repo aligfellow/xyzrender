@@ -33,12 +33,12 @@ Molecules with different atom counts or elements can be overlaid directly. The s
 | ![Cross-molecule overlay](../../../examples/images/isothio_overlay_cross.svg) | ![rotating](../../../examples/images/isothio_overlay_cross.gif) | 
 
 ```bash
-xyzrender isothio_xtb.xyz --overlay isothio_bridged.xyz -c 1 --hy --gif-rot
+xyzrender isothio_xtb.xyz --overlay isothio_fused.xyz -c 1 --hy --gif-rot
 ```
 
 ```python
 mol1 = load("isothio_xtb.xyz", charge=1)
-mol2 = load("isothio_bridged.xyz")
+mol2 = load("isothio_fused.xyz")
 render(mol1, overlay=mol2)  # aligns on largest shared connected substructure
 ```
 

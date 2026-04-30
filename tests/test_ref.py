@@ -143,3 +143,46 @@ def test_ref_rejects_periodic_load(tmp_path):
     mol_cell = load(STRUCTURES / "caffeine_cell.xyz", cell=True)
     with pytest.raises(ValueError, match="not supported for periodic"):
         render(mol_cell, ref=ref_path)
+
+
+def test_ref_corotates_centroid_dummy_nodes(tmp_path):
+    """--ref must rigidly transform π-centroid (*) dummies along with the real atoms.
+
+    Without co-rotation the * nodes stay in the original frame while the real
+    atoms move, so rendered π-π NCI bonds point off into nothing.
+    Verified via distances from each * to its nearest real atoms — these must
+    be invariant under any rigid transform.
+    """
+    from xyzrender.api import _apply_ref_orientation
+    from xyzrender.types import RenderConfig
+
+    mol = load(STRUCTURES / "bimp.v000.xyz", nci_detect=True)
+    star_nodes = [n for n in mol.graph.nodes() if mol.graph.nodes[n]["symbol"] == "*"]
+    real_nodes = [n for n in mol.graph.nodes() if mol.graph.nodes[n]["symbol"] != "*"]
+    assert star_nodes, "fixture should contain π-centroid dummies"
+
+    def fingerprint(g, sn):
+        sp = np.array(g.nodes[sn]["position"])
+        rp = np.array([g.nodes[n]["position"] for n in real_nodes])
+        return np.sort(np.linalg.norm(rp - sp, axis=1))[:5]
+
+    before = {sn: fingerprint(mol.graph, sn) for sn in star_nodes}
+
+    # Save a 60° z-rotated reference of the real atoms only
+    ref_mol = copy.deepcopy(mol)
+    theta = np.radians(60)
+    rot = np.array(
+        [[np.cos(theta), -np.sin(theta), 0], [np.sin(theta), np.cos(theta), 0], [0, 0, 1]],
+        dtype=float,
+    )
+    for n in real_nodes:
+        p = np.array(ref_mol.graph.nodes[n]["position"], dtype=float)
+        ref_mol.graph.nodes[n]["position"] = tuple((rot @ p).tolist())
+    ref_path = tmp_path / "ref_rot.xyz"
+    ref_mol.to_xyz(ref_path)
+
+    _apply_ref_orientation(mol, ref_path, RenderConfig())
+
+    for sn in star_nodes:
+        after = fingerprint(mol.graph, sn)
+        assert np.allclose(before[sn], after, atol=1e-9), f"* node {sn} not co-rotated: distance fingerprint changed"

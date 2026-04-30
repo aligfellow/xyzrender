@@ -152,8 +152,8 @@ def isothio_xtb():
 
 def test_mcs_different_atom_counts(isothio):
     """Isothio (52 atoms) vs a different conformer/molecule → ≥ 10 heavy atoms."""
-    bridged = load(STRUCTURES / "isothio_bridged.xyz")
-    mapping = find_mcs_mapping(isothio.graph, bridged.graph)
+    fused = load(STRUCTURES / "isothio_fused.xyz")
+    mapping = find_mcs_mapping(isothio.graph, fused.graph)
     assert mapping is not None
     g1_ids, _g2_ids = mapping
     heavy = sum(1 for n in g1_ids if isothio.graph.nodes[n]["symbol"] != "H")

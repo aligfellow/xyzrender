@@ -576,6 +576,63 @@ def test_tile_supercell_indices():
     assert tiled[3] == [12, 13]
 
 
+def test_tile_pore_centroids_radii():
+    """_tile_pore_centroids_radii tiles centroids and radii across supercell replicas."""
+    import numpy as np
+
+    from xyzrender.api import _tile_pore_centroids_radii
+
+    # Lattice vectors (simple cubic)
+    lattice = np.array([[5.0, 0.0, 0.0], [0.0, 5.0, 0.0], [0.0, 0.0, 5.0]])
+
+    # Two pores in unit cell
+    centroids = [(1.0, 2.0, 3.0), (2.0, 3.0, 4.0)]
+    radii = [1.5, 2.0]
+
+    # 2x2x1 supercell
+    tiled_c, tiled_r = _tile_pore_centroids_radii(centroids, radii, (2, 2, 1), lattice)
+
+    # Should have 4 replicas x 2 pores = 8 centroids
+    assert len(tiled_c) == 8
+    assert tiled_r is not None
+    assert len(tiled_r) == 8
+
+    # Check first replica (0,0,0) — no shift
+    assert tiled_c[0] == centroids[0]
+    assert tiled_c[1] == centroids[1]
+
+    # Check second replica (0,1,0) — shifted by lattice[1] = [0,5,0]
+    assert tiled_c[2] == (1.0, 7.0, 3.0)  # [1,2,3] + [0,5,0]
+    assert tiled_c[3] == (2.0, 8.0, 4.0)  # [2,3,4] + [0,5,0]
+
+    # Check third replica (1,0,0) — shifted by lattice[0] = [5,0,0]
+    assert tiled_c[4] == (6.0, 2.0, 3.0)  # [1,2,3] + [5,0,0]
+    assert tiled_c[5] == (7.0, 3.0, 4.0)  # [2,3,4] + [5,0,0]
+
+    # Check fourth replica (1,1,0) — shifted by [5,5,0]
+    assert tiled_c[6] == (6.0, 7.0, 3.0)  # [1,2,3] + [5,5,0]
+    assert tiled_c[7] == (7.0, 8.0, 4.0)  # [2,3,4] + [5,5,0]
+
+    # Radii should be replicated (not shifted)
+    assert tiled_r == [1.5, 2.0] * 4
+
+
+def test_tile_pore_centroids_radii_no_radii():
+    """_tile_pore_centroids_radii handles None radii gracefully."""
+    import numpy as np
+
+    from xyzrender.api import _tile_pore_centroids_radii
+
+    lattice = np.array([[5.0, 0.0, 0.0], [0.0, 5.0, 0.0], [0.0, 0.0, 5.0]])
+    centroids = [(1.0, 2.0, 3.0)]
+
+    # No radii
+    tiled_c, tiled_r = _tile_pore_centroids_radii(centroids, None, (2, 1, 1), lattice)
+
+    assert len(tiled_c) == 2
+    assert tiled_r is None
+
+
 def test_hull_list_input_no_crash():
     """hull=[[0,1,2,3,4]] (list input) should not crash with unhashable type."""
     import networkx as nx
