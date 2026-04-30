@@ -463,6 +463,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             zr = max(pos[:, 2].max() - pos[:, 2].min(), 1e-6)
             dof_depth = np.clip((pos[:, 2].max() - pos[:, 2] - _FOG_NEAR) / zr, 0.0, 1.0)
         dof_buckets = [int(d * (n_dof_levels - 1) + 0.5) for d in dof_depth]
+    glow_indices = set(cfg.glow_indices) if cfg.glow_indices else set()
+    glow_strength = cfg.glow_strength
 
     # --- Build SVG ---
     svg = [
@@ -483,6 +485,13 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 f'    <filter id="dof{lvl}" x="-50%" y="-50%" width="200%" height="200%">'
                 f'<feGaussianBlur stdDeviation="{blur:.2f}"/></filter>'
             )
+        svg.append("  </defs>")
+    if glow_indices:
+        svg.append("  <defs>")
+        svg.append(
+            f'    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">'
+            f'<feGaussianBlur stdDeviation="{glow_strength:.2f}"/></filter>'
+        )
         svg.append("  </defs>")
 
     # Per-atom gradient and skeletal flags (style-region aware)
@@ -1443,6 +1452,14 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             _stroke_src = struct_stroke_colors[ai] or acfg.atom_stroke_color
             _stroke_atom = _color_hex[ai] if _stroke_src == "atom" else _stroke_src
             dof_attr = f' filter="url(#dof{dof_buckets[ai]})"' if cfg.dof else ""
+            if ai in glow_indices:
+                _glow_fill = colors[ai].blend(WHITE, acfg.atom_wash).hex if acfg.atom_wash > 0 else _color_hex[ai]
+                if cfg.fog:
+                    _glow_fill = blend_fog(_glow_fill, fog_rgb, fog_f[ai])
+                svg.append(
+                    f'  <circle cx="{xi:.1f}" cy="{yi:.1f}" r="{radii[ai] * scale:.1f}" '
+                    f'fill="{_glow_fill}" filter="url(#glow)"{op_attr_atom}/>'
+                )
             if _grad_ai:
                 if use_per_atom_grad:
                     grad_id = f"g{ai}"
