@@ -303,6 +303,7 @@ def render_rotation_gif(
     n_frames: int = 60,
     fps: int = 10,
     axis: str = "y",
+    bounce_degrees: float | None = None,
     mo_params: MOParams | None = None,
     mo_cube: CubeData | None = None,
     dens_params: DensParams | None = None,
@@ -310,9 +311,11 @@ def render_rotation_gif(
 ) -> None:
     """Render a rotation animation as a GIF.
 
-    Rotates the molecule around the given axis over a full 360 degrees.
+    Rotates the molecule around the given axis. By default sweeps a full
+    360°; if *bounce_degrees* is given, oscillates sinusoidally between
+    ±bounce_degrees instead (0° → +DEG → 0° → -DEG → 0°).
     Uses a fixed viewport (bounding sphere) so the molecule doesn't
-    appear to zoom or shift during rotation.
+    appear to zoom or shift during the animation.
 
     If *mo_params* and *mo_cube* are provided, MO contours are recomputed
     for each frame to match the rotation.
@@ -401,8 +404,19 @@ def render_rotation_gif(
             rot_cfg.fixed_span = 2 * needed
             logger.debug("Expanded GIF viewport for density: r=%.2f -> span=%.2f", dens_r, rot_cfg.fixed_span)
 
-    step = 360.0 / n_frames
-    logger.info("Rendering rotation GIF (%d frames, axis=%s)", n_frames, axis)
+    if bounce_degrees is not None:
+        phase = (np.arange(n_frames, dtype=float) / float(n_frames)) * 2.0 * np.pi
+        angles = axis_sign * bounce_degrees * np.sin(phase)
+        logger.info(
+            "Rendering bounce GIF (%d frames, axis=%s, amplitude=%.2f°)",
+            n_frames,
+            axis,
+            bounce_degrees,
+        )
+    else:
+        step = 360.0 / n_frames
+        angles = axis_sign * step * np.arange(n_frames, dtype=float)
+        logger.info("Rendering rotation GIF (%d frames, axis=%s)", n_frames, axis)
     # Save pre-rotation vector data so each frame applies a fresh rotation (no drift).
     _gif_vec_origins = np.array([va.origin for va in rot_cfg.vectors]) if rot_cfg.vectors else np.full((0, 3), np.nan)
     _gif_vec_dirs = np.array([va.vector for va in rot_cfg.vectors]) if rot_cfg.vectors else np.full((0, 3), np.nan)
@@ -425,170 +439,6 @@ def render_rotation_gif(
 
     ctx = RotationFrameContext(
         axis_vec=axis_vec,
-        axis_sign=axis_sign,
-        step=step,
-        angles=None,
-        rot_cfg=rot_cfg,
-        vec_origins=_gif_vec_origins,
-        vec_dirs=_gif_vec_dirs,
-        vec_centroid=_gif_vec_centroid,
-        orig_lattice=_orig_lattice,
-        orig_cell_origin=_orig_cell_origin,
-        atom_centroid=_atom_centroid,
-        mo_params=mo_params,
-        mo_cube=mo_cube,
-        dens_params=dens_params,
-        dens_cube=dens_cube,
-        mo_cache=_mo_cache,
-        dens_cache=_dens_cache,
-    )
-    worker = partial(
-        _render_rot_frame,
-        graph=graph,
-        config=config,
-        nodes=nodes,
-        original_pos_array=original_pos_array,
-        original_lattice=original_lattice,
-        original_lattice_origin=original_lattice_origin,
-        ctx=ctx,
-    )
-    pngs = _parallel_render(worker, range(n_frames), n_frames)
-
-    for i, n in enumerate(nodes):
-        graph.nodes[n]["position"] = tuple(original_pos_array[i].tolist())
-
-    _stitch_gif(pngs, output, fps)
-    logger.info("Wrote %s", output)
-
-
-def render_bounce_gif(
-    graph: nx.Graph,
-    config: RenderConfig,
-    output: str,
-    *,
-    bounce_degrees: float,
-    n_frames: int = 60,
-    fps: int = 10,
-    axis: str = "y",
-    mo_params: MOParams | None = None,
-    mo_cube: CubeData | None = None,
-    dens_params: DensParams | None = None,
-    dens_cube: CubeData | None = None,
-) -> None:
-    """Render a side-to-side bounce rotation animation as a GIF.
-
-    The bounce starts at 0°, swings to +bounce_degrees, returns through 0°,
-    then swings to -bounce_degrees, and repeats.
-    """
-    if bounce_degrees <= 0:
-        msg = "render_bounce_gif: bounce_degrees must be > 0"
-        raise ValueError(msg)
-
-    nodes = list(graph.nodes())
-
-    # PCA: apply once to initial positions so GIF matches static SVG orientation
-    if config.auto_orient:
-        _pca_pos = np.array([graph.nodes[n]["position"] for n in nodes])
-        _pca_centroid = _pca_pos.mean(axis=0)
-        _pca_vt = pca_matrix(_pca_pos)
-        _orient_graph(graph, _pca_vt)
-        if config.vectors:
-            import copy as _cp
-
-            config = _cp.copy(config)
-            _o = np.array([va.origin for va in config.vectors])
-            _d = np.array([va.vector for va in config.vectors])
-            new_vecs = []
-            for va, o, d in zip(
-                config.vectors,
-                (_pca_vt @ (_o - _pca_centroid).T).T,
-                (_pca_vt @ _d.T).T,
-                strict=True,
-            ):
-                nv = _cp.copy(va)
-                nv.origin = o
-                nv.vector = d
-                new_vecs.append(nv)
-            config.vectors = new_vecs
-        if mo_params is not None:
-            theta = np.radians(-30.0)
-            c, s = np.cos(theta), np.sin(theta)
-            rx = np.array([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]])
-            _pos = np.array([graph.nodes[n]["position"] for n in nodes])
-            _tilted = _pos @ rx.T
-            for i, nid in enumerate(nodes):
-                graph.nodes[nid]["position"] = tuple(_tilted[i].tolist())
-
-    if "lattice" in graph.graph and "lattice_origin" not in graph.graph:
-        graph.graph["lattice_origin"] = np.zeros(3)
-
-    original_pos_array = np.array([graph.nodes[n]["position"] for n in nodes], dtype=float)
-    original_lattice = np.array(graph.graph["lattice"], dtype=float) if "lattice" in graph.graph else None
-    original_lattice_origin = (
-        np.array(graph.graph["lattice_origin"], dtype=float) if "lattice_origin" in graph.graph else None
-    )
-
-    _lattice = config.cell_data.lattice if config.cell_data is not None else None
-    axis_vec, axis_sign = _rotation_axis(axis, lattice=_lattice)
-    frame = {"positions": original_pos_array.tolist(), "symbols": [graph.nodes[n]["symbol"] for n in nodes]}
-    rot_cfg = _fixed_viewport([frame], config, rotation_axis=axis_vec)
-
-    _orig_lattice: np.ndarray | None = None
-    _orig_cell_origin: np.ndarray | None = None
-    _atom_centroid: np.ndarray | None = None
-    if rot_cfg.cell_data is not None:
-        _orig_lattice = rot_cfg.cell_data.lattice.copy()
-        _orig_cell_origin = rot_cfg.cell_data.cell_origin.copy()
-        _atom_centroid = original_pos_array.mean(axis=0)
-
-    if dens_params is not None and dens_cube is not None:
-        from xyzrender.contours import compute_grid_positions
-
-        pos_flat = compute_grid_positions(dens_cube)
-        mask = dens_cube.grid_data >= dens_params.isovalue
-        flat_indices = np.flatnonzero(mask)
-        dens_pos = pos_flat[flat_indices]
-        orig_atoms = np.array([p for _, p in dens_cube.atoms], dtype=float)
-        atom_cent = orig_atoms.mean(axis=0)
-        dens_r = float(np.linalg.norm(dens_pos - atom_cent, axis=1).max())
-        needed = dens_r * 1.05
-        assert rot_cfg.fixed_span is not None
-        current_half = rot_cfg.fixed_span / 2
-        if needed > current_half:
-            rot_cfg.fixed_span = 2 * needed
-            logger.debug("Expanded GIF viewport for density: r=%.2f -> span=%.2f", dens_r, rot_cfg.fixed_span)
-
-    # Frame 0 starts at 0°; then oscillate symmetrically between ±bounce_degrees.
-    phase = (np.arange(n_frames, dtype=float) / float(n_frames)) * 2.0 * np.pi
-    angles = axis_sign * bounce_degrees * np.sin(phase)
-    logger.info(
-        "Rendering bounce GIF (%d frames, axis=%s, amplitude=%.2f°)",
-        n_frames,
-        axis,
-        bounce_degrees,
-    )
-
-    _gif_vec_origins = np.array([va.origin for va in rot_cfg.vectors]) if rot_cfg.vectors else np.full((0, 3), np.nan)
-    _gif_vec_dirs = np.array([va.vector for va in rot_cfg.vectors]) if rot_cfg.vectors else np.full((0, 3), np.nan)
-    _gif_vec_centroid = original_pos_array.mean(axis=0) if rot_cfg.vectors else np.full(3, np.nan)
-
-    import copy as _copy
-
-    _mo_cache: dict = {}
-    _dens_cache: dict = {}
-    if mo_params is not None and mo_cube is not None:
-        from xyzrender.mo import recompute_mo
-
-        recompute_mo(graph, _copy.copy(rot_cfg), mo_params, mo_cube, rot_cfg.surface_opacity, _mo_cache)
-    if dens_params is not None and dens_cube is not None:
-        from xyzrender.dens import recompute_dens
-
-        recompute_dens(graph, _copy.copy(rot_cfg), dens_params, dens_cube, rot_cfg.surface_opacity, _dens_cache)
-
-    ctx = RotationFrameContext(
-        axis_vec=axis_vec,
-        axis_sign=1.0,
-        step=0.0,
         angles=angles,
         rot_cfg=rot_cfg,
         vec_origins=_gif_vec_origins,
@@ -867,9 +717,7 @@ class RotationFrameContext:
     """Bundled parameters for rotation GIF frame rendering."""
 
     axis_vec: np.ndarray
-    axis_sign: float
-    step: float
-    angles: np.ndarray | None
+    angles: np.ndarray
     rot_cfg: "RenderConfig"
     vec_origins: np.ndarray
     vec_dirs: np.ndarray
@@ -903,10 +751,7 @@ def _render_rot_frame(
     if original_lattice_origin is not None:
         graph.graph["lattice_origin"] = original_lattice_origin.copy()
 
-    if ctx.angles is not None:
-        total_angle = float(ctx.angles[frame_idx])
-    else:
-        total_angle = ctx.axis_sign * ctx.step * frame_idx
+    total_angle = float(ctx.angles[frame_idx])
     rot_mat = _axis_angle_matrix(ctx.axis_vec, total_angle)
 
     centroid = original_pos_array.mean(axis=0)

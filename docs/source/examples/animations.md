@@ -29,15 +29,15 @@ xyzrender caffeine.xyz --gif-rot --gif-fps 20 --rot-frames 60 -go fast.gif
 ```
 
 ```bash
-xyzrender caffeine.xyz --bounce 50 -go caffeine_bounce_50.gif
+xyzrender caffeine.xyz --gif-bounce 50 -go caffeine_bounce_50.gif
 ```
 
-`--bounce DEG` starts at the original orientation, then rotates to `+DEG`,
-back through `0`, and to `-DEG` on the rotation axis (`y` by default).
-Set an explicit axis with `--gif-rot`:
+`--gif-bounce DEG[,AXIS]` starts at the original orientation, then rotates to
+`+DEG`, back through `0`, and to `-DEG` on the rotation axis (`y` by default).
+Append an axis after a comma to override:
 
 ```bash
-xyzrender caffeine.xyz --gif-rot x --bounce 50 -go caffeine_bounce_x50.gif
+xyzrender caffeine.xyz --gif-bounce 50,x -go caffeine_bounce_x50.gif
 ```
 
 ## TS vibration

@@ -98,7 +98,7 @@ xyzrender caffeine.xyz --config pmol --hy -o pmol.svg     # ball-and-stick + ele
 xyzrender caffeine.xyz --config graph -o graph.svg        # minimalist graph-style rendering
 xyzrender sn2.out --ts --hy -o ts.svg                     # auto-detect TS bonds
 xyzrender caffeine.xyz --gif-rot -go caffeine.gif         # rotation GIF
-xyzrender caffeine.xyz --bounce 50 -go caffeine_bounce_50.gif  # bounce GIF (±50°)
+xyzrender caffeine.xyz --gif-bounce 50 -go caffeine_bounce_50.gif  # bounce GIF (±50°)
 ```
 
 ### Python API

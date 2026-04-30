@@ -2163,7 +2163,7 @@ wheels = [
 
 [[package]]
 name = "xyzrender"
-version = "0.2.7"
+version = "0.2.8"
 source = { editable = "." }
 dependencies = [
     { name = "cairosvg" },
@@ -2220,7 +2220,7 @@ requires-dist = [
     { name = "resvg-py" },
     { name = "vmol", marker = "extra == 'all'", specifier = ">=3.0rc7" },
     { name = "vmol", marker = "extra == 'v'", specifier = ">=3.0rc7" },
-    { name = "xyzgraph", specifier = ">=1.6.8" },
+    { name = "xyzgraph", specifier = ">=1.6.9" },
 ]
 provides-extras = ["smi", "cif", "v", "all"]
 
