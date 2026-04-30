@@ -1742,10 +1742,10 @@ def render_gif(
             n_frames=rot_frames,
             axis=bounce_ax or gif_rot or "y",
             bounce_degrees=float(bounce_deg) if bounce_deg is not None else None,
-            mo_params=mo_params,
-            mo_cube=cube_data if mo_params is not None else None,
-            dens_params=dens_params,
-            dens_cube=cube_data if dens_params is not None else None,
+            mo_params=mo_p,
+            mo_cube=cube_data if mo_p is not None else None,
+            dens_params=dens_p,
+            dens_cube=cube_data if dens_p is not None else None,
         )
         logger.info("GIF written to %s", gif_path)
         return GIFResult(gif_path)
