@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import numpy as np
 
@@ -11,6 +11,82 @@ if TYPE_CHECKING:
 
     from xyzrender.cube import CubeData
     from xyzrender.types import RenderConfig
+
+
+def graph_positions(graph: nx.Graph, nodes: list[Any] | None = None) -> np.ndarray:
+    """Return node positions as a ``(n_nodes, 3)`` float array."""
+    node_ids = list(graph.nodes()) if nodes is None else list(nodes)
+    if not node_ids:
+        return np.empty((0, 3), dtype=float)
+    return np.array([graph.nodes[n]["position"] for n in node_ids], dtype=float)
+
+
+def graph_symbols(graph: nx.Graph, nodes: list[Any] | None = None) -> list[str]:
+    """Return atomic symbols in the same order as *nodes*."""
+    node_ids = list(graph.nodes()) if nodes is None else list(nodes)
+    return [graph.nodes[n]["symbol"] for n in node_ids]
+
+
+def graph_centroid(graph: nx.Graph, nodes: list[Any] | None = None) -> np.ndarray:
+    """Return the centroid of graph node positions."""
+    return graph_positions(graph, nodes).mean(axis=0)
+
+
+def graph_radials(graph: nx.Graph, nodes: list[Any] | None = None) -> np.ndarray:
+    """Return vectors from the centroid to each graph node position."""
+    positions = graph_positions(graph, nodes)
+    return positions - positions.mean(axis=0)
+
+
+def graph_distance_matrix(graph: nx.Graph, nodes: list[Any] | None = None) -> np.ndarray:
+    """Return all-pairs Euclidean distances between graph node positions."""
+    positions = graph_positions(graph, nodes)
+    delta = positions[:, None, :] - positions[None, :, :]
+    return np.linalg.norm(delta, axis=2)
+
+
+def _edge_length(graph: nx.Graph, u: Any, v: Any, *, prefer_edge_distance: bool) -> float:
+    """Return edge length from cached metadata when available, else coordinates."""
+    if prefer_edge_distance:
+        distance = graph.edges[u, v].get("distance")
+        if distance is not None:
+            return float(distance)
+    pos_u = np.asarray(graph.nodes[u]["position"], dtype=float)
+    pos_v = np.asarray(graph.nodes[v]["position"], dtype=float)
+    return float(np.linalg.norm(pos_u - pos_v))
+
+
+def graph_bond_lengths(
+    graph: nx.Graph,
+    nodes: list[Any] | None = None,
+    *,
+    prefer_edge_distance: bool = True,
+) -> np.ndarray:
+    """Return bond lengths in graph edge order."""
+    node_set = set(nodes) if nodes is not None else None
+    lengths = [
+        _edge_length(graph, u, v, prefer_edge_distance=prefer_edge_distance)
+        for u, v in graph.edges()
+        if node_set is None or (u in node_set and v in node_set)
+    ]
+    return np.array(lengths, dtype=float)
+
+
+def graph_bond_length_map(
+    graph: nx.Graph,
+    nodes: list[Any] | None = None,
+    *,
+    prefer_edge_distance: bool = True,
+) -> dict[tuple[Any, Any], float]:
+    """Return a symmetric bond-length lookup keyed by graph node ids."""
+    node_set = set(nodes) if nodes is not None else None
+    lengths: dict[tuple[Any, Any], float] = {}
+    for u, v in graph.edges():
+        if node_set is not None and (u not in node_set or v not in node_set):
+            continue
+        d = _edge_length(graph, u, v, prefer_edge_distance=prefer_edge_distance)
+        lengths[(u, v)] = lengths[(v, u)] = d
+    return lengths
 
 
 def parse_atom_indices(spec: str | list[int], *, one_indexed: bool = False) -> list[int]:
@@ -195,9 +271,8 @@ def resolve_orientation(
     curr_centroid : numpy.ndarray
         Centroid (Å) of the current graph atom positions.
     """
-    node_ids = list(graph.nodes())
-    curr_pos = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
-    curr_centroid = curr_pos.mean(axis=0)
+    curr_pos = graph_positions(graph)
+    curr_centroid = graph_centroid(graph)
 
     rot: np.ndarray | None = None
 
@@ -219,7 +294,7 @@ def resolve_orientation(
         centroid_before = curr_centroid  # pre-PCA centroid, already computed
         curr_centroid = oriented.mean(axis=0)
 
-        for idx, nid in enumerate(node_ids):
+        for idx, nid in enumerate(graph.nodes()):
             graph.nodes[nid]["position"] = tuple(oriented[idx].tolist())
 
         # Co-rotate crystal lattice and cell origin by the same matrix
@@ -240,7 +315,7 @@ def resolve_orientation(
     # viewer), compute the Kabsch rotation from original→current atom positions.
     if rot is None:
         orig = np.array([p for _, p in cube.atoms], dtype=float)
-        curr = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
+        curr = graph_positions(graph)
         if not np.allclose(orig, curr, atol=1e-6):
             rot = kabsch_rotation(orig, curr)
 
@@ -276,17 +351,15 @@ def apply_axis_angle_rotation(graph: nx.Graph, axis: np.ndarray, angle: float) -
     angle:
         Rotation angle in degrees.
     """
-    nodes = list(graph.nodes())
     theta = np.radians(angle)
     k = axis / np.linalg.norm(axis)
     c, s = np.cos(theta), np.sin(theta)
     k_cross = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
     rot = c * np.eye(3) + s * k_cross + (1 - c) * np.outer(k, k)
 
-    positions = np.array([graph.nodes[n]["position"] for n in nodes])
-    centroid = positions.mean(axis=0)
-    rotated = (rot @ (positions - centroid).T).T + centroid
-    for i, nid in enumerate(nodes):
+    centroid = graph_centroid(graph)
+    rotated = (rot @ (graph_positions(graph) - centroid).T).T + centroid
+    for i, nid in enumerate(graph.nodes()):
         graph.nodes[nid]["position"] = tuple(rotated[i].tolist())
     if "lattice" in graph.graph:
         origin = np.asarray(graph.graph.get("lattice_origin", np.zeros(3)), dtype=float)

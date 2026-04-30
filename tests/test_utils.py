@@ -1,8 +1,66 @@
 """Tests for shared utilities."""
 
+import networkx as nx
 import numpy as np
 
-from xyzrender.utils import kabsch_rotation, pca_matrix, pca_orient
+from xyzrender.utils import (
+    graph_bond_length_map,
+    graph_bond_lengths,
+    graph_centroid,
+    graph_distance_matrix,
+    graph_positions,
+    graph_radials,
+    graph_symbols,
+    kabsch_rotation,
+    pca_matrix,
+    pca_orient,
+)
+
+
+def _geometry_graph() -> nx.Graph:
+    graph = nx.Graph()
+    graph.add_node("c", symbol="C", position=(0.0, 0.0, 0.0))
+    graph.add_node("o", symbol="O", position=(3.0, 0.0, 0.0))
+    graph.add_node("h", symbol="H", position=(0.0, 4.0, 0.0))
+    graph.add_edge("c", "o", distance=9.0)
+    graph.add_edge("c", "h")
+    return graph
+
+
+def test_graph_positions_and_symbols_preserve_order():
+    graph = _geometry_graph()
+
+    assert graph_symbols(graph) == ["C", "O", "H"]
+    assert np.allclose(graph_positions(graph), [[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [0.0, 4.0, 0.0]])
+
+
+def test_graph_centroid_radials_and_distance_matrix():
+    graph = _geometry_graph()
+
+    assert np.allclose(graph_centroid(graph), [1.0, 4.0 / 3.0, 0.0])
+    assert np.allclose(graph_radials(graph).mean(axis=0), [0.0, 0.0, 0.0])
+    assert np.allclose(
+        graph_distance_matrix(graph),
+        [[0.0, 3.0, 4.0], [3.0, 0.0, 5.0], [4.0, 5.0, 0.0]],
+    )
+
+
+def test_graph_bond_lengths_prefer_edge_distance_with_coordinate_fallback():
+    graph = _geometry_graph()
+
+    assert np.allclose(graph_bond_lengths(graph), [9.0, 4.0])
+    assert np.allclose(graph_bond_lengths(graph, prefer_edge_distance=False), [3.0, 4.0])
+
+
+def test_graph_bond_length_map_is_symmetric_and_node_keyed():
+    graph = _geometry_graph()
+
+    lengths = graph_bond_length_map(graph)
+
+    assert lengths[("c", "o")] == 9.0
+    assert lengths[("o", "c")] == 9.0
+    assert lengths[("c", "h")] == 4.0
+    assert lengths[("h", "c")] == 4.0
 
 
 def test_pca_orient_shape():
