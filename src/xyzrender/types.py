@@ -341,6 +341,9 @@ class RenderConfig:
     # Depth of field
     dof: bool = False
     dof_strength: float = 3.0  # max blur stdDeviation in SVG units
+    # Atom glow (blurred duplicate circle rendered under selected atoms)
+    glow_indices: list[int] = field(default_factory=list)  # 0-indexed
+    glow_strength: float = 5.0
     # Overlay (nested sub-config so new per-overlay knobs slot in without churn)
     overlay: OverlayConfig = field(default_factory=OverlayConfig)
     # Ensemble

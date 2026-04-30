@@ -40,6 +40,16 @@ def _parse_pairs(s: str) -> list[tuple[int, int]]:
     return pairs
 
 
+def _parse_gif_bounce(s: str) -> tuple[float, str | None]:
+    """Parse '--gif-bounce DEG' or '--gif-bounce DEG,AXIS' → (degrees, axis-or-None)."""
+    deg_str, _, axis = s.partition(",")
+    try:
+        degrees = float(deg_str)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f"--gif-bounce: invalid degrees {deg_str!r} (expected a number)") from e
+    return degrees, (axis or None)
+
+
 def _flatten_specs(items: list[str]) -> list[str]:
     """Split each item on commas and flatten: ['M-L,sbm', '1-3'] → ['M-L', 'sbm', '1-3']."""
     out: list[str] = []
@@ -68,6 +78,8 @@ Styling:
   --grad / --no-grad      Atom gradients on/off
   --fog / --no-fog        Depth fog on/off
   --dof                   Depth of field - blur "back" atoms (not bonds)
+  --glow ATOMS            Add blurred glow under selected atoms
+  --glow-strength F       Glow blur strength (default: 5.0)
 
 Display:
   --hy [ATOMS] / --no-hy  Show/hide H atoms (all or specific indices)
@@ -93,6 +105,7 @@ GIF Animation:
   --gif-trj               Trajectory - requires mutiframe .xyz or calculation output
   --gif-ts                TS vibration GIF - required vib trj or output with Hessian
   --gif-diffuse           Diffuse assembly GIF
+  --gif-bounce DEG[,AXIS] Bounce GIF: 0° -> +DEG -> 0° -> -DEG -> 0° (axis default: y)
   -go FILE / --gif-fps N  GIF output path / frames per second
 
 Surfaces:
@@ -541,6 +554,13 @@ def main() -> None:
     gif_g.add_argument("-go", "--gif-output", default=None, help="GIF output path")
     gif_g.add_argument("--gif-fps", type=int, default=10, help="GIF frames per second (default: 10)")
     gif_g.add_argument("--rot-frames", type=int, default=120, help="Rotation frames (default: 120)")
+    gif_g.add_argument(
+        "--gif-bounce",
+        type=_parse_gif_bounce,
+        default=None,
+        metavar="DEG[,AXIS]",
+        help="Bounce rotation: amplitude in degrees, optionally with axis (e.g. 50 or 50,xy). Default axis: y.",
+    )
     gif_g.add_argument("--diffuse-frames", type=int, default=60, help="Number of diffuse frames (default: 60)")
     gif_g.add_argument("--diffuse-noise", type=float, default=0.3, help="Per-frame random walk noise (default: 0.3)")
     gif_g.add_argument(
@@ -616,6 +636,19 @@ def main() -> None:
     )
     dof_g.add_argument(
         "--dof-strength", type=float, default=None, metavar="FLOAT", help="DoF max blur strength (default: 3.0)"
+    )
+    dof_g.add_argument(
+        "--glow",
+        default=None,
+        metavar="ATOMS",
+        help='Glow selected atoms with blur, e.g. "1-5,8", "N,O", "M", "all"',
+    )
+    dof_g.add_argument(
+        "--glow-strength",
+        type=float,
+        default=None,
+        metavar="FLOAT",
+        help="Glow blur strength (default: 5.0)",
     )
 
     # --- Measurements & annotations ---
@@ -883,6 +916,10 @@ def main() -> None:
         cfg.dof = True
     if args.dof_strength is not None:
         cfg.dof_strength = args.dof_strength
+    if args.glow_strength is not None:
+        if args.glow_strength < 0:
+            p.error("--glow-strength must be >= 0")
+        cfg.glow_strength = args.glow_strength
 
     # Per-atom radius scale
     if args.radius_scale is not None:
@@ -898,10 +935,19 @@ def main() -> None:
         supported = ", ".join("." + e for e in sorted(_SUPPORTED_EXTENSIONS))
         p.error(f"Unsupported static output format: .{static_ext} (use {supported})")
 
-    wants_gif = args.gif_ts or args.gif_rot or args.gif_trj or args.gif_diffuse
+    wants_gif = args.gif_ts or args.gif_rot or args.gif_trj or args.gif_diffuse or args.gif_bounce is not None
 
     if args.gif_diffuse and (args.gif_ts or args.gif_trj):
         p.error("--gif-diffuse cannot be combined with --gif-ts or --gif-trj")
+
+    if args.gif_bounce is not None:
+        _bounce_deg, _bounce_ax = args.gif_bounce
+        if _bounce_deg <= 0:
+            p.error("--gif-bounce must be > 0")
+        if args.gif_ts or args.gif_trj or args.gif_diffuse:
+            p.error("--gif-bounce cannot be combined with --gif-ts, --gif-trj, or --gif-diffuse")
+        if args.gif_rot:
+            p.error("--gif-bounce cannot be combined with --gif-rot — set the axis as --gif-bounce DEG,AXIS")
 
     # --diffuse-rot without --gif-rot implies y-axis rotation
     if args.gif_diffuse and args.diffuse_rot is not None and not args.gif_rot:
@@ -994,6 +1040,8 @@ def main() -> None:
             cfg.vdw_indices = []
         else:
             cfg.vdw_indices = sorted(resolve_atom_indices(args.vdw, mol.graph))
+    if args.glow is not None:
+        cfg.glow_indices = sorted(resolve_atom_indices(args.glow, mol.graph))
 
     # Style regions (user-defined + preset-defined from JSON)
     from xyzrender.api import _apply_style_regions
@@ -1221,6 +1269,8 @@ def main() -> None:
             auto_align=args.align,  # None = preset default; True/False = explicit override
             vector=args.vector,
             vector_scale=args.vector_scale,
+            glow=args.glow,
+            glow_strength=args.glow_strength,
             hull=_hull_arg,
             hull_color=args.hull_color,
             hull_opacity=args.hull_opacity,
@@ -1242,14 +1292,17 @@ def main() -> None:
 
     # --- GIF output ---
     if wants_gif:
-        if args.gif_rot:
+        _bounce_axis = args.gif_bounce[1] if args.gif_bounce is not None else None
+        if args.gif_rot or _bounce_axis:
             from xyzrender.gif import ROTATION_AXES
 
-            if args.gif_rot not in ROTATION_AXES:
-                _test_ax = args.gif_rot.lstrip("-")
+            for _flag, _ax in (("--gif-rot", args.gif_rot), ("--gif-bounce axis", _bounce_axis)):
+                if not _ax or _ax in ROTATION_AXES:
+                    continue
+                _test_ax = _ax.lstrip("-")
                 if not (_test_ax.isdigit() and len(_test_ax) >= 3 and mol.cell_data is not None):
                     p.error(
-                        f"Invalid rotation axis: {args.gif_rot!r} "
+                        f"Invalid {_flag} value: {_ax!r} "
                         f"(valid: {', '.join(ROTATION_AXES)}, or 3-digit hkl for crystal inputs)"
                     )
 
@@ -1268,6 +1321,7 @@ def main() -> None:
                 mol_color=args.mol_color,
                 highlight=_highlight,
                 gif_rot=args.gif_rot or None,
+                gif_bounce=args.gif_bounce,
                 gif_trj=args.gif_trj,
                 gif_ts=args.gif_ts,
                 gif_diffuse=args.gif_diffuse,
@@ -1308,6 +1362,8 @@ def main() -> None:
                 ghost_opacity=args.ghost_opacity,
                 vector=args.vector,
                 vector_scale=args.vector_scale,
+                glow=args.glow,
+                glow_strength=args.glow_strength,
                 ref=args.ref,
                 hull=_hull_arg,
                 hull_color=args.hull_color,

@@ -104,6 +104,82 @@ def test_api_render_gif_rotation(tmp_path):
     assert result.path.exists()
 
 
+def test_api_render_gif_bounce(tmp_path):
+    pytest.importorskip("cairosvg", reason="cairosvg required")
+    from xyzrender import render_gif
+    from xyzrender.api import GIFResult
+
+    out = str(tmp_path / "bounce.gif")
+    result = render_gif(
+        STRUCTURES / "caffeine.xyz",
+        output=out,
+        gif_bounce=30.0,
+        rot_frames=4,
+        gif_fps=5,
+        orient=False,
+    )
+    assert isinstance(result, GIFResult)
+    assert result.path.exists()
+    assert result.path.stat().st_size > 0
+
+
+def test_api_render_gif_bounce_axis_tuple(tmp_path):
+    pytest.importorskip("cairosvg", reason="cairosvg required")
+    from xyzrender import render_gif
+
+    out = str(tmp_path / "bounce_x.gif")
+    result = render_gif(
+        STRUCTURES / "caffeine.xyz",
+        output=out,
+        gif_bounce=(30.0, "x"),
+        rot_frames=4,
+        gif_fps=5,
+        orient=False,
+    )
+    assert result.path.exists()
+
+
+def test_render_gif_bounce_invalid(tmp_path):
+    from xyzrender import render_gif
+
+    with pytest.raises(ValueError, match="gif_bounce must be > 0"):
+        render_gif(
+            STRUCTURES / "caffeine.xyz",
+            output=str(tmp_path / "x.gif"),
+            gif_bounce=0.0,
+        )
+
+    with pytest.raises(ValueError, match="gif_bounce must be > 0"):
+        render_gif(
+            STRUCTURES / "caffeine.xyz",
+            output=str(tmp_path / "x.gif"),
+            gif_bounce=-10.0,
+        )
+
+
+def test_render_gif_bounce_gif_rot_conflict(tmp_path):
+    from xyzrender import render_gif
+
+    with pytest.raises(ValueError, match="gif_bounce and gif_rot are mutually exclusive"):
+        render_gif(
+            STRUCTURES / "caffeine.xyz",
+            output=str(tmp_path / "x.gif"),
+            gif_bounce=(30.0, "x"),
+            gif_rot="y",
+        )
+
+
+def test_render_gif_bounce_invalid_axis(tmp_path):
+    from xyzrender import render_gif
+
+    with pytest.raises(ValueError, match="invalid gif_bounce axis"):
+        render_gif(
+            STRUCTURES / "caffeine.xyz",
+            output=str(tmp_path / "x.gif"),
+            gif_bounce=(30.0, "qq"),
+        )
+
+
 def test_gifresult_save(tmp_path):
     pytest.importorskip("cairosvg", reason="cairosvg required")
     from xyzrender import render_gif

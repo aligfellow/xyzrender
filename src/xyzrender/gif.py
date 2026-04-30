@@ -249,6 +249,7 @@ def render_rotation_gif(
     n_frames: int = 60,
     fps: int = 10,
     axis: str = "y",
+    bounce_degrees: float | None = None,
     mo_params: MOParams | None = None,
     mo_cube: CubeData | None = None,
     dens_params: DensParams | None = None,
@@ -256,9 +257,11 @@ def render_rotation_gif(
 ) -> None:
     """Render a rotation animation as a GIF.
 
-    Rotates the molecule around the given axis over a full 360 degrees.
+    Rotates the molecule around the given axis. By default sweeps a full
+    360°; if *bounce_degrees* is given, oscillates sinusoidally between
+    ±bounce_degrees instead (0° → +DEG → 0° → -DEG → 0°).
     Uses a fixed viewport (bounding sphere) so the molecule doesn't
-    appear to zoom or shift during rotation.
+    appear to zoom or shift during the animation.
 
     If *mo_params* and *mo_cube* are provided, MO contours are recomputed
     for each frame to match the rotation.
@@ -347,8 +350,19 @@ def render_rotation_gif(
             rot_cfg.fixed_span = 2 * needed
             logger.debug("Expanded GIF viewport for density: r=%.2f -> span=%.2f", dens_r, rot_cfg.fixed_span)
 
-    step = 360.0 / n_frames
-    logger.info("Rendering rotation GIF (%d frames, axis=%s)", n_frames, axis)
+    if bounce_degrees is not None:
+        phase = (np.arange(n_frames, dtype=float) / float(n_frames)) * 2.0 * np.pi
+        angles = axis_sign * bounce_degrees * np.sin(phase)
+        logger.info(
+            "Rendering bounce GIF (%d frames, axis=%s, amplitude=%.2f°)",
+            n_frames,
+            axis,
+            bounce_degrees,
+        )
+    else:
+        step = 360.0 / n_frames
+        angles = axis_sign * step * np.arange(n_frames, dtype=float)
+        logger.info("Rendering rotation GIF (%d frames, axis=%s)", n_frames, axis)
     # Save pre-rotation vector data so each frame applies a fresh rotation (no drift).
     _gif_vec_origins = np.array([va.origin for va in rot_cfg.vectors]) if rot_cfg.vectors else np.full((0, 3), np.nan)
     _gif_vec_dirs = np.array([va.vector for va in rot_cfg.vectors]) if rot_cfg.vectors else np.full((0, 3), np.nan)
@@ -371,8 +385,7 @@ def render_rotation_gif(
 
     ctx = RotationFrameContext(
         axis_vec=axis_vec,
-        axis_sign=axis_sign,
-        step=step,
+        angles=angles,
         rot_cfg=rot_cfg,
         vec_origins=_gif_vec_origins,
         vec_dirs=_gif_vec_dirs,
@@ -650,8 +663,7 @@ class RotationFrameContext:
     """Bundled parameters for rotation GIF frame rendering."""
 
     axis_vec: np.ndarray
-    axis_sign: float
-    step: float
+    angles: np.ndarray
     rot_cfg: "RenderConfig"
     vec_origins: np.ndarray
     vec_dirs: np.ndarray
@@ -685,7 +697,7 @@ def _render_rot_frame(
     if original_lattice_origin is not None:
         graph.graph["lattice_origin"] = original_lattice_origin.copy()
 
-    total_angle = ctx.axis_sign * ctx.step * frame_idx
+    total_angle = float(ctx.angles[frame_idx])
     rot_mat = _axis_angle_matrix(ctx.axis_vec, total_angle)
 
     centroid = original_pos_array.mean(axis=0)

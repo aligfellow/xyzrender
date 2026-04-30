@@ -104,6 +104,7 @@ xyzrender "$DIR/caffeine_dens.cube" --esp "$DIR/caffeine_esp.cube" --iso 0.005 -
 echo "=== GIF animations ==="
 xyzrender "$DIR/caffeine.xyz" -o "$IMG/caffeine_gif.svg" --gif-rot -go "$IMG/caffeine.gif"
 xyzrender "$DIR/caffeine.xyz" -o "$IMG/caffeine_xy.svg" --gif-rot xy -go "$IMG/caffeine_xy.gif"
+xyzrender "$DIR/caffeine.xyz" -o "$IMG/caffeine_bounce_50.svg" --gif-bounce 50 -go "$IMG/caffeine_bounce_50.gif"
 xyzrender "$DIR/bimp.out" -o "$IMG/bimp_rot.svg" --gif-rot --gif-ts --vdw 84-169 -go "$IMG/bimp.gif"
 xyzrender "$DIR/bimp.out" -o "$IMG/bimp_trj.svg" --gif-trj --ts -go "$IMG/bimp_trj.gif"
 xyzrender "$DIR/mn-h2.log" -o "$IMG/mn-h2_gif.svg" --gif-ts -go "$IMG/mn-h2.gif"
@@ -145,6 +146,9 @@ xyzrender "$DIR/caffeine.xyz" --hy --radius-scale "N,O" 1.4 --radius-scale "H" 0
 
 echo "=== Depth of field ==="
 xyzrender "$DIR/caffeine.xyz" --dof --no-orient -o "$IMG/caffeine_dof.svg" --gif-rot -go "$IMG/caffeine_dof.gif" 
+
+echo "=== Glow ==="
+xyzrender "$DIR/caffeine.xyz" --glow "N,O" --glow-strength 4 -o "$IMG/caffeine_glow.svg"
 
 echo "=== Overlays ==="
 xyzrender "$DIR/isothio_xtb.xyz" --overlay "$DIR/isothio_uma.xyz" -c 1 --hy -o "$IMG/isothio_overlay.svg" --gif-rot -go "$IMG/isothio_overlay.gif"

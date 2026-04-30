@@ -98,6 +98,8 @@ xyzrender caffeine.xyz --config pmol --hy -o pmol.svg     # ball-and-stick + ele
 xyzrender caffeine.xyz --config graph -o graph.svg        # minimalist graph-style rendering
 xyzrender sn2.out --ts --hy -o ts.svg                     # auto-detect TS bonds
 xyzrender caffeine.xyz --gif-rot -go caffeine.gif         # rotation GIF
+xyzrender caffeine.xyz --gif-bounce 50 -go caffeine_bounce_50.gif  # bounce GIF (±50°)
+xyzrender caffeine.xyz --glow "N,O" --glow-strength 4 -o glow.svg  # atom glow
 ```
 
 ### Python API
@@ -182,6 +184,12 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |-----|----------| 
 | ![dof](examples/images/caffeine_dof.svg) | ![dof](examples/images/caffeine_dof.gif) |
 
+### Glow
+
+| Glow (N,O atoms) |
+|------------------|
+| ![glow](examples/images/caffeine_glow.svg) |
+
 ### Structural overlay & ensemble
 
 | Overlay | Custom colour | Cross-molecule | Per-overlay style |
@@ -251,6 +259,10 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 | Rotation | TS + NCI + vdW + rotation | Trajectory | TS |
 |----------|---------------------------|------------|------------------|
 | ![rotate](examples/images/caffeine.gif) | ![ts rot](examples/images/bimp_nci_ts.gif) | ![trj](examples/images/bimp_trj.gif) | ![ts](examples/images/mn-h2.gif) |
+
+| Bounce (50deg) |
+|----------------|
+| ![bounce](examples/images/caffeine_bounce_50.gif) |
 
 | Overlay rotation | MO | Density | 
 |----------|---------------------------|------------|
