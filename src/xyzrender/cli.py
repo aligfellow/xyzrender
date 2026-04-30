@@ -79,7 +79,7 @@ Styling:
   --fog / --no-fog        Depth fog on/off
   --dof                   Depth of field - blur "back" atoms (not bonds)
   --glow ATOMS            Add blurred glow under selected atoms
-  --glow-strength F       Glow blur strength (default: same as --dof-strength)
+  --glow-strength F       Glow blur strength (default: 5.0)
 
 Display:
   --hy [ATOMS] / --no-hy  Show/hide H atoms (all or specific indices)
@@ -648,7 +648,7 @@ def main() -> None:
         type=float,
         default=None,
         metavar="FLOAT",
-        help="Glow blur strength (default: same as --dof-strength)",
+        help="Glow blur strength (default: 5.0)",
     )
 
     # --- Measurements & annotations ---

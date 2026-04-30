@@ -62,7 +62,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--dof` | Depth-of-field blur (does not affect bonds/lines) |
 | `--dof-strength FLOAT` | DoF max blur strength (default: 3.0) |
 | `--glow ATOMS` | Add blurred glow under selected atoms (same selector grammar as `--hl` / `--vdw`) |
-| `--glow-strength FLOAT` | Glow blur strength (default: uses DoF strength, 3.0 unless overridden) |
+| `--glow-strength FLOAT` | Glow blur strength (default: 5.0) |
 
 ## Structural overlay / ensemble
 

@@ -464,7 +464,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             dof_depth = np.clip((pos[:, 2].max() - pos[:, 2] - _FOG_NEAR) / zr, 0.0, 1.0)
         dof_buckets = [int(d * (n_dof_levels - 1) + 0.5) for d in dof_depth]
     glow_indices = set(cfg.glow_indices) if cfg.glow_indices else set()
-    glow_strength = cfg.glow_strength if cfg.glow_strength is not None else cfg.dof_strength
+    glow_strength = cfg.glow_strength
 
     # --- Build SVG ---
     svg = [
