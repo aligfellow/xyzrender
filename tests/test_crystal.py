@@ -161,6 +161,64 @@ def test_build_supercell_different_axes():
         assert g2.number_of_nodes() == factor * n0, f"repeats={repeats}"
 
 
+def _reference_bonded_pairs(
+    pos_a: np.ndarray,
+    pos_b: np.ndarray,
+    eidx_a: np.ndarray,
+    eidx_b: np.ndarray,
+    elem_thresh: np.ndarray,
+) -> set[tuple[int, int]]:
+    """All-pairs distance check (ground truth for _find_bonded_pairs tests)."""
+    dists = np.linalg.norm(pos_a[:, None, :] - pos_b[None, :, :], axis=2)
+    thresh_mat = elem_thresh[eidx_a[:, None], eidx_b[None, :]]
+    ii, jj = np.where(dists < thresh_mat)
+    return set(zip(ii.tolist(), jj.tolist(), strict=False))
+
+
+@pytest.mark.parametrize("seed", [0, 1, 42])
+def test_find_bonded_pairs_spatial_hash_square_grid(seed: int):
+    """_find_bonded_pairs uses the cell-list path when na * nb > 50_000 (square na == nb).
+
+    Covers the bulk of that function: B key sort, 27-offset key lookup, repeat /
+    b_order expansion, and final d² threshold filter.  Regression for MOF-scale
+    cells where a broken mask broadcast raised ValueError.
+    """
+    from xyzrender.crystal import _build_elem_thresh, _find_bonded_pairs
+
+    rng = np.random.default_rng(seed)
+    n = 240
+    assert n * n > 50_000
+    pos = rng.uniform(0.0, 50.0, size=(n, 3))
+    syms = ["C"] * n
+    elem_thresh, eidx, max_cutoff = _build_elem_thresh(syms)
+    shift = np.array([0.05, 0.0, 0.0], dtype=float)
+    pos_b = pos
+    pos_a = pos + shift
+
+    pairs_cell = set(_find_bonded_pairs(pos_a, pos_b, eidx, eidx, elem_thresh, max_cutoff))
+    pairs_ref = _reference_bonded_pairs(pos_a, pos_b, eidx, eidx, elem_thresh)
+    assert pairs_cell == pairs_ref
+
+
+def test_find_bonded_pairs_spatial_hash_rectangular_na_nb():
+    """Same spatial-hash branch with na != nb but na * nb still > 50_000."""
+    from xyzrender.crystal import _build_elem_thresh, _find_bonded_pairs
+
+    rng = np.random.default_rng(7)
+    na, nb = 300, 200
+    assert na * nb > 50_000
+    pos_a = rng.uniform(0.0, 40.0, size=(na, 3))
+    pos_b = rng.uniform(0.0, 40.0, size=(nb, 3))
+    # One (E, E) matrix for C/O pairs; indices match a=all C, b=all O.
+    elem_thresh, eidx_stacked, max_cutoff = _build_elem_thresh(["C"] * na + ["O"] * nb)
+    eidx_a = eidx_stacked[:na]
+    eidx_b = eidx_stacked[na:]
+
+    pairs_cell = set(_find_bonded_pairs(pos_a, pos_b, eidx_a, eidx_b, elem_thresh, max_cutoff))
+    pairs_ref = _reference_bonded_pairs(pos_a, pos_b, eidx_a, eidx_b, elem_thresh)
+    assert pairs_cell == pairs_ref
+
+
 # ---------------------------------------------------------------------------
 # Renderer tests
 # ---------------------------------------------------------------------------

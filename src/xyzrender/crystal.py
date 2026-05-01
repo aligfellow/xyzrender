@@ -132,7 +132,9 @@ def _find_bonded_pairs(
     counts = np.array([cell_count[k] for k in sorted_keys])
 
     idx = np.searchsorted(sorted_keys, flat_keys)
-    mask = (idx < len(sorted_keys)) & (sorted_keys[idx[idx < len(sorted_keys)]] == flat_keys)
+    in_range = idx < len(sorted_keys)
+    mask = np.zeros(len(flat_keys), dtype=bool)
+    mask[in_range] = sorted_keys[idx[in_range]] == flat_keys[in_range]
 
     atom_a_indices = np.tile(np.arange(len(cidx_a)), 27)
     valid_a_idx = atom_a_indices[mask]
