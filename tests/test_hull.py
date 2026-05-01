@@ -653,6 +653,41 @@ def test_hull_list_input_no_crash():
     assert cfg.hull_atom_indices is not None
 
 
+def test_apply_hull_pore_workflow_subset_list_not_string_mode():
+    """CLI --hull 1-6 passes list[list[int]]; workflow must not treat it like 'faces'."""
+    import networkx as nx
+
+    from xyzrender.api import _apply_hull_pore_workflow
+    from xyzrender.types import RenderConfig
+
+    g = nx.Graph()
+    for i in range(6):
+        g.add_node(i, symbol="C", position=(float(i), 0.0, 0.0))
+    for i in range(5):
+        g.add_edge(i, i + 1)
+
+    cfg = RenderConfig()
+    _apply_hull_pore_workflow(
+        cfg,
+        g,
+        hull=[[0, 1, 2, 3, 4, 5]],
+        hull_color=None,
+        hull_opacity=None,
+        hull_edge=None,
+        hull_edge_width_ratio=None,
+        hull_color_type="type",
+        pore=False,
+        pore_color=None,
+        pore_opacity=None,
+        supercell=(1, 1, 1),
+        ring_max_size=100,
+        ring_min_size=3,
+        face_planarity=0.2,
+        cell_data=None,
+    )
+    assert cfg.show_convex_hull is True
+
+
 # ---------------------------------------------------------------------------
 # Integration tests (real structures)
 # ---------------------------------------------------------------------------

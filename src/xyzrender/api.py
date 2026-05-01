@@ -533,9 +533,9 @@ def _apply_hull_pore_workflow(
     if graph is None:
         return
 
-    # 1. Flag Initialization
-    is_face = hull in {"face", "faces"}
-    is_pore = hull in {"pore", "pores"}
+    # 1. Flag Initialization (hull may also be list[list[int]] for subsets)
+    is_face = isinstance(hull, str) and hull in {"face", "faces"}
+    is_pore = isinstance(hull, str) and hull in {"pore", "pores"}
     is_supercell = supercell != (1, 1, 1)
     has_pores = pore or bool(cfg.pore_node_ids)
     unit_cell_hull_indices = None
