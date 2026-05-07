@@ -34,12 +34,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import networkx as nx
 import numpy as np
 
 if TYPE_CHECKING:
     import os
-
-    import networkx as nx
 
     from xyzrender.cube import CubeData
     from xyzrender.types import CellData, VectorArrow
@@ -49,6 +48,9 @@ from xyzrender.types import GIFResult, OverlayConfig, RenderConfig, SVGResult
 from xyzrender.utils import parse_atom_indices
 
 logger = logging.getLogger(__name__)
+
+_ORIGINAL_INDEX_ATTR = "_xyzrender_original_index"
+_AtomSelector = str | list[int]
 
 
 @dataclass
@@ -545,6 +547,9 @@ def render(
     bo: bool | None = None,
     orient: bool | None = None,
     ref: str | os.PathLike | None = None,
+    # --- Atom filtering ---
+    only: _AtomSelector | list[_AtomSelector] | None = None,
+    exclude: _AtomSelector | list[_AtomSelector] | None = None,
     # --- Crystal display (when mol has cell_data) ---
     no_cell: bool = False,
     axes: bool | None = None,
@@ -658,6 +663,14 @@ def render(
         disabled regardless of *orient*.  If the file does not exist,
         current (possibly PCA-oriented) positions are saved to it.
         Not supported for periodic structures (raises ``ValueError``).
+    only, exclude:
+        Render-time atom filters using the same selector grammar as
+        ``highlight`` / ``radius_scale``.  Selectors are resolved against the
+        original input atom numbering, then the graph is relabeled contiguously
+        before rendering.  ``only`` keeps matching atoms; ``exclude`` removes
+        matching atoms from that kept set.  Auto-orientation, canvas fitting,
+        bond rules, style regions, annotations, hulls, and overlays see the
+        filtered graph.  Cube/surface fields are not cropped.
     unbond:
         Bond display rules.  A list of spec strings that hide bonds:
         categories (``"M"``, ``"sbm"``, ``"L"``, ``"het"``), element
@@ -780,6 +793,9 @@ def render(
     else:
         mol = load(molecule)
 
+    if only is not None or exclude is not None:
+        mol = _filter_molecule_atoms(mol, only=only, exclude=exclude)
+
     # Supercell requires lattice/cell_data
     if supercell != (1, 1, 1) and mol.cell_data is None:
         raise ValueError("supercell requires an input with a unit cell (lattice).")
@@ -883,7 +899,7 @@ def render(
         cfg.mol_color = resolve_color(mol_color)
 
     # --- Highlight ---
-    _apply_highlight(cfg, highlight=highlight)
+    _apply_highlight(cfg, highlight=highlight, graph=mol.graph)
 
     # --- Style regions (user + preset-defined) ---
     _apply_style_regions(cfg, mol.graph, regions=regions)
@@ -1223,6 +1239,9 @@ def render_gif(
     bo: bool | None = None,
     orient: bool | None = None,
     ref: str | os.PathLike | None = None,
+    # --- Atom filtering ---
+    only: _AtomSelector | list[_AtomSelector] | None = None,
+    exclude: _AtomSelector | list[_AtomSelector] | None = None,
     # --- Molecule color ---
     mol_color: str | None = None,
     # --- Highlight ---
@@ -1399,9 +1418,19 @@ def render_gif(
 
     if rot_frames != 120 and not gif_rot and bounce_deg is None:
         logger.warning("rot_frames has no effect without gif_rot")
+    if (only is not None or exclude is not None) and (gif_ts or gif_trj):
+        msg = (
+            "only/exclude atom filters are only supported for render_gif() "
+            "rotation/diffuse modes, not trajectory modes"
+        )
+        raise ValueError(msg)
 
     # Resolve config
-    _gif_graph = molecule.graph if isinstance(molecule, Molecule) else load(molecule).graph
+    _gif_mol = molecule if isinstance(molecule, Molecule) else load(molecule)
+    if only is not None or exclude is not None:
+        _gif_mol = _filter_molecule_atoms(_gif_mol, only=only, exclude=exclude)
+        molecule = _gif_mol
+    _gif_graph = _gif_mol.graph
     if not isinstance(config, str):
         cfg = copy.copy(config)
         cfg.vectors = list(cfg.vectors)
@@ -1452,7 +1481,7 @@ def render_gif(
         cfg.mol_color = resolve_color(mol_color)
 
     # --- Highlight ---
-    _apply_highlight(cfg, highlight=highlight)
+    _apply_highlight(cfg, highlight=highlight, graph=_gif_graph)
 
     # --- Style regions (user + preset-defined) ---
     _apply_style_regions(cfg, _gif_graph, regions=regions)
@@ -1998,10 +2027,112 @@ def _build_ensemble_molecule(
 # ---------------------------------------------------------------------------
 
 
+def _iter_atom_filter_specs(spec: _AtomSelector | list[_AtomSelector]) -> list[_AtomSelector]:
+    """Normalize a single selector or selector list for only/exclude filters."""
+    if isinstance(spec, str):
+        return [spec]
+    if isinstance(spec, list):
+        if not spec:
+            return []
+        if all(isinstance(v, int) for v in spec):
+            return [spec]
+        return list(spec)
+    msg = f"atom filter spec must be a string or 1-indexed list[int], got {type(spec)}"
+    raise TypeError(msg)
+
+
+def _resolve_filter_indices(spec: _AtomSelector | list[_AtomSelector] | None, graph: "nx.Graph") -> set[int]:
+    if spec is None:
+        return set()
+
+    from xyzrender.selectors import resolve_atom_indices
+
+    resolved: set[int] = set()
+    for item in _iter_atom_filter_specs(spec):
+        if isinstance(item, str):
+            resolved.update(resolve_atom_indices(item, graph))
+        else:
+            resolved.update(resolve_atom_indices(",".join(str(i) for i in item), graph))
+    return resolved
+
+
+def _filter_molecule_atoms(
+    mol: Molecule,
+    *,
+    only: _AtomSelector | list[_AtomSelector] | None = None,
+    exclude: _AtomSelector | list[_AtomSelector] | None = None,
+) -> Molecule:
+    """Return a molecule with selected atoms removed and nodes relabeled.
+
+    User selectors are resolved on the original graph.  The filtered graph is
+    then relabeled to contiguous 0-based node IDs because the renderer indexes
+    arrays by node ID in a few hot paths.
+    """
+    if mol.ensemble is not None:
+        msg = "only/exclude atom filters are not supported for ensemble molecules"
+        raise ValueError(msg)
+
+    graph = copy.deepcopy(mol.graph)
+    node_ids = list(graph.nodes())
+    for idx, nid in enumerate(node_ids):
+        graph.nodes[nid].setdefault(_ORIGINAL_INDEX_ATTR, idx)
+
+    all_nodes = set(node_ids)
+    only_indices = _resolve_filter_indices(only, graph) if only is not None else None
+    exclude_indices = _resolve_filter_indices(exclude, graph) if exclude is not None else set()
+    unknown = ((only_indices or set()) | exclude_indices) - all_nodes
+    if unknown:
+        examples = ", ".join(str(i + 1) for i in sorted(unknown)[:5])
+        msg = f"only/exclude atom filter selected atom(s) outside the molecule: {examples}"
+        raise ValueError(msg)
+
+    if only_indices is None:
+        keep = set(node_ids)
+    else:
+        keep = set(only_indices)
+
+    keep -= exclude_indices
+
+    if not keep:
+        msg = "only/exclude atom filters removed every atom"
+        raise ValueError(msg)
+
+    ordered_keep = [nid for nid in node_ids if nid in keep]
+    filtered = graph.subgraph(ordered_keep).copy()
+    filtered = nx.convert_node_labels_to_integers(filtered, ordering="default")
+    return Molecule(
+        graph=filtered,
+        cube_data=mol.cube_data,
+        cell_data=copy.deepcopy(mol.cell_data) if mol.cell_data is not None else None,
+        oriented=mol.oriented,
+    )
+
+
+def _original_to_render_index(graph: "nx.Graph") -> dict[int, int] | None:
+    if not any(_ORIGINAL_INDEX_ATTR in data for _, data in graph.nodes(data=True)):
+        return None
+    return {
+        int(data.get(_ORIGINAL_INDEX_ATTR, nid)): idx
+        for idx, (nid, data) in enumerate(graph.nodes(data=True))
+        if data.get("symbol", "") != "*"
+    }
+
+
+def _remap_original_atom_index(idx_1based: int, mapping: dict[int, int] | None, *, what: str) -> int:
+    if mapping is None:
+        return idx_1based - 1
+    original = idx_1based - 1
+    if original not in mapping:
+        msg = f"{what}: atom {idx_1based} was excluded from the render"
+        raise ValueError(msg)
+    return mapping[original]
+
+
 def _apply_highlight(
     cfg: "RenderConfig",
     *,
     highlight: "str | list[int] | list[list[int] | str] | list[tuple] | None" = None,
+    graph: "nx.Graph | None" = None,
 ) -> None:
     """Apply highlight atom coloring to *cfg* (mutates in place).
 
@@ -2057,10 +2188,18 @@ def _apply_highlight(
     else:
         return
 
+    mapping = _original_to_render_index(graph) if graph is not None else None
+    from xyzrender.selectors import resolve_atom_indices
+
     seen: set[int] = set()
     auto_idx = 0
     for atoms_spec, color_spec in raw_groups:
-        indices = parse_atom_indices(atoms_spec)
+        if isinstance(atoms_spec, str) and graph is not None:
+            indices = sorted(resolve_atom_indices(atoms_spec, graph))
+        elif isinstance(atoms_spec, list) and mapping is not None:
+            indices = [_remap_original_atom_index(i, mapping, what="highlight") for i in atoms_spec]
+        else:
+            indices = parse_atom_indices(atoms_spec)
 
         overlap = seen & set(indices)
         if overlap:
@@ -2105,6 +2244,7 @@ def _apply_style_regions(
     from xyzrender.selectors import resolve_atom_indices
     from xyzrender.types import StyleRegion
 
+    mapping = _original_to_render_index(graph)
     seen: set[int] = set()
 
     # Preset regions first — so user regions can override with a warning
@@ -2116,6 +2256,8 @@ def _apply_style_regions(
     for atoms_spec, config_spec in regions or []:
         if isinstance(atoms_spec, str):
             indices = sorted(resolve_atom_indices(atoms_spec, graph))
+        elif mapping is not None:
+            indices = [_remap_original_atom_index(i, mapping, what="regions") for i in atoms_spec]
         else:
             indices = parse_atom_indices(atoms_spec)
 
@@ -2191,12 +2333,27 @@ def _apply_render_overlays(
     All atom indices in ts_bonds, nci_bonds, vdw, atom_opacity are 1-indexed
     (user-facing); they are converted to 0-indexed storage on *cfg*.
     """
+    mapping = _original_to_render_index(graph)
     if ts_bonds is not None:
-        cfg.ts_bonds = [(a - 1, b - 1) for a, b in ts_bonds]
+        cfg.ts_bonds = [
+            (
+                _remap_original_atom_index(a, mapping, what="ts_bonds"),
+                _remap_original_atom_index(b, mapping, what="ts_bonds"),
+            )
+            for a, b in ts_bonds
+        ]
     if nci_bonds is not None:
-        cfg.nci_bonds = [(a - 1, b - 1) for a, b in nci_bonds]
+        cfg.nci_bonds = [
+            (
+                _remap_original_atom_index(a, mapping, what="nci_bonds"),
+                _remap_original_atom_index(b, mapping, what="nci_bonds"),
+            )
+            for a, b in nci_bonds
+        ]
     if vdw is not None:
-        cfg.vdw_indices = [i - 1 for i in vdw] if isinstance(vdw, list) else []
+        cfg.vdw_indices = (
+            [_remap_original_atom_index(i, mapping, what="vdw") for i in vdw] if isinstance(vdw, list) else []
+        )
     if idx:
         cfg.show_indices = True
         cfg.idx_format = idx if isinstance(idx, str) else "sn"
@@ -2230,7 +2387,8 @@ def _resolve_atom_opacity(
       Later specs overwrite earlier ones for overlapping atoms.
     """
     if isinstance(spec, dict):
-        return {int(k) - 1: float(v) for k, v in spec.items()}
+        mapping = _original_to_render_index(graph)
+        return {_remap_original_atom_index(int(k), mapping, what="atom_opacity"): float(v) for k, v in spec.items()}
 
     from xyzrender.selectors import resolve_atom_indices
     from xyzrender.utils import parse_atom_indices
@@ -2240,7 +2398,11 @@ def _resolve_atom_opacity(
         if isinstance(sel, str):
             indices = resolve_atom_indices(sel, graph)
         else:
-            indices = set(parse_atom_indices(sel))  # 1-indexed list → 0-indexed
+            mapping = _original_to_render_index(graph)
+            if mapping is not None:
+                indices = {_remap_original_atom_index(i, mapping, what="atom_opacity") for i in sel}
+            else:
+                indices = set(parse_atom_indices(sel))  # 1-indexed list → 0-indexed
         fval = float(val)
         for idx in indices:
             out[idx] = fval
@@ -2258,6 +2420,9 @@ def _resolve_glow_indices(
         return set(resolve_atom_indices(spec, graph))
     from xyzrender.utils import parse_atom_indices
 
+    mapping = _original_to_render_index(graph)
+    if mapping is not None:
+        return {_remap_original_atom_index(i, mapping, what="glow") for i in spec}
     return set(parse_atom_indices(spec))
 
 
@@ -2274,7 +2439,8 @@ def _resolve_cmap(
         from typing import cast
 
         d = cast("dict[int, float]", cmap)
-        return {k - 1: v for k, v in d.items()}
+        mapping = _original_to_render_index(graph) if graph is not None else None
+        return {_remap_original_atom_index(k, mapping, what="cmap"): v for k, v in d.items()}
     # File path
     from xyzrender.annotations import load_cmap
 

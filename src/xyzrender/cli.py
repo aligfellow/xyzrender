@@ -83,6 +83,7 @@ Styling:
 
 Display:
   --hy [ATOMS] / --no-hy  Show/hide H atoms (all or specific indices)
+  --only / --exclude      Keep or remove selected atoms before rendering
   --bo / --no-bo          Show/hide bond orders
   --unbond SPEC           Hide bonds: M-L  sbm  Fe-het  1-3  pi  all
   --bond PAIR             Force-show bonds: 1-3  4-5
@@ -253,6 +254,20 @@ def main() -> None:
         help='Show H atoms (no args=all, or indices like "1-5,8")',
     )
     disp_g.add_argument("--no-hy", action="store_true", default=False, help="Hide all H atoms")
+    disp_g.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        metavar="ATOMS",
+        help='Render only selected atoms: --only "1-24" or --only "C,N,O". Repeatable.',
+    )
+    disp_g.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="ATOMS",
+        help='Exclude selected atoms from the render: --exclude "25-40" or --exclude "Na,Cl". Repeatable.',
+    )
     disp_g.add_argument(
         "--no-bonds", action="store_true", default=False, help="Hide all bonds (e.g. space-filling style)"
     )
@@ -1030,6 +1045,16 @@ def main() -> None:
                 bohr=True if args.bohr else None,
             )
         except ValueError as e:
+            p.error(str(e))
+
+    if (args.only or args.exclude) and (args.gif_ts or args.gif_trj):
+        p.error("--only/--exclude are not supported with --gif-ts or --gif-trj")
+    if args.only or args.exclude:
+        from xyzrender.api import _filter_molecule_atoms
+
+        try:
+            mol = _filter_molecule_atoms(mol, only=args.only or None, exclude=args.exclude or None)
+        except (TypeError, ValueError) as e:
             p.error(str(e))
 
     # Resolve atom-spec driven options now that atom symbols are available.

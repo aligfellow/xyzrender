@@ -14,6 +14,7 @@ import numpy as np
 from xyzrender.measure import _pos
 
 logger = logging.getLogger(__name__)
+_ORIGINAL_INDEX_ATTR = "_xyzrender_original_index"
 
 
 def _fmt(val: float, spec: str) -> str:
@@ -76,8 +77,21 @@ Annotation = AtomValueLabel | BondLabel | AngleLabel | DihedralLabel | CentroidL
 # ---------------------------------------------------------------------------
 
 
+def _original_index_map(graph) -> dict[int, int] | None:
+    if not any(_ORIGINAL_INDEX_ATTR in data for _, data in graph.nodes(data=True)):
+        return None
+    return {int(data.get(_ORIGINAL_INDEX_ATTR, nid)): nid for nid, data in graph.nodes(data=True)}
+
+
 def _check_atom(idx_1based: int, graph) -> int:
-    """Convert 1-indexed user input to 0-indexed, raising ValueError on bad index."""
+    """Resolve a 1-indexed user atom index to the current graph node ID."""
+    mapping = _original_index_map(graph)
+    if mapping is not None:
+        original = idx_1based - 1
+        if original not in mapping:
+            raise ValueError(f"Atom index {idx_1based} not found in filtered render; it may have been excluded")
+        return mapping[original]
+
     i = idx_1based - 1
     if i not in graph.nodes():
         n = graph.number_of_nodes()
@@ -272,8 +286,6 @@ def load_cmap(file_path: str, graph) -> dict[int, float]:
     if not path.exists():
         raise FileNotFoundError(f"Colormap file not found: {file_path}")
 
-    node_ids = set(graph.nodes())
-    n = graph.number_of_nodes()
     result: dict[int, float] = {}
 
     with path.open() as f:
@@ -299,12 +311,12 @@ def load_cmap(file_path: str, graph) -> dict[int, float]:
             except ValueError:
                 raise ValueError(f"cmap line {lineno}: cannot parse value {tokens[1]!r} as float") from None
 
-            # Convert 1-indexed to 0-indexed
-            idx = raw_idx - 1
-            if idx not in node_ids:
+            try:
+                idx = _check_atom(raw_idx, graph)
+            except ValueError as exc:
                 raise ValueError(
-                    f"cmap line {lineno}: atom index {raw_idx} not found in molecule ({n} atoms, valid range 1-{n})"
-                )
+                    f"cmap line {lineno}: atom index {raw_idx} not found in molecule"
+                ) from exc
 
             result[idx] = val
 
@@ -437,14 +449,15 @@ def load_vectors(
         if origin_raw == "com":
             origin = centroid.copy()
         elif isinstance(origin_raw, int):
-            atom_idx = origin_raw - 1  # 1-based → 0-based
-            if atom_idx < 0 or atom_idx >= len(node_ids):
+            try:
+                atom_idx = _check_atom(origin_raw, graph)
+            except ValueError as exc:
                 msg = (
                     f"Vector file {path!r}: entry {idx} 'origin' atom index {origin_raw} "
-                    f"is out of range (molecule has {len(node_ids)} atoms)"
+                    "is not present in the rendered molecule"
                 )
-                raise ValueError(msg)
-            origin = np.array(graph.nodes[node_ids[atom_idx]]["position"], dtype=float)
+                raise ValueError(msg) from exc
+            origin = np.array(graph.nodes[atom_idx]["position"], dtype=float)
         elif isinstance(origin_raw, list) and len(origin_raw) == 3:
             try:
                 origin = np.array([float(v) for v in origin_raw])

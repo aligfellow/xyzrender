@@ -91,6 +91,23 @@ render(ethanol, no_hy=True)         # hide all H
 render(ethanol, hy=[7, 8, 9])       # show specific H atoms
 ```
 
+### Atom filtering
+
+Use `only=` or `exclude=` to remove atoms from the render-time graph before
+orientation, canvas fitting, bond rules, annotations, hulls, and overlays are
+resolved. Selectors use the same grammar as highlights and remain based on the
+original input atom numbering after filtering.
+
+```python
+salt = load("salt.xyz")
+render(salt, only="1-24")        # render one component of a salt
+render(salt, exclude="Na,Cl")    # remove counterions
+render(salt, exclude=["25-40"])  # repeatable/list form
+```
+
+Incident bonds are removed with excluded atoms. Cube/surface fields are not
+cropped by atom filtering.
+
 ### Overlays
 
 ```python

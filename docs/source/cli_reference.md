@@ -52,6 +52,8 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 |------|-------------|
 | `--hy [ATOMS]` | Show H atoms (no args = all, or indices like `"1-5,8"`) |
 | `--no-hy` | Hide all H atoms |
+| `--only ATOMS` | Render only selected atoms before orientation/canvas fitting. Repeatable; same selector grammar as `--hl`, e.g. `"1-24"`, `"C,N,O"`, `"M"` |
+| `--exclude ATOMS` | Remove selected atoms before orientation/canvas fitting. Repeatable; same selector grammar as `--hl`, e.g. `"25-40"`, `"Na,Cl"` |
 | `-k`, `--kekule` | Use Kekulé bond orders (no aromatic 1.5) |
 | `--vdw` | vdW spheres (no args = all, or selectors like `"1-6"`, `"M"`, `"Pt"`) |
 | `--vdw-opacity` | vdW sphere opacity (default: 0.25) |

@@ -149,14 +149,13 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     _per_atom_mult: np.ndarray | None = None
     if cfg.radius_scale:
         from xyzrender.selectors import resolve_atom_indices
-        from xyzrender.utils import parse_atom_indices
 
         _per_atom_mult = np.ones(n)
         for spec, factor in cfg.radius_scale:
             if isinstance(spec, str):
                 indices = resolve_atom_indices(spec, graph)
             else:
-                indices = set(parse_atom_indices(spec))  # 1-indexed list → 0-indexed
+                indices = resolve_atom_indices(",".join(str(i) for i in spec), graph)
             for idx in indices:
                 if 0 <= idx < n:
                     _per_atom_mult[idx] *= factor
