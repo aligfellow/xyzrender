@@ -32,7 +32,7 @@ import copy
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import networkx as nx
 import numpy as np
@@ -1420,8 +1420,7 @@ def render_gif(
         logger.warning("rot_frames has no effect without gif_rot")
     if (only is not None or exclude is not None) and (gif_ts or gif_trj):
         msg = (
-            "only/exclude atom filters are only supported for render_gif() "
-            "rotation/diffuse modes, not trajectory modes"
+            "only/exclude atom filters are only supported for render_gif() rotation/diffuse modes, not trajectory modes"
         )
         raise ValueError(msg)
 
@@ -2035,8 +2034,17 @@ def _iter_atom_filter_specs(spec: _AtomSelector | list[_AtomSelector]) -> list[_
         if not spec:
             return []
         if all(isinstance(v, int) for v in spec):
-            return [spec]
-        return list(spec)
+            return [cast("list[int]", spec)]
+        specs: list[_AtomSelector] = []
+        for item in spec:
+            if isinstance(item, str):
+                specs.append(item)
+            elif isinstance(item, list) and all(isinstance(v, int) for v in item):
+                specs.append(item)
+            else:
+                msg = f"atom filter spec must be a string or 1-indexed list[int], got {type(item)}"
+                raise TypeError(msg)
+        return specs
     msg = f"atom filter spec must be a string or 1-indexed list[int], got {type(spec)}"
     raise TypeError(msg)
 
