@@ -314,9 +314,7 @@ def load_cmap(file_path: str, graph) -> dict[int, float]:
             try:
                 idx = _check_atom(raw_idx, graph)
             except ValueError as exc:
-                raise ValueError(
-                    f"cmap line {lineno}: atom index {raw_idx} not found in molecule"
-                ) from exc
+                raise ValueError(f"cmap line {lineno}: atom index {raw_idx} not found in molecule") from exc
 
             result[idx] = val
 
@@ -454,7 +452,7 @@ def load_vectors(
             except ValueError as exc:
                 msg = (
                     f"Vector file {path!r}: entry {idx} 'origin' atom index {origin_raw} "
-                    "is not present in the rendered molecule"
+                    f"is out of range or not present in the rendered molecule ({exc})"
                 )
                 raise ValueError(msg) from exc
             origin = np.array(graph.nodes[atom_idx]["position"], dtype=float)

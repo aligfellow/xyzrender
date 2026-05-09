@@ -1951,6 +1951,40 @@ def _build_ensemble_molecule(
         )
         oriented = False
 
+    real_ref_nodes = [n for n in ref_graph.nodes() if ref_graph.nodes[n].get("symbol") != "*"]
+    original_indices = [
+        int(ref_graph.nodes[n].get(_ORIGINAL_INDEX_ATTR, n))
+        for n in real_ref_nodes
+        if _ORIGINAL_INDEX_ATTR in ref_graph.nodes[n]
+    ]
+    align_atoms_for_fit = parse_atom_indices(align_atoms) if align_atoms is not None else None
+    if original_indices:
+        if len(original_indices) != len(real_ref_nodes):
+            msg = "ensemble: filtered reference molecule has incomplete original atom index metadata"
+            raise ValueError(msg)
+        n_full = len(frames[reference_frame]["symbols"])
+        missing = [idx for idx in original_indices if idx < 0 or idx >= n_full]
+        if missing:
+            examples = ", ".join(str(i + 1) for i in missing[:5])
+            msg = f"ensemble: filtered reference selected atom(s) outside the trajectory frame: {examples}"
+            raise ValueError(msg)
+        frames = [
+            {
+                **fr,
+                "symbols": [fr["symbols"][i] for i in original_indices],
+                "positions": [fr["positions"][i] for i in original_indices],
+            }
+            for fr in frames
+        ]
+        if align_atoms_for_fit is not None:
+            original_to_filtered = {original: filtered for filtered, original in enumerate(original_indices)}
+            unknown_align = [idx for idx in align_atoms_for_fit if idx not in original_to_filtered]
+            if unknown_align:
+                examples = ", ".join(str(i + 1) for i in unknown_align[:5])
+                msg = f"ensemble: align atom(s) were excluded from the render: {examples}"
+                raise ValueError(msg)
+            align_atoms_for_fit = [original_to_filtered[idx] for idx in align_atoms_for_fit]
+
     # For ensemble overlays we ignore bond orders in the rendering.  Flatten any
     # existing bond_order values to 1 so everything is drawn as single bonds.
     for _i, _j, data in ref_graph.edges(data=True):
@@ -1967,8 +2001,7 @@ def _build_ensemble_molecule(
         frames[reference_frame]["positions"] = [list(ref_graph.nodes[n]["position"]) for n in real_nodes]
 
     if auto_align:
-        _align_0 = parse_atom_indices(align_atoms) if align_atoms is not None else None
-        aligned_positions = ensemble_align(frames, reference_frame=reference_frame, align_atoms=_align_0)
+        aligned_positions = ensemble_align(frames, reference_frame=reference_frame, align_atoms=align_atoms_for_fit)
     else:
         # --no-align: keep each frame's raw coordinates; no Kabsch step.
         aligned_positions = [np.array(fr["positions"], dtype=float) for fr in frames]
@@ -2076,10 +2109,6 @@ def _filter_molecule_atoms(
     then relabeled to contiguous 0-based node IDs because the renderer indexes
     arrays by node ID in a few hot paths.
     """
-    if mol.ensemble is not None:
-        msg = "only/exclude atom filters are not supported for ensemble molecules"
-        raise ValueError(msg)
-
     graph = copy.deepcopy(mol.graph)
     node_ids = list(graph.nodes())
     for idx, nid in enumerate(node_ids):
@@ -2106,13 +2135,38 @@ def _filter_molecule_atoms(
         raise ValueError(msg)
 
     ordered_keep = [nid for nid in node_ids if nid in keep]
+    real_position_order = [nid for nid in node_ids if graph.nodes[nid].get("symbol") != "*"]
+    position_index = {nid: idx for idx, nid in enumerate(real_position_order)}
+    kept_position_indices = [position_index[nid] for nid in ordered_keep if nid in position_index]
     filtered = graph.subgraph(ordered_keep).copy()
     filtered = nx.convert_node_labels_to_integers(filtered, ordering="default")
+    ensemble = None
+    if mol.ensemble is not None:
+        original_ensemble = mol.ensemble
+        filtered_positions = original_ensemble.positions[:, kept_position_indices, :].copy()
+        conformer_graphs = None
+        if original_ensemble.conformer_graphs is not None:
+            conformer_graphs = []
+            for cg in original_ensemble.conformer_graphs:
+                cg_copy = copy.deepcopy(cg)
+                for idx, nid in enumerate(cg_copy.nodes()):
+                    cg_copy.nodes[nid].setdefault(_ORIGINAL_INDEX_ATTR, idx)
+                cg_keep = [nid for nid in ordered_keep if nid in cg_copy.nodes()]
+                fg = cg_copy.subgraph(cg_keep).copy()
+                conformer_graphs.append(nx.convert_node_labels_to_integers(fg, ordering="default"))
+        ensemble = EnsembleFrames(
+            positions=filtered_positions,
+            colors=list(original_ensemble.colors),
+            opacities=list(original_ensemble.opacities),
+            conformer_graphs=conformer_graphs,
+            reference_idx=original_ensemble.reference_idx,
+        )
     return Molecule(
         graph=filtered,
         cube_data=mol.cube_data,
         cell_data=copy.deepcopy(mol.cell_data) if mol.cell_data is not None else None,
         oriented=mol.oriented,
+        ensemble=ensemble,
     )
 
 
