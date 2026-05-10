@@ -144,6 +144,7 @@ def render_vibration_gif(
     multiplicity: int | None = None,
     mode: int = 0,
     ts_frame: int = 0,
+    vib_frames: int | None = None,
     fps: int = 10,
     reference_graph: nx.Graph | None = None,
     detect_nci: bool = False,
@@ -164,6 +165,9 @@ def render_vibration_gif(
         msg = "Vibration GIF requires graphrc"
         raise ImportError(msg) from None
 
+    vib_kwargs = {}
+    if vib_frames is not None:
+        vib_kwargs["n_frames"] = vib_frames
     results = run_vib_analysis(
         input_file=path,
         mode=mode,
@@ -172,6 +176,7 @@ def render_vibration_gif(
         charge=charge,
         multiplicity=multiplicity,
         print_output=False,
+        **vib_kwargs,
     )
 
     ts_graph = results["graph"]["ts_graph"]
@@ -220,6 +225,7 @@ def render_vibration_rotation_gif(
     multiplicity: int | None = None,
     mode: int = 0,
     ts_frame: int = 0,
+    vib_frames: int | None = None,
     fps: int = 10,
     axis: str = "y",
     n_frames: int | None = None,
@@ -240,6 +246,9 @@ def render_vibration_rotation_gif(
         msg = "Vibration+rotation GIF requires graphrc"
         raise ImportError(msg) from None
 
+    _vib_kwargs = {}
+    if vib_frames is not None:
+        _vib_kwargs["n_frames"] = vib_frames
     results = run_vib_analysis(
         input_file=path,
         mode=mode,
@@ -248,10 +257,11 @@ def render_vibration_rotation_gif(
         charge=charge,
         multiplicity=multiplicity,
         print_output=False,
+        **_vib_kwargs,
     )
 
     ts_graph = results["graph"]["ts_graph"]
-    vib_frames = results["trajectory"]["frames"]
+    traj_frames = results["trajectory"]["frames"]
 
     # NCI: detect once on TS geometry, apply to all frames
     fixed_ncis = None
@@ -264,27 +274,27 @@ def render_vibration_rotation_gif(
     if reference_graph is not None:
         logger.debug("Applying Kabsch rotation from viewer orientation")
         rot = _compute_rotation(ts_graph, reference_graph)
-        vib_frames = _rotate_frames(vib_frames, rot)
+        traj_frames = _rotate_frames(traj_frames, rot)
 
     # PCA: compute once from first frame, apply consistently to all
     if config.auto_orient:
-        vt = pca_matrix(np.array(vib_frames[0]["positions"]))
-        vib_frames = _orient_frames(vib_frames, vt)
+        vt = pca_matrix(np.array(traj_frames[0]["positions"]))
+        traj_frames = _orient_frames(traj_frames, vt)
         _orient_graph(ts_graph, vt)
 
-    n_vib = len(vib_frames)
+    n_vib = len(traj_frames)
     rotations = max(1, round(n_frames / n_vib)) if n_frames is not None else 3
     total = n_vib * rotations
     if n_frames is not None and total != n_frames:
         logger.info("Rounded --rot-frames %d -> %d (%d vib x %d rotations)", n_frames, total, n_vib, rotations)
 
     # Cycle vibration frames for the full rotation
-    all_frames = [vib_frames[i % n_vib] for i in range(total)]
+    all_frames = [traj_frames[i % n_vib] for i in range(total)]
 
     axis_vec, axis_sign = _rotation_axis(axis)
 
     # Fixed viewport across all frames so every PNG has identical dimensions
-    rot_cfg = _fixed_viewport(vib_frames, config, rotation_axis=axis_vec)
+    rot_cfg = _fixed_viewport(traj_frames, config, rotation_axis=axis_vec)
     logger.info(
         "Rendering vibration+rotation GIF (%d vib x %d rot = %d frames, axis=%s)", n_vib, rotations, total, axis
     )

@@ -554,6 +554,7 @@ def main() -> None:
     gif_g.add_argument("-go", "--gif-output", default=None, help="GIF output path")
     gif_g.add_argument("--gif-fps", type=int, default=10, help="GIF frames per second (default: 10)")
     gif_g.add_argument("--rot-frames", type=int, default=120, help="Rotation frames (default: 120)")
+    gif_g.add_argument("--vib-frames", type=int, default=None, help="Vibration frames for --gif-ts (default: 20)")
     gif_g.add_argument(
         "--gif-bounce",
         type=_parse_gif_bounce,
@@ -1334,6 +1335,7 @@ def main() -> None:
                 output=gif_path,
                 gif_fps=args.gif_fps,
                 rot_frames=args.rot_frames,
+                vib_frames=args.vib_frames,
                 ts_frame=args.ts_frame,
                 overlay=args.overlay,
                 overlay_color=args.overlay_color,
