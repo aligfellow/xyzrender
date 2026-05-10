@@ -135,6 +135,15 @@ if TYPE_CHECKING:
     from xyzrender.types import DensParams, MOParams, RenderConfig
 
 
+def _copy_ts_nci_attrs(target: "nx.Graph", reference: "nx.Graph") -> None:
+    """Copy TS/NCI/bond_type edge attributes from reference onto target where edges exist."""
+    for u, v, d in reference.edges(data=True):
+        if target.has_edge(u, v):
+            for attr in ("TS", "NCI", "bond_type"):
+                if attr in d:
+                    target[u][v][attr] = d[attr]
+
+
 def render_vibration_gif(
     path: str,
     config: RenderConfig,
@@ -485,11 +494,18 @@ def render_trajectory_gif(
     detect_nci: bool = False,
     axis: str | None = None,
     kekule: bool = False,
+    per_frame_bonds: bool = False,
+    frame_graphs: "list[nx.Graph] | None" = None,
 ) -> None:
     """Render optimization/trajectory path as an animated GIF.
 
     Builds the molecular graph once from the last frame (optimized geometry)
     to get correct bond orders, then updates positions per frame.
+    If ``per_frame_bonds`` is True, builds a fresh graph for every frame so
+    that changing connectivity (e.g. NEB-TS MEPs) is shown correctly.
+    If ``frame_graphs`` is provided, those graphs are used directly as the
+    per-frame topology (advanced override; mutually exclusive with
+    ``per_frame_bonds``).
     If ``reference_graph`` is provided, all frames are rotated to match.
     If ``detect_nci`` is True, NCI interactions are re-detected per frame
     using xyzgraph's NCIAnalyzer (topology built once, geometry per frame).
@@ -498,18 +514,36 @@ def render_trajectory_gif(
     """
     from xyzgraph import build_graph
 
-    # Build graph from last frame (optimized geometry → correct bond orders)
-    last = frames[-1]
-    last_atoms = list(zip(last["symbols"], [tuple(p) for p in last["positions"]], strict=True))
-    graph = build_graph(last_atoms, charge=charge, multiplicity=multiplicity, kekule=kekule)
+    if per_frame_bonds and frame_graphs is not None:
+        msg = "per_frame_bonds and frame_graphs are mutually exclusive"
+        raise ValueError(msg)
 
-    # Copy TS/NCI edge attributes from reference graph
-    if reference_graph is not None:
-        for i, j, d in reference_graph.edges(data=True):
-            if graph.has_edge(i, j):
-                for attr in ("TS", "NCI", "bond_type"):
-                    if attr in d:
-                        graph[i][j][attr] = d[attr]
+    if (per_frame_bonds or frame_graphs is not None) and detect_nci:
+        msg = "per_frame_bonds / frame_graphs are not compatible with detect_nci=True"
+        raise ValueError(msg)
+
+    if per_frame_bonds:
+        # Build one graph per frame so changing connectivity is shown correctly.
+        frame_graphs = []
+        for i, frame in enumerate(frames):
+            atoms = list(zip(frame["symbols"], [tuple(p) for p in frame["positions"]], strict=True))
+            g = build_graph(atoms, charge=charge, multiplicity=multiplicity, kekule=kekule)
+            if reference_graph is not None:
+                _copy_ts_nci_attrs(g, reference_graph)
+            frame_graphs.append(g)
+            logger.debug("Per-frame graph %d/%d: %d bonds", i + 1, len(frames), g.number_of_edges())
+
+    if frame_graphs is not None:
+        # Use last frame's graph as the topology anchor for Kabsch alignment.
+        graph = frame_graphs[-1]
+    else:
+        # Build graph from last frame (optimized geometry → correct bond orders)
+        last = frames[-1]
+        last_atoms = list(zip(last["symbols"], [tuple(p) for p in last["positions"]], strict=True))
+        graph = build_graph(last_atoms, charge=charge, multiplicity=multiplicity, kekule=kekule)
+
+        if reference_graph is not None:
+            _copy_ts_nci_attrs(graph, reference_graph)
 
     # Build NCI analyzer once from topology, detect per frame later
     nci_analyzer = None
@@ -543,7 +577,13 @@ def render_trajectory_gif(
 
     logger.info("Rendering trajectory GIF (%d frames%s)", len(frames), f", axis={axis}" if axis else "")
     pngs = _render_frames(
-        graph, frames, config, nci_analyzer=nci_analyzer, rotation_axis=axis_vec, rotation_sign=axis_sign
+        graph,
+        frames,
+        config,
+        nci_analyzer=nci_analyzer,
+        rotation_axis=axis_vec,
+        rotation_sign=axis_sign,
+        frame_graphs=frame_graphs,
     )
     _stitch_gif(pngs, output, fps)
     logger.info("Wrote %s", output)
@@ -822,6 +862,7 @@ def _render_traj_frame(
     step: float,
     rf_vec_origins: np.ndarray,
     rf_vec_dirs: np.ndarray,
+    frame_graphs: "list[nx.Graph] | None" = None,
 ) -> tuple[int, bytes]:
     """Worker: render one trajectory/vibration frame to PNG."""
     if nci_analyzer is not None or fixed_ncis is not None:
@@ -830,6 +871,8 @@ def _render_traj_frame(
         from xyzrender.utils import apply_axis_angle_rotation
 
     idx, frame = idx_frame
+    # Use per-frame graph when available (per_frame_bonds mode), otherwise shared graph.
+    graph = frame_graphs[idx] if frame_graphs is not None else graph
     positions = frame["positions"]
     for i, (x, y, z) in enumerate(positions):
         graph.nodes[i]["position"] = (float(x), float(y), float(z))
@@ -876,6 +919,7 @@ def _render_frames(
     rotation_axis: np.ndarray | None = None,
     rotation_sign: float = 1.0,
     rotation_degrees: float = 360.0,
+    frame_graphs: "list[nx.Graph] | None" = None,
 ) -> list[bytes]:
     """Render each trajectory frame to PNG, keeping graph topology fixed.
 
@@ -885,6 +929,8 @@ def _render_frames(
     (centroids recomputed from current atom positions each frame).
     If *rotation_axis* is provided, each frame is incrementally rotated
     around that axis over *rotation_degrees* (default 360°).
+    If *frame_graphs* is provided, each frame uses its own pre-built graph
+    instead of the shared *graph* (used for per_frame_bonds mode).
     """
     total = len(frames)
     step = rotation_degrees / total if rotation_axis is not None else 0
@@ -909,6 +955,7 @@ def _render_frames(
         step=step,
         rf_vec_origins=_rf_vec_origins,
         rf_vec_dirs=_rf_vec_dirs,
+        frame_graphs=frame_graphs,
     )
     return _parallel_render(worker, enumerate(frames), total)
 

@@ -1246,6 +1246,8 @@ def render_gif(
     opacity: float | None = None,
     # --- Orientation reference (gif_ts / gif_trj: graph after orient()) ---
     reference_graph: "nx.Graph | None" = None,
+    # --- Per-frame bond detection (gif_trj only) ---
+    per_frame_bonds: bool = False,
     # --- NCI detection (gif_ts / gif_trj / gif_rot) ---
     detect_nci: bool = False,
     # --- Vector arrows (gif_rot only) ---
@@ -1643,6 +1645,7 @@ def render_gif(
             reference_graph=_trj_ref,
             detect_nci=detect_nci,
             axis=gif_rot,
+            per_frame_bonds=per_frame_bonds,
         )
 
     elif gif_diffuse:

@@ -544,6 +544,11 @@ def main() -> None:
     gif_g.add_argument("--gif-ts", action="store_true", help="TS vibration GIF (via graphRC)")
     gif_g.add_argument("--gif-trj", action="store_true", help="Trajectory/optimization GIF (multi-frame input)")
     gif_g.add_argument(
+        "--gif-trj-per-frame-bonds",
+        action="store_true",
+        help="Re-detect bonds for every frame (use for NEB-TS MEPs where connectivity changes)",
+    )
+    gif_g.add_argument(
         "--gif-rot",
         nargs="?",
         const="y",
