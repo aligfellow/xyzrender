@@ -1290,7 +1290,7 @@ def render_gif(
     # --- Orientation reference (gif_ts / gif_trj: graph after orient()) ---
     reference_graph: "nx.Graph | None" = None,
     # --- Per-frame bond detection (gif_trj only) ---
-    per_frame_bonds: bool = False,
+    trj_bonds: bool = False,
     # --- NCI detection (gif_ts / gif_trj / gif_rot) ---
     detect_nci: bool = False,
     # --- Vector arrows (gif_rot only) ---
@@ -1630,7 +1630,7 @@ def render_gif(
             fps=gif_fps,
             reference_graph=reference_graph if reference_graph is not None else ref_graph,
             axis=gif_rot,
-            per_frame_bonds=per_frame_bonds,
+            trj_bonds=trj_bonds,
             detect_nci=detect_nci,
         )
         logger.info("GIF written to %s", gif_path)

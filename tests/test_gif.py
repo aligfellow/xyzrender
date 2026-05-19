@@ -82,6 +82,76 @@ def test_render_rotation_gif(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# trj_bonds — per-frame bond detection
+# ---------------------------------------------------------------------------
+
+
+def test_orient_frames_preserves_extra_keys():
+    """_orient_frames must keep graph / bond_opacities / hull_opacity_factor."""
+    from xyzrender.gif import _orient_frames
+
+    frame = {
+        "symbols": ["C", "H"],
+        "positions": [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
+        "graph": object(),
+        "bond_opacities": {(0, 1): 0.5},
+        "hull_opacity_factor": 0.8,
+    }
+    out = _orient_frames([frame], np.eye(3))
+    assert out[0]["graph"] is frame["graph"]
+    assert out[0]["bond_opacities"] == {(0, 1): 0.5}
+    assert out[0]["hull_opacity_factor"] == 0.8
+
+
+def test_rotate_frames_preserves_extra_keys():
+    """_rotate_frames must keep graph / bond_opacities / hull_opacity_factor."""
+    from xyzrender.gif import _rotate_frames
+
+    frame = {
+        "symbols": ["C", "H"],
+        "positions": [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
+        "graph": object(),
+        "bond_opacities": {(0, 1): 0.5},
+        "hull_opacity_factor": 0.8,
+    }
+    out = _rotate_frames([frame], np.eye(3))
+    assert out[0]["graph"] is frame["graph"]
+    assert out[0]["bond_opacities"] == {(0, 1): 0.5}
+    assert out[0]["hull_opacity_factor"] == 0.8
+
+
+def test_render_trajectory_gif_trj_bonds(tmp_path):
+    """trj_bonds=True must rebuild graphs per frame, and those graphs must
+    survive the orient/rotate transforms and reach the worker."""
+    from unittest.mock import patch
+
+    from xyzrender.gif import render_trajectory_gif
+    from xyzrender.readers import load_trajectory_frames
+    from xyzrender.types import RenderConfig
+
+    frames = load_trajectory_frames(STRUCTURES / "sn2.v000.xyz")
+    captured: dict = {}
+
+    def _spy(graph, frames, config, **_):
+        captured["frames"] = frames
+        return [b""] * len(frames)
+
+    with (
+        patch("xyzrender.gif._render_frames", side_effect=_spy),
+        patch("xyzrender.gif._stitch_gif"),
+    ):
+        render_trajectory_gif(frames=frames, config=RenderConfig(), output=str(tmp_path / "x.gif"), trj_bonds=True)
+
+    seen = captured["frames"]
+    assert all("graph" in f for f in seen), "trj_bonds frames must each carry a 'graph'"
+    bond_counts = [f["graph"].number_of_edges() for f in seen]
+    # sn2.v000.xyz: bond forms across the SN2 reaction so counts must vary
+    assert len(set(bond_counts)) > 1, f"expected varying per-frame bond counts, got {bond_counts}"
+    # The graphs must be distinct objects (not all aliased to the last-frame graph)
+    assert len({id(f["graph"]) for f in seen}) == len(seen)
+
+
+# ---------------------------------------------------------------------------
 # render_gif API — rotation GIF via public API
 # ---------------------------------------------------------------------------
 

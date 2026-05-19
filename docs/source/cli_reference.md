@@ -150,6 +150,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--gif-rot [AXIS]` | Rotation GIF (default axis: `y`). Combinable with `--gif-ts` |
 | `--gif-ts` | TS vibration GIF (via graphRC) |
 | `--gif-trj` | Trajectory / optimisation GIF (multi-frame input) |
+| `--trj-bonds` | Re-detect bonds for every frame (NEB-TS MEPs and other trajectories with changing connectivity) |
 | `-go`, `--gif-output` | GIF output path (default: `{basename}.gif`) |
 | `--gif-fps` | Frames per second (default: 10) |
 | `--rot-frames` | Rotation frame count (default: 120) |

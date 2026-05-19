@@ -107,6 +107,7 @@ xyzrender "$DIR/caffeine.xyz" -o "$IMG/caffeine_xy.svg" --gif-rot xy -go "$IMG/c
 xyzrender "$DIR/caffeine.xyz" -o "$IMG/caffeine_bounce_50.svg" --gif-bounce 50 -go "$IMG/caffeine_bounce_50.gif"
 xyzrender "$DIR/bimp.out" -o "$IMG/bimp_rot.svg" --gif-rot --gif-ts --vdw 84-169 -go "$IMG/bimp.gif"
 xyzrender "$DIR/bimp.out" -o "$IMG/bimp_trj.svg" --gif-trj --ts -go "$IMG/bimp_trj.gif"
+xyzrender "$DIR/sn2.v000.xyz" --gif-trj --trj-bonds -go "$IMG/sn2_trj_bonds.gif"
 xyzrender "$DIR/mn-h2.log" -o "$IMG/mn-h2_gif.svg" --gif-ts -go "$IMG/mn-h2.gif"
 xyzrender "$DIR/bimp.out" -o "$IMG/bimp_ts_nci.svg" --ts --gif-trj --vdw 84-169 --nci -go "$IMG/bimp_nci_trj.gif"
 xyzrender "$DIR/bimp.out" -o "$IMG/bimp_ts_nci.svg" --gif-ts --gif-rot --vdw 84-169 --nci -go "$IMG/bimp_nci_ts.gif"
