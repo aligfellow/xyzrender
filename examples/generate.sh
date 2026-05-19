@@ -161,7 +161,7 @@ xyzrender "$DIR/caffeine.xyz" --atom-opacity "1-6" 0.5 --radius-scale "4-8" 1.5 
 
 echo "=== Ensemble ==="
 xyzrender "$DIR/triphenylbenzol.xyz" --ensemble -o "$IMG/triphenylbenzol_ensemble.svg" --gif-rot -go "$IMG/triphenylbenzol_ensemble.gif"
-xyzrender "$DIR/triphenylbenzol.xyz" --ensemble --align 21,22,23 --ensemble-color viridis --opacity 0.4 -o "$IMG/triphenylbenzol_ensemble_custom.svg"
+xyzrender "$DIR/triphenylbenzol.xyz" --ensemble --align-atoms 21,22,23 --ensemble-color viridis --opacity 0.4 -o "$IMG/triphenylbenzol_ensemble_custom.svg"
 
 echo "=== Convex hull ==="
 xyzrender "$DIR/benzene.xyz" --hy --hull 1-6 -o "$IMG/benzene_ring_hull.svg" 

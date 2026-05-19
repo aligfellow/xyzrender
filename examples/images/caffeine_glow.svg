@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 730" width="800" height="730">
   <rect width="100%" height="100%" fill="#ffffff"/>
   <defs>
-    <filter id="x0glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="10.00"/></filter>
+    <filter id="x0glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="4.00"/></filter>
   </defs>
   <defs>
     <radialGradient id="x0g0" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6c5056"/></radialGradient>

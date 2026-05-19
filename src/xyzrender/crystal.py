@@ -122,28 +122,33 @@ def _find_bonded_pairs(
     all_ci: list[np.ndarray] = []
     all_cj: list[np.ndarray] = []
 
-    a_indices = np.arange(na, dtype=np.intp)
+    offsets = np.array(list(_product((-1, 0, 1), repeat=3)))  # Shape (27, 3)
+    shifted_coords = cidx_a[None, :, :] + offsets[:, None, :]
 
-    for dx in (-1, 0, 1):
-        for dy in (-1, 0, 1):
-            for dz in (-1, 0, 1):
-                shifted_keys = (cidx_a[:, 0] + dx) * _p1 ^ (cidx_a[:, 1] + dy) * _p2 ^ (cidx_a[:, 2] + dz)
-                # For each unique shifted key, find matching B cells
-                uniq_a_keys, inv = np.unique(shifted_keys, return_inverse=True)
-                for k_idx, akey in enumerate(uniq_a_keys.tolist()):
-                    s = cell_start.get(akey)
-                    if s is None:
-                        continue
-                    c = cell_count[akey]
-                    # A atoms with this shifted key
-                    a_mask = inv == k_idx
-                    a_in_cell = a_indices[a_mask]
-                    # B atoms in matching cell
-                    b_in_cell = b_order[s : s + c]
-                    # Cross product: each A atom paired with each B atom
-                    na_c, nb_c = len(a_in_cell), len(b_in_cell)
-                    all_ci.append(np.repeat(a_in_cell, nb_c))
-                    all_cj.append(np.tile(b_in_cell, na_c))
+    flat_keys = ((shifted_coords[:, :, 0] * _p1) ^ (shifted_coords[:, :, 1] * _p2) ^ (shifted_coords[:, :, 2])).ravel()
+
+    sorted_keys = np.array(sorted(cell_start.keys()))
+    starts = np.array([cell_start[k] for k in sorted_keys])
+    counts = np.array([cell_count[k] for k in sorted_keys])
+
+    idx = np.searchsorted(sorted_keys, flat_keys)
+    in_range = idx < len(sorted_keys)
+    mask = np.zeros(len(flat_keys), dtype=bool)
+    mask[in_range] = sorted_keys[idx[in_range]] == flat_keys[in_range]
+
+    atom_a_indices = np.tile(np.arange(len(cidx_a)), 27)
+    valid_a_idx = atom_a_indices[mask]
+    valid_starts = starts[idx[mask]]
+    valid_counts = counts[idx[mask]]
+
+    repeats = valid_counts
+    res_i = np.repeat(valid_a_idx, repeats)
+
+    offsets_in_cell = np.arange(repeats.sum()) - np.repeat(repeats.cumsum() - repeats, repeats)
+    res_j = b_order[np.repeat(valid_starts, repeats) + offsets_in_cell]
+
+    all_ci.append(res_i)
+    all_cj.append(res_j)
 
     if not all_ci:
         return []
@@ -273,6 +278,10 @@ def build_supercell(graph: "nx.Graph", cell_data: CellData, repeats: tuple[int, 
         Supercell graph.  Graph-level metadata (including ``lattice``) is
         copied from the input — the lattice remains the **unit-cell** lattice
         so that the cell-box overlay shows the original unit cell.
+
+    Node IDs are ``replica_index * n_base + base_idx`` (replica_index =
+    ``ii * n * l + jj * l + kk``), and nodes are inserted in ascending ID
+    order so the first ``n_base`` are the unit cell.
     """
     import networkx as nx
 
@@ -281,76 +290,106 @@ def build_supercell(graph: "nx.Graph", cell_data: CellData, repeats: tuple[int, 
         raise ValueError(f"supercell repeats must be >= 1, got {repeats!r}")
 
     if any(graph.nodes[nid].get("image", False) for nid in graph.nodes()):
-        raise ValueError("build_supercell: graph already contains image atoms (apply before add_crystal_images)")
+        raise ValueError("build_supercell: graph already contains image atoms")
 
-    a = np.array(cell_data.lattice[0], dtype=float)
-    b = np.array(cell_data.lattice[1], dtype=float)
-    c = np.array(cell_data.lattice[2], dtype=float)
-
-    base_nodes = list(graph.nodes())
-    n_base = len(base_nodes)
-
+    n_base = graph.number_of_nodes()
     if n_base == 0:
         empty = nx.Graph()
         empty.graph.update(dict(graph.graph))
         return empty
 
-    nid_to_idx = {nid: idx for idx, nid in enumerate(base_nodes)}
+    # -- 1. Vectorized Coordinate and Offset Generation --
+    ii, jj, kk = np.meshgrid(np.arange(m), np.arange(n), np.arange(l_rep), indexing="ij")
+    replica_indices = np.stack([ii.ravel(), jj.ravel(), kk.ravel()], axis=-1)
 
-    # -- 1. Replicate nodes ------------------------------------------------
-    # Deterministic mapping: replica (ii,jj,kk) atom idx →
-    #   (ii * n * l_rep + jj * l_rep + kk) * n_base + idx
+    lattice = np.array(cell_data.lattice, dtype=float)
+    offsets = replica_indices @ lattice
+
+    num_replicas = len(replica_indices)
+    replica_ids = replica_indices[:, 0] * n * l_rep + replica_indices[:, 1] * l_rep + replica_indices[:, 2]
+
+    # -- 2. Replicate Nodes (Vectorized) --
+    base_nodes = list(graph.nodes(data=True))
+    base_pos = np.array([attrs["position"] for _, attrs in base_nodes], dtype=float)
+
+    # Broadcast positions and global IDs across all replicas
+    # shape logic: (n_base, 1, 3) + (1, num_replicas, 3) -> flattened to (n_base * num_replicas, 3)
+    all_positions = (base_pos[:, None, :] + offsets[None, :, :]).reshape(-1, 3)
+    global_ids = (np.arange(n_base)[:, None] + replica_ids[None, :] * n_base).ravel()
+
+    clean_attrs = [
+        {k: v for k, v in attrs.items() if k not in ("image", "source", "position")} for _, attrs in base_nodes
+    ]
+
+    # Sort by id so list(graph.nodes())[:n_base] is the unit cell —
+    # _add_crystal_images_supercell depends on this.
+    new_nodes = sorted(
+        (
+            (int(gid), {**clean_attrs[i // num_replicas], "position": tuple(pos)})
+            for i, (gid, pos) in enumerate(zip(global_ids, all_positions, strict=True))
+        ),
+        key=lambda nt: nt[0],
+    )
+
     new_g = nx.Graph()
-    for ii, jj, kk in _product(range(m), range(n), range(l_rep)):
-        offset = ii * a + jj * b + kk * c
-        base = (ii * n * l_rep + jj * l_rep + kk) * n_base
-        for idx, nid in enumerate(base_nodes):
-            attrs = dict(graph.nodes[nid])
-            pos = np.array(attrs["position"], dtype=float) + offset
-            attrs["position"] = (float(pos[0]), float(pos[1]), float(pos[2]))
-            attrs.pop("image", None)
-            attrs.pop("source", None)
-            new_g.add_node(base + idx, **attrs)
+    new_g.add_nodes_from(new_nodes)
 
-    # -- 2. Copy intra-replica edges (preserves bond_order etc.) -----------
-    edges = [(nid_to_idx[u], nid_to_idx[v], dict(d)) for u, v, d in graph.edges(data=True)]
-    for ii, jj, kk in _product(range(m), range(n), range(l_rep)):
-        base = (ii * n * l_rep + jj * l_rep + kk) * n_base
-        for ui, vi, data in edges:
-            new_g.add_edge(base + ui, base + vi, **data)
+    # -- 3. Replicate Intra-replica Edges (Vectorized) --
+    nid_to_idx = {nid: idx for idx, (nid, _) in enumerate(base_nodes)}
+    base_edges = [(nid_to_idx[u], nid_to_idx[v], d) for u, v, d in graph.edges(data=True)]
 
-    # -- 3. Stitch cross-boundary bonds ------------------------------------
-    # Precompute which unit-cell atom pairs bond across each shift direction
-    # ONCE on the small base cell, then replay for all adjacent replica pairs.
-    base_syms = [graph.nodes[nid]["symbol"] for nid in base_nodes]
-    base_pos = np.array([graph.nodes[nid]["position"] for nid in base_nodes], dtype=float)
+    new_edges = []
+    if base_edges:
+        u_idxs, v_idxs, edge_datas = zip(*base_edges, strict=True)
+        u_arr = np.array(u_idxs)[:, None]
+        v_arr = np.array(v_idxs)[:, None]
+
+        # Broadcast edge offsets over replicas
+        u_shifted = (replica_ids[None, :] * n_base + u_arr).ravel()
+        v_shifted = (replica_ids[None, :] * n_base + v_arr).ravel()
+
+        repeated_data = [d for d in edge_datas for _ in range(num_replicas)]
+        new_edges.extend(zip(u_shifted.tolist(), v_shifted.tolist(), repeated_data, strict=True))
+
+    # -- 4. Vectorized Cross-boundary Stitching --
+    base_syms = [d["symbol"] for _, d in base_nodes]
     elem_thresh, eidx, max_cutoff = _build_elem_thresh(base_syms)
 
-    # Compute UC cross-boundary pairs for 13 forward shifts (each pair checked once)
-    forward_shifts = [(dx, dy, dz) for dx, dy, dz in _product((-1, 0, 1), repeat=3) if (dx, dy, dz) > (0, 0, 0)]
-    uc_pairs: dict[tuple[int, int, int], list[tuple[int, int]]] = {}
+    forward_shifts = [s for s in _product((-1, 0, 1), repeat=3) if s > (0, 0, 0)]
+
     for dx, dy, dz in forward_shifts:
-        offset = dx * a + dy * b + dz * c
-        pairs = _find_bonded_pairs(base_pos + offset, base_pos, eidx, eidx, elem_thresh, max_cutoff)
+        shift_vec = dx * lattice[0] + dy * lattice[1] + dz * lattice[2]
+        pairs = _find_bonded_pairs(base_pos + shift_vec, base_pos, eidx, eidx, elem_thresh, max_cutoff)
+
         if pairs:
-            uc_pairs[(dx, dy, dz)] = pairs
+            mask = (
+                (replica_indices[:, 0] + dx >= 0)
+                & (replica_indices[:, 0] + dx < m)
+                & (replica_indices[:, 1] + dy >= 0)
+                & (replica_indices[:, 1] + dy < n)
+                & (replica_indices[:, 2] + dz >= 0)
+                & (replica_indices[:, 2] + dz < l_rep)
+            )
 
-    # Replay known pairs for all adjacent replica pairs — no distance computation.
-    # UC pairs (u, v) mean: atom u in the SHIFTED cell bonds to atom v in the
-    # ORIGINAL cell.  The shifted cell corresponds to replica (ni,nj,nk) and
-    # the original to (ii,jj,kk).
-    for (dx, dy, dz), pairs in uc_pairs.items():
-        for ii, jj, kk in _product(range(m), range(n), range(l_rep)):
-            ni, nj, nk = ii + dx, jj + dy, kk + dz
-            if not (0 <= ni < m and 0 <= nj < n and 0 <= nk < l_rep):
-                continue
-            orig_base = (ii * n * l_rep + jj * l_rep + kk) * n_base
-            shifted_base = (ni * n * l_rep + nj * l_rep + nk) * n_base
-            for u, v in pairs:
-                new_g.add_edge(shifted_base + u, orig_base + v, bond_order=1.0)
+            valid_orig_ids = replica_ids[mask]
+            valid_shifted_ids = (
+                (replica_indices[mask, 0] + dx) * n * l_rep
+                + (replica_indices[mask, 1] + dy) * l_rep
+                + (replica_indices[mask, 2] + dz)
+            )
 
-    # -- 4. Graph-level metadata (lattice stays as unit cell for cell box) --
+            # Broadcast the valid ID multipliers across all discovered pairs simultaneously
+            u_arr, v_arr = np.array(pairs).T
+            u_global = (valid_shifted_ids[:, None] * n_base + u_arr[None, :]).ravel()
+            v_global = (valid_orig_ids[:, None] * n_base + v_arr[None, :]).ravel()
+
+            new_edges.extend(
+                zip(u_global.tolist(), v_global.tolist(), [{"bond_order": 1.0}] * len(u_global), strict=True)
+            )
+
+    new_g.add_edges_from(new_edges)
     new_g.graph.update(dict(graph.graph))
+
     return new_g
 
 
@@ -468,6 +507,9 @@ def _add_crystal_images_supercell(
         ii' = ii + dx_sc*m - di   (and 0 <= ii' < m)
         jj' = jj + dy_sc*n - dj   (and 0 <= jj' < n)
         kk' = kk + dz_sc*l - dk   (and 0 <= kk' < l)
+
+    Assumes ``list(graph.nodes())`` is in ascending-ID order so the first
+    ``n_base`` entries are the unit cell — see ``build_supercell``.
     """
     sc_lattice = crystal_data.lattice
     uc_lattice = unit_cell_data.lattice

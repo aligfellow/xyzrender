@@ -102,19 +102,21 @@ def _parse_spec(tokens: list[str], graph) -> list[Annotation]:
     if not tokens:
         return []
 
-    # First token must be an integer (1-indexed)
-    try:
-        raw_i0 = int(tokens[0])
-    except ValueError as err:
-        raise ValueError(f"Expected integer atom index, got {tokens[0]!r}") from err
-
     n = len(tokens)
     t_last = tokens[-1].lower()
 
+    try:
+        raw_indices = [int(t) for t in tokens[:-1]]
+    except ValueError as err:
+        raise ValueError(f"Expected integer atom indices before command/label, got: {' '.join(tokens[:-1])!r}") from err
+
+    atoms = [_check_atom(raw_i, graph) for raw_i in raw_indices]
+
     if n == 2:
+        i0 = atoms[0]
+
         if t_last == "d":
             # 1 d → distances to all bonded neighbours
-            i0 = _check_atom(raw_i0, graph)
             result = []
             for j in sorted(graph.neighbors(i0)):
                 d = bond_length(_pos(graph, i0), _pos(graph, j))
@@ -123,7 +125,6 @@ def _parse_spec(tokens: list[str], graph) -> list[Annotation]:
 
         elif t_last == "a":
             # 1 a → all angles where atom 1 is the center
-            i0 = _check_atom(raw_i0, graph)
             nbrs = list(graph.neighbors(i0))
             result = []
             for a_idx, ni in enumerate(nbrs):
@@ -133,72 +134,46 @@ def _parse_spec(tokens: list[str], graph) -> list[Annotation]:
             return result
 
         else:
-            # 1 value → custom atom label
-            i0 = _check_atom(raw_i0, graph)
-            return [AtomValueLabel(i0, tokens[1])]
+            # 1 value → custom atom label (preserve original case)
+            return [AtomValueLabel(i0, tokens[-1])]
 
     if n == 3:
-        try:
-            raw_i1 = int(tokens[1])
-        except ValueError as err:
-            raise ValueError(f"Expected integer atom index, got {tokens[1]!r}") from err
+        i0, i1 = atoms
+
+        if t_last == "a":
+            raise ValueError(
+                f"Angle requires 3 atom indices before 'a' (got 2). "
+                f"Did you mean: {raw_indices[0]} <center> {raw_indices[1]} a ?"
+            )
+
+        if not graph.has_edge(i0, i1):
+            _warn_no_bond(i0, i1)
 
         if t_last == "d":
             # 1 2 d → distance label on bond/contact 1-2
-            i0 = _check_atom(raw_i0, graph)
-            i1 = _check_atom(raw_i1, graph)
-            if not graph.has_edge(i0, i1):
-                _warn_no_bond(i0, i1)
             d = bond_length(_pos(graph, i0), _pos(graph, i1))
             return [BondLabel(i0, i1, f"{_fmt(d, '.2f')}Å")]
-
-        elif t_last == "a":
-            raise ValueError(
-                f"Angle requires 3 atom indices before 'a' (got 2). Did you mean: {raw_i0} <center> {raw_i1} a ?"
-            )
-
         else:
-            # 1 2 value → custom bond label
-            i0 = _check_atom(raw_i0, graph)
-            i1 = _check_atom(raw_i1, graph)
-            if not graph.has_edge(i0, i1):
-                _warn_no_bond(i0, i1)
-            return [BondLabel(i0, i1, tokens[2])]
+            # 1 2 value → custom bond label (preserve original case)
+            return [BondLabel(i0, i1, tokens[-1])]
 
     if n == 4:
-        try:
-            raw_i1, raw_i2 = int(tokens[1]), int(tokens[2])
-        except ValueError as err:
-            raise ValueError("Expected 3 integer atom indices for angle spec") from err
-
         if t_last == "a":
             # 1 2 3 a → angle label, 2 is middle
-            i0 = _check_atom(raw_i0, graph)
-            i1 = _check_atom(raw_i1, graph)
-            i2 = _check_atom(raw_i2, graph)
+            i0, i1, i2 = atoms
             theta = bond_angle(_pos(graph, i0), _pos(graph, i1), _pos(graph, i2))
             return [AngleLabel(i0, i1, i2, f"{_fmt(theta, '.1f')}°")]
 
-        else:
-            raise ValueError(f"4-token spec must end with 'a' (angle). Got: {' '.join(tokens)!r}")
+        raise ValueError(f"4-token spec must end with 'a' (angle). Got: {' '.join(tokens)!r}")
 
     if n == 5:
-        try:
-            raw_i1, raw_i2, raw_i3 = int(tokens[1]), int(tokens[2]), int(tokens[3])
-        except ValueError as err:
-            raise ValueError("Expected 4 integer atom indices for dihedral spec") from err
-
         if t_last in ("t", "tor", "dih"):
             # 1 2 3 4 t → dihedral label
-            i0 = _check_atom(raw_i0, graph)
-            i1 = _check_atom(raw_i1, graph)
-            i2 = _check_atom(raw_i2, graph)
-            i3 = _check_atom(raw_i3, graph)
+            i0, i1, i2, i3 = atoms
             phi = dihedral_angle(_pos(graph, i0), _pos(graph, i1), _pos(graph, i2), _pos(graph, i3))
             return [DihedralLabel(i0, i1, i2, i3, f"{_fmt(phi, '.1f')}°")]
 
-        else:
-            raise ValueError(f"5-token spec must end with 't'/'tor'/'dih'. Got: {' '.join(tokens)!r}")
+        raise ValueError(f"5-token spec must end with 't'/'tor'/'dih'. Got: {' '.join(tokens)!r}")
 
     raise ValueError(f"Cannot parse annotation spec: {' '.join(tokens)!r}")
 

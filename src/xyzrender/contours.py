@@ -547,18 +547,19 @@ def _find_iso_crossing(field_1d: np.ndarray, isovalue: float, from_start: bool) 
     Returns a fractional index into *field_1d*.
     """
     n = len(field_1d)
-    if from_start:
-        for i in range(n - 1):
-            if field_1d[i] < isovalue <= field_1d[i + 1]:
-                t = (isovalue - field_1d[i]) / max(field_1d[i + 1] - field_1d[i], 1e-12)
-                return i + t
-        return 0.0
-    else:
-        for i in range(n - 1, 0, -1):
-            if field_1d[i] < isovalue <= field_1d[i - 1]:
-                t = (isovalue - field_1d[i]) / max(field_1d[i - 1] - field_1d[i], 1e-12)
-                return i - t
-        return float(n - 1)
+
+    # Define traversal parameters based on direction
+    range_args = (0, n - 1, 1) if from_start else (n - 1, 0, -1)
+    step = range_args[2]
+
+    for i in range(*range_args):
+        v_curr, v_next = field_1d[i], field_1d[i + step]
+
+        if v_curr < isovalue <= v_next:
+            t = (isovalue - v_curr) / max(v_next - v_curr, 1e-12)
+            return i + t * step
+
+    return float(range_args[0])
 
 
 def _bilinear_sample(field: np.ndarray, rows: np.ndarray, cols: np.ndarray) -> np.ndarray:
@@ -599,7 +600,6 @@ def _warped_scan_lines(
 
     Returns open polylines as ``(M, 2)`` arrays in ``[row, col]`` coords.
     """
-    nr, nc = work.shape
     mask = work >= isovalue
     if not mask.any():
         return []
@@ -608,93 +608,73 @@ def _warped_scan_lines(
     if peak <= isovalue:
         return []
 
+    # Generalize axes:
+    collapse_axis = 1 - axis
+    active_indices = np.nonzero(mask.any(axis=collapse_axis))[0]
+
+    if len(active_indices) < 2:
+        return []
+
+    p_min, p_max = int(active_indices[0]), int(active_indices[-1])
+    span = p_max - p_min
+    positions = np.linspace(p_min, p_max, n_lines + 2, dtype=int)[1:-1]
+    line_length = work.shape[collapse_axis]
+
     lines: list[np.ndarray] = []
 
-    if axis == 0:
-        # Horizontal lines: fixed row, sweep columns, warp in row direction
-        active_rows = np.nonzero(mask.any(axis=1))[0]
-        if len(active_rows) < 2:
-            return []
-        r_min, r_max = int(active_rows[0]), int(active_rows[-1])
-        span = r_max - r_min
-        positions = np.linspace(r_min, r_max, n_lines + 2, dtype=int)[1:-1]
+    for pi in positions:
+        # Extract 1D field along the current line dynamically
+        slices = [slice(None), slice(None)]
+        slices[axis] = pi
+        line_field = work[tuple(slices)]
 
-        for ri in positions:
-            row_field = work[ri, :]
-            above = row_field >= isovalue
-            changes = np.diff(above.astype(np.int8))
-            entries = np.where(changes == 1)[0]
-            exits = np.where(changes == -1)[0] + 1
-            if above[0]:
-                entries = np.concatenate([[0], entries])
-            if above[-1]:
-                exits = np.concatenate([exits, [nc - 1]])
+        above = line_field >= isovalue
+        changes = np.diff(above.astype(np.int8))
+        entries = np.where(changes == 1)[0]
+        exits = np.where(changes == -1)[0] + 1
 
-            for ei, xi in zip(entries, exits, strict=False):
-                if xi - ei < min_segment:
-                    continue
-                c_start = _find_iso_crossing(row_field[ei : xi + 1], isovalue, from_start=True) + ei
-                c_end = _find_iso_crossing(row_field[ei : xi + 1], isovalue, from_start=False) + ei
+        if above[0]:
+            entries = np.concatenate([[0], entries])
+        if above[-1]:
+            exits = np.concatenate([exits, [line_length - 1]])
 
-                n_dense = max(xi - ei, 40)
-                cols_dense = np.linspace(c_start, c_end, n_dense)
-                rows_dense = np.full(n_dense, float(ri))
+        for ei, xi in zip(entries, exits, strict=False):
+            if xi - ei < min_segment:
+                continue
 
-                # Bilinear field sample + smooth for warp
-                f_vals = _bilinear_sample(work, rows_dense, cols_dense)
-                f_norm = np.clip((f_vals - isovalue) / (peak - isovalue), 0.0, 1.0)
-                f_smooth = _smooth_1d(f_norm)
-                f_smooth[0] = 0.0
-                f_smooth[-1] = 0.0
+            segment = line_field[ei : xi + 1]
+            v_start = _find_iso_crossing(segment, isovalue, from_start=True) + ei
+            v_end = _find_iso_crossing(segment, isovalue, from_start=False) + ei
 
-                displacement = f_smooth * warp * span
-                warped_rows = ri + displacement
+            n_dense = max(xi - ei, 40)
+            dense_sweep = np.linspace(v_start, v_end, n_dense)
+            dense_fixed = np.full(n_dense, float(pi))
 
-                idx = np.linspace(0, n_dense - 1, n_pts, dtype=int)
-                pts = np.column_stack([warped_rows[idx], cols_dense[idx]])
-                lines.append(pts)
-    else:
-        # Vertical lines: fixed column, sweep rows, warp in col direction
-        active_cols = np.nonzero(mask.any(axis=0))[0]
-        if len(active_cols) < 2:
-            return []
-        c_min, c_max = int(active_cols[0]), int(active_cols[-1])
-        span = c_max - c_min
-        positions = np.linspace(c_min, c_max, n_lines + 2, dtype=int)[1:-1]
+            # Assign row/col depending on orientation
+            if axis == 0:
+                rows_dense, cols_dense = dense_fixed, dense_sweep
+            else:
+                rows_dense, cols_dense = dense_sweep, dense_fixed
 
-        for ci in positions:
-            col_field = work[:, ci]
-            above = col_field >= isovalue
-            changes = np.diff(above.astype(np.int8))
-            entries = np.where(changes == 1)[0]
-            exits = np.where(changes == -1)[0] + 1
-            if above[0]:
-                entries = np.concatenate([[0], entries])
-            if above[-1]:
-                exits = np.concatenate([exits, [nr - 1]])
+            # Bilinear field sample + smooth for warp
+            f_vals = _bilinear_sample(work, rows_dense, cols_dense)
+            f_norm = np.clip((f_vals - isovalue) / (peak - isovalue), 0.0, 1.0)
+            f_smooth = _smooth_1d(f_norm)
+            f_smooth[0] = 0.0
+            f_smooth[-1] = 0.0
 
-            for ei, xi in zip(entries, exits, strict=False):
-                if xi - ei < min_segment:
-                    continue
-                r_start = _find_iso_crossing(col_field[ei : xi + 1], isovalue, from_start=True) + ei
-                r_end = _find_iso_crossing(col_field[ei : xi + 1], isovalue, from_start=False) + ei
+            displacement = f_smooth * warp * span
+            warped_fixed = pi + displacement
 
-                n_dense = max(xi - ei, 40)
-                rows_dense = np.linspace(r_start, r_end, n_dense)
-                cols_dense = np.full(n_dense, float(ci))
+            # Apply warp to the correct dimension
+            if axis == 0:
+                warped_rows, warped_cols = warped_fixed, cols_dense
+            else:
+                warped_rows, warped_cols = rows_dense, warped_fixed
 
-                f_vals = _bilinear_sample(work, rows_dense, cols_dense)
-                f_norm = np.clip((f_vals - isovalue) / (peak - isovalue), 0.0, 1.0)
-                f_smooth = _smooth_1d(f_norm)
-                f_smooth[0] = 0.0
-                f_smooth[-1] = 0.0
-
-                displacement = f_smooth * warp * span
-                warped_cols = ci + displacement
-
-                idx = np.linspace(0, n_dense - 1, n_pts, dtype=int)
-                pts = np.column_stack([rows_dense[idx], warped_cols[idx]])
-                lines.append(pts)
+            idx = np.linspace(0, n_dense - 1, n_pts, dtype=int)
+            pts = np.column_stack([warped_rows[idx], warped_cols[idx]])
+            lines.append(pts)
 
     return lines
 
