@@ -220,6 +220,57 @@ def test_find_bonded_pairs_spatial_hash_rectangular_na_nb():
 
 
 # ---------------------------------------------------------------------------
+# build_supercell node ordering contract + ghost generation consistency
+# ---------------------------------------------------------------------------
+
+
+def test_build_supercell_node_ordering_matches_ids():
+    """Nodes must be inserted in ascending-id order so list(graph.nodes())[:n_base]
+    is the unit cell. _add_crystal_images_supercell slices that to find base positions."""
+    from xyzrender.crystal import build_supercell
+    from xyzrender.readers import load_molecule
+
+    g, _ = load_molecule(EXTXYZ_FILE)
+    lat = np.array(g.graph["lattice"], dtype=float)
+    from xyzrender.types import CellData
+
+    cd = CellData(lattice=lat)
+
+    sc = build_supercell(g, cd, (2, 2, 1))
+    nodes = list(sc.nodes())
+    assert nodes == sorted(nodes), "node insertion order must be ascending id"
+
+
+def test_add_crystal_images_supercell_matches_generic():
+    """Supercell-optimized and generic ghost paths must agree on a real crystal."""
+    from xyzrender.crystal import (
+        _add_crystal_images_generic,
+        _add_crystal_images_supercell,
+        build_supercell,
+    )
+    from xyzrender.readers import load_molecule
+    from xyzrender.types import CellData
+
+    src = EXAMPLES / "NV63_cell.xyz"
+    g, _ = load_molecule(src)
+    lat = np.array(g.graph["lattice"], dtype=float)
+    cd = CellData(lattice=lat)
+
+    repeats = (2, 2, 1)
+    sc_cell = CellData(lattice=lat * np.array(repeats)[:, None])
+
+    sc_generic = build_supercell(g, cd, repeats)
+    n_generic = _add_crystal_images_generic(sc_generic, sc_cell)
+
+    sc_opt = build_supercell(g, cd, repeats)
+    n_opt = _add_crystal_images_supercell(sc_opt, sc_cell, repeats, cd, g.number_of_nodes())
+
+    assert n_opt == n_generic, f"ghost count mismatch: optimized={n_opt}, generic={n_generic}"
+    assert sc_opt.number_of_nodes() == sc_generic.number_of_nodes()
+    assert sc_opt.number_of_edges() == sc_generic.number_of_edges()
+
+
+# ---------------------------------------------------------------------------
 # Renderer tests
 # ---------------------------------------------------------------------------
 

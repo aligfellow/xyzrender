@@ -278,6 +278,10 @@ def build_supercell(graph: "nx.Graph", cell_data: CellData, repeats: tuple[int, 
         Supercell graph.  Graph-level metadata (including ``lattice``) is
         copied from the input — the lattice remains the **unit-cell** lattice
         so that the cell-box overlay shows the original unit cell.
+
+    Node IDs are ``replica_index * n_base + base_idx`` (replica_index =
+    ``ii * n * l + jj * l + kk``), and nodes are inserted in ascending ID
+    order so the first ``n_base`` are the unit cell.
     """
     import networkx as nx
 
@@ -317,11 +321,15 @@ def build_supercell(graph: "nx.Graph", cell_data: CellData, repeats: tuple[int, 
         {k: v for k, v in attrs.items() if k not in ("image", "source", "position")} for _, attrs in base_nodes
     ]
 
-    # Map flattened numpy arrays back into NetworkX node tuples
-    new_nodes = [
-        (int(gid), {**clean_attrs[i // num_replicas], "position": tuple(pos)})
-        for i, (gid, pos) in enumerate(zip(global_ids, all_positions, strict=True))
-    ]
+    # Sort by id so list(graph.nodes())[:n_base] is the unit cell —
+    # _add_crystal_images_supercell depends on this.
+    new_nodes = sorted(
+        (
+            (int(gid), {**clean_attrs[i // num_replicas], "position": tuple(pos)})
+            for i, (gid, pos) in enumerate(zip(global_ids, all_positions, strict=True))
+        ),
+        key=lambda nt: nt[0],
+    )
 
     new_g = nx.Graph()
     new_g.add_nodes_from(new_nodes)
@@ -499,6 +507,9 @@ def _add_crystal_images_supercell(
         ii' = ii + dx_sc*m - di   (and 0 <= ii' < m)
         jj' = jj + dy_sc*n - dj   (and 0 <= jj' < n)
         kk' = kk + dz_sc*l - dk   (and 0 <= kk' < l)
+
+    Assumes ``list(graph.nodes())`` is in ascending-ID order so the first
+    ``n_base`` entries are the unit cell — see ``build_supercell``.
     """
     sc_lattice = crystal_data.lattice
     uc_lattice = unit_cell_data.lattice

@@ -1171,6 +1171,10 @@ def render(
         apply_bond_rules(rmol.graph, cfg)
 
     # --- Convex hull + pore spheres ---
+    # Pass color_graph=rmol.graph so ring fingerprinting uses the expanded
+    # supercell graph for per-type/per-env hull coloring. The gif path
+    # leaves color_graph=None because its graph is still the unit cell at
+    # this point — see _apply_hull_pore_workflow for the fallback.
     _apply_hull_pore_workflow(
         cfg,
         rmol.graph,
@@ -1188,6 +1192,7 @@ def render(
         cell_data=mol.cell_data,
         ring_max_size=ring_max_size,
         ring_min_size=ring_min_size,
+        color_graph=rmol.graph,
     )
 
     # --- Render ---
@@ -1619,7 +1624,7 @@ def render_gif(
             config=cfg,
             output=str(gif_path),
             fps=gif_fps,
-            reference_graph=reference_graph or ref_graph,
+            reference_graph=reference_graph if reference_graph is not None else ref_graph,
             axis=gif_rot,
             detect_nci=detect_nci,
         )
@@ -1655,9 +1660,10 @@ def render_gif(
         if ref is not None:
             _ref_mol = Molecule(graph=ref_graph)
             _ref_path = Path(ref)
-            _apply_ref_orientation(_ref_mol, _ref_path, cfg) if _ref_path.is_file() else _apply_and_save_ref(
-                _ref_mol, cfg, _ref_path
-            )
+            if _ref_path.is_file():
+                _apply_ref_orientation(_ref_mol, _ref_path, cfg)
+            else:
+                _apply_and_save_ref(_ref_mol, cfg, _ref_path)
             ref_graph = _ref_mol.graph
 
         if isinstance(molecule, Molecule) and molecule.ensemble is not None:
@@ -1670,11 +1676,11 @@ def render_gif(
 
         # Overlay & Bond Rules
         if overlay is not None:
-            cfg.overlay, cfg.auto_align, _prev_auto = (
-                (overlay_config or cfg.overlay),
-                (auto_align or cfg.auto_align),
-                cfg.auto_orient,
-            )
+            if overlay_config is not None:
+                cfg.overlay = overlay_config
+            if auto_align is not None:
+                cfg.auto_align = auto_align
+            _prev_auto = cfg.auto_orient
             cfg.auto_orient = False
             base_mol = mol_obj if mol_obj is not None else Molecule(graph=ref_graph)
             ref_graph = _apply_overlay(
@@ -1700,6 +1706,7 @@ def render_gif(
             ref_graph,
             vector=vector,
             vector_scale=vector_scale,
+            vector_color=vector_color,
             cell_data=mol_obj.cell_data if mol_obj is not None else None,
             axes=(not no_cell) if axes is None else axes,
         )
@@ -1730,9 +1737,16 @@ def render_gif(
         if cube_data is not None and (mo or dens):
             from xyzrender.config import build_surface_params, collect_surf_overrides
 
-            mo_p, dens_p, _, _ = build_surface_params(
-                cfg, collect_surf_overrides(iso=iso, mo_blur=mo_blur), has_mo=mo, has_dens=dens
+            surf_overrides = collect_surf_overrides(
+                iso=iso,
+                mo_pos_color=mo_pos_color,
+                mo_neg_color=mo_neg_color,
+                mo_blur=mo_blur,
+                mo_upsample=mo_upsample,
+                flat_mo=flat_mo,
+                dens_color=dens_color,
             )
+            mo_p, dens_p, _, _ = build_surface_params(cfg, surf_overrides, has_mo=mo, has_dens=dens)
 
         render_rotation_gif(
             graph=ref_graph,

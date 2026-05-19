@@ -134,16 +134,16 @@ def _parse_spec(tokens: list[str], graph) -> list[Annotation]:
             return result
 
         else:
-            # 1 value → custom atom label
-            return [AtomValueLabel(i0, t_last)]
+            # 1 value → custom atom label (preserve original case)
+            return [AtomValueLabel(i0, tokens[-1])]
 
     if n == 3:
         i0, i1 = atoms
 
         if t_last == "a":
             raise ValueError(
-                f"Angle requires 3 atom indices before 'a' (got 2). Did you mean: \
-                    {raw_indices[0]} <center> {raw_indices[1]} a ?"
+                f"Angle requires 3 atom indices before 'a' (got 2). "
+                f"Did you mean: {raw_indices[0]} <center> {raw_indices[1]} a ?"
             )
 
         if not graph.has_edge(i0, i1):
@@ -154,8 +154,8 @@ def _parse_spec(tokens: list[str], graph) -> list[Annotation]:
             d = bond_length(_pos(graph, i0), _pos(graph, i1))
             return [BondLabel(i0, i1, f"{_fmt(d, '.2f')}Å")]
         else:
-            # 1 2 value → custom bond label
-            return [BondLabel(i0, i1, t_last)]
+            # 1 2 value → custom bond label (preserve original case)
+            return [BondLabel(i0, i1, tokens[-1])]
 
     if n == 4:
         if t_last == "a":
