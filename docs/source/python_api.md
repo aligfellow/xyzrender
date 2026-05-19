@@ -95,8 +95,8 @@ render(ethanol, hy=[7, 8, 9])       # show specific H atoms
 
 Use `only=` or `exclude=` to remove atoms from the render-time graph before
 orientation, canvas fitting, bond rules, annotations, hulls, and overlays are
-resolved. Selectors use the same grammar as highlights and remain based on the
-original input atom numbering after filtering.
+resolved. Selectors use the same grammar as `highlight` and remain based on
+the original input atom numbering after filtering.
 
 ```python
 salt = load("salt.xyz")
@@ -105,8 +105,8 @@ render(salt, exclude="Na,Cl")    # remove counterions
 render(salt, exclude=["25-40"])  # repeatable/list form
 ```
 
-Incident bonds are removed with excluded atoms. Cube/surface fields are not
-cropped by atom filtering.
+Incident bonds are removed with excluded atoms. Cube/surface fields
+(`mo`, `dens`, `esp`, `nci`) are not cropped by atom filtering.
 
 ### Overlays
 
@@ -121,6 +121,7 @@ render(mol, idx=True)               # atom index labels ("C1", "N3", ...)
 render(mol, idx="n")                # index only ("1", "3", ...)
 render(mol, mol_color="gray")                            # flat color for all atoms + bonds
 render(mol, highlight="1-3,7")                           # highlight atoms 1-3 and 7 (orchid)
+render(mol, highlight="C,N")                             # element symbols / categories ("M", "het", ...)
 render(mol, highlight=[1, 2, 3, 7])                      # 1-indexed list
 render(mol, highlight=[("1-5", "blue"), ("10-15", "red")])  # multi-group with colors
 render(mol, highlight=["1-5", "10-15"])                  # multi-group, auto-colors from palette

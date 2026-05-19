@@ -52,15 +52,15 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 |------|-------------|
 | `--hy [ATOMS]` | Show H atoms (no args = all, or indices like `"1-5,8"`) |
 | `--no-hy` | Hide all H atoms |
-| `--only ATOMS` | Render only selected atoms before orientation/canvas fitting. Repeatable; same selector grammar as `--hl`, e.g. `"1-24"`, `"C,N,O"`, `"M"` |
-| `--exclude ATOMS` | Remove selected atoms before orientation/canvas fitting. Repeatable; same selector grammar as `--hl`, e.g. `"25-40"`, `"Na,Cl"` |
+| `--only ATOMS` | Render only selected atoms before orientation/canvas fitting. Repeatable; same selector grammar as `--hl`, e.g. `"1-24"`, `"C,N,O"`, `"M"`. Cube/surface fields (`--mo`, `--dens`, `--esp`, `--nci`) are not cropped |
+| `--exclude ATOMS` | Remove selected atoms before orientation/canvas fitting. Repeatable; same selector grammar as `--hl`, e.g. `"25-40"`, `"Na,Cl"`. Cube/surface fields are not cropped |
 | `-k`, `--kekule` | Use Kekulé bond orders (no aromatic 1.5) |
 | `--vdw` | vdW spheres (no args = all, or selectors like `"1-6"`, `"M"`, `"Pt"`) |
 | `--vdw-opacity` | vdW sphere opacity (default: 0.25) |
 | `--vdw-scale` | vdW sphere radius scale |
 | `--vdw-gradient-strength` | vdW sphere gradient strength (default: 1.6) |
 | `--mol-color COLOR` | Flat color for all atoms and bonds (overrides CPK). Highlight paints on top |
-| `--hl ATOMS [COLOR]` | Highlight atom group: `--hl "1-5,8" [color]`. Can be repeated for multiple groups. Auto-colors from palette if no color given |
+| `--hl ATOMS [COLOR]` | Highlight atom group: `--hl "1-5,8" [color]`. Accepts the same selectors as `--only`/`--region` — indices/ranges (`"1-5,8"`), elements (`"C,N"`), or categories (`"M"`, `"het"`). Can be repeated for multiple groups. Auto-colors from palette if no color given |
 | `--dof` | Depth-of-field blur (does not affect bonds/lines) |
 | `--dof-strength FLOAT` | DoF max blur strength (default: 3.0) |
 | `--glow ATOMS` | Add blurred glow under selected atoms (same selector grammar as `--hl` / `--vdw`) |

@@ -259,14 +259,20 @@ def main() -> None:
         action="append",
         default=[],
         metavar="ATOMS",
-        help='Render only selected atoms: --only "1-24" or --only "C,N,O". Repeatable.',
+        help=(
+            'Render only selected atoms: --only "1-24" or --only "C,N,O". Repeatable. '
+            "Cube/surface fields (--mo, --dens, --esp, --nci) are not cropped to the filter."
+        ),
     )
     disp_g.add_argument(
         "--exclude",
         action="append",
         default=[],
         metavar="ATOMS",
-        help='Exclude selected atoms from the render: --exclude "25-40" or --exclude "Na,Cl". Repeatable.',
+        help=(
+            'Exclude selected atoms from the render: --exclude "25-40" or --exclude "Na,Cl". Repeatable. '
+            "Cube/surface fields (--mo, --dens, --esp, --nci) are not cropped to the filter."
+        ),
     )
     disp_g.add_argument(
         "--no-bonds", action="store_true", default=False, help="Hide all bonds (e.g. space-filling style)"

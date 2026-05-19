@@ -140,11 +140,7 @@ def resolve_atom_indices(spec: str, graph: nx.Graph) -> set[int]:
         else:
             wanted = {int(stripped) - 1}
         if any("_xyzrender_original_index" in data for _, data in graph.nodes(data=True)):
-            return {
-                nid
-                for nid, data in graph.nodes(data=True)
-                if data.get("_xyzrender_original_index", nid) in wanted
-            }
+            return {nid for nid, data in graph.nodes(data=True) if data.get("_xyzrender_original_index", nid) in wanted}
         return wanted
     # Category / element
     norm = normalize_token(spec)

@@ -131,6 +131,14 @@ def test_render_exclude_removes_atoms_and_incident_bonds():
     assert "<line " not in svg
 
 
+def test_render_only_keeps_atoms_and_intra_bonds():
+    mol = _linear_test_molecule()
+    svg = str(render(mol, only="1-3", orient=False, gradient=False))
+
+    assert svg.count("<circle ") == 3
+    assert svg.count("<line ") == 2
+
+
 def test_filtered_graph_selectors_use_original_indices():
     from xyzrender.api import _filter_molecule_atoms
     from xyzrender.selectors import resolve_atom_indices
@@ -197,6 +205,41 @@ def test_auto_orient_runs_after_atom_filter(monkeypatch):
     render(_linear_test_molecule(), only="1-3")
 
     assert seen_shapes == [(3, 3)]
+
+
+def test_filter_preserves_cell_data_for_periodic():
+    from xyzrender.api import _filter_molecule_atoms
+
+    mol = load(STRUCTURES / "caffeine_cell.xyz")
+    assert mol.cell_data is not None
+
+    filtered = _filter_molecule_atoms(mol, only="C,N")
+
+    assert filtered.cell_data is not None
+    # cell_data is deep-copied, not aliased
+    assert filtered.cell_data is not mol.cell_data
+    # Only C and N survived
+    syms = {filtered.graph.nodes[n]["symbol"] for n in filtered.graph.nodes()}
+    assert syms == {"C", "N"}
+
+
+def test_render_periodic_with_only_filter(tmp_path):
+    mol = load(STRUCTURES / "caffeine_cell.xyz")
+    result = render(mol, only="C,N", orient=False, output=tmp_path / "cell_only.svg")
+    assert isinstance(result, SVGResult)
+    svg = (tmp_path / "cell_only.svg").read_text()
+    # Cell box edges still drawn for the filtered render
+    assert 'class="cell-edge"' in svg
+
+
+def test_render_periodic_filter_then_supercell_replicates():
+    mol = load(STRUCTURES / "caffeine_cell.xyz")
+    unit = str(render(mol, only="C,N", orient=False))
+    super_2x = str(render(mol, only="C,N", supercell=(2, 1, 1), orient=False))
+
+    # Supercell render must have more rendered atoms than the unit cell render
+    assert super_2x.count("<circle ") > unit.count("<circle ")
+    assert 'class="cell-edge"' in super_2x
 
 
 # ---------------------------------------------------------------------------
