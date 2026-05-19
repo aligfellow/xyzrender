@@ -197,3 +197,108 @@ def test_gifresult_save(tmp_path):
     result.save(dest)
     assert dest.exists()
     assert dest.read_bytes() == Path(src).read_bytes()
+
+
+# ---------------------------------------------------------------------------
+# render_gif — gif_rot branch must forward CLI overrides to the renderer
+# ---------------------------------------------------------------------------
+
+
+def _tiny_molecule():
+    import networkx as nx
+
+    from xyzrender.api import Molecule
+
+    g = nx.Graph()
+    g.add_node(0, symbol="C", position=(0.0, 0.0, 0.0))
+    g.add_node(1, symbol="H", position=(1.0, 0.0, 0.0))
+    g.add_edge(0, 1, bond_order=1.0)
+    return Molecule(graph=g)
+
+
+def _capture_rotation_cfg():
+    """Patch render_rotation_gif and return (context-manager, captured-dict)."""
+    from unittest.mock import patch
+
+    captured: dict = {}
+
+    def _spy(graph=None, config=None, output=None, **_):
+        captured["cfg"] = config
+
+    return patch("xyzrender.gif.render_rotation_gif", side_effect=_spy), captured
+
+
+def test_render_gif_rot_applies_vector_color(tmp_path):
+    """--vector-color must reach the rotation renderer's config."""
+    from xyzrender.api import render_gif
+    from xyzrender.colors import resolve_color
+
+    cm, captured = _capture_rotation_cfg()
+    with cm:
+        render_gif(_tiny_molecule(), gif_rot="y", vector_color="red", output=str(tmp_path / "x.gif"))
+    assert captured["cfg"].vector_color == resolve_color("red")
+
+
+def test_render_gif_rot_applies_surface_overrides(tmp_path):
+    """--mo-pos-color / --mo-neg-color / --mo-upsample / --flat-mo / --dens-color
+    must reach collect_surf_overrides when gif_rot is the only mode."""
+    from unittest.mock import patch
+
+    from xyzrender.api import render_gif
+
+    mol = _tiny_molecule()
+    mol.cube_data = object()  # truthy; consumers are patched below
+
+    captured_kwargs: dict = {}
+
+    def _capture(**kw):
+        captured_kwargs.update(kw)
+        return {}
+
+    cm_rot, _ = _capture_rotation_cfg()
+    with (
+        patch("xyzrender.config.collect_surf_overrides", side_effect=_capture),
+        patch("xyzrender.config.build_surface_params", return_value=(None, None, None, None)),
+        cm_rot,
+    ):
+        render_gif(
+            mol,
+            gif_rot="y",
+            mo=True,
+            mo_pos_color="cyan",
+            mo_neg_color="magenta",
+            mo_upsample=2,
+            flat_mo=True,
+            dens_color="grey",
+            output=str(tmp_path / "x.gif"),
+        )
+    assert captured_kwargs.get("mo_pos_color") == "cyan"
+    assert captured_kwargs.get("mo_neg_color") == "magenta"
+    assert captured_kwargs.get("mo_upsample") == 2
+    assert captured_kwargs.get("flat_mo") is True
+    assert captured_kwargs.get("dens_color") == "grey"
+
+
+def test_render_gif_rot_respects_auto_align_false(tmp_path):
+    """An explicit auto_align=False must override a config-level True
+    even on the gif_rot branch (overlay path)."""
+    from unittest.mock import patch
+
+    from xyzrender.api import render_gif
+    from xyzrender.types import RenderConfig
+
+    mol = _tiny_molecule()
+    cfg = RenderConfig()
+    cfg.auto_align = True
+
+    cm_rot, captured = _capture_rotation_cfg()
+    with patch("xyzrender.api._apply_overlay", return_value=mol), cm_rot:
+        render_gif(
+            mol,
+            config=cfg,
+            gif_rot="y",
+            overlay=mol,
+            auto_align=False,
+            output=str(tmp_path / "x.gif"),
+        )
+    assert captured["cfg"].auto_align is False

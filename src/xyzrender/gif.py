@@ -145,6 +145,8 @@ def render_vibration_gif(
     mode: int = 0,
     ts_frame: int = 0,
     fps: int = 10,
+    axis: str | None = None,
+    n_frames: int | None = None,
     reference_graph: nx.Graph | None = None,
     detect_nci: bool = False,
 ) -> None:
@@ -157,6 +159,8 @@ def render_vibration_gif(
     all frames are rotated to match that orientation.
     If ``detect_nci`` is True, NCI interactions are detected once on the
     TS geometry and applied to every frame (centroids recomputed per frame).
+    If ``axis`` is provided, the vibration is combined with a rotation
+    around that axis (``n_frames`` controls total frames).
     """
     try:
         from graphrc import run_vib_analysis
@@ -201,90 +205,32 @@ def render_vibration_gif(
         config = copy.copy(config)
         config.auto_orient = False
 
-    # Fixed viewport across all frames so every PNG has identical dimensions
-    config = _fixed_viewport(frames, config)
+    if axis is None:
+        if n_frames is not None:
+            logger.warning("n_frames is ignored without axis")
+        # Fixed viewport across all frames so every PNG has identical dimensions
+        config = _fixed_viewport(frames, config)
 
-    # graphRC's frames are already a full oscillation cycle — just loop
-    logger.info("Rendering vibration GIF (%d frames)", len(frames))
-    pngs = _render_frames(ts_graph, frames, config, fixed_ncis=fixed_ncis)
-    _stitch_gif(pngs, output, fps)
-    logger.info("Wrote %s", output)
+        # graphRC's frames are already a full oscillation cycle — just loop
+        logger.info("Rendering vibration GIF (%d frames)", len(frames))
+        pngs = _render_frames(ts_graph, frames, config, fixed_ncis=fixed_ncis)
+        _stitch_gif(pngs, output, fps)
+        logger.info("Wrote %s", output)
+        return
 
-
-def render_vibration_rotation_gif(
-    path: str,
-    config: RenderConfig,
-    output: str,
-    *,
-    charge: int = 0,
-    multiplicity: int | None = None,
-    mode: int = 0,
-    ts_frame: int = 0,
-    fps: int = 10,
-    axis: str = "y",
-    n_frames: int | None = None,
-    reference_graph: nx.Graph | None = None,
-    detect_nci: bool = False,
-) -> None:
-    """Render a combined vibration + rotation GIF.
-
-    Total frames = n_vib_frames * rotations, so the vibration cycles exactly
-    ``rotations`` times during one full 360° spin.  If ``n_frames`` is given,
-    rotations is computed as ``round(n_frames / n_vib)`` (minimum 1).
-    If ``detect_nci`` is True, NCI interactions are detected once on the
-    TS geometry and applied to every frame.
-    """
-    try:
-        from graphrc import run_vib_analysis
-    except ImportError:
-        msg = "Vibration+rotation GIF requires graphrc"
-        raise ImportError(msg) from None
-
-    results = run_vib_analysis(
-        input_file=path,
-        mode=mode,
-        ts_frame=ts_frame,
-        enable_graph=True,
-        charge=charge,
-        multiplicity=multiplicity,
-        print_output=False,
-    )
-
-    ts_graph = results["graph"]["ts_graph"]
-    vib_frames = results["trajectory"]["frames"]
-
-    # NCI: detect once on TS geometry, apply to all frames
-    fixed_ncis = None
-    if detect_nci:
-        from xyzgraph import detect_ncis
-
-        detect_ncis(ts_graph)
-        fixed_ncis = ts_graph.graph.get("ncis", [])
-
-    if reference_graph is not None:
-        logger.debug("Applying Kabsch rotation from viewer orientation")
-        rot = _compute_rotation(ts_graph, reference_graph)
-        vib_frames = _rotate_frames(vib_frames, rot)
-
-    # PCA: compute once from first frame, apply consistently to all
-    if config.auto_orient:
-        vt = pca_matrix(np.array(vib_frames[0]["positions"]))
-        vib_frames = _orient_frames(vib_frames, vt)
-        _orient_graph(ts_graph, vt)
-
-    n_vib = len(vib_frames)
+    n_vib = len(frames)
     rotations = max(1, round(n_frames / n_vib)) if n_frames is not None else 3
     total = n_vib * rotations
     if n_frames is not None and total != n_frames:
         logger.info("Rounded --rot-frames %d -> %d (%d vib x %d rotations)", n_frames, total, n_vib, rotations)
 
     # Cycle vibration frames for the full rotation
-    all_frames = [vib_frames[i % n_vib] for i in range(total)]
+    all_frames = [frames[i % n_vib] for i in range(total)]
 
     axis_vec, axis_sign = _rotation_axis(axis)
 
     # Fixed viewport across all frames so every PNG has identical dimensions
-    rot_cfg = _fixed_viewport(vib_frames, config, rotation_axis=axis_vec)
+    rot_cfg = _fixed_viewport(frames, config, rotation_axis=axis_vec)
     logger.info(
         "Rendering vibration+rotation GIF (%d vib x %d rot = %d frames, axis=%s)", n_vib, rotations, total, axis
     )

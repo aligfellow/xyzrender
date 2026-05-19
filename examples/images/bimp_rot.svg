@@ -334,8 +334,8 @@
   <circle cx="572.1" cy="343.6" r="13.0" fill="url(#x0g15)" stroke="#292929" stroke-width="2.3"/>
   <line x1="560.4" y1="346.5" x2="532.2" y2="345.3" stroke="#161616" stroke-width="4.0" stroke-linecap="round" stroke-dasharray="4.0,8.0"/>
   <line x1="560.7" y1="339.6" x2="532.5" y2="338.4" stroke="#161616" stroke-width="4.0" stroke-linecap="round"/>
-  <line x1="578.6" y1="353.9" x2="586.1" y2="380.8" stroke="#171717" stroke-width="4.0" stroke-linecap="round" stroke-dasharray="4.0,8.0"/>
-  <line x1="571.9" y1="355.7" x2="579.5" y2="382.6" stroke="#171717" stroke-width="4.0" stroke-linecap="round"/>
+  <line x1="578.6" y1="353.9" x2="586.1" y2="380.8" stroke="#171717" stroke-width="4.0" stroke-linecap="round"/>
+  <line x1="571.9" y1="355.7" x2="579.5" y2="382.6" stroke="#171717" stroke-width="4.0" stroke-linecap="round" stroke-dasharray="4.0,8.0"/>
   <circle cx="585.9" cy="393.0" r="13.0" fill="url(#x0g16)" stroke="#292929" stroke-width="2.3"/>
   <line x1="578.2" y1="402.2" x2="555.0" y2="417.4" stroke="#151515" stroke-width="4.0" stroke-linecap="round"/>
   <line x1="574.4" y1="396.4" x2="551.2" y2="411.6" stroke="#151515" stroke-width="4.0" stroke-linecap="round" stroke-dasharray="4.0,8.0"/>

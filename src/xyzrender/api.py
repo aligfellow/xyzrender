@@ -506,6 +506,108 @@ def _tile_pore_centroids_radii(
     return tiled_c, tiled_r
 
 
+def _apply_hull_pore_workflow(
+    cfg: "RenderConfig",
+    graph: "nx.Graph | None",
+    *,
+    hull: bool | str | list[int] | list[list[int]] | None,
+    hull_color: str | list[str] | None,
+    hull_opacity: float | None,
+    hull_edge: bool | None,
+    hull_edge_width_ratio: float | None,
+    hull_color_type: str,
+    pore: bool,
+    pore_color: str | None,
+    pore_opacity: float | None,
+    supercell: tuple[int, int, int],
+    ring_max_size: int,
+    ring_min_size: int,
+    face_planarity: float,
+    cell_data: "CellData | None",
+    skip_hull_if_active: bool = False,
+    color_graph: "nx.Graph | None" = None,
+) -> None:
+    """Detect hull faces/pores and apply hull + pore settings."""
+    from xyzrender.hull import apply_hull_to_config, normalize_hull_subsets, resolve_hull_faces, resolve_hull_pores
+
+    if graph is None:
+        return
+
+    # 1. Flag Initialization (hull may also be list[list[int]] for subsets)
+    is_face = isinstance(hull, str) and hull in {"face", "faces"}
+    is_pore = isinstance(hull, str) and hull in {"pore", "pores"}
+    is_supercell = supercell != (1, 1, 1)
+    has_pores = pore or bool(cfg.pore_node_ids)
+    unit_cell_hull_indices = None
+
+    # 2. Resolve Faces / Pores
+    if is_face:
+        unit_cell_hull_indices = resolve_hull_faces(
+            graph,
+            max_size=ring_max_size,
+            min_size=ring_min_size,
+            cell_data=cell_data,
+            face_planarity=face_planarity,
+        )
+
+    if is_pore or pore:
+        pore_indices = resolve_hull_pores(
+            graph,
+            cfg,
+            max_size=ring_max_size,
+            min_size=ring_min_size,
+            cell_data=cell_data,
+        )
+        if is_pore:
+            unit_cell_hull_indices = pore_indices
+
+    # 3. Graph Normalization & Tiling Selection
+    subsets = None
+    if unit_cell_hull_indices and (is_face or is_pore):
+        subsets = normalize_hull_subsets(unit_cell_hull_indices)
+        if is_supercell:
+            subsets = _tile_supercell_indices(subsets, supercell, graph.number_of_nodes())
+
+    # Calculate fallback for apply_graph flatly
+    _apply_graph = color_graph
+    if _apply_graph is None:
+        hide_graph = is_supercell and unit_cell_hull_indices and (is_face or is_pore)
+        _apply_graph = None if hide_graph else graph
+
+    # 4. Apply Hull Configuration
+    if hull is not None and not (skip_hull_if_active and cfg.show_convex_hull):
+        apply_hull_to_config(
+            cfg,
+            hull,
+            hull_color,
+            hull_opacity,
+            hull_edge,
+            hull_edge_width_ratio,
+            _apply_graph,
+            face_planarity=face_planarity,
+            precomputed_indices=subsets,
+            hull_color_type=hull_color_type,
+        )
+
+    # 5. Apply Pore Configuration (Flattened)
+    if cfg.pore_node_ids and is_supercell:
+        cfg.pore_node_ids = _tile_supercell_indices(cfg.pore_node_ids, supercell, graph.number_of_nodes())
+
+        if cfg.pore_centroids and cell_data is not None:
+            cfg.pore_centroids, cfg.pore_radii = _tile_pore_centroids_radii(
+                cfg.pore_centroids, cfg.pore_radii, supercell, np.array(cell_data.lattice)
+            )
+
+    if cfg.pore_node_ids:
+        cfg.pore_spheres = True
+
+    if has_pores and pore_color is not None:
+        cfg.pore_sphere_color = pore_color
+
+    if has_pores and pore_opacity is not None:
+        cfg.pore_sphere_opacity = pore_opacity
+
+
 def render(
     molecule: str | os.PathLike | Molecule,
     *,
@@ -918,34 +1020,6 @@ def render(
     # --- Hull faces / pores: detect on unit cell BEFORE supercell expansion ---
     # This avoids running expensive cycle detection on a larger supercell graph.
     # Indices are tiled across supercell replicas after expansion.
-    _unit_cell_hull_indices: list[list[int]] | None = None
-    _unit_cell_n_base: int | None = None
-    _hull_is_str = isinstance(hull, str)
-    if (_hull_is_str and hull in {"faces", "face", "pores", "pore"}) or pore:
-        from xyzrender.hull import resolve_hull_faces, resolve_hull_pores
-
-        if _hull_is_str and hull in {"faces", "face"}:
-            _unit_cell_hull_indices = resolve_hull_faces(
-                mol.graph,
-                max_size=ring_max_size,
-                min_size=ring_min_size,
-                cell_data=mol.cell_data,
-                face_planarity=face_planarity,
-            )
-        if hull in {"pores", "pore"} or pore:
-            # resolve_hull_pores handles detection, node mapping, and storing
-            # centroids/radii on cfg — single path for both --hull pore and --pore.
-            _pore_indices = resolve_hull_pores(
-                mol.graph,
-                cfg,
-                max_size=ring_max_size,
-                min_size=ring_min_size,
-                cell_data=mol.cell_data,
-            )
-            if hull in {"pores", "pore"}:
-                _unit_cell_hull_indices = _pore_indices
-        if _unit_cell_hull_indices or cfg.pore_node_ids:
-            _unit_cell_n_base = mol.graph.number_of_nodes()
 
     # --- Surface style ---
     if surface_style is not None:
@@ -1096,62 +1170,30 @@ def render(
 
         apply_bond_rules(rmol.graph, cfg)
 
-    # --- Convex hull ---
-    from xyzrender.hull import apply_hull_to_config
-
-    if _unit_cell_hull_indices and _hull_is_str and hull in {"faces", "face", "pores", "pore"}:
-        # Tile unit-cell face/pore indices across supercell replicas.
-        from xyzrender.hull import normalize_hull_subsets
-
-        subsets = normalize_hull_subsets(_unit_cell_hull_indices)
-        if supercell != (1, 1, 1) and _unit_cell_n_base is not None:
-            subsets = _tile_supercell_indices(subsets, supercell, _unit_cell_n_base)
-        # Apply via the standard path — hull_ordered, colours, opacity all handled.
-        apply_hull_to_config(
-            cfg,
-            hull,
-            hull_color,
-            hull_opacity,
-            hull_edge,
-            hull_edge_width_ratio,
-            rmol.graph,
-            face_planarity=face_planarity,
-            precomputed_indices=subsets,
-            hull_color_type=hull_color_type,
-        )
-    elif hull is not None:
-        apply_hull_to_config(
-            cfg,
-            hull,
-            hull_color,
-            hull_opacity,
-            hull_edge,
-            hull_edge_width_ratio,
-            rmol.graph,
-            face_planarity=face_planarity,
-            hull_color_type=hull_color_type,
-        )
-
-    # --- Pore spheres ---
-    if pore or cfg.pore_node_ids:
-        if cfg.pore_node_ids:
-            # Tile pore node IDs and centroids across supercell replicas.
-            if supercell != (1, 1, 1) and _unit_cell_n_base is not None:
-                cfg.pore_node_ids = _tile_supercell_indices(cfg.pore_node_ids, supercell, _unit_cell_n_base)
-                if cfg.pore_centroids:
-                    _lat = np.array(mol.cell_data.lattice) if mol.cell_data else None
-                    if _lat is not None:
-                        cfg.pore_centroids, cfg.pore_radii = _tile_pore_centroids_radii(
-                            cfg.pore_centroids,
-                            cfg.pore_radii,
-                            supercell,
-                            _lat,
-                        )
-            cfg.pore_spheres = True
-        if pore_color is not None:
-            cfg.pore_sphere_color = pore_color
-        if pore_opacity is not None:
-            cfg.pore_sphere_opacity = pore_opacity
+    # --- Convex hull + pore spheres ---
+    # Pass color_graph=rmol.graph so ring fingerprinting uses the expanded
+    # supercell graph for per-type/per-env hull coloring. The gif path
+    # leaves color_graph=None because its graph is still the unit cell at
+    # this point — see _apply_hull_pore_workflow for the fallback.
+    _apply_hull_pore_workflow(
+        cfg,
+        rmol.graph,
+        hull=hull,
+        hull_color=hull_color,
+        hull_opacity=hull_opacity,
+        hull_edge=hull_edge,
+        hull_edge_width_ratio=hull_edge_width_ratio,
+        hull_color_type=hull_color_type,
+        pore=pore,
+        pore_color=pore_color,
+        pore_opacity=pore_opacity,
+        supercell=supercell,
+        face_planarity=face_planarity,
+        cell_data=mol.cell_data,
+        ring_max_size=ring_max_size,
+        ring_min_size=ring_min_size,
+        color_graph=rmol.graph,
+    )
 
     # --- Render ---
     svg = render_svg(rmol.graph, cfg)
@@ -1334,7 +1376,6 @@ def render_gif(
         render_rotation_gif,
         render_trajectory_gif,
         render_vibration_gif,
-        render_vibration_rotation_gif,
     )
 
     if isinstance(gif_bounce, tuple):
@@ -1401,7 +1442,8 @@ def render_gif(
         logger.warning("rot_frames has no effect without gif_rot")
 
     # Resolve config
-    _gif_graph = molecule.graph if isinstance(molecule, Molecule) else load(molecule).graph
+    _gif_mol = molecule if isinstance(molecule, Molecule) else load(molecule)
+    _gif_graph = _gif_mol.graph
     if not isinstance(config, str):
         cfg = copy.copy(config)
         cfg.vectors = list(cfg.vectors)
@@ -1485,81 +1527,25 @@ def render_gif(
         cfg.radius_scale = radius_scale
 
     # --- Convex hull / pore (detection + config) ---
-    from xyzrender.hull import apply_hull_to_config
-
-    _hull_is_str = isinstance(hull, str)
-
-    # --- Face/pore detection (needs molecule loading) ---
-    if (_hull_is_str and hull in {"faces", "face"}) or pore:
-        from xyzrender.hull import normalize_hull_subsets, resolve_hull_faces, resolve_hull_pores
-
-        _mol = molecule if isinstance(molecule, Molecule) else load(molecule)
-        _cd = _mol.cell_data
-        _n_base = _gif_graph.number_of_nodes()
-
-        if _hull_is_str and hull in {"faces", "face"}:
-            face_idx = resolve_hull_faces(
-                _gif_graph,
-                max_size=ring_max_size,
-                min_size=ring_min_size,
-                cell_data=_cd,
-                face_planarity=face_planarity,
-            )
-            if face_idx:
-                subsets = normalize_hull_subsets(face_idx)
-                _color_graph = _gif_graph
-                if supercell != (1, 1, 1):
-                    subsets = _tile_supercell_indices(subsets, supercell, _n_base)
-                    _color_graph = None
-                apply_hull_to_config(
-                    cfg,
-                    hull,
-                    hull_color,
-                    hull_opacity,
-                    hull_edge,
-                    hull_edge_width_ratio,
-                    _color_graph,
-                    face_planarity=face_planarity,
-                    precomputed_indices=subsets,
-                    hull_color_type=hull_color_type,
-                )
-        if pore:
-            resolve_hull_pores(
-                _gif_graph,
-                cfg,
-                max_size=ring_max_size,
-                min_size=ring_min_size,
-                cell_data=_cd,
-            )
-            if cfg.pore_node_ids:
-                if supercell != (1, 1, 1):
-                    cfg.pore_node_ids = _tile_supercell_indices(cfg.pore_node_ids, supercell, _n_base)
-                    if cfg.pore_centroids and _cd is not None:
-                        _lat = np.array(_cd.lattice)
-                        cfg.pore_centroids, cfg.pore_radii = _tile_pore_centroids_radii(
-                            cfg.pore_centroids,
-                            cfg.pore_radii,
-                            supercell,
-                            _lat,
-                        )
-                cfg.pore_spheres = True
-            if pore_color is not None:
-                cfg.pore_sphere_color = pore_color
-            if pore_opacity is not None:
-                cfg.pore_sphere_opacity = pore_opacity
-
-    # --- Hull (independent of face/pore detection) ---
-    if hull is not None and not cfg.show_convex_hull:
-        apply_hull_to_config(
-            cfg,
-            hull,
-            hull_color,
-            hull_opacity,
-            hull_edge,
-            hull_edge_width_ratio,
-            _gif_graph,
-            hull_color_type=hull_color_type,
-        )
+    _apply_hull_pore_workflow(
+        cfg,
+        _gif_graph,
+        hull=hull,
+        hull_color=hull_color,
+        hull_opacity=hull_opacity,
+        hull_edge=hull_edge,
+        hull_edge_width_ratio=hull_edge_width_ratio,
+        hull_color_type=hull_color_type,
+        pore=pore,
+        pore_color=pore_color,
+        pore_opacity=pore_opacity,
+        supercell=supercell,
+        face_planarity=face_planarity,
+        cell_data=_gif_mol.cell_data,
+        ring_max_size=ring_max_size,
+        ring_min_size=ring_min_size,
+        skip_hull_if_active=True,
+    )
 
     # --- Surface style ---
     if surface_style is not None:
@@ -1600,125 +1586,105 @@ def render_gif(
         raise ValueError(msg)
 
     # --- Dispatch ---
-    if gif_ts and gif_rot:
-        render_vibration_rotation_gif(
-            str(mol_path),
-            cfg,
-            str(gif_path),
-            ts_frame=ts_frame,
-            fps=gif_fps,
-            axis=gif_rot,
-            n_frames=rot_frames,
-            reference_graph=reference_graph,
-            detect_nci=detect_nci,
-        )
+    from xyzrender.readers import load_molecule
 
-    elif gif_ts:
+    # Determine the primary reference graph
+    if ref_graph is None:
+        ref_graph, _ = load_molecule(str(mol_path))
+    else:
+        ref_graph = copy.deepcopy(ref_graph)
+
+    # Cache for frequent checks
+    mol_obj = molecule if isinstance(molecule, Molecule) else None
+
+    if gif_ts:
         render_vibration_gif(
-            str(mol_path),
-            cfg,
-            str(gif_path),
-            ts_frame=ts_frame,
+            path=str(mol_path),
+            config=cfg,
+            output=str(gif_path),
             fps=gif_fps,
+            ts_frame=ts_frame,
             reference_graph=reference_graph,
             detect_nci=detect_nci,
+            axis=gif_rot,
+            n_frames=rot_frames if gif_rot else None,
         )
+        logger.info("GIF written to %s", gif_path)
+        return GIFResult(gif_path)
 
     elif gif_trj:
-        from xyzrender.readers import load_molecule, load_trajectory_frames
+        from xyzrender.readers import load_trajectory_frames
 
         frames = load_trajectory_frames(str(mol_path))
         if len(frames) < 2:
-            msg = "render_gif(gif_trj=True) requires a multi-frame XYZ file"
-            raise ValueError(msg)
-        _trj_ref = reference_graph
-        if _trj_ref is None:
-            graph, _ = load_molecule(str(mol_path))
-            _trj_ref = graph
+            raise ValueError("render_gif(gif_trj=True) requires a multi-frame XYZ file")
+
         render_trajectory_gif(
-            frames,
-            cfg,
-            str(gif_path),
+            frames=frames,
+            config=cfg,
+            output=str(gif_path),
             fps=gif_fps,
-            reference_graph=_trj_ref,
-            detect_nci=detect_nci,
+            reference_graph=reference_graph if reference_graph is not None else ref_graph,
             axis=gif_rot,
+            detect_nci=detect_nci,
         )
+        logger.info("GIF written to %s", gif_path)
+        return GIFResult(gif_path)
 
     elif gif_diffuse:
-        if ref_graph is None:
-            from xyzrender.readers import load_molecule
+        from xyzrender.diffuse import parse_anchor
 
-            ref_graph, _ = load_molecule(str(mol_path))
-        else:
-            ref_graph = copy.deepcopy(ref_graph)
         if cfg.unbond or cfg.bond or cfg.haptic:
             from xyzrender.bond_rules import apply_bond_rules
 
             apply_bond_rules(ref_graph, cfg)
-        from xyzrender.diffuse import parse_anchor
 
         render_diffuse_gif(
-            ref_graph,
-            cfg,
-            str(gif_path),
+            graph=ref_graph,
+            config=cfg,
+            output=str(gif_path),
+            fps=gif_fps,
             n_frames=diffuse_frames,
             noise=diffuse_noise,
             bonds=diffuse_bonds,
             reverse=diffuse_reverse,
-            fps=gif_fps,
             rotation_axis=gif_rot,
             rotation_degrees=float(diffuse_rot) if diffuse_rot else 360.0,
             anchor=parse_anchor(anchor),
         )
+        logger.info("GIF written to %s", gif_path)
+        return GIFResult(gif_path)
 
     else:
-        # gif_rot only
-        if ref_graph is None:
-            from xyzrender.readers import load_molecule
-
-            ref_graph, _ = load_molecule(str(mol_path))
-        else:
-            # Deep-copy so render_rotation_gif (which mutates positions in-place) doesn't
-            # corrupt the caller's Molecule, and so _apply_cell_config can add ghost atoms.
-            ref_graph = copy.deepcopy(ref_graph)
-
-        # --- Orientation reference (gif_rot only) ---
+        # Orientation & Ensemble
         if ref is not None:
-            _ref_path = Path(ref)
             _ref_mol = Molecule(graph=ref_graph)
+            _ref_path = Path(ref)
             if _ref_path.is_file():
                 _apply_ref_orientation(_ref_mol, _ref_path, cfg)
             else:
                 _apply_and_save_ref(_ref_mol, cfg, _ref_path)
             ref_graph = _ref_mol.graph
 
-        # --- Ensemble: build scratch merged graph (z_nudge=False — meaningless for rotation) ---
         if isinstance(molecule, Molecule) and molecule.ensemble is not None:
-            from xyzrender.ensemble import merge_graphs as _ensemble_merge_graphs
+            from xyzrender.ensemble import merge_graphs
 
             ens = molecule.ensemble
-            ref_graph = _ensemble_merge_graphs(
-                ref_graph,
-                ens.positions,
-                conformer_colors=ens.colors,
-                conformer_opacities=ens.opacities,
-                conformer_graphs=ens.conformer_graphs,
-                z_nudge=False,
+            ref_graph = merge_graphs(
+                ref_graph, ens.positions, conformer_colors=ens.colors, conformer_opacities=ens.opacities, z_nudge=False
             )
 
-        # --- Overlay alignment (gif_rot only) ---
-        if overlay_config is not None:
-            cfg.overlay = overlay_config
-        if auto_align is not None:
-            cfg.auto_align = auto_align
+        # Overlay & Bond Rules
         if overlay is not None:
-            # Disable PCA-orient inside _apply_overlay — gif_rot already handled orientation above.
+            if overlay_config is not None:
+                cfg.overlay = overlay_config
+            if auto_align is not None:
+                cfg.auto_align = auto_align
             _prev_auto = cfg.auto_orient
             cfg.auto_orient = False
-            _ov_base = molecule if isinstance(molecule, Molecule) else Molecule(graph=ref_graph)
-            _ov_rmol = _apply_overlay(
-                _ov_base,
+            base_mol = mol_obj if mol_obj is not None else Molecule(graph=ref_graph)
+            ref_graph = _apply_overlay(
+                base_mol,
                 Molecule(graph=ref_graph),
                 cfg,
                 overlay,
@@ -1726,42 +1692,33 @@ def render_gif(
                 overlay_opacity=opacity,
                 align_atoms=None,
                 has_surfaces=False,
-            )
-            ref_graph = _ov_rmol.graph
+            ).graph
             cfg.auto_orient = _prev_auto
 
-        # Bond rules run after overlay merge so haptic sees both molecules'
-        # aromatic rings (merged.graph["aromatic_rings"] is the union).
         if cfg.unbond or cfg.bond or cfg.haptic:
             from xyzrender.bond_rules import apply_bond_rules
 
             apply_bond_rules(ref_graph, cfg)
 
-        # --- Vectors (user-supplied + crystal axes; gif_rot only) ---
-        _cell_data_for_vecs = molecule.cell_data if isinstance(molecule, Molecule) else None
-        _gif_show_axes = (not no_cell) if axes is None else axes
+        # Vectors & Cell Config
         _combine_vector_sources(
             cfg,
             ref_graph,
             vector=vector,
             vector_scale=vector_scale,
             vector_color=vector_color,
-            cell_data=_cell_data_for_vecs,
-            axes=_gif_show_axes,
+            cell_data=mol_obj.cell_data if mol_obj is not None else None,
+            axes=(not no_cell) if axes is None else axes,
         )
 
-        cube_data = molecule.cube_data if isinstance(molecule, Molecule) else None
-
-        # Apply crystal/cell config when the molecule carries cell_data
-        if isinstance(molecule, Molecule) and molecule.cell_data is not None:
-            _gif_mol = Molecule(
+        if mol_obj is not None and mol_obj.cell_data is not None:
+            _cell_mol = Molecule(
                 graph=ref_graph,
-                cube_data=None,
-                cell_data=copy.deepcopy(molecule.cell_data),
-                oriented=molecule.oriented,
+                cell_data=copy.deepcopy(mol_obj.cell_data),
+                oriented=mol_obj.oriented,
             )
             _apply_cell_config(
-                _gif_mol,
+                _cell_mol,
                 cfg,
                 no_cell=no_cell,
                 axis=axis,
@@ -1772,9 +1729,11 @@ def render_gif(
                 ghost_opacity=ghost_opacity,
                 bo_explicit=bo,
             )
-            ref_graph = _gif_mol.graph
-        # Build surface params when a cube is present
-        mo_params = dens_params = None
+            ref_graph = _cell_mol.graph
+
+        # Surfaces
+        cube_data = mol_obj.cube_data if mol_obj is not None else None
+        mo_p = dens_p = None
         if cube_data is not None and (mo or dens):
             from xyzrender.config import build_surface_params, collect_surf_overrides
 
@@ -1787,30 +1746,23 @@ def render_gif(
                 flat_mo=flat_mo,
                 dens_color=dens_color,
             )
-            mo_params, dens_params, _, _ = build_surface_params(
-                cfg,
-                surf_overrides,
-                has_mo=mo,
-                has_dens=dens,
-                has_esp=False,
-                has_nci=False,
-            )
+            mo_p, dens_p, _, _ = build_surface_params(cfg, surf_overrides, has_mo=mo, has_dens=dens)
+
         render_rotation_gif(
-            ref_graph,
-            cfg,
-            str(gif_path),
-            n_frames=rot_frames,
+            graph=ref_graph,
+            config=cfg,
+            output=str(gif_path),
             fps=gif_fps,
+            n_frames=rot_frames,
             axis=bounce_ax or gif_rot or "y",
             bounce_degrees=float(bounce_deg) if bounce_deg is not None else None,
-            mo_params=mo_params,
-            mo_cube=cube_data if mo_params is not None else None,
-            dens_params=dens_params,
-            dens_cube=cube_data if dens_params is not None else None,
+            mo_params=mo_p,
+            mo_cube=cube_data if mo_p is not None else None,
+            dens_params=dens_p,
+            dens_cube=cube_data if dens_p is not None else None,
         )
-
-    logger.info("GIF written to %s", gif_path)
-    return GIFResult(gif_path)
+        logger.info("GIF written to %s", gif_path)
+        return GIFResult(gif_path)
 
 
 # ---------------------------------------------------------------------------

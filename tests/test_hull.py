@@ -653,6 +653,41 @@ def test_hull_list_input_no_crash():
     assert cfg.hull_atom_indices is not None
 
 
+def test_apply_hull_pore_workflow_subset_list_not_string_mode():
+    """CLI --hull 1-6 passes list[list[int]]; workflow must not treat it like 'faces'."""
+    import networkx as nx
+
+    from xyzrender.api import _apply_hull_pore_workflow
+    from xyzrender.types import RenderConfig
+
+    g = nx.Graph()
+    for i in range(6):
+        g.add_node(i, symbol="C", position=(float(i), 0.0, 0.0))
+    for i in range(5):
+        g.add_edge(i, i + 1)
+
+    cfg = RenderConfig()
+    _apply_hull_pore_workflow(
+        cfg,
+        g,
+        hull=[[0, 1, 2, 3, 4, 5]],
+        hull_color=None,
+        hull_opacity=None,
+        hull_edge=None,
+        hull_edge_width_ratio=None,
+        hull_color_type="type",
+        pore=False,
+        pore_color=None,
+        pore_opacity=None,
+        supercell=(1, 1, 1),
+        ring_max_size=100,
+        ring_min_size=3,
+        face_planarity=0.2,
+        cell_data=None,
+    )
+    assert cfg.show_convex_hull is True
+
+
 # ---------------------------------------------------------------------------
 # Integration tests (real structures)
 # ---------------------------------------------------------------------------
@@ -727,3 +762,48 @@ def test_render_pore_svg():
         xr.render(_load("buckyball.xyz"), pore=True, output=f.name)
         svg = Path(f.name).read_text()
     assert len(re.findall(r"circle[^>]*pore", svg)) == 1
+
+
+def test_render_supercell_hull_faces_keeps_per_type_coloring():
+    """render(--hull faces --supercell) must keep per-type ring coloring.
+
+    apply_hull_to_config needs the (expanded) graph so _ring_colors → ring_fingerprint
+    can distinguish same-size rings of different element compositions. If the
+    graph collapses to None (e.g. inside _apply_hull_pore_workflow), the
+    fingerprint reduces to (size, ()) and same-size rings of different types
+    share a colour. render() must forward an expanded-graph context to the
+    workflow so this doesn't happen.
+    """
+    from unittest.mock import patch
+
+    import networkx as nx
+
+    from xyzrender.api import Molecule, render
+    from xyzrender.types import CellData
+
+    g = nx.Graph()
+    for i in range(6):
+        g.add_node(i, symbol="C", position=(np.cos(i * np.pi / 3), np.sin(i * np.pi / 3), 0.0))
+    for i in range(6):
+        g.add_edge(i, (i + 1) % 6)
+
+    cell = CellData(lattice=np.eye(3) * 10.0)
+    mol = Molecule(graph=g, cell_data=cell)
+
+    captured: dict = {}
+
+    def _spy(cfg, graph, **kwargs):
+        captured["color_graph"] = kwargs.get("color_graph")
+        raise SystemExit("captured")  # short-circuit before render_svg
+
+    with patch("xyzrender.api._apply_hull_pore_workflow", side_effect=_spy):
+        try:
+            render(mol, hull="faces", supercell=(2, 1, 1), hull_color_type="type")
+        except SystemExit:
+            pass
+
+    assert captured.get("color_graph") is not None, (
+        "render() did not forward color_graph to _apply_hull_pore_workflow — "
+        "per-type/per-env hull coloring collapses to size-only "
+        "(see ring_fingerprint at hull.py:447)"
+    )
