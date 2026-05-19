@@ -524,3 +524,45 @@ def test_render_overlay_haptic_applies_to_mol2(tmp_path, caffeine):
         ((_, bond_data),) = [(nb, merged.edges[c, nb]) for nb in merged.neighbors(c)]
         assert bond_data.get("molecule_index") == 1
         assert bond_data.get("bond_color_override", "").startswith("#")
+
+
+def test_render_overlay_with_haptic_public_api(tmp_path):
+    """Public-API equivalent of the test above — `render(mol, overlay=other, haptic=True)`
+    must produce haptic centroids on BOTH the base and the overlay, not just the base.
+
+    `cfg.haptic` is treated as a global setting that runs post-merge on the full graph
+    (see api.py:2445 `_ov_cfg.haptic = False  # haptic is global; runs post-merge…`).
+    This is the seed test for the "haptic on align/overlay" class of bugs the user
+    flagged — extend it as new failure modes are found."""
+    from unittest.mock import patch
+
+    mb_path = tmp_path / "metallo_benzene.xyz"
+    _write_metallo_benzene(mb_path)
+    base = load(mb_path)  # base = metallo-benzene → triggers haptic on base
+    overlay_mol = load(mb_path)  # overlay = also metallo-benzene → triggers haptic on overlay
+
+    captured: dict = {}
+
+    def _spy(graph, cfg, **_kwargs):
+        captured["graph"] = graph
+        captured["cfg"] = cfg
+        return "<svg/>"
+
+    with patch("xyzrender.renderer.render_svg", side_effect=_spy):
+        render(base, overlay=overlay_mol, haptic=True, orient=False)
+
+    g = captured["graph"]
+    centroids = [n for n in g.nodes() if g.nodes[n].get("symbol") == "*"]
+    assert len(centroids) == 2, (
+        f"Expected one haptic centroid each on base + overlay (=2), got {len(centroids)}. "
+        "render(haptic=True, overlay=…) must apply haptic to the merged graph so the "
+        "overlay's eta-coordination is collapsed too — not just the base."
+    )
+
+    # Exactly one of those centroids must carry molecule_index=1 (the overlay's),
+    # and one must carry molecule_index=0 (the base's). If both are 0, the
+    # overlay was haptic-processed but not stamped with its structure index.
+    indices = sorted(g.nodes[c].get("molecule_index", 0) for c in centroids)
+    assert indices == [0, 1], (
+        f"Haptic centroids should carry distinct molecule_index values [0, 1] for base + overlay; got {indices}"
+    )

@@ -559,6 +559,11 @@ def main() -> None:
     gif_g.add_argument("--gif-ts", action="store_true", help="TS vibration GIF (via graphRC)")
     gif_g.add_argument("--gif-trj", action="store_true", help="Trajectory/optimization GIF (multi-frame input)")
     gif_g.add_argument(
+        "--trj-bonds",
+        action="store_true",
+        help="Re-detect bonds for every frame (use for NEB-TS MEPs where connectivity changes)",
+    )
+    gif_g.add_argument(
         "--gif-rot",
         nargs="?",
         const="y",
@@ -1366,6 +1371,7 @@ def main() -> None:
                 auto_align=args.align,  # None = preset default; True/False = explicit override
                 opacity=args.opacity,
                 reference_graph=_ref_graph,
+                trj_bonds=args.trj_bonds,
                 detect_nci=args.nci_detect,
                 mo=args.mo,
                 dens=args.dens,

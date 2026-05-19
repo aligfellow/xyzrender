@@ -178,17 +178,11 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |------------------------------|----------------------------------|---------------------------------|
 | ![Co scaled](examples/images/CoCl6_scaled_Co2.svg) | ![multi scale](examples/images/caffeine_scaled_multigroup.svg) | ![atom opacity](examples/images/caffeine_atom_opacity.svg) |
 
-### Depth of field
+### Depth of field / Glow
 
-| DoF | Rotation |
-|-----|----------| 
-| ![dof](examples/images/caffeine_dof.svg) | ![dof](examples/images/caffeine_dof.gif) |
-
-### Glow
-
-| Glow (N,O atoms) |
-|------------------|
-| ![glow](examples/images/caffeine_glow.svg) |
+| DoF | Rotation | Glow (N,O atoms) |
+|-----|----------|------------------|
+| ![dof](examples/images/caffeine_dof.svg) | ![dof](examples/images/caffeine_dof.gif) | ![glow](examples/images/caffeine_glow.svg) |
 
 ### Structural overlay & ensemble
 
@@ -256,13 +250,13 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### GIF animations
 
-| Rotation | TS + NCI + vdW + rotation | Trajectory | TS |
-|----------|---------------------------|------------|------------------|
-| ![rotate](examples/images/caffeine.gif) | ![ts rot](examples/images/bimp_nci_ts.gif) | ![trj](examples/images/bimp_trj.gif) | ![ts](examples/images/mn-h2.gif) |
+| Rotation | Bounce (50deg) | Trajectory (per-frame bonds) |
+|----------|----------------|------------------------------|
+| ![rotate](examples/images/caffeine.gif) | ![bounce](examples/images/caffeine_bounce_50.gif) | ![sn2 mep](examples/images/sn2_trj_bonds.gif) |
 
-| Bounce (50deg) |
-|----------------|
-| ![bounce](examples/images/caffeine_bounce_50.gif) |
+| TS + NCI + vdW + rotation | Trajectory | TS |
+|---------------------------|------------|----|
+| ![ts rot](examples/images/bimp_nci_ts.gif) | ![trj](examples/images/bimp_trj.gif) | ![ts](examples/images/mn-h2.gif) |
 
 | Overlay rotation | MO | Density | 
 |----------|---------------------------|------------|

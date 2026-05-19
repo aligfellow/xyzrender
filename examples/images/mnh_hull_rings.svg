@@ -47,11 +47,11 @@
     <radialGradient id="x0g67" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#cccccc"/><stop offset="40%" stop-color="#c3c3c3"/><stop offset="100%" stop-color="#978488"/></radialGradient>
     <radialGradient id="x0g73" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#c8c8c8"/><stop offset="40%" stop-color="#bfbfbf"/><stop offset="100%" stop-color="#917c80"/></radialGradient>
   </defs>
-  <polygon points="380.6,108.5 380.2,151.4 402.9,226.1 426.5,260.9 429.0,220.9 405.7,143.8" fill="#008080" fill-opacity="0.20" stroke="none"/>
-  <polygon points="227.4,341.7 180.0,302.9 144.0,233.5 155.7,202.8 203.2,241.3 239.2,311.5" fill="#008080" fill-opacity="0.20" stroke="none"/>
-  <polygon points="319.5,454.0 260.6,509.1 297.7,573.0 379.2,558.6 394.0,485.5" fill="#008080" fill-opacity="0.20" stroke="none"/>
+  <polygon points="402.9,226.1 426.5,260.9 429.0,220.9 405.7,143.8 380.6,108.5 380.2,151.4" fill="#008080" fill-opacity="0.20" stroke="none"/>
+  <polygon points="239.2,311.5 203.2,241.3 155.7,202.8 144.0,233.5 180.0,302.9 227.4,341.7" fill="#008080" fill-opacity="0.20" stroke="none"/>
+  <polygon points="319.5,454.0 394.0,485.5 379.2,558.6 297.7,573.0 260.6,509.1" fill="#008080" fill-opacity="0.20" stroke="none"/>
   <polygon points="370.5,548.3 415.3,606.7 363.2,664.3 286.1,641.6 290.6,569.8" fill="#008080" fill-opacity="0.20" stroke="none"/>
-  <polygon points="264.3,362.8 213.9,375.1 136.3,393.7 109.2,399.6 159.4,387.1 237.8,369.1" fill="#008080" fill-opacity="0.20" stroke="none"/>
+  <polygon points="237.8,369.1 264.3,362.8 213.9,375.1 136.3,393.7 109.2,399.6 159.4,387.1" fill="#008080" fill-opacity="0.20" stroke="none"/>
   <circle cx="405.7" cy="143.8" r="20.6" fill="url(#x0g55)" stroke="#b2b2b2" stroke-width="3.6"/>
   <line x1="395.5" y1="138.9" x2="381.9" y2="119.8" stroke="#707070" stroke-width="6.4" stroke-linecap="round" stroke-dasharray="6.4,12.7"/>
   <line x1="404.4" y1="132.6" x2="390.8" y2="113.4" stroke="#707070" stroke-width="6.4" stroke-linecap="round"/>
