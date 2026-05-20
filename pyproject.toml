@@ -13,7 +13,7 @@ dependencies = [
     "numpy>=1.24",
     "xyzgraph>=1.6.10",
     "cclib",
-    "graphrc>=1.3.6",
+    "graphrc>=1.3.7",
     "cairosvg",
     "resvg-py",
     "Pillow",

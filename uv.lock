@@ -634,7 +634,7 @@ wheels = [
 
 [[package]]
 name = "graphrc"
-version = "1.3.6"
+version = "1.3.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cclib" },
@@ -644,9 +644,9 @@ dependencies = [
     { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "xyzgraph" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c5/b9/d8468ddecdcc6abb123329dcd083212563f84444ceb733d9d2663f2e4618/graphrc-1.3.6.tar.gz", hash = "sha256:7498b5f5cae7d9081a5031639181d3c75a3895ea61e2c7d9d5ecd29683c0e1a8", size = 48647, upload-time = "2026-03-08T12:53:29.793Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a5/3f/f589f6eeea3d5ebc39037ace0e4177dc4102d2c8d89c709401c92c295e11/graphrc-1.3.7.tar.gz", hash = "sha256:0df2fcad1d1150b040e3b982fe98ec430d399b1dcf7e12e32e3fae8b65ead31a", size = 50451, upload-time = "2026-05-20T10:02:54.118Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4f/37/eea753bb94f3e48513092beee3d295dace2f60f26df8cfc6d9d5c2c38a28/graphrc-1.3.6-py3-none-any.whl", hash = "sha256:f23754ab833db3c77d02038b2e41253961ee503c99303394cd339c94b851d606", size = 44543, upload-time = "2026-03-08T12:53:26.926Z" },
+    { url = "https://files.pythonhosted.org/packages/2c/1b/291dd75b5ed494eb484801f39e6572192d322e6cd3d68fab8a6dde743c48/graphrc-1.3.7-py3-none-any.whl", hash = "sha256:50bebc6880cfb6eb73f1589c20ce40e3906cb0494a90e13986885424033572e3", size = 46021, upload-time = "2026-05-20T10:02:52.414Z" },
 ]
 
 [[package]]
@@ -2215,7 +2215,7 @@ requires-dist = [
     { name = "ase", marker = "extra == 'cif'" },
     { name = "cairosvg" },
     { name = "cclib" },
-    { name = "graphrc", specifier = ">=1.3.6" },
+    { name = "graphrc", specifier = ">=1.3.7" },
     { name = "ipykernel", specifier = ">=7.2.0" },
     { name = "numpy", specifier = ">=1.24" },
     { name = "pillow" },
