@@ -7,7 +7,7 @@ from xyzrender.selectors import normalize_token, resolve_atom_indices, resolve_e
 
 
 def _metal_graph():
-    """Pt, Ni, C, H, O, N — covers metals, heteroatoms, organic."""
+    """Pt-O, Pt-N, Ni-C, plus isolated H — covers metals, ligands, organic."""
     g = nx.Graph()
     g.add_node(0, symbol="Pt")
     g.add_node(1, symbol="Ni")
@@ -15,6 +15,8 @@ def _metal_graph():
     g.add_node(3, symbol="H")
     g.add_node(4, symbol="O")
     g.add_node(5, symbol="N")
+    # Pt's coord shell: O, N.  Ni's coord shell: C.  H is unbonded.
+    g.add_edges_from([(0, 4), (0, 5), (1, 2)])
     return g
 
 
@@ -83,9 +85,22 @@ def test_element_set_pi_raises():
 
 def test_resolve_categories():
     g = _metal_graph()
+    # M is element-based (all metals), no graph-context narrowing.
     assert resolve_atom_indices("M", g) == {0, 1}  # Pt, Ni
-    assert resolve_atom_indices("het", g) == {4, 5}  # O, N
-    assert resolve_atom_indices("L", g) == {2, 3, 4, 5}  # C, H, O, N
+    # L and het are graph-context-aware: "ligand" = bonded to a metal.
+    # Pt has O, N as ligands; Ni has C as ligand.  H is unbonded so excluded.
+    assert resolve_atom_indices("L", g) == {2, 4, 5}  # C(Ni), O(Pt), N(Pt)
+    assert resolve_atom_indices("het", g) == {4, 5}  # O(Pt), N(Pt)
+
+
+def test_resolve_l_het_falls_back_to_element_set_without_metals():
+    """On pure-organic graphs (no metals), L/het use the full element set."""
+    g = nx.Graph()
+    g.add_node(0, symbol="C")
+    g.add_node(1, symbol="H")
+    g.add_node(2, symbol="O")
+    assert resolve_atom_indices("L", g) == {0, 1, 2}  # all non-metals
+    assert resolve_atom_indices("het", g) == {2}  # all non-CHM
 
 
 def test_resolve_element():

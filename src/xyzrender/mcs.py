@@ -17,9 +17,32 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
+from xyzgraph import DATA
 
 if TYPE_CHECKING:
     import networkx as nx
+
+
+def _type_key(symbol: str, *, type_aware: bool) -> str:
+    """Map an element symbol to its MCS-matching class.
+
+    When *type_aware* is ``True``:
+
+    * All metals collapse to ``"M"`` — so Pt↔Mn, Pd↔Fe etc. can match.
+    * All heteroatoms (non-C, non-H, non-metal) collapse to ``"het"`` — so
+      N↔Cl, P↔O etc. can match when no same-element option fits.
+    * ``C`` and ``H`` stay as themselves (alkyl carbons / hydrogens still
+      need to match their kind).
+
+    With *type_aware=False* every atom is element-strict (original behaviour).
+    """
+    if not type_aware:
+        return symbol
+    if symbol in DATA.metals:
+        return "M"
+    if symbol not in {"C", "H"}:
+        return "het"
+    return symbol
 
 
 def find_mcs_mapping(
@@ -28,6 +51,7 @@ def find_mcs_mapping(
     *,
     min_atoms: int = 3,
     threshold: float = 1.5,
+    type_aware: bool = False,
 ) -> tuple[list[int], list[int]] | None:
     """Find the largest edge-preserving connected atom match between two graphs.
 
@@ -39,6 +63,12 @@ def find_mcs_mapping(
         Minimum matched atoms to accept (default 3 — SVD minimum for Kabsch).
     threshold:
         Distance cutoff (Å) for accepting an atom pair as matched.
+    type_aware:
+        When ``True``, all metal elements collapse into a single ``"M"`` class
+        so e.g. Pt↔Mn or Fe↔Pd can match in the MCS — useful for aligning
+        related organometallic complexes whose metal centres differ.  Non-metal
+        atoms remain element-strict (P↔P, N↔N, Cl↔Cl).  Default ``False``
+        preserves element-strict legacy behaviour.
 
     Returns
     -------
@@ -84,7 +114,15 @@ def find_mcs_mapping(
         nodes1,
         nodes2,
         kabsch_rotation,
+        type_aware=type_aware,
     ):
+        candidates.append((pos1, aligned))
+
+    # Ring seeds — align each pair of same-size rings (5- or 6-mem cycles, so
+    # benzene/cyclopentadienyl/heterocycle pairs all qualify).  Needed when
+    # neither molecule has a unique shared heteroatom for _local_het_seeds.
+    # Each ring pair contributes 2 seed orientations (normal sign-flip).
+    for aligned in _ring_seeds(graph1, graph2, pos1, pos2, nodes1, nodes2):
         candidates.append((pos1, aligned))
 
     # --- Evaluate each candidate: ICP → BFS connected match ---
@@ -93,7 +131,14 @@ def find_mcs_mapping(
 
     best_match: list[tuple[int, int]] = []
     for ref, init_aligned in candidates:
-        aligned = _icp_refine(ref, sym1, init_aligned.copy(), sym2, kabsch_rotation)
+        aligned = _icp_refine(
+            ref,
+            sym1,
+            init_aligned.copy(),
+            sym2,
+            kabsch_rotation,
+            type_aware=type_aware,
+        )
         match = _connected_match(
             ref,
             sym1,
@@ -106,12 +151,24 @@ def find_mcs_mapping(
             node_to_idx1,
             node_to_idx2,
             threshold,
+            type_aware=type_aware,
         )
         if len(match) > len(best_match):
             best_match = match
 
     if len(best_match) < min_atoms:
         return None
+
+    # Reject small all-C/H matches (methyl, CH2, ethyl, propyl, butyl).  Larger
+    # all-C/H matches (e.g. benzene's 6 carbons, cyclopentadiene's 5) are real
+    # structural anchors and stay.  The heavy-atom threshold ≥ 5 keeps benzene
+    # and cyclopentadienyl rings; a heteroatom in the match (N, O, P, Cl, …)
+    # also passes.  Only enforced for type-aware mode (legacy keeps its answer).
+    if type_aware:
+        has_heteroatom = any(sym1[i] not in {"C", "H"} or sym2[j] not in {"C", "H"} for i, j in best_match)
+        heavy_count = sum(1 for i, j in best_match if sym1[i] != "H" and sym2[j] != "H")
+        if not has_heteroatom and heavy_count < 5:
+            return None
 
     g1_ids = [nodes1[i] for i, _ in best_match]
     g2_ids = [nodes2[j] for _, j in best_match]
@@ -162,13 +219,15 @@ def _connected_match(
     node_to_idx1: dict[int, int],
     node_to_idx2: dict[int, int],
     threshold: float,
+    *,
+    type_aware: bool = False,
 ) -> list[tuple[int, int]]:
     """Find the largest edge-preserving connected match via BFS growth.
 
     For each close same-element pair, grow outward along bonds that exist in
     *both* graphs.  Returns the largest match found across all seeds.
     """
-    close_pairs = _close_element_pairs(pos1, sym1, pos2, sym2, threshold)
+    close_pairs = _close_element_pairs(pos1, sym1, pos2, sym2, threshold, type_aware=type_aware)
     close_set: set[tuple[int, int]] = {(i, j) for _, i, j in close_pairs}
     max_possible = min(len(sym1), len(sym2))
 
@@ -221,10 +280,18 @@ def _icp_refine(
     *,
     iters: int = 5,
     match_threshold: float = 2.0,
+    type_aware: bool = False,
 ) -> np.ndarray:
     """Refine alignment via iterative closest-point element matching."""
     for _ in range(iters):
-        pairs = _greedy_element_pairs(pos1, sym1, aligned, sym2, match_threshold)
+        pairs = _greedy_element_pairs(
+            pos1,
+            sym1,
+            aligned,
+            sym2,
+            match_threshold,
+            type_aware=type_aware,
+        )
         if len(pairs) < 3:
             break
         idx1 = np.array([i for i, _ in pairs])
@@ -244,12 +311,14 @@ def _greedy_element_pairs(
     pos2: np.ndarray,
     sym2: list[str],
     threshold: float,
+    *,
+    type_aware: bool = False,
 ) -> list[tuple[int, int]]:
     """Greedy closest-first assignment of same-element atom pairs (for ICP)."""
     used1: set[int] = set()
     used2: set[int] = set()
     pairs: list[tuple[int, int]] = []
-    for _, i, j in _close_element_pairs(pos1, sym1, pos2, sym2, threshold):
+    for _, i, j in _close_element_pairs(pos1, sym1, pos2, sym2, threshold, type_aware=type_aware):
         if i not in used1 and j not in used2:
             pairs.append((i, j))
             used1.add(i)
@@ -263,19 +332,22 @@ def _close_element_pairs(
     pos2: np.ndarray,
     sym2: list[str],
     threshold: float,
+    *,
+    type_aware: bool = False,
 ) -> list[tuple[float, int, int]]:
-    """Find all same-element atom pairs within *threshold*, sorted by distance.
+    """Find all same-class atom pairs within *threshold*, sorted by distance.
 
-    Vectorised per element type: computes full distance matrix for each element
-    via broadcasting instead of looping over individual atoms.
+    When *type_aware*, all metals collapse into a single ``"M"`` class so
+    e.g. Pt↔Mn pairs are considered; non-metals stay element-strict.
+    Vectorised per element class via broadcasting.
     """
-    # Group indices by element
+    # Group indices by class (element symbol, or "M" for any metal when type-aware)
     elem_to_idx1: dict[str, list[int]] = {}
     for i, s in enumerate(sym1):
-        elem_to_idx1.setdefault(s, []).append(i)
+        elem_to_idx1.setdefault(_type_key(s, type_aware=type_aware), []).append(i)
     elem_to_idx2: dict[str, list[int]] = {}
     for j, s in enumerate(sym2):
-        elem_to_idx2.setdefault(s, []).append(j)
+        elem_to_idx2.setdefault(_type_key(s, type_aware=type_aware), []).append(j)
 
     pairs: list[tuple[float, int, int]] = []
     tsq = threshold * threshold
@@ -294,6 +366,43 @@ def _close_element_pairs(
     return pairs
 
 
+def _ring_seeds(
+    graph1: nx.Graph,
+    graph2: nx.Graph,
+    pos1: np.ndarray,
+    pos2: np.ndarray,
+    nodes1: list[int],
+    nodes2: list[int],
+) -> list[np.ndarray]:
+    """Seed candidates by aligning each pair of same-size 5/6-membered rings.
+
+    Reuses ``graph.graph['rings']`` (cached by xyzgraph at build time, includes
+    all rings not just aromatic) so seeding doesn't depend on aromaticity
+    flags — which can be lost when bond orders change e.g. via overlay charge
+    inheritance.  Sub-rings outside 5-6 atoms are skipped: real anchors come
+    from arene / cyclopentadienyl scale.
+    """
+    from xyzrender.utils import pca_matrix, rotation_to_align
+
+    def frames(graph, pos, nodes):
+        idx_of = {n: i for i, n in enumerate(nodes)}
+        for ring in graph.graph.get("rings") or []:
+            if 5 <= len(ring) <= 6 and all(n in idx_of for n in ring):
+                rp = pos[[idx_of[n] for n in ring]]
+                # pca_matrix's least-variance axis = plane normal for a planar ring
+                yield len(ring), rp.mean(axis=0), pca_matrix(rp)[-1]
+
+    f1 = list(frames(graph1, pos1, nodes1))
+    f2 = list(frames(graph2, pos2, nodes2))
+    return [
+        (pos2 - c2) @ rotation_to_align(n2, sign * n1).T + c1
+        for size1, c1, n1 in f1
+        for size2, c2, n2 in f2
+        if size1 == size2
+        for sign in (1.0, -1.0)
+    ]
+
+
 def _local_het_seeds(
     pos1: np.ndarray,
     sym1: list[str],
@@ -306,41 +415,46 @@ def _local_het_seeds(
     kabsch_rotation,
     *,
     min_seed: int = 3,
+    type_aware: bool = False,
 ) -> list[np.ndarray]:
     """Generate alignments seeded from unique shared heteroatoms + neighbors.
 
     For each element appearing exactly once in both molecules, build a seed
-    from that atom + its element-matched bonded neighbors.
+    from that atom + its element-matched bonded neighbors.  When *type_aware*,
+    all metals collapse into a single ``"M"`` class so e.g. a Pt complex and a
+    Mn complex can seed from their respective single metals.
     """
     from collections import Counter
 
-    c1, c2 = Counter(sym1), Counter(sym2)
+    c1 = Counter(_type_key(s, type_aware=type_aware) for s in sym1)
+    c2 = Counter(_type_key(s, type_aware=type_aware) for s in sym2)
+    # Skip ubiquitous classes; "M" stays because metals are typically rare and useful seeds.
     unique = {e for e in (set(c1) & set(c2)) - {"C", "H"} if c1[e] == 1 and c2[e] == 1}
     if not unique:
         return []
 
     node_to_idx1 = {n: i for i, n in enumerate(nodes1)}
     node_to_idx2 = {n: i for i, n in enumerate(nodes2)}
-    g1_idx = {e: next(i for i, s in enumerate(sym1) if s == e) for e in unique}
-    g2_idx = {e: next(i for i, s in enumerate(sym2) if s == e) for e in unique}
+    g1_idx = {e: next(i for i, s in enumerate(sym1) if _type_key(s, type_aware=type_aware) == e) for e in unique}
+    g2_idx = {e: next(i for i, s in enumerate(sym2) if _type_key(s, type_aware=type_aware) == e) for e in unique}
 
     results: list[np.ndarray] = []
     for e in sorted(unique):
         i1, i2 = g1_idx[e], g2_idx[e]
         seed = [(i1, i2)]
 
-        # Group neighbors by element and pair them
+        # Group neighbors by class and pair them (M-classed when type_aware)
         nb1: dict[str, list[int]] = {}
         for nb in graph1.neighbors(nodes1[i1]):
             idx = node_to_idx1.get(nb)
             if idx is not None:
-                nb1.setdefault(sym1[idx], []).append(idx)
+                nb1.setdefault(_type_key(sym1[idx], type_aware=type_aware), []).append(idx)
 
         nb2: dict[str, list[int]] = {}
         for nb in graph2.neighbors(nodes2[i2]):
             idx = node_to_idx2.get(nb)
             if idx is not None:
-                nb2.setdefault(sym2[idx], []).append(idx)
+                nb2.setdefault(_type_key(sym2[idx], type_aware=type_aware), []).append(idx)
 
         for elem, idx_list1 in nb1.items():
             idx_list2 = nb2.get(elem)

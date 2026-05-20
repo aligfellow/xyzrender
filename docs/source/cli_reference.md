@@ -81,7 +81,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--align` / `--no-align` | Force / skip Kabsch/MCS alignment for `--overlay` and `--ensemble`. Default: on. `--align` is useful to override a preset with `auto_align: false`; `--no-align` keeps each structure's raw coordinates (interactive `-I` rotation of the base still propagates to the overlay) |
 | `--ensemble` | Ensemble overlay for multi-frame XYZ trajectories; conformers default to CPK atom colours |
 | `--ensemble-color VALUE` | Palette name (`viridis`, `plasma`, `spectral`, `coolwarm`, `RdBu`, `rainbow`), a single colour, or comma-separated colours |
-| `--align-atoms INDICES` | Atom subset for Kabsch alignment (min 3), e.g. `1,2,3`, `1-6`. Works with `--overlay` and `--ensemble` |
+| `--align-atoms SELECTOR` | Alignment candidates for `--overlay` and `--ensemble` (min 3 atoms). Any selector grammar: 1-indexed IDs (`1,2,3`, `1-6`), element symbols (`Fe,P,Cl`), categories (`M`, `L`, `het`, `sbm`), or a mix (`1-5,Fe`). Resolved per-graph; metal-containing specs route through metal-fragment overlay (paired metals coincide), otherwise MCS-on-induced-subgraph and K-subset Kabsch are tried and the lowest-RMSD wins. Default (no flag) auto-picks the strategy. |
 
 ## Orientation
 

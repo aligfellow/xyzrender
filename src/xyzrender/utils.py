@@ -195,6 +195,34 @@ def _apply_rot_to_vecs(
     return (rot @ directions.T).T, (rot @ (origins - centroid).T).T + centroid
 
 
+def rotation_to_align(v_from: np.ndarray, v_to: np.ndarray) -> np.ndarray:
+    """Return the rotation matrix mapping unit vector *v_from* onto *v_to*.
+
+    Uses Rodrigues' formula on the cross-product axis.  Handles the parallel
+    and anti-parallel edge cases (180° flip picks an arbitrary perpendicular).
+    """
+    a = v_from / np.linalg.norm(v_from)
+    b = v_to / np.linalg.norm(v_to)
+    cos = float(np.dot(a, b))
+    if cos > 0.9999:
+        return np.eye(3)
+    if cos < -0.9999:
+        perp = np.array([1.0, 0.0, 0.0]) if abs(a[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+        axis = np.cross(a, perp)
+    else:
+        axis = np.cross(a, b)
+    axis /= np.linalg.norm(axis)
+    angle = np.arccos(np.clip(cos, -1.0, 1.0))
+    k = np.array(
+        [
+            [0.0, -axis[2], axis[1]],
+            [axis[2], 0.0, -axis[0]],
+            [-axis[1], axis[0], 0.0],
+        ]
+    )
+    return np.eye(3) + np.sin(angle) * k + (1 - np.cos(angle)) * (k @ k)
+
+
 def apply_axis_angle_rotation(graph: nx.Graph, axis: np.ndarray, angle: float) -> None:
     """Rotate all atom positions in-place around an arbitrary axis (degrees).
 

@@ -417,3 +417,16 @@ def test_integration_static_matches_gif_frame0_overlay_with_align_atoms():
     """
     main = str(_STRUCTURES / "caffeine.xyz")
     _assert_static_matches_gif_frame0(main, overlay=main, align_atoms=[1, 2, 3])
+
+
+def test_integration_static_matches_gif_frame0_overlay_auto_path():
+    """Overlay with no align_atoms (auto MCS/best-fit path).
+
+    Uses benzene (small) as main + caffeine (larger) as overlay so the
+    merged-graph PCA is dominated by caffeine and would diverge from
+    benzene's own PCA — catches GIF-path re-PCA on the merged graph
+    instead of using the base's pre-merge PCA.
+    """
+    main = str(_STRUCTURES / "benzene.xyz")
+    overlay = str(_STRUCTURES / "caffeine.xyz")
+    _assert_static_matches_gif_frame0(main, overlay=overlay)

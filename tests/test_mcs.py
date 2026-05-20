@@ -172,3 +172,111 @@ def test_mcs_same_molecule_different_conformer(isothio, isothio_xtb):
     g1_ids, _ = mapping
     total = isothio.graph.number_of_nodes()
     assert len(g1_ids) >= total * 0.8  # at least 80% matched
+
+
+# ---------------------------------------------------------------------------
+# Type-aware matching (M/het class collapse)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def mnh():
+    return load(STRUCTURES / "mnh.xyz")
+
+
+@pytest.fixture(scope="module")
+def cocl6():
+    return load(STRUCTURES / "CoCl6.xyz")
+
+
+def test_mcs_type_aware_allows_metal_class_match(mnh, cocl6):
+    """type_aware=True lets Fe/Mn ↔ Co match via the shared 'M' class.
+
+    Strict matching would miss the metal pair (Fe ≠ Co, Mn ≠ Co); type-aware
+    collapses all metals into one class so they pair up.
+    """
+    from xyzgraph import DATA
+
+    strict = find_mcs_mapping(mnh.graph, cocl6.graph, type_aware=False)
+    typed = find_mcs_mapping(mnh.graph, cocl6.graph, type_aware=True)
+    # Strict mode shouldn't have any metal-metal pair (different elements).
+    if strict is not None:
+        for a, b in zip(strict[0], strict[1], strict=True):
+            assert not (mnh.graph.nodes[a]["symbol"] in DATA.metals and cocl6.graph.nodes[b]["symbol"] in DATA.metals)
+    # Type-aware should include at least one metal pair.
+    assert typed is not None
+    metal_pairs = [
+        (a, b)
+        for a, b in zip(typed[0], typed[1], strict=True)
+        if mnh.graph.nodes[a]["symbol"] in DATA.metals and cocl6.graph.nodes[b]["symbol"] in DATA.metals
+    ]
+    assert metal_pairs, "type-aware MCS should pair at least one metal-metal"
+
+
+def test_mcs_type_aware_rejects_small_alkyl_matches(caffeine):
+    """type_aware=True rejects trivial all-C/H matches (< 5 heavy atoms).
+
+    A propyl-sized C/H fragment is too unspecific to anchor an alignment;
+    the caller (overlay) falls through to a different strategy.
+    """
+    import networkx as nx
+
+    g1 = nx.Graph()
+    for i, (s, p) in enumerate(
+        [
+            ("C", (0.0, 0.0, 0.0)),
+            ("C", (1.5, 0.0, 0.0)),
+            ("C", (3.0, 0.0, 0.0)),
+            ("H", (0.0, 1.0, 0.0)),
+            ("H", (1.5, 1.0, 0.0)),
+            ("H", (3.0, 1.0, 0.0)),
+        ]
+    ):
+        g1.add_node(i, symbol=s, position=p)
+    g1.add_edges_from([(0, 1), (1, 2), (0, 3), (1, 4), (2, 5)])
+
+    g2 = copy.deepcopy(g1)
+    # Strict matches the propyl fragment (3 heavy, ≥ min_atoms).
+    assert find_mcs_mapping(g1, g2, type_aware=False) is not None
+    # Type-aware rejects: too few heavy atoms (3 < 5) AND no heteroatom.
+    assert find_mcs_mapping(g1, g2, type_aware=True) is None
+
+
+def test_mcs_type_aware_accepts_benzene_ring_match(benzene):
+    """Benzene-benzene is all C/H but has 6 heavy atoms — accepted as anchor.
+
+    Aromatic rings are real structural anchors even without heteroatoms; the
+    alkyl-rejection threshold (≥ 5 heavy atoms) is what distinguishes them
+    from trivial methyl/ethyl/propyl fragments.
+    """
+    mapping = find_mcs_mapping(benzene.graph, benzene.graph, type_aware=True)
+    assert mapping is not None
+    # Should include all 6 ring carbons (and likely all 6 hydrogens too).
+    heavy = [n for n in mapping[0] if benzene.graph.nodes[n]["symbol"] != "H"]
+    assert len(heavy) == 6
+
+
+def test_mcs_aromatic_ring_seeds_land_benzene_on_aromatic_ring(benzene):
+    """Benzene overlaid on a mixed-ring molecule must land on an aromatic ring.
+
+    isothio_uma has 3 six-membered rings: one non-aromatic (pyrazine-like,
+    4 C + 2 N) and two aromatic (a benzannulated core and a Ph substituent).
+    Without aromatic-ring seeds the MCS BFS grows from whichever close pairs
+    happen to fall within the threshold after PCA — often a non-aromatic ring.
+    The aromatic-ring seeds in find_mcs_mapping guarantee that an aromatic
+    benzene-on-benzene alignment is in the candidate set.
+    """
+    from xyzrender import load
+
+    target = load(STRUCTURES / "isothio_uma.xyz", charge=1)
+    aromatic_atoms: set[int] = {n for r in target.graph.graph.get("aromatic_rings", []) for n in r}
+
+    mapping = find_mcs_mapping(target.graph, benzene.graph, type_aware=True)
+    assert mapping is not None
+    target_matched = set(mapping[0])
+    # All 6 ring carbons matched, and they're all from an aromatic ring.
+    heavy = [n for n in target_matched if target.graph.nodes[n]["symbol"] != "H"]
+    assert len(heavy) == 6
+    assert set(heavy).issubset(aromatic_atoms), (
+        f"benzene MCS landed on non-aromatic atoms: {set(heavy) - aromatic_atoms}"
+    )

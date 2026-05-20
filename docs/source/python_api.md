@@ -137,9 +137,12 @@ mol1 = load("isothio_xtb.xyz", charge=1)
 mol2 = load("isothio_uma.xyz", charge=1)
 render(mol1, overlay=mol2)                         # overlay mol2 onto mol1
 render(mol1, overlay=mol2, overlay_color="green")  # custom overlay color
-render(mol1, overlay=mol2, align_atoms=[1, 2, 3])  # align on atom subset
+render(mol1, overlay=mol2, align_atoms=[1, 2, 3])  # explicit 1-indexed subset
+render(mol1, overlay=mol2, align_atoms="M,L")      # metal + coord shell (organometallic)
 render_gif(mol1, overlay=mol2, gif_rot="y")        # spinning overlay GIF
 ```
+
+`align_atoms` accepts a 1-indexed atom list/string or a symbol/category spec (`"M,L"`, `"Fe,P"`, …). Symbol specs are resolved per-graph so atom ordering doesn't need to match between the two structures. Metal-containing specs run metal-fragment overlay so paired metals coincide exactly; non-metal specs use MCS + K-subset Kabsch and pick the lowest-RMSD candidate.
 
 See [Structural Overlay](examples/overlay.md) and [Conformer Ensemble](examples/ensemble.md) for more.
 

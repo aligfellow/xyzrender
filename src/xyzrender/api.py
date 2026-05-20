@@ -133,33 +133,43 @@ class Molecule:
         tilt_degrees: float | None = None,
         priority_pairs: list[tuple[int, int]] | None = None,
         force: bool = False,
-    ) -> None:
+        return_transform: bool = False,
+    ) -> tuple[np.ndarray, np.ndarray] | None:
         """PCA-orient atoms, lattice, and ``graph['lattice']`` atomically.
 
         Idempotent: no-op when ``self.oriented`` is True unless ``force=True``.
-        Atoms are written back centred at the origin (mean = 0) — this matches
-        the convention used by the surface builders, which expect cube-grid
-        and atom coordinates in the same centred frame.  The lattice direction
-        vectors are rotated around the origin; the cell origin (a position) is
-        rotated around the molecular centroid and *also* re-centred to the
-        atom frame, eliminating the frame-divergence bug.  Both ``cell_data``
-        storage locations and the corresponding ``graph['lattice']`` /
-        ``graph['lattice_origin']`` entries are kept in sync.
+        Atoms are written back centred at the origin (mean = 0).  Ghost nodes
+        (``symbol == "*"``, NCI dummies) are excluded from the PCA fit so they
+        don't bias the orientation.  Lattice direction vectors and the cell
+        origin are rotated together and synced across ``cell_data`` and
+        ``graph['lattice']`` / ``graph['lattice_origin']``.
+
+        When *return_transform* is True, returns ``(rot, fit_centroid)`` so a
+        caller (e.g. overlay setup) can mirror the same rigid transform onto
+        a second molecule.
         """
         from xyzrender.utils import pca_orient
 
         if self.oriented and not force:
-            return
+            return None
 
         node_ids = list(self.graph.nodes())
         if not node_ids:
             self.oriented = True
-            return
+            return None
 
         pos = np.array([self.graph.nodes[i]["position"] for i in node_ids], dtype=float)
-        centroid = pos.mean(axis=0)
+        # Exclude ghost nodes from PCA fit (NCI dummies etc.).
+        atom_mask = np.array([self.graph.nodes[i].get("symbol") != "*" for i in node_ids])
+        fit_mask = atom_mask if not atom_mask.all() else None
+        fit_centroid = (pos[fit_mask] if fit_mask is not None else pos).mean(axis=0)
 
-        oriented_pos, rot = pca_orient(pos, priority_pairs=priority_pairs, return_matrix=True)
+        oriented_pos, rot = pca_orient(
+            pos,
+            priority_pairs=priority_pairs,
+            fit_mask=fit_mask,
+            return_matrix=True,
+        )
 
         if tilt_degrees is not None:
             theta = np.radians(tilt_degrees)
@@ -176,20 +186,18 @@ class Molecule:
         for idx, nid in enumerate(node_ids):
             self.graph.nodes[nid]["position"] = tuple(oriented_pos[idx].tolist())
 
-        # Lattice + origin: rotate together; sync both storage locations.
-        # Origin is centred to the same frame as the atoms (no `+ centroid`),
-        # which resolves the divergence bug in the old resolve_orientation.
         if self.cell_data is not None:
             lat = np.asarray(self.cell_data.lattice, dtype=float)
             origin = np.asarray(self.cell_data.cell_origin, dtype=float)
             new_lat = lat @ rot.T
-            new_origin = (origin - centroid) @ rot.T
+            new_origin = (origin - fit_centroid) @ rot.T
             self.cell_data.lattice = new_lat
             self.cell_data.cell_origin = new_origin
             self.graph.graph["lattice"] = new_lat
             self.graph.graph["lattice_origin"] = new_origin
 
         self.oriented = True
+        return (rot, fit_centroid) if return_transform else None
 
     def to_xyz(self, path: str | os.PathLike, title: str = "") -> None:
         """Write the molecule to an XYZ file.
@@ -1793,8 +1801,7 @@ def render_gif(
             cfg.auto_align = auto_align
 
         if overlay is not None:
-            _prev_auto = cfg.auto_orient
-            cfg.auto_orient = False
+            # _setup_overlay PCA-orients and clears cfg.auto_orient — let it through.
             base_mol = mol_obj if mol_obj is not None else Molecule(graph=ref_graph)
             ref_graph = _apply_overlay(
                 base_mol,
@@ -1806,7 +1813,6 @@ def render_gif(
                 align_atoms=align_atoms,
                 has_surfaces=False,
             ).graph
-            cfg.auto_orient = _prev_auto
 
         if cfg.unbond or cfg.bond or cfg.haptic:
             from xyzrender.bond_rules import apply_bond_rules
@@ -2681,13 +2687,7 @@ def _apply_and_save_ref(rmol: Molecule, cfg: "RenderConfig", ref_path: Path) -> 
         raise ValueError(msg)
 
     if cfg.auto_orient and rmol.graph.number_of_nodes() > 1:
-        from xyzrender.utils import pca_orient
-
-        nodes = list(rmol.graph.nodes())
-        pos = np.array([rmol.graph.nodes[n]["position"] for n in nodes], dtype=float)
-        pos = pca_orient(pos)
-        for k, nid in enumerate(nodes):
-            rmol.graph.nodes[nid]["position"] = tuple(pos[k].tolist())
+        rmol.orient()
 
     cfg.auto_orient = False
     rmol.to_xyz(ref_path, title="xyzrender orientation reference")
@@ -2713,7 +2713,6 @@ def _apply_overlay(
     """
     from xyzrender.colors import resolve_color
     from xyzrender.overlay import align, merge_graphs
-    from xyzrender.utils import parse_atom_indices, pca_orient
 
     if mol.cell_data is not None:
         msg = "overlay= is mutually exclusive with crystal/cell display"
@@ -2731,22 +2730,14 @@ def _apply_overlay(
     g1 = rmol.graph
     g2 = copy.deepcopy(overlay_mol.graph)
 
-    # PCA-orient g1 (the already-copied mol graph) to set the viewing frame.
-    # Capture the (rotation, centroid) applied so we can mirror it onto g2
-    # below when auto_align is off — otherwise mol2 stays in the file frame
-    # while mol1 is rotated/centred, and the two separate visually.
+    # PCA-orient g1 via Molecule.orient(); capture (rot, centroid) so we can
+    # mirror the same rigid transform onto g2 when auto_align is off.
     _pca_rot: np.ndarray | None = None
     _pca_centroid: np.ndarray | None = None
     if cfg.auto_orient and g1.number_of_nodes() > 1:
-        nodes1 = list(g1.nodes())
-        pos1 = np.array([g1.nodes[n]["position"] for n in nodes1], dtype=float)
-        atom_mask = np.array([g1.nodes[n]["symbol"] != "*" for n in nodes1])
-        fit_mask = atom_mask if not atom_mask.all() else None
-        _fit_pos = pos1[fit_mask] if fit_mask is not None else pos1
-        _pca_centroid = _fit_pos.mean(axis=0)
-        pos1_oriented, _pca_rot = pca_orient(pos1, fit_mask=fit_mask, return_matrix=True)
-        for k, nid in enumerate(nodes1):
-            g1.nodes[nid]["position"] = tuple(float(v) for v in pos1_oriented[k])
+        transform = rmol.orient(return_transform=True, force=True)
+        if transform is not None:
+            _pca_rot, _pca_centroid = transform
     cfg.auto_orient = False
 
     if overlay_color is not None:
@@ -2766,8 +2757,9 @@ def _apply_overlay(
         apply_bond_rules(g2, _ov_cfg)
 
     if cfg.auto_align:
-        _ov_align = parse_atom_indices(align_atoms) if align_atoms is not None else None
-        aligned2 = align(g1, g2, align_atoms=_ov_align)
+        # Strings (any selector grammar) and 0-indexed lists pass straight
+        # through to overlay.align(); selectors handles both uniformly.
+        aligned2 = align(g1, g2, align_atoms=align_atoms)
     else:
         # Keep mol2's raw coordinates — but mirror whatever rigid transform mol1
         # received during PCA-orientation so the two stay co-registered when the

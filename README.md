@@ -32,7 +32,7 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Surfaces** — molecular orbitals, electron density, ESP colormapping, NCI surfaces, and vdW spheres; solid, mesh, contour, wire, and dot styles
 - **Styling** — highlight & molecule color, radius scaling (by element, category, or index), per-atom fill opacity (bond-agnostic), style regions, atom property colormaps with colorbar, and depth-of-field / depth-fog effects
 - **Annotations** — distances, angles, dihedrals, custom labels, atom indices, and 3D vector arrows (dipoles, forces, fields)
-- **Structural overlay** — RMSD-align two structures and render in contrasting colours; works across different atom counts via automatic scaffold detection. Independent style overrides (atom/bond size, stroke, opacity, per-overlay bond rules), and `--no-align` to skip alignment when geometries already share a frame
+- **Structural overlay** — overlay two structures in contrasting colours; auto-aligned by best-fit (centres on the metals when present, falls back to fuzzy substructure matching that tolerates atom substitutions, then geometric best-fit). Override with `--align-atoms`. Per-overlay style knobs; `--no-align` keeps raw coords
 - **Conformer ensemble** — overlay all frames from a multi-frame XYZ trajectory, with palette colouring and opacity control
 - **Convex hull, hull faces & pores** — semi-transparent facets over selected atoms or rings, exposed faces of molecular cages, and pore rendering
 - **GIF animations** — rotation, TS vibration, trajectory, diffuse/assembly, and depth-of-field animations

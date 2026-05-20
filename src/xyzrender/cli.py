@@ -458,7 +458,12 @@ def main() -> None:
         "--align-atoms",
         default=None,
         dest="align_atoms",
-        help='Atom indices (min 3) for alignment subset, e.g. "1,2,3", "1-6"',
+        help=(
+            "Alignment subset (min 3 atoms).  Numeric: 1-indexed IDs "
+            '("1,2,3" or "1-6").  Symbolic: element/category tokens '
+            '("M,L" picks the metal + its first coordination shell; '
+            '"Fe,P" picks Fe atoms and any P atoms bonded to them).'
+        ),
     )
     ov_g.add_argument(
         "--align",
@@ -1161,10 +1166,11 @@ def main() -> None:
         except (ValueError, FileNotFoundError) as e:
             p.error(str(e))
 
-    # --- Parse align-atoms (comma-separated 1-indexed, e.g. "1,2,3" or "1-6") ---
-    _align_atoms: list[int] | None = None
-    if args.align_atoms is not None:
-        _align_atoms = parse_atom_indices(args.align_atoms, one_indexed=True)
+    # --- align-atoms: pass through as a selector string ---
+    # The full selector grammar applies — numeric ranges ("1,2-5"),
+    # element symbols ("Fe,P"), and categories ("M", "L", "het") are all
+    # resolved per-graph by xyzrender.selectors.resolve_atom_indices.
+    _align_atoms: list[int] | str | None = args.align_atoms
 
     _anchor_atoms: list[int] | None = None
     if args.anchor:
