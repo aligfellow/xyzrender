@@ -406,6 +406,51 @@ class TestQmInputs:
         assert mult == 2
 
 
+def _fake_cclib(monkeypatch, n_frames: int, parser_name: str) -> None:
+    """Install a fake cclib in sys.modules.  Avoids importing real cclib
+    (~0.4s) just to monkeypatch it."""
+    import sys
+    import types
+
+    data = types.SimpleNamespace(
+        atomnos=np.array([1, 1, 1]),
+        atomcoords=np.zeros((n_frames, 3, 3)),
+    )
+    parser = type(parser_name, (), {"parse": lambda self: data})()
+    fake_io = types.SimpleNamespace(ccopen=lambda path, loglevel=None: parser)
+    monkeypatch.setitem(sys.modules, "cclib", types.SimpleNamespace(io=fake_io, __version__="mock"))
+    monkeypatch.setitem(sys.modules, "cclib.io", fake_io)
+
+
+def test_trajectory_diagnostic_logs_frame_count(caplog, monkeypatch):
+    """_load_qm_frames logs cclib's frame count + parser, so users can tell
+    upstream cclib issues from xyzrender issues."""
+    import logging
+
+    from xyzrender.readers import load_trajectory_frames
+
+    _fake_cclib(monkeypatch, n_frames=5, parser_name="Gaussian")
+    with caplog.at_level(logging.INFO, logger="xyzrender.readers"):
+        load_trajectory_frames("dummy.log")
+    msgs = [r.getMessage() for r in caplog.records]
+    assert any("parsed 5 frame(s)" in m for m in msgs)
+    assert any("parser=Gaussian" in m for m in msgs)
+
+
+def test_trajectory_diagnostic_warns_on_single_frame(caplog, monkeypatch):
+    """When cclib returns ≤1 frame for what's expected to be a trajectory,
+    warn so users check cclib version or file format."""
+    import logging
+
+    from xyzrender.readers import load_trajectory_frames
+
+    _fake_cclib(monkeypatch, n_frames=1, parser_name="ORCA")
+    with caplog.at_level(logging.INFO, logger="xyzrender.readers"):
+        load_trajectory_frames("dummy.out")
+    msgs = [r.getMessage() for r in caplog.records]
+    assert any("may not contain the expected multistep data" in m for m in msgs)
+
+
 class TestQeSniff:
     """Test QE vs Q-Chem disambiguation for .in files."""
 

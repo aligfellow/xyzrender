@@ -103,6 +103,13 @@ def resolve_atom_indices(spec: str, graph: nx.Graph) -> set[int]:
     (``"M"``, ``"Fe"``), a numeric index (``"8"``), or a numeric range
     (``"1-5"``).  Numeric specs are 1-indexed (converted to 0-indexed).
 
+    The ``L`` and ``het`` category tokens are **graph-context-aware**: when the
+    graph has metals they resolve to *atoms bonded to a metal* (the chemistry
+    meaning of "ligand" / "ligand-heteroatom"), not the literal element
+    complement.  Without metals in the graph they fall back to the full
+    element set.  Specific element tokens (``Fe``, ``P``, ``Cl``, …) are
+    always literal.
+
     Examples: ``"1,2-4,M,N"`` → union of {0}, {1,2,3}, metals, nitrogens.
 
     Parameters
@@ -130,13 +137,27 @@ def resolve_atom_indices(spec: str, graph: nx.Graph) -> set[int]:
     if spec.strip() in {"all", "*"}:
         return {nid for nid, data in graph.nodes(data=True) if data.get("symbol", "") != "*"}
     # Numeric range?  Check BEFORE normalize_token (which rejects digits).
+    # Filtered render graphs may carry the original 0-indexed atom number so
+    # user-facing selectors can still refer to the input file after relabeling.
     if re.fullmatch(r"\d+(-\d+)?", spec.strip()):
         stripped = spec.strip()
         if "-" in stripped:
             a, b = stripped.split("-")
-            return set(range(int(a) - 1, int(b)))
-        return {int(stripped) - 1}
+            wanted = set(range(int(a) - 1, int(b)))
+        else:
+            wanted = {int(stripped) - 1}
+        if any("_xyzrender_original_index" in data for _, data in graph.nodes(data=True)):
+            return {nid for nid, data in graph.nodes(data=True) if data.get("_xyzrender_original_index", nid) in wanted}
+        return wanted
     # Category / element
     norm = normalize_token(spec)
     symbols = resolve_element_set(norm)
-    return {nid for nid, data in graph.nodes(data=True) if data.get("symbol") in symbols}
+    matched = {nid for nid, data in graph.nodes(data=True) if data.get("symbol") in symbols}
+    # Chemistry-aware narrowing: L and het mean "ligand" and "ligand-heteroatom"
+    # respectively — atoms bonded to a metal.  When the graph has no metals
+    # this is a no-op (full element-set fallback).
+    if norm in {"L", "het"}:
+        metals = {nid for nid, data in graph.nodes(data=True) if data.get("symbol") in DATA.metals}
+        if metals:
+            matched = {n for n in matched if any(nb in metals for nb in graph.neighbors(n))}
+    return matched

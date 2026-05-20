@@ -66,6 +66,17 @@ xyzrender bimp.out --gif-trj --ts -go bimp_trj.gif
 `--gif-ts` and `--gif-trj` are mutually exclusive.
 ```
 
+For trajectories where connectivity changes (NEB-TS MEPs, reaction paths) add `--trj-bonds` to re-detect bonds per frame:
+
+```{image} ../../../examples/images/sn2_trj_bonds.gif
+:width: 50%
+:alt: SN2 MEP with per-frame bonds
+```
+
+```bash
+xyzrender sn2.v000.xyz --gif-trj --trj-bonds -go sn2_trj_bonds.gif
+```
+
 ## Diffuse / assembly
 
 ```{image} ../../../examples/images/caffeine_diffuse.gif

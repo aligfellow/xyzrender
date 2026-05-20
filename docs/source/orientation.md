@@ -11,6 +11,9 @@ xyzrender molecule.xyz --no-orient  # raw coordinates as-is
 
 Auto-orientation is disabled automatically when reading from stdin.
 
+If `--only` or `--exclude` is used, the atom filter is applied first and
+auto-orientation is computed from the atoms that remain in the render.
+
 ## Interactive rotation (`-I`)
 
 The `-I` flag opens the molecule in an interactive viewer for rotation.

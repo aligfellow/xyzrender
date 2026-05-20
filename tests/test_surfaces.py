@@ -68,6 +68,13 @@ def caffeine_graph():
 
 
 @pytest.fixture(scope="module")
+def caffeine_mol(caffeine_graph):
+    from xyzrender.api import Molecule
+
+    return Molecule(graph=caffeine_graph)
+
+
+@pytest.fixture(scope="module")
 def caffeine_dens_cube():
     return parse_cube(STRUCTURES / "caffeine_dens.cube")
 
@@ -95,6 +102,13 @@ def nci_grad_cube():
 @pytest.fixture(scope="module")
 def nci_graph(nci_dens_cube):
     return graph_from_cube(nci_dens_cube)
+
+
+@pytest.fixture(scope="module")
+def nci_mol(nci_graph):
+    from xyzrender.api import Molecule
+
+    return Molecule(graph=nci_graph)
 
 
 @pytest.fixture(scope="module")
@@ -230,18 +244,18 @@ def test_build_nci_contours_auto_classifies_high_field_surface():
 # ---------------------------------------------------------------------------
 
 
-def test_compute_dens_surface_sets_contours(caffeine_graph, caffeine_dens_cube):
+def test_compute_dens_surface_sets_contours(caffeine_mol, caffeine_dens_cube):
     cfg = RenderConfig(auto_orient=False)
-    compute_dens_surface(caffeine_graph, caffeine_dens_cube, cfg, DensParams())
+    compute_dens_surface(caffeine_mol, caffeine_dens_cube, cfg, DensParams())
     assert cfg.dens_contours is not None
     assert len(cfg.dens_contours.lobes) > 0
 
 
-def test_dens_layers_svg_returns_paths(caffeine_graph, caffeine_dens_cube):
+def test_dens_layers_svg_returns_paths(caffeine_mol, caffeine_dens_cube):
     from xyzrender.dens import dens_layers_svg
 
     cfg = RenderConfig(auto_orient=False)
-    compute_dens_surface(caffeine_graph, caffeine_dens_cube, cfg, DensParams())
+    compute_dens_surface(caffeine_mol, caffeine_dens_cube, cfg, DensParams())
     assert cfg.dens_contours is not None
     elems = dens_layers_svg(cfg.dens_contours, 0.7, 100.0, 400.0, 400.0, 800, 800)
     assert len(elems) > 0
@@ -253,9 +267,9 @@ def test_dens_layers_svg_returns_paths(caffeine_graph, caffeine_dens_cube):
 # ---------------------------------------------------------------------------
 
 
-def test_compute_mo_surface_sets_contours(caffeine_graph, caffeine_homo_cube):
+def test_compute_mo_surface_sets_contours(caffeine_mol, caffeine_homo_cube):
     cfg = RenderConfig(auto_orient=False)
-    compute_mo_surface(caffeine_graph, caffeine_homo_cube, cfg, MOParams())
+    compute_mo_surface(caffeine_mol, caffeine_homo_cube, cfg, MOParams())
     assert cfg.mo_contours is not None
 
 
@@ -264,48 +278,48 @@ def test_compute_mo_surface_sets_contours(caffeine_graph, caffeine_homo_cube):
 # ---------------------------------------------------------------------------
 
 
-def test_compute_esp_surface_sets_surface(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube):
+def test_compute_esp_surface_sets_surface(caffeine_mol, caffeine_dens_cube, caffeine_esp_cube):
     cfg = RenderConfig(auto_orient=False)
-    compute_esp_surface(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
+    compute_esp_surface(caffeine_mol, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
     assert cfg.esp_surface is not None
     assert cfg.esp_surface.png_data_uri.startswith("data:image/png;base64,")
 
 
-def test_esp_surface_svg_returns_elements(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube):
+def test_esp_surface_svg_returns_elements(caffeine_mol, caffeine_dens_cube, caffeine_esp_cube):
     from xyzrender.esp import esp_surface_svg
 
     cfg = RenderConfig(auto_orient=False)
-    compute_esp_surface(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
+    compute_esp_surface(caffeine_mol, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
     assert cfg.esp_surface is not None
     elems = esp_surface_svg(cfg.esp_surface, 100.0, 400.0, 400.0, 800, 800, 0.9)
     assert len(elems) > 0
     assert all(isinstance(e, str) for e in elems)
 
 
-def test_render_svg_includes_esp_colorbar(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube):
+def test_render_svg_includes_esp_colorbar(caffeine_mol, caffeine_dens_cube, caffeine_esp_cube):
     from xyzrender.renderer import render_svg
 
     cfg = RenderConfig(auto_orient=False, cbar=True)
-    compute_esp_surface(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
-    svg = render_svg(caffeine_graph, cfg)
+    compute_esp_surface(caffeine_mol, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
+    svg = render_svg(caffeine_mol.graph, cfg)
 
     assert "linearGradient" in svg
     assert "\u2212" in svg
     assert ".000" in svg
 
 
-def test_render_svg_esp_palette_changes_colorbar(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube):
+def test_render_svg_esp_palette_changes_colorbar(caffeine_mol, caffeine_dens_cube, caffeine_esp_cube):
     from xyzrender.renderer import render_svg
 
     cfg = RenderConfig(auto_orient=False, cbar=True, cmap_palette="coolwarm")
-    compute_esp_surface(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
-    svg = render_svg(caffeine_graph, cfg)
+    compute_esp_surface(caffeine_mol, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
+    svg = render_svg(caffeine_mol.graph, cfg)
 
     assert "#b40426" in svg
     assert "#3b4cc0" in svg
 
 
-def test_render_svg_esp_colorbar_uses_actual_range(caffeine_graph):
+def test_render_svg_esp_colorbar_uses_actual_range(caffeine_mol):
     from xyzrender.esp import ESPSurface
     from xyzrender.renderer import render_svg
 
@@ -321,7 +335,7 @@ def test_render_svg_esp_colorbar_uses_actual_range(caffeine_graph):
         esp_vmax=0.185,
     )
 
-    svg = render_svg(caffeine_graph, cfg)
+    svg = render_svg(caffeine_mol.graph, cfg)
 
     assert ">0</text>" in svg
     assert ">.185</text>" in svg
@@ -329,27 +343,27 @@ def test_render_svg_esp_colorbar_uses_actual_range(caffeine_graph):
     assert ">.029</text>" in svg
 
 
-def test_esp_surface_uses_manual_cmap_range(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube):
+def test_esp_surface_uses_manual_cmap_range(caffeine_mol, caffeine_dens_cube, caffeine_esp_cube):
     cfg = RenderConfig(auto_orient=False, cmap_range=(-0.003, 0.003))
-    compute_esp_surface(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
+    compute_esp_surface(caffeine_mol, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
     assert cfg.esp_surface is not None
     assert cfg.esp_surface.esp_vmin == pytest.approx(-0.003)
     assert cfg.esp_surface.esp_vmax == pytest.approx(0.003)
 
 
-def test_esp_surface_uses_symmetric_cmap_range(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube):
+def test_esp_surface_uses_symmetric_cmap_range(caffeine_mol, caffeine_dens_cube, caffeine_esp_cube):
     cfg = RenderConfig(auto_orient=False, cmap_symm=True)
-    compute_esp_surface(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
+    compute_esp_surface(caffeine_mol, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
     assert cfg.esp_surface is not None
     assert cfg.esp_surface.esp_vmin == pytest.approx(-cfg.esp_surface.esp_vmax)
 
 
-def test_render_svg_esp_colorbar_uses_manual_cmap_range(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube):
+def test_render_svg_esp_colorbar_uses_manual_cmap_range(caffeine_mol, caffeine_dens_cube, caffeine_esp_cube):
     from xyzrender.renderer import render_svg
 
     cfg = RenderConfig(auto_orient=False, cbar=True, cmap_range=(-0.003, 0.003))
-    compute_esp_surface(caffeine_graph, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
-    svg = render_svg(caffeine_graph, cfg)
+    compute_esp_surface(caffeine_mol, caffeine_dens_cube, caffeine_esp_cube, cfg, ESPParams())
+    svg = render_svg(caffeine_mol.graph, cfg)
 
     assert "\u22120</text>" in svg
     assert ">.003</text>" in svg
@@ -368,17 +382,17 @@ def test_esp_cmap_range_and_symm_are_mutually_exclusive():
 # ---------------------------------------------------------------------------
 
 
-def test_compute_nci_surface_sets_contours(nci_graph, nci_dens_cube, nci_grad_cube):
+def test_compute_nci_surface_sets_contours(nci_mol, nci_dens_cube, nci_grad_cube):
     cfg = RenderConfig(auto_orient=False)
-    compute_nci_surface(nci_graph, nci_dens_cube, nci_grad_cube, cfg, NCIParams())
+    compute_nci_surface(nci_mol, nci_dens_cube, nci_grad_cube, cfg, NCIParams())
     assert cfg.nci_contours is not None
 
 
-def test_nci_loops_svg_returns_paths(nci_graph, nci_dens_cube, nci_grad_cube):
+def test_nci_loops_svg_returns_paths(nci_mol, nci_dens_cube, nci_grad_cube):
     from xyzrender.nci import nci_loops_svg
 
     cfg = RenderConfig(auto_orient=False)
-    compute_nci_surface(nci_graph, nci_dens_cube, nci_grad_cube, cfg, NCIParams())
+    compute_nci_surface(nci_mol, nci_dens_cube, nci_grad_cube, cfg, NCIParams())
     assert cfg.nci_contours is not None
     elems = nci_loops_svg(cfg.nci_contours, 0.7, 100.0, 400.0, 400.0, 800, 800)
     assert len(elems) > 0
@@ -386,24 +400,28 @@ def test_nci_loops_svg_returns_paths(nci_graph, nci_dens_cube, nci_grad_cube):
 
 
 def test_compute_nci_surface_supports_explicit_igmh_mode():
+    from xyzrender.api import Molecule
+
     cfg = RenderConfig(auto_orient=False)
     sl2r = cube_from_array(np.zeros((12, 12, 12), dtype=float))
     dg = cube_from_array(np.pad(np.full((4, 4, 4), 0.02, dtype=float), 4))
-    graph = graph_from_cube(sl2r)
+    mol = Molecule(graph=graph_from_cube(sl2r))
 
-    compute_nci_surface(graph, sl2r, dg, cfg, NCIParams(), surface_mode="high_field")
+    compute_nci_surface(mol, sl2r, dg, cfg, NCIParams(), surface_mode="high_field")
 
     assert cfg.nci_contours is not None
     assert cfg.nci_contours.lobes
 
 
 def test_compute_nci_surface_auto_classifies_high_field_surface():
+    from xyzrender.api import Molecule
+
     cfg = RenderConfig(auto_orient=False)
     sl2r = cube_from_array(np.zeros((12, 12, 12), dtype=float))
     dg = cube_from_array(np.pad(np.full((4, 4, 4), 0.02, dtype=float), 4))
-    graph = graph_from_cube(sl2r)
+    mol = Molecule(graph=graph_from_cube(sl2r))
 
-    compute_nci_surface(graph, sl2r, dg, cfg, NCIParams())
+    compute_nci_surface(mol, sl2r, dg, cfg, NCIParams())
 
     assert cfg.nci_contours is not None
     assert cfg.nci_contours.lobes

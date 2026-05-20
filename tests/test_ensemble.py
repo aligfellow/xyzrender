@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from xyzrender import SVGResult, load, render
-from xyzrender.api import EnsembleFrames, _build_ensemble_molecule
+from xyzrender.api import EnsembleFrames, _build_ensemble_molecule, _filter_molecule_atoms
 from xyzrender.ensemble import align, merge_graphs
 from xyzrender.merge import _Z_NUDGE
 
@@ -30,6 +30,17 @@ def _make_traj(tmp_path: Path) -> Path:
         [("H", (-0.1, 0.0, 0.0)), ("O", (0.0, -0.1, 1.0))],
     ]
     xyz_path = tmp_path / "traj.xyz"
+    _write_multiframe_xyz(xyz_path, frames)
+    return xyz_path
+
+
+def _make_triatomic_traj(tmp_path: Path) -> Path:
+    frames = [
+        [("C", (0.0, 0.0, 0.0)), ("H", (1.0, 0.0, 0.0)), ("H", (0.0, 1.0, 0.0))],
+        [("C", (0.1, 0.0, 0.0)), ("H", (1.1, 0.1, 0.0)), ("H", (0.1, 1.0, 0.1))],
+        [("C", (-0.1, 0.0, 0.0)), ("H", (0.9, -0.1, 0.0)), ("H", (-0.1, 1.0, -0.1))],
+    ]
+    xyz_path = tmp_path / "triatomic_traj.xyz"
     _write_multiframe_xyz(xyz_path, frames)
     return xyz_path
 
@@ -222,6 +233,31 @@ def test_ensemble_render_twice_no_mutation(tmp_path: Path) -> None:
         assert mol.graph.nodes[n] == node_attrs_before[n]
     assert "<svg" in (tmp_path / "out1.svg").read_text()
     assert "<svg" in (tmp_path / "out2.svg").read_text()
+
+
+def test_ensemble_exclude_filters_all_frames(tmp_path: Path) -> None:
+    xyz_path = _make_triatomic_traj(tmp_path)
+    mol = load(xyz_path, ensemble=True)
+
+    filtered = _filter_molecule_atoms(mol, exclude="2")
+
+    assert filtered.graph.number_of_nodes() == 2
+    assert filtered.ensemble is not None
+    assert filtered.ensemble.positions.shape == (3, 2, 3)
+    assert [filtered.graph.nodes[n]["symbol"] for n in filtered.graph.nodes()] == ["C", "H"]
+    result = render(filtered, output=tmp_path / "filtered.svg")
+    assert isinstance(result, SVGResult)
+
+
+def test_build_ensemble_with_filtered_reference_filters_trajectory_frames(tmp_path: Path) -> None:
+    xyz_path = _make_triatomic_traj(tmp_path)
+    ref = _filter_molecule_atoms(load(xyz_path), exclude="2")
+
+    mol = _build_ensemble_molecule(xyz_path, reference_mol=ref)
+
+    assert mol.graph.number_of_nodes() == 2
+    assert mol.ensemble is not None
+    assert mol.ensemble.positions.shape == (3, 2, 3)
 
 
 # ---------------------------------------------------------------------------

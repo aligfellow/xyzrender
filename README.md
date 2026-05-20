@@ -32,7 +32,7 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Surfaces** — molecular orbitals, electron density, ESP colormapping, NCI surfaces, and vdW spheres; solid, mesh, contour, wire, and dot styles
 - **Styling** — highlight & molecule color, radius scaling (by element, category, or index), per-atom fill opacity (bond-agnostic), style regions, atom property colormaps with colorbar, and depth-of-field / depth-fog effects
 - **Annotations** — distances, angles, dihedrals, custom labels, atom indices, and 3D vector arrows (dipoles, forces, fields)
-- **Structural overlay** — RMSD-align two structures and render in contrasting colours; works across different atom counts via automatic scaffold detection. Independent style overrides (atom/bond size, stroke, opacity, per-overlay bond rules), and `--no-align` to skip alignment when geometries already share a frame
+- **Structural overlay** — overlay two structures in contrasting colours; auto-aligned by best-fit (centres on the metals when present, falls back to fuzzy substructure matching that tolerates atom substitutions, then geometric best-fit). Override with `--align-atoms`. Per-overlay style knobs; `--no-align` keeps raw coords
 - **Conformer ensemble** — overlay all frames from a multi-frame XYZ trajectory, with palette colouring and opacity control
 - **Convex hull, hull faces & pores** — semi-transparent facets over selected atoms or rings, exposed faces of molecular cages, and pore rendering
 - **GIF animations** — rotation, TS vibration, trajectory, diffuse/assembly, and depth-of-field animations
@@ -178,17 +178,11 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 |------------------------------|----------------------------------|---------------------------------|
 | ![Co scaled](examples/images/CoCl6_scaled_Co2.svg) | ![multi scale](examples/images/caffeine_scaled_multigroup.svg) | ![atom opacity](examples/images/caffeine_atom_opacity.svg) |
 
-### Depth of field
+### Depth of field / Glow
 
-| DoF | Rotation |
-|-----|----------| 
-| ![dof](examples/images/caffeine_dof.svg) | ![dof](examples/images/caffeine_dof.gif) |
-
-### Glow
-
-| Glow (N,O atoms) |
-|------------------|
-| ![glow](examples/images/caffeine_glow.svg) |
+| DoF | Rotation | Glow (N,O atoms) |
+|-----|----------|------------------|
+| ![dof](examples/images/caffeine_dof.svg) | ![dof](examples/images/caffeine_dof.gif) | ![glow](examples/images/caffeine_glow.svg) |
 
 ### Structural overlay & ensemble
 
@@ -256,13 +250,13 @@ For the full Python API (render options, `build_config()`, `measure()`, `load()`
 
 ### GIF animations
 
-| Rotation | TS + NCI + vdW + rotation | Trajectory | TS |
-|----------|---------------------------|------------|------------------|
-| ![rotate](examples/images/caffeine.gif) | ![ts rot](examples/images/bimp_nci_ts.gif) | ![trj](examples/images/bimp_trj.gif) | ![ts](examples/images/mn-h2.gif) |
+| Rotation | Bounce (50deg) | Trajectory (per-frame bonds) |
+|----------|----------------|------------------------------|
+| ![rotate](examples/images/caffeine.gif) | ![bounce](examples/images/caffeine_bounce_50.gif) | ![sn2 mep](examples/images/sn2_trj_bonds.gif) |
 
-| Bounce (50deg) |
-|----------------|
-| ![bounce](examples/images/caffeine_bounce_50.gif) |
+| TS + NCI + vdW + rotation | Trajectory | TS |
+|---------------------------|------------|----|
+| ![ts rot](examples/images/bimp_nci_ts.gif) | ![trj](examples/images/bimp_trj.gif) | ![ts](examples/images/mn-h2.gif) |
 
 | Overlay rotation | MO | Density | 
 |----------|---------------------------|------------|

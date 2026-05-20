@@ -1,16 +1,15 @@
-"""Molecule overlay: RMSD-minimising structural alignment and combined rendering.
+"""Molecule overlay: structural alignment + combined rendering.
 
-Two molecules are aligned via the Kabsch algorithm so that mol2 is superimposed
-onto mol1 in its coordinate frame.  The merged graph is rendered with the overlay
-color (default: mediumorchid); mol1 atoms use the standard CPK palette and are
-always on top when depths are equal (drawn last in SVG order).
+``align()`` picks the best strategy automatically and logs which one ran at INFO:
 
-When both molecules have the same atoms in the same order, alignment is direct
-(index-based Kabsch).  When atom counts or elements differ, the Maximum Common
-Substructure (MCS) is found automatically and used as the alignment basis.
-
-This module also exposes :func:`kabsch_align`, the shared Kabsch helper used by
-both overlay and ensemble alignment.
+1. Explicit ``align_atoms`` selector → :func:`xyzrender.align.align_with_selection`
+   (metal-fragment when metals are in the selection, otherwise MCS-on-subgraph
+   + K-subset Kabsch, lowest RMSD wins).
+2. Auto path: both have metals → metal-fragment overlay (per-M-pairing,
+   metal-pivot Kabsch so paired metals coincide exactly).
+3. Auto path: same shape + same elements → index-paired Kabsch.
+4. Auto path: otherwise → type-aware MCS on full graphs, then PCA + ICP best-fit
+   as last resort.
 """
 
 from __future__ import annotations
@@ -59,6 +58,24 @@ def _elements_match(g1: nx.Graph, g2: nx.Graph) -> bool:
 __all__ = ["align", "kabsch_align", "merge_graphs"]
 
 
+def _has_metal(graph: nx.Graph) -> bool:
+    from xyzgraph import DATA
+
+    return any(d.get("symbol") in DATA.metals for _, d in graph.nodes(data=True))
+
+
+def _selection_has_metal(graph: nx.Graph, atoms: list[int]) -> bool:
+    from xyzgraph import DATA
+
+    return any(graph.nodes[n].get("symbol") in DATA.metals for n in atoms)
+
+
+def _metal_pair(g1: nx.Graph, a: int, g2: nx.Graph, b: int) -> bool:
+    from xyzgraph import DATA
+
+    return g1.nodes[a].get("symbol") in DATA.metals and g2.nodes[b].get("symbol") in DATA.metals
+
+
 # ---------------------------------------------------------------------------
 # Public API — overlay
 # ---------------------------------------------------------------------------
@@ -67,58 +84,118 @@ __all__ = ["align", "kabsch_align", "merge_graphs"]
 def align(
     mol1_graph: nx.Graph,
     mol2_graph: nx.Graph,
-    align_atoms: list[int] | None = None,
+    align_atoms: list[int] | str | None = None,
 ) -> np.ndarray:
-    """Align mol2 onto mol1; return aligned positions for mol2 nodes.
+    """Align mol2 onto mol1; return aligned 3-D positions for mol2 in mol1's frame.
 
-    When both molecules have the same atoms in the same order, alignment is
-    direct (index-based Kabsch).  Otherwise the Maximum Common Substructure
-    is found automatically and used as the alignment basis.
-
-    Parameters
-    ----------
-    mol1_graph, mol2_graph:
-        NetworkX graphs.  This function does not mutate them.
-    align_atoms:
-        Optional 0-indexed atom indices to fit on (min 3).  Only used when
-        both molecules have the same number of atoms.
-
-    Returns
-    -------
-    np.ndarray, shape (n2, 3)
-        Aligned 3-D positions for mol2 nodes in their original graph order.
+    Strategy is auto-selected (see module docstring) unless *align_atoms* is set.
+    All strategy choices and key results are logged at INFO so users can see
+    which path ran.
     """
-    pos1, nodes1 = _positions(mol1_graph)
-    pos2, nodes2 = _positions(mol2_graph)
-    n1, n2 = len(nodes1), len(pos2)
-
-    # Fast path: same molecule, same ordering
-    if n1 == n2 and (align_atoms is not None or _elements_match(mol1_graph, mol2_graph)):
-        return kabsch_align(pos1, pos2, align_atoms=align_atoms)
-
-    # Different molecules — MCS alignment
     import logging
 
+    from xyzrender.align import (
+        _align_metal_fragments,
+        align_with_selection,
+        best_fit_align,
+        kabsch_with_pivot,
+    )
     from xyzrender.mcs import find_mcs_mapping
+    from xyzrender.selectors import resolve_atom_indices
     from xyzrender.utils import mcs_kabsch_align
 
-    mapping = find_mcs_mapping(mol1_graph, mol2_graph)
-    if mapping is None:
-        msg = f"overlay: no common substructure (>= 3 atoms) between mol1 ({n1} atoms) and mol2 ({n2} atoms)"
-        raise ValueError(msg)
+    log = logging.getLogger(__name__)
 
-    g1_ids, g2_ids = mapping
-    matched_frac = len(g1_ids) / min(n1, n2)
-    if matched_frac < 0.25:
-        logging.getLogger(__name__).warning(
-            "overlay: only %d/%d atoms matched (%.0f%%) — alignment may be poor",
-            len(g1_ids),
-            min(n1, n2),
-            matched_frac * 100,
+    pos1, nodes1 = _positions(mol1_graph)
+    pos2, nodes2 = _positions(mol2_graph)
+    n1, n2 = len(nodes1), len(nodes2)
+
+    # --- 1. Explicit selector spec from caller ("M,L", "Fe,P", "het", "1-5", …) ---
+    if isinstance(align_atoms, str):
+        ref_atoms = sorted(resolve_atom_indices(align_atoms, mol1_graph))
+        mob_atoms = sorted(resolve_atom_indices(align_atoms, mol2_graph))
+        # Warn when the selection excludes metals on organometallic graphs —
+        # selector path is literal so we honour it, but the user probably wants
+        # metal-fragment overlay (which needs metals in the selection).
+        if (
+            _has_metal(mol1_graph)
+            and _has_metal(mol2_graph)
+            and not _selection_has_metal(mol1_graph, ref_atoms)
+            and not _selection_has_metal(mol2_graph, mob_atoms)
+        ):
+            log.warning("overlay: %r excludes metals; consider 'M,%s'", align_atoms, align_atoms)
+        aligned, refs, _, mm, rmsd = align_with_selection(
+            mol1_graph,
+            mol2_graph,
+            ref_atoms,
+            mob_atoms,
         )
-    g1_idx = [nodes1.index(n) for n in g1_ids]
-    g2_idx = [nodes2.index(n) for n in g2_ids]
-    return mcs_kabsch_align(pos1, pos2, g1_idx, g2_idx)
+        log.info(
+            "overlay: selector %r → %d/%d candidates, %d paired, %d mismatch, full-mol rmsd=%.3fÅ",
+            align_atoms,
+            len(ref_atoms),
+            len(mob_atoms),
+            len(refs),
+            mm,
+            rmsd,
+        )
+        return aligned
+
+    # --- 2. Explicit atom-index subset ---
+    if align_atoms is not None:
+        if n1 != n2:
+            msg = f"overlay: align_atoms indices require same atom count (got {n1} vs {n2})"
+            raise ValueError(msg)
+        log.info("overlay: index-paired Kabsch on %d explicit atoms", len(align_atoms))
+        return kabsch_align(pos1, pos2, align_atoms=align_atoms)
+
+    # --- 3. Auto: both have metals → metal-fragment overlay ---
+    if _has_metal(mol1_graph) and _has_metal(mol2_graph):
+        try:
+            aligned, refs, _, mm, rmsd = _align_metal_fragments(mol1_graph, mol2_graph)
+            log.info(
+                "overlay: metal-fragment → %d atoms paired, %d mismatch, full-mol rmsd=%.3fÅ",
+                len(refs),
+                mm,
+                rmsd,
+            )
+            return aligned
+        except ValueError as exc:
+            log.warning("overlay: metal-fragment path failed (%s); trying alternatives", exc)
+
+    # --- 4. Same shape + same elements: index-paired Kabsch ---
+    if n1 == n2 and _elements_match(mol1_graph, mol2_graph):
+        log.info("overlay: same-shape index-paired Kabsch on %d atoms", n1)
+        return kabsch_align(pos1, pos2)
+
+    # --- 5. Type-aware MCS on full graphs (metal-pivot when found) ---
+    mapping = find_mcs_mapping(mol1_graph, mol2_graph, type_aware=True)
+    if mapping is not None:
+        g1_ids, g2_ids = mapping
+        g1_idx = [nodes1.index(n) for n in g1_ids]
+        g2_idx = [nodes2.index(n) for n in g2_ids]
+        matched_frac = len(g1_ids) / min(n1, n2)
+        if matched_frac < 0.25:
+            log.warning(
+                "overlay: only %d/%d atoms matched (%.0f%%) — alignment may be poor",
+                len(g1_ids),
+                min(n1, n2),
+                matched_frac * 100,
+            )
+        metal_pairs = [(a, b) for a, b in zip(g1_ids, g2_ids, strict=True) if _metal_pair(mol1_graph, a, mol2_graph, b)]
+        m_pivot_ref = [nodes1.index(a) for a, _ in metal_pairs]
+        m_pivot_mob = [nodes2.index(b) for _, b in metal_pairs]
+        if m_pivot_ref:
+            log.info("overlay: type-aware MCS (%d atoms) with metal pivot", len(g1_ids))
+            return kabsch_with_pivot(pos1, pos2, g1_idx, g2_idx, m_pivot_ref, m_pivot_mob)
+        log.info("overlay: type-aware MCS (%d atoms, no metals in match)", len(g1_ids))
+        return mcs_kabsch_align(pos1, pos2, g1_idx, g2_idx)
+
+    # --- 6. Last resort: spec-free PCA + ICP ---
+    log.warning("overlay: no MCS match — falling back to PCA-seeded ICP")
+    aligned, rmsd = best_fit_align(mol1_graph, mol2_graph)
+    log.info("overlay: best_fit (PCA+ICP) → rmsd=%.3fÅ", rmsd)
+    return aligned
 
 
 def merge_graphs(

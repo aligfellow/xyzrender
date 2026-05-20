@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import itertools
 import logging
+import threading
 from typing import NamedTuple
 
 import networkx as nx
@@ -44,6 +45,15 @@ from xyzrender.utils import pca_orient
 logger = logging.getLogger(__name__)
 
 _render_counter = itertools.count()  # unique ID prefix per render call (SVG ids are global in Jupyter HTML)
+_render_counter_lock = threading.Lock()
+
+
+def _next_render_id() -> int:
+    """Atomic increment of the SVG id counter — safe under free-threaded Python."""
+    with _render_counter_lock:
+        return next(_render_counter)
+
+
 _RADIUS_SCALE = 0.075  # VdW → atoms display radius
 _REF_SPAN = 6.0  # reference molecular span (Å) for proportional bond/stroke scaling
 _REF_CANVAS = 800  # reference canvas size (px) — bond/label widths are defined at this size
@@ -149,14 +159,13 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     _per_atom_mult: np.ndarray | None = None
     if cfg.radius_scale:
         from xyzrender.selectors import resolve_atom_indices
-        from xyzrender.utils import parse_atom_indices
 
         _per_atom_mult = np.ones(n)
         for spec, factor in cfg.radius_scale:
             if isinstance(spec, str):
                 indices = resolve_atom_indices(spec, graph)
             else:
-                indices = set(parse_atom_indices(spec))  # 1-indexed list → 0-indexed
+                indices = resolve_atom_indices(",".join(str(i) for i in spec), graph)
             for idx in indices:
                 if 0 <= idx < n:
                     _per_atom_mult[idx] *= factor
@@ -1682,7 +1691,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     # a unique token so each SVG is self-contained regardless of embedding context.
     # Skip when _unique_ids=False (GIF frames: converted to PNG immediately, never shown as SVG).
     if _unique_ids:
-        p = f"x{next(_render_counter)}"
+        p = f"x{_next_render_id()}"
         raw = raw.replace('id="', f'id="{p}')
         raw = raw.replace('href="#', f'href="#{p}')
         raw = raw.replace("url(#", f"url(#{p}")

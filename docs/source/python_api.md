@@ -91,6 +91,23 @@ render(ethanol, no_hy=True)         # hide all H
 render(ethanol, hy=[7, 8, 9])       # show specific H atoms
 ```
 
+### Atom filtering
+
+Use `only=` or `exclude=` to remove atoms from the render-time graph before
+orientation, canvas fitting, bond rules, annotations, hulls, and overlays are
+resolved. Selectors use the same grammar as `highlight` and remain based on
+the original input atom numbering after filtering.
+
+```python
+salt = load("salt.xyz")
+render(salt, only="1-24")        # render one component of a salt
+render(salt, exclude="Na,Cl")    # remove counterions
+render(salt, exclude=["25-40"])  # repeatable/list form
+```
+
+Incident bonds are removed with excluded atoms. Cube/surface fields
+(`mo`, `dens`, `esp`, `nci`) are not cropped by atom filtering.
+
 ### Overlays
 
 ```python
@@ -104,6 +121,7 @@ render(mol, idx=True)               # atom index labels ("C1", "N3", ...)
 render(mol, idx="n")                # index only ("1", "3", ...)
 render(mol, mol_color="gray")                            # flat color for all atoms + bonds
 render(mol, highlight="1-3,7")                           # highlight atoms 1-3 and 7 (orchid)
+render(mol, highlight="C,N")                             # element symbols / categories ("M", "het", ...)
 render(mol, highlight=[1, 2, 3, 7])                      # 1-indexed list
 render(mol, highlight=[("1-5", "blue"), ("10-15", "red")])  # multi-group with colors
 render(mol, highlight=["1-5", "10-15"])                  # multi-group, auto-colors from palette
@@ -119,9 +137,12 @@ mol1 = load("isothio_xtb.xyz", charge=1)
 mol2 = load("isothio_uma.xyz", charge=1)
 render(mol1, overlay=mol2)                         # overlay mol2 onto mol1
 render(mol1, overlay=mol2, overlay_color="green")  # custom overlay color
-render(mol1, overlay=mol2, align_atoms=[1, 2, 3])  # align on atom subset
+render(mol1, overlay=mol2, align_atoms=[1, 2, 3])  # explicit 1-indexed subset
+render(mol1, overlay=mol2, align_atoms="M,L")      # metal + coord shell (organometallic)
 render_gif(mol1, overlay=mol2, gif_rot="y")        # spinning overlay GIF
 ```
+
+`align_atoms` accepts a 1-indexed atom list/string or a symbol/category spec (`"M,L"`, `"Fe,P"`, …). Symbol specs are resolved per-graph so atom ordering doesn't need to match between the two structures. Metal-containing specs run metal-fragment overlay so paired metals coincide exactly; non-metal specs use MCS + K-subset Kabsch and pick the lowest-RMSD candidate.
 
 See [Structural Overlay](examples/overlay.md) and [Conformer Ensemble](examples/ensemble.md) for more.
 
@@ -248,6 +269,7 @@ from xyzrender import render_gif
 render_gif("caffeine.xyz", gif_rot="y")           # rotation GIF
 render_gif("ts.out", gif_ts=True)                  # TS vibration GIF
 render_gif("traj.xyz", gif_trj=True)               # trajectory GIF
+render_gif("mep.xyz", gif_trj=True, trj_bonds=True)  # re-detect bonds per frame
 render_gif("mol.xyz", gif_rot="y", config=cfg)     # with shared style config
 
 # Diffuse / assembly GIF

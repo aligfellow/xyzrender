@@ -52,13 +52,15 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 |------|-------------|
 | `--hy [ATOMS]` | Show H atoms (no args = all, or indices like `"1-5,8"`) |
 | `--no-hy` | Hide all H atoms |
+| `--only ATOMS` | Render only selected atoms before orientation/canvas fitting. Repeatable; same selector grammar as `--hl`, e.g. `"1-24"`, `"C,N,O"`, `"M"`. Cube/surface fields (`--mo`, `--dens`, `--esp`, `--nci`) are not cropped |
+| `--exclude ATOMS` | Remove selected atoms before orientation/canvas fitting. Repeatable; same selector grammar as `--hl`, e.g. `"25-40"`, `"Na,Cl"`. Cube/surface fields are not cropped |
 | `-k`, `--kekule` | Use Kekulé bond orders (no aromatic 1.5) |
 | `--vdw` | vdW spheres (no args = all, or selectors like `"1-6"`, `"M"`, `"Pt"`) |
 | `--vdw-opacity` | vdW sphere opacity (default: 0.25) |
 | `--vdw-scale` | vdW sphere radius scale |
 | `--vdw-gradient-strength` | vdW sphere gradient strength (default: 1.6) |
 | `--mol-color COLOR` | Flat color for all atoms and bonds (overrides CPK). Highlight paints on top |
-| `--hl ATOMS [COLOR]` | Highlight atom group: `--hl "1-5,8" [color]`. Can be repeated for multiple groups. Auto-colors from palette if no color given |
+| `--hl ATOMS [COLOR]` | Highlight atom group: `--hl "1-5,8" [color]`. Accepts the same selectors as `--only`/`--region` — indices/ranges (`"1-5,8"`), elements (`"C,N"`), or categories (`"M"`, `"het"`). Can be repeated for multiple groups. Auto-colors from palette if no color given |
 | `--dof` | Depth-of-field blur (does not affect bonds/lines) |
 | `--dof-strength FLOAT` | DoF max blur strength (default: 3.0) |
 | `--glow ATOMS` | Add blurred glow under selected atoms (same selector grammar as `--hl` / `--vdw`) |
@@ -79,7 +81,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--align` / `--no-align` | Force / skip Kabsch/MCS alignment for `--overlay` and `--ensemble`. Default: on. `--align` is useful to override a preset with `auto_align: false`; `--no-align` keeps each structure's raw coordinates (interactive `-I` rotation of the base still propagates to the overlay) |
 | `--ensemble` | Ensemble overlay for multi-frame XYZ trajectories; conformers default to CPK atom colours |
 | `--ensemble-color VALUE` | Palette name (`viridis`, `plasma`, `spectral`, `coolwarm`, `RdBu`, `rainbow`), a single colour, or comma-separated colours |
-| `--align-atoms INDICES` | Atom subset for Kabsch alignment (min 3), e.g. `1,2,3`, `1-6`. Works with `--overlay` and `--ensemble` |
+| `--align-atoms SELECTOR` | Alignment candidates for `--overlay` and `--ensemble` (min 3 atoms). Any selector grammar: 1-indexed IDs (`1,2,3`, `1-6`), element symbols (`Fe,P,Cl`), categories (`M`, `L`, `het`, `sbm`), or a mix (`1-5,Fe`). Resolved per-graph; metal-containing specs route through metal-fragment overlay (paired metals coincide), otherwise MCS-on-induced-subgraph and K-subset Kabsch are tried and the lowest-RMSD wins. Default (no flag) auto-picks the strategy. |
 
 ## Orientation
 
@@ -150,6 +152,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--gif-rot [AXIS]` | Rotation GIF (default axis: `y`). Combinable with `--gif-ts` |
 | `--gif-ts` | TS vibration GIF (via graphRC) |
 | `--gif-trj` | Trajectory / optimisation GIF (multi-frame input) |
+| `--trj-bonds` | Re-detect bonds for every frame (NEB-TS MEPs and other trajectories with changing connectivity) |
 | `-go`, `--gif-output` | GIF output path (default: `{basename}.gif`) |
 | `--gif-fps` | Frames per second (default: 10) |
 | `--rot-frames` | Rotation frame count (default: 120) |

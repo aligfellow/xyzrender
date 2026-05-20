@@ -777,13 +777,31 @@ def _load_qm_frames(path: str) -> list[dict]:
     if parser is None:
         msg = f"cclib could not identify the file type of {path}"
         raise ValueError(msg)
+    parser_class = type(parser).__name__
     try:
         data = parser.parse()
     except Exception as e:
         logger.debug("cclib raised during parse; attempting to use partial data: %s", e)
         data = parser
     symbols = [DATA.n2s[int(z)] for z in data.atomnos]
-    coords = np.array(data.atomcoords)
-    logger.debug("cclib trajectory: %d steps, %d atoms", len(coords), len(symbols))
+    coords = np.array(data.atomcoords) if getattr(data, "atomcoords", None) is not None else np.empty((0, 0, 3))
+    n_frames = len(coords)
+    cclib_ver = getattr(cclib, "__version__", "unknown")
 
+    logger.info(
+        "cclib %s parsed %d frame(s) from %s (parser=%s)",
+        cclib_ver,
+        n_frames,
+        path,
+        parser_class,
+    )
+    if n_frames <= 1:
+        logger.warning(
+            "only %d frame(s) parsed from %s — file may not contain the expected "
+            "multistep data. Check cclib version or file format.",
+            n_frames,
+            path,
+        )
+
+    logger.debug("cclib trajectory: %d steps, %d atoms", n_frames, len(symbols))
     return [{"symbols": symbols, "positions": step.tolist()} for step in coords]

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
 
 from xyzrender.colors import resolve_color
@@ -16,6 +17,32 @@ from xyzrender.types import (
     OverlayConfig,
     RenderConfig,
 )
+
+
+@dataclass(frozen=True)
+class SurfaceOverrides:
+    """Per-render surface override values from ``render()``/``render_gif()`` kwargs.
+
+    Constructed once at the public-API boundary and passed through internal
+    surface-pipeline calls as a single object — replaces a kwargs-dict hop.
+    Non-``None`` fields supersede preset defaults on ``cfg`` inside
+    :func:`build_surface_params`.
+
+    ``nci_mode`` accepts ``'avg'``, ``'pixel'``, ``'uniform'``, or a colour
+    name/hex (implying uniform mode).  ``flat_mo=True`` overrides
+    ``cfg.flat_mo``; ``False`` defers to it.
+    """
+
+    iso: float | None = None
+    mo_pos_color: str | None = None
+    mo_neg_color: str | None = None
+    mo_blur: float | None = None
+    mo_upsample: int | None = None
+    flat_mo: bool = False
+    dens_color: str | None = None
+    nci_mode: str | None = None
+    nci_cutoff: float | None = None
+
 
 logger = logging.getLogger(__name__)
 
@@ -365,99 +392,50 @@ def build_region_config(config_name: str = "default", **overrides) -> RenderConf
     return build_render_config(config_data, {k: v for k, v in overrides.items() if v is not None})
 
 
-def collect_surf_overrides(
-    *,
-    iso=None,
-    mo_pos_color=None,
-    mo_neg_color=None,
-    mo_blur=None,
-    mo_upsample=None,
-    flat_mo: bool = False,
-    dens_color=None,
-    nci_mode=None,
-    nci_cutoff=None,
-    surface_style=None,
-) -> dict:
-    """Collect surface param overrides into a dict for ``build_surface_params``.
-
-    ``nci_mode`` accepts ``'avg'``, ``'pixel'``, ``'uniform'``, or a colour
-    name/hex (implying uniform mode).  ``flat_mo=True`` overrides the config
-    default.
-    """
-    overrides: dict = {}
-    for key, val in [
-        ("iso", iso),
-        ("mo_pos_color", mo_pos_color),
-        ("mo_neg_color", mo_neg_color),
-        ("mo_blur", mo_blur),
-        ("mo_upsample", mo_upsample),
-        ("flat_mo", flat_mo or None),  # False → don't override; True → set
-        ("dens_color", dens_color),
-        ("nci_mode", nci_mode),
-        ("nci_cutoff", nci_cutoff),
-        ("surface_style", surface_style),
-    ]:
-        if val is not None:
-            overrides[key] = val
-    return overrides
-
-
 def build_surface_params(
     cfg: RenderConfig,
-    cli_overrides: dict,
+    overrides: SurfaceOverrides,
     *,
     has_mo: bool = False,
     has_dens: bool = False,
     has_esp: bool = False,
     has_nci: bool = False,
 ) -> tuple[MOParams | None, DensParams | None, ESPParams | None, NCIParams | None]:
-    """Extract and merge surface params from config + CLI into typed ``*Params`` objects.
+    """Merge ``cfg`` defaults with per-render ``overrides`` into typed ``*Params``.
 
     Returns ``None`` for any surface that is not active (``has_*`` flag is
     ``False``), so callers can use simple ``if params:`` checks.
-
-    Parameters
-    ----------
-    cfg:
-        Render config (surface defaults stored on fields populated by :func:`build_config`).
-    cli_overrides:
-        Dict of explicit per-render values (non-``None`` values only).
-    has_mo, has_dens, has_esp, has_nci:
-        Flags indicating which surfaces are active.
     """
     mo_params: MOParams | None = None
     dens_params: DensParams | None = None
     esp_params: ESPParams | None = None
     nci_params: NCIParams | None = None
 
-    # Shared isovalue override from --iso / iso= kwarg
-    iso_override: float | None = cli_overrides.get("iso")
+    iso = overrides.iso
 
     if has_mo:
         mo_params = MOParams(
-            isovalue=iso_override if iso_override is not None else cfg.mo_isovalue,
-            pos_color=cli_overrides.get("mo_pos_color") or cfg.mo_pos_color,
-            neg_color=cli_overrides.get("mo_neg_color") or cfg.mo_neg_color,
-            blur_sigma=cli_overrides["mo_blur"] if cli_overrides.get("mo_blur") is not None else cfg.mo_blur_sigma,
-            upsample_factor=cli_overrides["mo_upsample"]
-            if cli_overrides.get("mo_upsample") is not None
-            else cfg.mo_upsample_factor,
-            flat=bool(cli_overrides.get("flat_mo") or cfg.flat_mo),
+            isovalue=iso if iso is not None else cfg.mo_isovalue,
+            pos_color=overrides.mo_pos_color or cfg.mo_pos_color,
+            neg_color=overrides.mo_neg_color or cfg.mo_neg_color,
+            blur_sigma=overrides.mo_blur if overrides.mo_blur is not None else cfg.mo_blur_sigma,
+            upsample_factor=overrides.mo_upsample if overrides.mo_upsample is not None else cfg.mo_upsample_factor,
+            flat=bool(overrides.flat_mo or cfg.flat_mo),
         )
 
     if has_dens:
         dens_params = DensParams(
-            isovalue=iso_override if iso_override is not None else cfg.dens_isovalue,
-            color=cli_overrides.get("dens_color") or cfg.dens_color,
+            isovalue=iso if iso is not None else cfg.dens_isovalue,
+            color=overrides.dens_color or cfg.dens_color,
         )
 
     if has_esp:
         esp_params = ESPParams(
-            isovalue=iso_override if iso_override is not None else cfg.dens_isovalue,
+            isovalue=iso if iso is not None else cfg.dens_isovalue,
         )
 
     if has_nci:
-        nci_mode = cli_overrides.get("nci_mode") or cfg.nci_mode
+        nci_mode = overrides.nci_mode or cfg.nci_mode
         if nci_mode in ("avg", "pixel"):
             _nci_color_mode = nci_mode
             _nci_color = "forestgreen"
@@ -468,10 +446,10 @@ def build_surface_params(
             _nci_color_mode = "uniform"
             _nci_color = resolve_color(nci_mode)
         nci_params = NCIParams(
-            isovalue=iso_override if iso_override is not None else cfg.nci_isovalue,
+            isovalue=iso if iso is not None else cfg.nci_isovalue,
             color=_nci_color,
             color_mode=_nci_color_mode,
-            dens_cutoff=cli_overrides.get("nci_cutoff"),
+            dens_cutoff=overrides.nci_cutoff,
         )
 
     return mo_params, dens_params, esp_params, nci_params

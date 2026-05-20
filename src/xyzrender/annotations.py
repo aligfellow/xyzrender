@@ -14,6 +14,7 @@ import numpy as np
 from xyzrender.measure import _pos
 
 logger = logging.getLogger(__name__)
+_ORIGINAL_INDEX_ATTR = "_xyzrender_original_index"
 
 
 def _fmt(val: float, spec: str) -> str:
@@ -76,8 +77,21 @@ Annotation = AtomValueLabel | BondLabel | AngleLabel | DihedralLabel | CentroidL
 # ---------------------------------------------------------------------------
 
 
+def _original_index_map(graph) -> dict[int, int] | None:
+    if not any(_ORIGINAL_INDEX_ATTR in data for _, data in graph.nodes(data=True)):
+        return None
+    return {int(data.get(_ORIGINAL_INDEX_ATTR, nid)): nid for nid, data in graph.nodes(data=True)}
+
+
 def _check_atom(idx_1based: int, graph) -> int:
-    """Convert 1-indexed user input to 0-indexed, raising ValueError on bad index."""
+    """Resolve a 1-indexed user atom index to the current graph node ID."""
+    mapping = _original_index_map(graph)
+    if mapping is not None:
+        original = idx_1based - 1
+        if original not in mapping:
+            raise ValueError(f"Atom index {idx_1based} not found in filtered render; it may have been excluded")
+        return mapping[original]
+
     i = idx_1based - 1
     if i not in graph.nodes():
         n = graph.number_of_nodes()
@@ -102,19 +116,21 @@ def _parse_spec(tokens: list[str], graph) -> list[Annotation]:
     if not tokens:
         return []
 
-    # First token must be an integer (1-indexed)
-    try:
-        raw_i0 = int(tokens[0])
-    except ValueError as err:
-        raise ValueError(f"Expected integer atom index, got {tokens[0]!r}") from err
-
     n = len(tokens)
     t_last = tokens[-1].lower()
 
+    try:
+        raw_indices = [int(t) for t in tokens[:-1]]
+    except ValueError as err:
+        raise ValueError(f"Expected integer atom indices before command/label, got: {' '.join(tokens[:-1])!r}") from err
+
+    atoms = [_check_atom(raw_i, graph) for raw_i in raw_indices]
+
     if n == 2:
+        i0 = atoms[0]
+
         if t_last == "d":
             # 1 d → distances to all bonded neighbours
-            i0 = _check_atom(raw_i0, graph)
             result = []
             for j in sorted(graph.neighbors(i0)):
                 d = bond_length(_pos(graph, i0), _pos(graph, j))
@@ -123,7 +139,6 @@ def _parse_spec(tokens: list[str], graph) -> list[Annotation]:
 
         elif t_last == "a":
             # 1 a → all angles where atom 1 is the center
-            i0 = _check_atom(raw_i0, graph)
             nbrs = list(graph.neighbors(i0))
             result = []
             for a_idx, ni in enumerate(nbrs):
@@ -133,72 +148,46 @@ def _parse_spec(tokens: list[str], graph) -> list[Annotation]:
             return result
 
         else:
-            # 1 value → custom atom label
-            i0 = _check_atom(raw_i0, graph)
-            return [AtomValueLabel(i0, tokens[1])]
+            # 1 value → custom atom label (preserve original case)
+            return [AtomValueLabel(i0, tokens[-1])]
 
     if n == 3:
-        try:
-            raw_i1 = int(tokens[1])
-        except ValueError as err:
-            raise ValueError(f"Expected integer atom index, got {tokens[1]!r}") from err
+        i0, i1 = atoms
+
+        if t_last == "a":
+            raise ValueError(
+                f"Angle requires 3 atom indices before 'a' (got 2). "
+                f"Did you mean: {raw_indices[0]} <center> {raw_indices[1]} a ?"
+            )
+
+        if not graph.has_edge(i0, i1):
+            _warn_no_bond(i0, i1)
 
         if t_last == "d":
             # 1 2 d → distance label on bond/contact 1-2
-            i0 = _check_atom(raw_i0, graph)
-            i1 = _check_atom(raw_i1, graph)
-            if not graph.has_edge(i0, i1):
-                _warn_no_bond(i0, i1)
             d = bond_length(_pos(graph, i0), _pos(graph, i1))
             return [BondLabel(i0, i1, f"{_fmt(d, '.2f')}Å")]
-
-        elif t_last == "a":
-            raise ValueError(
-                f"Angle requires 3 atom indices before 'a' (got 2). Did you mean: {raw_i0} <center> {raw_i1} a ?"
-            )
-
         else:
-            # 1 2 value → custom bond label
-            i0 = _check_atom(raw_i0, graph)
-            i1 = _check_atom(raw_i1, graph)
-            if not graph.has_edge(i0, i1):
-                _warn_no_bond(i0, i1)
-            return [BondLabel(i0, i1, tokens[2])]
+            # 1 2 value → custom bond label (preserve original case)
+            return [BondLabel(i0, i1, tokens[-1])]
 
     if n == 4:
-        try:
-            raw_i1, raw_i2 = int(tokens[1]), int(tokens[2])
-        except ValueError as err:
-            raise ValueError("Expected 3 integer atom indices for angle spec") from err
-
         if t_last == "a":
             # 1 2 3 a → angle label, 2 is middle
-            i0 = _check_atom(raw_i0, graph)
-            i1 = _check_atom(raw_i1, graph)
-            i2 = _check_atom(raw_i2, graph)
+            i0, i1, i2 = atoms
             theta = bond_angle(_pos(graph, i0), _pos(graph, i1), _pos(graph, i2))
             return [AngleLabel(i0, i1, i2, f"{_fmt(theta, '.1f')}°")]
 
-        else:
-            raise ValueError(f"4-token spec must end with 'a' (angle). Got: {' '.join(tokens)!r}")
+        raise ValueError(f"4-token spec must end with 'a' (angle). Got: {' '.join(tokens)!r}")
 
     if n == 5:
-        try:
-            raw_i1, raw_i2, raw_i3 = int(tokens[1]), int(tokens[2]), int(tokens[3])
-        except ValueError as err:
-            raise ValueError("Expected 4 integer atom indices for dihedral spec") from err
-
         if t_last in ("t", "tor", "dih"):
             # 1 2 3 4 t → dihedral label
-            i0 = _check_atom(raw_i0, graph)
-            i1 = _check_atom(raw_i1, graph)
-            i2 = _check_atom(raw_i2, graph)
-            i3 = _check_atom(raw_i3, graph)
+            i0, i1, i2, i3 = atoms
             phi = dihedral_angle(_pos(graph, i0), _pos(graph, i1), _pos(graph, i2), _pos(graph, i3))
             return [DihedralLabel(i0, i1, i2, i3, f"{_fmt(phi, '.1f')}°")]
 
-        else:
-            raise ValueError(f"5-token spec must end with 't'/'tor'/'dih'. Got: {' '.join(tokens)!r}")
+        raise ValueError(f"5-token spec must end with 't'/'tor'/'dih'. Got: {' '.join(tokens)!r}")
 
     raise ValueError(f"Cannot parse annotation spec: {' '.join(tokens)!r}")
 
@@ -272,8 +261,6 @@ def load_cmap(file_path: str, graph) -> dict[int, float]:
     if not path.exists():
         raise FileNotFoundError(f"Colormap file not found: {file_path}")
 
-    node_ids = set(graph.nodes())
-    n = graph.number_of_nodes()
     result: dict[int, float] = {}
 
     with path.open() as f:
@@ -299,12 +286,10 @@ def load_cmap(file_path: str, graph) -> dict[int, float]:
             except ValueError:
                 raise ValueError(f"cmap line {lineno}: cannot parse value {tokens[1]!r} as float") from None
 
-            # Convert 1-indexed to 0-indexed
-            idx = raw_idx - 1
-            if idx not in node_ids:
-                raise ValueError(
-                    f"cmap line {lineno}: atom index {raw_idx} not found in molecule ({n} atoms, valid range 1-{n})"
-                )
+            try:
+                idx = _check_atom(raw_idx, graph)
+            except ValueError as exc:
+                raise ValueError(f"cmap line {lineno}: atom index {raw_idx} not found in molecule") from exc
 
             result[idx] = val
 
@@ -437,14 +422,15 @@ def load_vectors(
         if origin_raw == "com":
             origin = centroid.copy()
         elif isinstance(origin_raw, int):
-            atom_idx = origin_raw - 1  # 1-based → 0-based
-            if atom_idx < 0 or atom_idx >= len(node_ids):
+            try:
+                atom_idx = _check_atom(origin_raw, graph)
+            except ValueError as exc:
                 msg = (
                     f"Vector file {path!r}: entry {idx} 'origin' atom index {origin_raw} "
-                    f"is out of range (molecule has {len(node_ids)} atoms)"
+                    f"is out of range or not present in the rendered molecule ({exc})"
                 )
-                raise ValueError(msg)
-            origin = np.array(graph.nodes[node_ids[atom_idx]]["position"], dtype=float)
+                raise ValueError(msg) from exc
+            origin = np.array(graph.nodes[atom_idx]["position"], dtype=float)
         elif isinstance(origin_raw, list) and len(origin_raw) == 3:
             try:
                 origin = np.array([float(v) for v in origin_raw])

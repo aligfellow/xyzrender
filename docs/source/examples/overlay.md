@@ -1,6 +1,15 @@
 # Structural Overlay
 
-Overlay two structures to compare them. When both molecules have the same atoms in the same order, alignment is direct (index-based Kabsch). When atom counts or elements differ, the largest shared connected substructure is found automatically and used as the alignment basis.
+Overlay two structures to compare them. With **no flag** the alignment strategy is picked automatically:
+
+1. **Both have metals** → metal-fragment overlay: enumerates every metal-to-metal pairing, narrows ligands to each metal's coordination shell, and pivots Kabsch on the metal so paired metals coincide exactly.
+2. **Same shape + same elements** (no metals) → index-paired Kabsch on every atom.
+3. **Otherwise** → type-aware MCS finds the largest shared connected substructure. Metals of any element can match each other (`M` class), heteroatoms can match each other (`het` class); aromatic-ring seeds bias the search so benzene-like rings land on benzene-like rings.
+4. **Last resort** (no MCS match) → PCA-seeded ICP best-fit.
+
+With **`--align-atoms SELECTOR`** the user picks the candidate atoms. Metals in the selection on both sides → metal-fragment overlay (paired metals coincide exactly). Otherwise the algorithm tries MCS-on-induced-subgraph and K-subset Kabsch, returning the lowest-RMSD candidate. The selector grammar is identical to every other selector flag (element symbols, categories, atom-index ranges).
+
+The chosen strategy is logged at INFO with paired-atom count and full-molecule RMSD so you can see which path ran.
 
 | Default | Custom colour | Rotation GIF |
 |---------|---------------|--------------|
@@ -41,6 +50,17 @@ mol1 = load("isothio_xtb.xyz", charge=1)
 mol2 = load("isothio_fused.xyz")
 render(mol1, overlay=mol2)  # aligns on largest shared connected substructure
 ```
+
+## Organometallic overlays
+
+When both structures have a metal centre, the **default (no flag)** runs metal-fragment overlay — metals are pivoted so they coincide exactly and the coordination-shell atoms (ligands) are pair-enumerated to find the geometrically tightest assignment. For polynuclear complexes, every metal-to-metal pairing is tried and the one with the lowest full-molecule RMSD wins.
+
+```bash
+xyzrender complex1.xyz --overlay complex2.xyz                   # default: metal-fragment overlay
+xyzrender complex1.xyz --overlay complex2.xyz --align-atoms M,L # explicit selector
+```
+
+`--align-atoms` accepts the full selector grammar — `M`, `L`, `het`, element symbols (`Fe,P`), atom indices (`1-5`), or any combination. When the spec includes metals (e.g., `M`, `M,L`), the metal-fragment overlay runs and paired metals coincide exactly — same guarantee as the no-flag default. Use explicit selectors when you want to scope the alignment (e.g., `Fe,P` to pin Fe centres and their P donors).
 
 ## Per-overlay style (independent of the primary)
 
@@ -151,4 +171,4 @@ xyzrender isothio_xtb.xyz --overlay isothio_uma.xyz -c 1 --hy --no-align
 | `--overlay-bond PAIR [...]` | Force-show / add bonds on the overlay only (1-indexed, overlay-local) |
 | `--overlay-show SPEC [...]` | Render only these atoms of the overlay (same grammar as `--hl`: ranges, element symbols, `M`, `het`, `all`). Applied after alignment so the fit still uses the full scaffold |
 | `--align` / `--no-align` | Force / skip Kabsch/MCS alignment (default: on). `--align` overrides a preset's `auto_align: false`; `--no-align` keeps raw coordinates |
-| `--align-atoms INDICES` | 1-indexed atom subset for Kabsch alignment (min 3), e.g. `1,2,3` or `1-6`. Only for same-atom-count overlays |
+| `--align-atoms SPEC` | Alignment subset (min 3 atoms). Numeric: 1-indexed IDs (`1,2,3`, `1-6`). Symbolic: element/category tokens (`M,L` for metal + coord shell; `Fe,P` for Fe centres + bonded P). Symbol specs are resolved per-graph (index-independent); metal-containing specs pivot on the metal centroid so paired metals coincide exactly. |

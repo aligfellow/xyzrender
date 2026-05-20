@@ -10,7 +10,6 @@ if TYPE_CHECKING:
     import networkx as nx
 
     from xyzrender.cube import CubeData
-    from xyzrender.types import RenderConfig
 
 
 def parse_atom_indices(spec: str | list[int], *, one_indexed: bool = False) -> list[int]:
@@ -147,104 +146,39 @@ def pca_matrix(pos: np.ndarray) -> np.ndarray:
     return vt
 
 
-def resolve_orientation(
-    graph: nx.Graph,
+def align_cube_to_atoms(
     cube: CubeData | None,
-    cfg: RenderConfig,
-    *,
-    tilt_degrees: float | None = None,
+    graph: nx.Graph,
 ) -> tuple[np.ndarray | None, np.ndarray, np.ndarray]:
-    """Apply PCA auto-orient (if enabled) and compute Kabsch rotation for cube alignment.
+    """Kabsch rotation from cube atom positions to current graph positions.
 
-    When ``cfg.auto_orient`` is ``True``, atom positions in *graph* are
-    rotated in-place by PCA so the largest variance lies along **x** and
-    depth along **z**.  If ``tilt_degrees`` is given an additional rotation
-    around the **x**-axis is applied (MO surfaces use ``-30.0`` to separate
-    above/below-plane lobes).  Crystal lattice vectors and cell origin stored
-    on *cfg* are co-rotated by the same matrix.
+    Replaces the cube-alignment half of the old ``resolve_orientation``
+    function.  Pure read: no mutation of either *cube* or *graph*.
 
-    After any PCA rotation the Kabsch algorithm is used to compute the
-    rotation that maps the original cube atom positions to the current
-    (possibly PCA-rotated) graph positions.  This rotation is then passed
-    to the surface builders so that the volumetric grid is aligned with the
-    rendered molecule.
+    Returns ``(rot, atom_centroid, target_centroid)`` where:
 
-    Parameters
-    ----------
-    graph:
-        Molecular graph whose node ``"position"`` attributes may be updated.
-    cube:
-        Gaussian cube data whose atom positions serve as the reference frame.
-        Pass ``None`` when no cube is available; in this case *rot* is
-        ``None`` and both centroids equal the molecular centroid.
-    cfg:
-        Render configuration.  ``cfg.auto_orient`` is cleared to ``False``
-        once PCA has been applied.
-    tilt_degrees:
-        Extra rotation around the x-axis applied **after** PCA, in degrees.
-        Pass ``None`` (default) to skip the tilt.
-
-    Returns
-    -------
-    rot : numpy.ndarray or None
-        3x3 rotation matrix that maps cube-grid coordinates to the current
-        view orientation, or ``None`` when no rotation was needed.
-    atom_centroid : numpy.ndarray
-        Centroid (Å) of the cube atom positions (or graph centroid when
-        *cube* is ``None``).
-    curr_centroid : numpy.ndarray
-        Centroid (Å) of the current graph atom positions.
+    - ``rot`` is the 3x3 rotation that maps cube-frame to graph-frame, or
+      ``None`` when no rotation is needed (positions already match within
+      ``1e-6``, or *cube* is ``None``).
+    - ``atom_centroid`` is the centroid of *cube*'s atom positions (or the
+      graph centroid if *cube* is ``None``) — used by surface builders to
+      translate cube-grid points before rotating.
+    - ``target_centroid`` is the centroid of the current graph positions —
+      used by surface builders as the translation after rotating.
     """
     node_ids = list(graph.nodes())
-    curr_pos = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
-    curr_centroid = curr_pos.mean(axis=0)
-
-    rot: np.ndarray | None = None
-
-    if cfg.auto_orient:
-        oriented, rot = pca_orient(curr_pos, return_matrix=True)
-
-        if tilt_degrees is not None:
-            theta = np.radians(tilt_degrees)
-            rx = np.array(
-                [
-                    [1.0, 0.0, 0.0],
-                    [0.0, np.cos(theta), -np.sin(theta)],
-                    [0.0, np.sin(theta), np.cos(theta)],
-                ]
-            )
-            rot = rx @ rot
-            oriented = oriented @ rx.T
-
-        centroid_before = curr_centroid  # pre-PCA centroid, already computed
-        curr_centroid = oriented.mean(axis=0)
-
-        for idx, nid in enumerate(node_ids):
-            graph.nodes[nid]["position"] = tuple(oriented[idx].tolist())
-
-        # Co-rotate crystal lattice and cell origin by the same matrix
-        if cfg.cell_data is not None:
-            cfg.cell_data.lattice, cfg.cell_data.cell_origin = _apply_rot_to_vecs(
-                rot, cfg.cell_data.lattice, cfg.cell_data.cell_origin, centroid_before
-            )
-
-        cfg.auto_orient = False  # already applied; renderer must not re-apply
+    curr = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
+    target_centroid = curr.mean(axis=0)
 
     if cube is None:
-        atom_centroid = curr_centroid
-        return rot, atom_centroid, curr_centroid
+        return None, target_centroid, target_centroid
 
-    atom_centroid = np.array([p for _, p in cube.atoms], dtype=float).mean(axis=0)
-
-    # If no PCA was applied but positions may have been modified (e.g. interactive
-    # viewer), compute the Kabsch rotation from original→current atom positions.
-    if rot is None:
-        orig = np.array([p for _, p in cube.atoms], dtype=float)
-        curr = np.array([graph.nodes[i]["position"] for i in node_ids], dtype=float)
-        if not np.allclose(orig, curr, atol=1e-6):
-            rot = kabsch_rotation(orig, curr)
-
-    return rot, atom_centroid, curr_centroid
+    orig = np.array([p for _, p in cube.atoms], dtype=float)
+    atom_centroid = orig.mean(axis=0)
+    if np.allclose(orig, curr, atol=1e-6):
+        return None, atom_centroid, target_centroid
+    rot = kabsch_rotation(orig, curr)
+    return rot, atom_centroid, target_centroid
 
 
 def _apply_rot_to_vecs(
@@ -259,6 +193,34 @@ def _apply_rot_to_vecs(
     Returns ``(rotated_directions, rotated_origins)``.
     """
     return (rot @ directions.T).T, (rot @ (origins - centroid).T).T + centroid
+
+
+def rotation_to_align(v_from: np.ndarray, v_to: np.ndarray) -> np.ndarray:
+    """Return the rotation matrix mapping unit vector *v_from* onto *v_to*.
+
+    Uses Rodrigues' formula on the cross-product axis.  Handles the parallel
+    and anti-parallel edge cases (180° flip picks an arbitrary perpendicular).
+    """
+    a = v_from / np.linalg.norm(v_from)
+    b = v_to / np.linalg.norm(v_to)
+    cos = float(np.dot(a, b))
+    if cos > 0.9999:
+        return np.eye(3)
+    if cos < -0.9999:
+        perp = np.array([1.0, 0.0, 0.0]) if abs(a[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+        axis = np.cross(a, perp)
+    else:
+        axis = np.cross(a, b)
+    axis /= np.linalg.norm(axis)
+    angle = np.arccos(np.clip(cos, -1.0, 1.0))
+    k = np.array(
+        [
+            [0.0, -axis[2], axis[1]],
+            [axis[2], 0.0, -axis[0]],
+            [-axis[1], axis[0], 0.0],
+        ]
+    )
+    return np.eye(3) + np.sin(angle) * k + (1 - np.cos(angle)) * (k @ k)
 
 
 def apply_axis_angle_rotation(graph: nx.Graph, axis: np.ndarray, angle: float) -> None:

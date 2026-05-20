@@ -83,6 +83,7 @@ Styling:
 
 Display:
   --hy [ATOMS] / --no-hy  Show/hide H atoms (all or specific indices)
+  --only / --exclude      Keep or remove selected atoms before rendering
   --bo / --no-bo          Show/hide bond orders
   --unbond SPEC           Hide bonds: M-L  sbm  Fe-het  1-3  pi  all
   --bond PAIR             Force-show bonds: 1-3  4-5
@@ -253,6 +254,26 @@ def main() -> None:
         help='Show H atoms (no args=all, or indices like "1-5,8")',
     )
     disp_g.add_argument("--no-hy", action="store_true", default=False, help="Hide all H atoms")
+    disp_g.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        metavar="ATOMS",
+        help=(
+            'Render only selected atoms: --only "1-24" or --only "C,N,O". Repeatable. '
+            "Cube/surface fields (--mo, --dens, --esp, --nci) are not cropped to the filter."
+        ),
+    )
+    disp_g.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="ATOMS",
+        help=(
+            'Exclude selected atoms from the render: --exclude "25-40" or --exclude "Na,Cl". Repeatable. '
+            "Cube/surface fields (--mo, --dens, --esp, --nci) are not cropped to the filter."
+        ),
+    )
     disp_g.add_argument(
         "--no-bonds", action="store_true", default=False, help="Hide all bonds (e.g. space-filling style)"
     )
@@ -437,7 +458,12 @@ def main() -> None:
         "--align-atoms",
         default=None,
         dest="align_atoms",
-        help='Atom indices (min 3) for alignment subset, e.g. "1,2,3", "1-6"',
+        help=(
+            "Alignment subset (min 3 atoms).  Numeric: 1-indexed IDs "
+            '("1,2,3" or "1-6").  Symbolic: element/category tokens '
+            '("M,L" picks the metal + its first coordination shell; '
+            '"Fe,P" picks Fe atoms and any P atoms bonded to them).'
+        ),
     )
     ov_g.add_argument(
         "--align",
@@ -543,6 +569,11 @@ def main() -> None:
     gif_g = p.add_argument_group("GIF animation")
     gif_g.add_argument("--gif-ts", action="store_true", help="TS vibration GIF (via graphRC)")
     gif_g.add_argument("--gif-trj", action="store_true", help="Trajectory/optimization GIF (multi-frame input)")
+    gif_g.add_argument(
+        "--trj-bonds",
+        action="store_true",
+        help="Re-detect bonds for every frame (use for NEB-TS MEPs where connectivity changes)",
+    )
     gif_g.add_argument(
         "--gif-rot",
         nargs="?",
@@ -1033,6 +1064,16 @@ def main() -> None:
         except ValueError as e:
             p.error(str(e))
 
+    if (args.only or args.exclude) and (args.gif_ts or args.gif_trj):
+        p.error("--only/--exclude are not supported with --gif-ts or --gif-trj")
+    if args.only or args.exclude:
+        from xyzrender.api import _filter_molecule_atoms
+
+        try:
+            mol = _filter_molecule_atoms(mol, only=args.only or None, exclude=args.exclude or None)
+        except (TypeError, ValueError) as e:
+            p.error(str(e))
+
     # Resolve atom-spec driven options now that atom symbols are available.
     from xyzrender.selectors import resolve_atom_indices
 
@@ -1126,10 +1167,11 @@ def main() -> None:
         except (ValueError, FileNotFoundError) as e:
             p.error(str(e))
 
-    # --- Parse align-atoms (comma-separated 1-indexed, e.g. "1,2,3" or "1-6") ---
-    _align_atoms: list[int] | None = None
-    if args.align_atoms is not None:
-        _align_atoms = parse_atom_indices(args.align_atoms, one_indexed=True)
+    # --- align-atoms: pass through as a selector string ---
+    # The full selector grammar applies — numeric ranges ("1,2-5"),
+    # element symbols ("Fe,P"), and categories ("M", "L", "het") are all
+    # resolved per-graph by xyzrender.selectors.resolve_atom_indices.
+    _align_atoms: list[int] | str | None = args.align_atoms
 
     _anchor_atoms: list[int] | None = None
     if args.anchor:
@@ -1343,6 +1385,7 @@ def main() -> None:
                 auto_align=args.align,  # None = preset default; True/False = explicit override
                 opacity=args.opacity,
                 reference_graph=_ref_graph,
+                trj_bonds=args.trj_bonds,
                 detect_nci=args.nci_detect,
                 mo=args.mo,
                 dens=args.dens,

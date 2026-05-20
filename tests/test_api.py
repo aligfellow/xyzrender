@@ -6,6 +6,7 @@ minimise the number of full render calls.
 
 from pathlib import Path
 
+import networkx as nx
 import pytest
 
 from xyzrender import build_config, load, measure, render
@@ -105,6 +106,140 @@ def test_render_accepts_path():
 def test_render_accepts_molecule(caffeine):
     result = render(caffeine, orient=False)
     assert isinstance(result, SVGResult)
+
+
+def _linear_test_molecule() -> Molecule:
+    g = nx.Graph()
+    atoms = [
+        ("C", (0.0, 0.0, 0.0)),
+        ("O", (1.2, 0.0, 0.0)),
+        ("N", (2.4, 0.0, 0.0)),
+        ("Na", (0.0, 20.0, 0.0)),
+    ]
+    for i, (sym, pos) in enumerate(atoms):
+        g.add_node(i, symbol=sym, position=pos)
+    g.add_edge(0, 1, bond_order=1)
+    g.add_edge(1, 2, bond_order=1)
+    return Molecule(g)
+
+
+def test_render_exclude_removes_atoms_and_incident_bonds():
+    mol = _linear_test_molecule()
+    svg = str(render(mol, exclude="2", orient=False, gradient=False))
+
+    assert svg.count("<circle ") == 3
+    assert "<line " not in svg
+
+
+def test_render_only_keeps_atoms_and_intra_bonds():
+    mol = _linear_test_molecule()
+    svg = str(render(mol, only="1-3", orient=False, gradient=False))
+
+    assert svg.count("<circle ") == 3
+    assert svg.count("<line ") == 2
+
+
+def test_filtered_graph_selectors_use_original_indices():
+    from xyzrender.api import _filter_molecule_atoms
+    from xyzrender.selectors import resolve_atom_indices
+
+    filtered = _filter_molecule_atoms(_linear_test_molecule(), only="2-3")
+
+    assert list(filtered.graph.nodes()) == [0, 1]
+    assert resolve_atom_indices("2", filtered.graph) == {0}
+    assert resolve_atom_indices("3", filtered.graph) == {1}
+
+
+def test_filtered_annotations_use_original_indices():
+    from xyzrender.annotations import AtomValueLabel, parse_annotations
+    from xyzrender.api import _filter_molecule_atoms
+
+    filtered = _filter_molecule_atoms(_linear_test_molecule(), only="2-3")
+
+    annotations = parse_annotations([["2", "mark"]], None, filtered.graph)
+
+    assert annotations == [AtomValueLabel(0, "mark")]
+
+
+def test_filtered_annotations_reject_excluded_original_index():
+    from xyzrender.annotations import parse_annotations
+    from xyzrender.api import _filter_molecule_atoms
+
+    filtered = _filter_molecule_atoms(_linear_test_molecule(), exclude="2")
+
+    with pytest.raises(ValueError, match="may have been excluded"):
+        parse_annotations([["2", "mark"]], None, filtered.graph)
+
+
+def test_filter_then_highlight_list_uses_original_indices():
+    svg = str(
+        render(
+            _linear_test_molecule(),
+            exclude="2,3",
+            highlight=[4],
+            orient=False,
+            gradient=False,
+            fog=False,
+            hy=True,
+        )
+    )
+
+    assert "#da70d6" in svg
+
+
+def test_auto_orient_runs_after_atom_filter(monkeypatch):
+    from xyzrender import renderer
+
+    seen_shapes = []
+
+    def fake_pca_orient(pos, *args, **kwargs):
+        seen_shapes.append(pos.shape)
+        if kwargs.get("return_matrix"):
+            import numpy as np
+
+            return pos, np.eye(3)
+        return pos
+
+    monkeypatch.setattr(renderer, "pca_orient", fake_pca_orient)
+
+    render(_linear_test_molecule(), only="1-3")
+
+    assert seen_shapes == [(3, 3)]
+
+
+def test_filter_preserves_cell_data_for_periodic():
+    from xyzrender.api import _filter_molecule_atoms
+
+    mol = load(STRUCTURES / "caffeine_cell.xyz")
+    assert mol.cell_data is not None
+
+    filtered = _filter_molecule_atoms(mol, only="C,N")
+
+    assert filtered.cell_data is not None
+    # cell_data is deep-copied, not aliased
+    assert filtered.cell_data is not mol.cell_data
+    # Only C and N survived
+    syms = {filtered.graph.nodes[n]["symbol"] for n in filtered.graph.nodes()}
+    assert syms == {"C", "N"}
+
+
+def test_render_periodic_with_only_filter(tmp_path):
+    mol = load(STRUCTURES / "caffeine_cell.xyz")
+    result = render(mol, only="C,N", orient=False, output=tmp_path / "cell_only.svg")
+    assert isinstance(result, SVGResult)
+    svg = (tmp_path / "cell_only.svg").read_text()
+    # Cell box edges still drawn for the filtered render
+    assert 'class="cell-edge"' in svg
+
+
+def test_render_periodic_filter_then_supercell_replicates():
+    mol = load(STRUCTURES / "caffeine_cell.xyz")
+    unit = str(render(mol, only="C,N", orient=False))
+    super_2x = str(render(mol, only="C,N", supercell=(2, 1, 1), orient=False))
+
+    # Supercell render must have more rendered atoms than the unit cell render
+    assert super_2x.count("<circle ") > unit.count("<circle ")
+    assert 'class="cell-edge"' in super_2x
 
 
 # ---------------------------------------------------------------------------

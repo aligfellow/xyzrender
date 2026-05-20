@@ -258,28 +258,21 @@ def _validate_surface_cube_compatibility(color_cube: "CubeData", surface_cube: "
         raise ValueError(msg)
 
 
+_NEAR_ZERO_FLOOR = 0.01
+
+
 def classify_surface_field(surface_data: np.ndarray) -> str:
     """Classify a surface cube as ``"low_field"`` or ``"high_field"``.
 
-    ``low_field`` → surface extracted with ``data < iso`` (e.g. NCIPLOT RDG, where
-    the bulk of voxels sit at a high sentinel and the interaction wells are low).
-    ``high_field`` → surface extracted with ``data > iso`` (e.g. Multiwfn IGMH δg,
-    where the bulk of voxels sit near zero and interaction peaks are high).
-
-    Detection uses the median's position in the value range: if the median sits
-    in the upper half of [vmin, vmax], the background is high and the surface
-    is low; otherwise the background is low and the surface is high.
+    Low-field (NCIPLOT RDG): positive background, surface at small values.
+    High-field (Multiwfn IGMH δg): near-zero background, surface at large values.
+    Uses p5 to be robust against near-nuclear outliers in RDG cubes.
     """
     finite = surface_data[np.isfinite(surface_data)]
-    if finite.size == 0:
+    if finite.size == 0 or np.isclose(float(np.max(finite)), 0.0):
         return _SURFACE_MODE_LOW
-    vmin = float(np.min(finite))
-    vmax = float(np.max(finite))
-    span = vmax - vmin
-    if span < 1e-12 or np.isclose(vmax, 0.0):
-        return _SURFACE_MODE_LOW
-    median = float(np.median(finite))
-    return _SURFACE_MODE_LOW if (median - vmin) / span > 0.5 else _SURFACE_MODE_HIGH
+    p5 = float(np.percentile(finite, 5))
+    return _SURFACE_MODE_LOW if p5 >= _NEAR_ZERO_FLOOR else _SURFACE_MODE_HIGH
 
 
 # ---------------------------------------------------------------------------
