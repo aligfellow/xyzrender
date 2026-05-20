@@ -791,6 +791,8 @@ def render(
     mo_neg_color: str | None = None,
     mo_blur: float | None = None,
     mo_upsample: int | None = None,
+    mo_outline_width: float | None = None,
+    mo_outline_color: str | None = None,
     flat_mo: bool = False,
     dens_color: str | None = None,
     nci_mode: str | None = None,
@@ -1040,6 +1042,8 @@ def render(
             bond_color=bond_color,
             bond_outline_color=bond_outline_color,
             bond_outline_width=bond_outline_width,
+            mo_outline_color=mo_outline_color,
+            mo_outline_width=mo_outline_width,
             ts_color=ts_color,
             nci_color=nci_color,
             background=background,
@@ -1087,6 +1091,11 @@ def render(
         opacity=_surface_opacity,
         atom_opacity=atom_opacity,
     )
+
+    if mo and _surface_opacity is None:
+        from xyzrender.mo import MO_DEFAULT_OPACITY
+
+        cfg.surface_opacity = MO_DEFAULT_OPACITY
 
     from xyzrender.colors import resolve_color
 
@@ -1413,6 +1422,8 @@ def render_gif(
     mo_neg_color: str | None = None,
     mo_blur: float | None = None,
     mo_upsample: int | None = None,
+    mo_outline_width: float | None = None,
+    mo_outline_color: str | None = None,
     flat_mo: bool = False,
     dens_color: str | None = None,
     surface_style: str | None = None,
@@ -1580,6 +1591,8 @@ def render_gif(
             bond_color=bond_color,
             bond_outline_color=bond_outline_color,
             bond_outline_width=bond_outline_width,
+            mo_outline_color=mo_outline_color,
+            mo_outline_width=mo_outline_width,
             ts_color=ts_color,
             nci_color=nci_color,
             background=background,
@@ -1607,6 +1620,13 @@ def render_gif(
 
     if haptic:
         cfg.haptic = True
+
+    if opacity is not None and overlay is None:
+        cfg.surface_opacity = opacity
+    if mo and (opacity is None or overlay is not None):
+        from xyzrender.mo import MO_DEFAULT_OPACITY
+
+        cfg.surface_opacity = MO_DEFAULT_OPACITY
 
     from xyzrender.colors import resolve_color
 

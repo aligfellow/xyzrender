@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import numpy as np
 
+from xyzrender.colors import _FOG_NEAR, blend_fog
 from xyzrender.contours import (
     BLUR_SIGMA,
     MIN_LOBE_VOLUME_BOHR3,
@@ -29,9 +30,6 @@ if TYPE_CHECKING:
     from xyzrender.types import MOParams, RenderConfig
 
 logger = logging.getLogger(__name__)
-
-# Lobe classification (physical units)
-_COPLANARITY_THRESHOLD_ANG = 0.3  # Å — below this z-depth difference, lobes are coplanar
 
 
 # ---------------------------------------------------------------------------
@@ -311,74 +309,104 @@ def build_mo_contours(
 
 
 # ---------------------------------------------------------------------------
-# MO lobe classification (front/back)
-# ---------------------------------------------------------------------------
-
-
-def classify_mo_lobes(lobes: list[LobeContour2D], mol_z: float) -> list[bool]:
-    """Classify each lobe as front (True) or back (False).
-
-    Pairs opposite-phase lobes by 3D centroid proximity; within each pair
-    the higher-z lobe is front.  Unpaired lobes use the molecule z-centroid.
-    """
-    n = len(lobes)
-    if n == 0:
-        return []
-    is_front: list[bool | None] = [None] * n
-
-    # Build all candidate opposite-phase pairs sorted by 3D distance
-    pos_idx = [i for i in range(n) if lobes[i].phase == "pos"]
-    neg_idx = [i for i in range(n) if lobes[i].phase == "neg"]
-    candidates = []
-    for pi in pos_idx:
-        pc = lobes[pi].centroid_3d
-        for ni in neg_idx:
-            nc = lobes[ni].centroid_3d
-            d2 = (pc[0] - nc[0]) ** 2 + (pc[1] - nc[1]) ** 2 + (pc[2] - nc[2]) ** 2
-            candidates.append((d2, pi, ni))
-    candidates.sort()  # closest pairs first
-
-    # Greedy matching — closest pair wins
-    used_pos: set[int] = set()
-    used_neg: set[int] = set()
-    for _, pi, ni in candidates:
-        if pi in used_pos or ni in used_neg:
-            continue
-        used_pos.add(pi)
-        used_neg.add(ni)
-        # Within pair: higher z = front — but if z-depths are nearly equal
-        # (in-plane orbital) both lobes are visible, so render both as front
-        dz = abs(lobes[pi].z_depth - lobes[ni].z_depth)
-        if dz < _COPLANARITY_THRESHOLD_ANG:
-            is_front[pi] = True
-            is_front[ni] = True
-        elif lobes[pi].z_depth >= lobes[ni].z_depth:
-            is_front[pi] = True
-            is_front[ni] = False
-        else:
-            is_front[pi] = False
-            is_front[ni] = True
-
-    # Unpaired lobes: fallback to molecule z-centroid
-    for i in range(n):
-        if is_front[i] is None:
-            is_front[i] = lobes[i].z_depth >= mol_z
-
-    return cast("list[bool]", is_front)
-
-
-# ---------------------------------------------------------------------------
 # MO SVG rendering
 # ---------------------------------------------------------------------------
 
 
-_MO_BASE_OPACITY = 0.6  # base opacity for MO lobes (scaled by surface_opacity)
-_MO_BACK_FADE = 0.9  # back lobes rendered at this fraction of front opacity
+# Default surface_opacity for MO renders when --opacity is unset; MO lobes are
+# conceptually translucent isosurfaces so the out-of-the-box look is partial.
+MO_DEFAULT_OPACITY = 0.6
+
+# Fog strength multiplier for MO lobes — lobes are large and diffuse, so full
+# atom-strength fog washes them out.
+_MO_FOG_FACTOR = 0.7
 
 
-def mo_back_lobes_svg(
+def _lobe_effective_z(
+    lobe: LobeContour2D,
+    atom_pos: np.ndarray,
+    atom_radii: np.ndarray,
+) -> float:
+    """Compute a single effective z for a lobe via per-atom occlusion constraints.
+
+    For each atom whose 2D circle (in the same Å frame as the lobe's voxel
+    positions) overlaps any of the lobe's voxels, derive a constraint:
+
+    - If the lobe's local average z at the atom's screen location is in front
+      of the atom centre, the lobe must drain *after* the atom
+      (``effective_z >= atom_z``).
+    - If the local average z is behind, the lobe must drain *before* the atom
+      (``effective_z <= atom_z``).
+
+    Local average z (rather than max) is used so a thin tail of voxels near the
+    atom doesn't over-promote the whole lobe to "in front" — ordering flips
+    only when the lobe's local *bulk* is genuinely on the opposite side.
+
+    The returned ``effective_z`` lies in the feasible interval when one exists,
+    otherwise the conservative fallback (``lower_bound + epsilon``) biases the
+    lobe toward "in front of locally-front atoms" — the locally-behind atom
+    that lost the constraint gets the centroid-style artifact, but isolated to
+    that single atom rather than affecting the whole lobe.
+
+    Returns the lobe's ``z_depth`` if no atom overlaps in 2D (no visual conflict
+    is possible) or if ``voxel_pos`` is unavailable.
+    """
+    if lobe.voxel_pos is None or len(atom_pos) == 0:
+        return lobe.z_depth
+
+    vox = lobe.voxel_pos
+    lower = -np.inf  # effective_z must be >= lower (lobe drains AFTER these atoms)
+    upper = np.inf  # effective_z must be <= upper (lobe drains BEFORE these atoms)
+    n_overlap = 0
+
+    # Quick lobe 2D bbox cull to skip atoms far from the lobe
+    lx_min, ly_min = vox[:, 0].min(), vox[:, 1].min()
+    lx_max, ly_max = vox[:, 0].max(), vox[:, 1].max()
+
+    for ai in range(len(atom_pos)):
+        ax, ay, az = atom_pos[ai]
+        ar = atom_radii[ai]
+        if ax + ar < lx_min or ax - ar > lx_max:
+            continue
+        if ay + ar < ly_min or ay - ar > ly_max:
+            continue
+        dx = vox[:, 0] - ax
+        dy = vox[:, 1] - ay
+        overlap = (dx * dx + dy * dy) < (ar * ar)
+        if not overlap.any():
+            continue
+        local_z = float(vox[overlap, 2].mean())
+        n_overlap += 1
+        if local_z > az:
+            lower = max(lower, az)
+        elif az < upper:
+            upper = az
+
+    if n_overlap == 0:
+        return lobe.z_depth
+    if upper > lower:
+        # Feasible: any value in (lower, upper) satisfies all per-pair
+        # constraints.  Pick a value that anchors to a finite bound so the
+        # lobe's queue position stays meaningfully scaled to the molecule.
+        if np.isfinite(lower) and np.isfinite(upper):
+            return float(0.5 * (lower + upper))
+        if np.isfinite(lower):
+            # All overlapping atoms are behind the lobe → drain just after the
+            # frontmost such atom.
+            return float(lower + 1e-3)
+        if np.isfinite(upper):
+            # All overlapping atoms are in front of the lobe → drain just before
+            # the backmost such atom.
+            return float(upper - 1e-3)
+        return lobe.z_depth
+    # Conflict: lobe wraps two atoms in opposite directions. Conservative
+    # fallback — favour "lobe in front of locally-front atoms".
+    logger.debug("Lobe occlusion conflict (lower=%.3f upper=%.3f), falling back", lower, upper)
+    return float(lower + 1e-6)
+
+
+def mo_lobe_svg_items(
     mo: SurfaceContours,
-    mo_is_front: list[bool],
     surface_opacity: float,
     scale: float,
     cx: float,
@@ -389,71 +417,73 @@ def mo_back_lobes_svg(
     surface_style: str = "solid",
     stroke_width: float = 1.5,
     mesh_inner_width: float = 0.8,
-) -> list[str]:
-    """Return SVG lines for back MO lobes (faded flat fill, behind molecule)."""
-    opacity = _MO_BASE_OPACITY * _MO_BACK_FADE * surface_opacity
-    lines: list[str] = []
-    for idx_l, lobe in enumerate(mo.lobes):
-        if mo_is_front[idx_l]:
-            continue
-        color_hex = mo.pos_color if lobe.phase == "pos" else mo.neg_color
-        lines.extend(
-            render_lobe_svg(
-                lobe,
-                mo,
-                color_hex,
-                opacity,
-                scale,
-                cx,
-                cy,
-                canvas_w,
-                canvas_h,
-                surface_style=surface_style,
-                stroke_width=stroke_width,
-                mesh_inner_width=mesh_inner_width,
-            )
-        )
-    return lines
+    flat: bool = False,
+    outline_width: float = 0.0,
+    outline_color: str = "#000000",
+    atom_pos: np.ndarray | None = None,
+    atom_radii: np.ndarray | None = None,
+    fog_enabled: bool = False,
+    fog_strength: float = 0.0,
+    fog_rgb: np.ndarray | None = None,
+    fog_z_front: float = 0.0,
+    fog_z_range: float = 1.0,
+) -> list[tuple[float, list[str]]]:
+    """Return per-lobe ``(z_depth, svg_lines)`` items for z-interleaved rendering.
 
+    Each lobe is rendered independently — the painter's-algorithm drain in the
+    renderer places each lobe at its own z among the atoms.
 
-def mo_front_lobes_svg(
-    mo: SurfaceContours,
-    mo_is_front: list[bool],
-    surface_opacity: float,
-    scale: float,
-    cx: float,
-    cy: float,
-    canvas_w: int,
-    canvas_h: int,
-    *,
-    surface_style: str = "solid",
-    stroke_width: float = 1.5,
-    mesh_inner_width: float = 0.8,
-) -> list[str]:
-    """Return SVG lines for front MO lobes (flat fill, on top of molecule)."""
-    opacity = _MO_BASE_OPACITY * surface_opacity
-    lines: list[str] = []
-    for idx_l, lobe in enumerate(mo.lobes):
-        if not mo_is_front[idx_l]:
-            continue
+    When ``atom_pos`` and ``atom_radii`` are supplied, the lobe's queue z is
+    resolved via per-atom occlusion constraints (see :func:`_lobe_effective_z`);
+    otherwise it falls back to the lobe's centroid z.
+
+    Depth cueing comes from the z-interleaved drawing order plus the shared fog
+    colour blend, attenuated by :data:`_MO_FOG_FACTOR` (full atom-strength fog
+    washes diffuse lobes out).  ``flat=True`` disables fog on MO lobes.
+
+    Items are returned sorted ascending by their queue z; the caller pools them
+    with other surface overlays and re-sorts.
+    """
+    items: list[tuple[float, list[str]]] = []
+    use_constraints = atom_pos is not None and atom_radii is not None
+    use_fog = fog_enabled and fog_rgb is not None and fog_strength > 0 and fog_z_range > 0 and not flat
+    for lobe in mo.lobes:
         color_hex = mo.pos_color if lobe.phase == "pos" else mo.neg_color
-        lines.extend(
-            render_lobe_svg(
-                lobe,
-                mo,
-                color_hex,
-                opacity,
-                scale,
-                cx,
-                cy,
-                canvas_w,
-                canvas_h,
-                surface_style=surface_style,
-                stroke_width=stroke_width,
-                mesh_inner_width=mesh_inner_width,
-            )
+        if use_fog:
+            assert fog_rgb is not None
+            # Same depth normalization as atoms (renderer.py): distance from
+            # frontmost atom, scaled by molecule depth range, with a near
+            # dead-zone before fog kicks in.
+            depth = max(fog_z_front - lobe.z_depth, 0.0)
+            fog_f = fog_strength * _MO_FOG_FACTOR * float(np.clip((depth - _FOG_NEAR) / fog_z_range, 0.0, 1.0))
+            color_hex = blend_fog(color_hex, fog_rgb, fog_f)
+        if use_constraints:
+            assert atom_pos is not None
+            assert atom_radii is not None
+            queue_z = _lobe_effective_z(lobe, atom_pos, atom_radii)
+        else:
+            queue_z = lobe.z_depth
+        svg_lines = render_lobe_svg(
+            lobe,
+            mo,
+            color_hex,
+            surface_opacity,
+            scale,
+            cx,
+            cy,
+            canvas_w,
+            canvas_h,
+            surface_style=surface_style,
+            stroke_width=stroke_width,
+            mesh_inner_width=mesh_inner_width,
+            outline_width=outline_width,
+            outline_color=outline_color,
         )
-    return lines
+        if svg_lines:
+            items.append((queue_z, svg_lines))
+
+    items.sort(key=lambda x: x[0])
+    return items
 
 
 # ---------------------------------------------------------------------------

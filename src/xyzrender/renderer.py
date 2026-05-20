@@ -34,11 +34,7 @@ from xyzrender.hull import (
     hull_facets_svg,
     normalize_hull_subsets,
 )
-from xyzrender.mo import (
-    classify_mo_lobes,
-    mo_back_lobes_svg,
-    mo_front_lobes_svg,
-)
+from xyzrender.mo import mo_lobe_svg_items
 from xyzrender.types import BondStyle, RenderConfig
 from xyzrender.utils import pca_orient
 
@@ -609,34 +605,6 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 )
         svg.append("  </defs>")
 
-    # MO lobe front/back classification
-    mo_is_front = None
-    if cfg.mo_contours is not None:
-        mo = cfg.mo_contours
-        if cfg.flat_mo:
-            mo_is_front = [True] * len(mo.lobes)
-        else:
-            mo_is_front = classify_mo_lobes(mo.lobes, float(pos[:, 2].mean()))
-
-    # --- Back MO orbital lobes (behind molecule) — flat faded fill ---
-    if cfg.mo_contours is not None:
-        assert mo_is_front is not None
-        svg.extend(
-            mo_back_lobes_svg(
-                cfg.mo_contours,
-                mo_is_front,
-                cfg.surface_opacity,
-                scale,
-                cx,
-                cy,
-                canvas_w,
-                canvas_h,
-                surface_style=cfg.surface_style,
-                stroke_width=_mesh_sw,
-                mesh_inner_width=_mesh_inner_sw,
-            )
-        )
-
     # --- Convex hull facets (low-alpha plane behind molecule) ---
     if cfg.show_convex_hull:
         palette = [resolve_color(c) for c in cfg.hull_colors]
@@ -821,39 +789,35 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 f'stroke-dasharray="{cell_dash}" stroke-linecap="round"/>'
             )
 
-    # NCI patches are z-sorted into the atom/bond loop so they appear at the correct
-    # depth (in the interstitial space) rather than covering the whole molecule.
-    nci_lobes_flat: list[tuple[float, list[str]]] = []
-    nci_lobe_idx = 0
+    # Surface overlays (NCI patches, pore spheres, MO lobes) share one z-sorted
+    # queue so each item interleaves with atoms at its own depth.  Drained
+    # back-to-front in the atom loop.
+    _overlays: list[tuple[float, list[str]]] = []
+    _overlay_idx = 0
+
     if cfg.nci_contours is not None:
         from xyzrender.nci import nci_lobe_svg_items, nci_static_svg_defs
 
         if cfg.nci_contours.raster_png:
             svg.extend(nci_static_svg_defs(cfg.nci_contours, scale, cx, cy, canvas_w, canvas_h))
-        nci_lobes_flat = nci_lobe_svg_items(
-            cfg.nci_contours,
-            cfg.surface_opacity,
-            scale,
-            cx,
-            cy,
-            canvas_w,
-            canvas_h,
-            surface_style=cfg.surface_style,
-            stroke_width=_mesh_sw,
-            mesh_inner_width=_mesh_inner_sw,
+        _overlays.extend(
+            nci_lobe_svg_items(
+                cfg.nci_contours,
+                cfg.surface_opacity,
+                scale,
+                cx,
+                cy,
+                canvas_w,
+                canvas_h,
+                surface_style=cfg.surface_style,
+                stroke_width=_mesh_sw,
+                mesh_inner_width=_mesh_inner_sw,
+            )
         )
-
-    def _drain_nci(next_z: float) -> None:
-        nonlocal nci_lobe_idx
-        while nci_lobe_idx < len(nci_lobes_flat) and nci_lobes_flat[nci_lobe_idx][0] < next_z:
-            svg.extend(nci_lobes_flat[nci_lobe_idx][1])
-            nci_lobe_idx += 1
 
     # --- Pore volume spheres (z-interleaved) ---
     # Uses cfg.pore_node_ids: list of node-ID lists per pore.
     # Centroid + radius computed from oriented positions (post-PCA).
-    pore_spheres_flat: list[tuple[float, list[str]]] = []
-    pore_sphere_idx = 0
     if cfg.pore_spheres and cfg.pore_node_ids:
         from xyzrender.hull import pore_size_colors
 
@@ -905,14 +869,48 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 f'  <circle cx="{sx:.1f}" cy="{sy:.1f}" r="{sr:.1f}" '
                 f'fill="url(#{gid})" fill-opacity="{cfg.pore_sphere_opacity:.2f}" stroke="none"/>'
             ]
-            pore_spheres_flat.append((z_depth, sphere_svg))
-        pore_spheres_flat.sort(key=lambda x: x[0])
+            _overlays.append((z_depth, sphere_svg))
 
-    def _drain_pore_spheres(next_z: float) -> None:
-        nonlocal pore_sphere_idx
-        while pore_sphere_idx < len(pore_spheres_flat) and pore_spheres_flat[pore_sphere_idx][0] < next_z:
-            svg.extend(pore_spheres_flat[pore_sphere_idx][1])
-            pore_sphere_idx += 1
+    # --- MO orbital lobes (z-interleaved) ---
+    if cfg.mo_contours is not None:
+        # Each lobe resolves its queue-z against the atoms it overlaps in 2D
+        # (see :func:`_lobe_effective_z`); fog z-range matches the atom loop's.
+        _mo_fog_z_front = float(pos[:, 2].max())
+        _mo_fog_z_range = float(max(pos[:, 2].max() - pos[:, 2].min(), 1e-6))
+        _overlays.extend(
+            mo_lobe_svg_items(
+                cfg.mo_contours,
+                cfg.surface_opacity,
+                scale,
+                cx,
+                cy,
+                canvas_w,
+                canvas_h,
+                surface_style=cfg.surface_style,
+                stroke_width=_mesh_sw,
+                mesh_inner_width=_mesh_inner_sw,
+                flat=cfg.flat_mo,
+                outline_width=cfg.mo_outline_width * scale_ratio,
+                outline_color=cfg.mo_outline_color,
+                atom_pos=pos,
+                atom_radii=_atom_r3d,
+                fog_enabled=cfg.fog,
+                fog_strength=cfg.fog_strength,
+                fog_rgb=fog_rgb,
+                fog_z_front=_mo_fog_z_front,
+                fog_z_range=_mo_fog_z_range,
+            )
+        )
+
+    # Stable sort preserves insertion order for ties, so internally-z-sorted
+    # NCI items stay coherent against MO / pore items at the same depth.
+    _overlays.sort(key=lambda x: x[0])
+
+    def _drain_overlays(next_z: float) -> None:
+        nonlocal _overlay_idx
+        while _overlay_idx < len(_overlays) and _overlays[_overlay_idx][0] < next_z:
+            svg.extend(_overlays[_overlay_idx][1])
+            _overlay_idx += 1
 
     # Interleaved z-order: for each atom, render it then its bonds to deeper atoms
 
@@ -1414,11 +1412,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         if ai in hidden:
             continue
 
-        # Drain NCI patches and pore spheres that belong behind this atom
-        if nci_lobes_flat:
-            _drain_nci(float(pos[ai][2]))
-        if pore_spheres_flat:
-            _drain_pore_spheres(float(pos[ai][2]))
+        # Drain surface overlays (NCI / pore / MO) that belong behind this atom
+        if _overlays:
+            _drain_overlays(float(pos[ai][2]))
 
         xi, yi = _px[ai], _py[ai]
         is_image = _is_image[ai]
@@ -1549,10 +1545,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     if _bond_outline_layer:
         svg[_molecule_insert_idx:_molecule_insert_idx] = _bond_outline_layer
 
-    # NCI patches in front of all atoms (z_depth > frontmost atom)
-    while nci_lobe_idx < len(nci_lobes_flat):
-        svg.extend(nci_lobes_flat[nci_lobe_idx][1])
-        nci_lobe_idx += 1
+    # Drain any remaining surface overlays (z_depth > frontmost atom)
+    if _overlays:
+        _drain_overlays(float("inf"))
 
     # Flush any vectors whose origin is in front of all atoms
     while _pv_pos < len(_pending_vecs):
@@ -1592,29 +1587,6 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     canvas_h,
                     draw_shaft=False,
                 )
-
-    # Drain remaining pore spheres (in front of all atoms)
-    if pore_spheres_flat:
-        _drain_pore_spheres(float("inf"))
-
-    # --- Front MO orbital lobes (on top of molecule) ---
-    if cfg.mo_contours is not None:
-        assert mo_is_front is not None
-        svg.extend(
-            mo_front_lobes_svg(
-                cfg.mo_contours,
-                mo_is_front,
-                cfg.surface_opacity,
-                scale,
-                cx,
-                cy,
-                canvas_w,
-                canvas_h,
-                surface_style=cfg.surface_style,
-                stroke_width=_mesh_sw,
-                mesh_inner_width=_mesh_inner_sw,
-            )
-        )
 
     # --- Density surface (stacked z-layers on top of molecule) ---
     if cfg.dens_contours is not None:

@@ -81,7 +81,7 @@ xyzrender "$DIR/isothio_xtb.xyz" -c 1 --stereo -o "$IMG/isothio_stereo.svg"
 xyzrender "$DIR/mn-h2.log" --ts --stereo --no-orient -o "$IMG/mn-h2_ts_stereo.svg"
 
 echo "=== Molecular orbitals ==="
-xyzrender "$DIR/caffeine_lumo.cube" --mo --mo-colors maroon teal -o "$IMG/caffeine_lumo.svg"
+xyzrender "$DIR/caffeine_lumo.cube" --mo --mo-colors maroon teal --opacity 0.8 --mo-outline-width 5 -o "$IMG/caffeine_lumo.svg"
 xyzrender "$DIR/caffeine_homo.cube" --mo --hy --iso 0.03 -o "$IMG/caffeine_homo_iso_hy.svg"
 xyzrender "$DIR/caffeine_homo.cube" --mo -o "$IMG/caffeine_homo.svg" --gif-rot -go "$IMG/caffeine_homo.gif"
 

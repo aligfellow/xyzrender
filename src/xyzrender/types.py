@@ -322,6 +322,8 @@ class RenderConfig:
     mo_neg_color: str = _DEFAULT_MO_NEG_COLOR
     mo_blur_sigma: float = _DEFAULT_MO_BLUR_SIGMA
     mo_upsample_factor: int = _DEFAULT_MO_UPSAMPLE_FACTOR
+    mo_outline_width: float = 0.0  # 0 = no outline (solid surface mode only)
+    mo_outline_color: str = "#000000"
     dens_isovalue: float = _DEFAULT_DENS_ISOVALUE
     dens_color: str = _DEFAULT_DENS_COLOR
     nci_isovalue: float = _DEFAULT_NCI_ISOVALUE

@@ -41,6 +41,9 @@ class LobeContour2D:
     z_depth: float  # average z-coordinate (for front/back ordering)
     centroid_3d: tuple[float, float, float] = (0.0, 0.0, 0.0)  # for pairing
     lobe_color: str | None = None  # per-lobe color override (NCI avg coloring)
+    # Rotated 3D voxel positions (Å) — lets the renderer resolve queue-z
+    # against the atoms each lobe overlaps.  None when not needed.
+    voxel_pos: np.ndarray | None = None
     # Mesh geometry (populated only when surface_style == "mesh")
     mesh_iso_loops: list[np.ndarray] = field(default_factory=list)  # closed inner contour rings
     mesh_grid_lines: list[np.ndarray] = field(default_factory=list)  # open grid scan lines (H + V clipped to surface)
@@ -838,7 +841,13 @@ def project_region_to_contours(
 
     z_depth = float(lobe_pos[:, 2].mean())
     cent_3d = (float(lobe_pos[:, 0].mean()), float(lobe_pos[:, 1].mean()), z_depth)
-    lc = LobeContour2D(loops=loops, phase=phase, z_depth=z_depth, centroid_3d=cent_3d)
+    lc = LobeContour2D(
+        loops=loops,
+        phase=phase,
+        z_depth=z_depth,
+        centroid_3d=cent_3d,
+        voxel_pos=lobe_pos.copy(),
+    )
 
     # Mesh geometry
     if surface_style in ("mesh", "contour", "dot"):
@@ -876,16 +885,26 @@ def render_lobe_svg(
     surface_style: str = "solid",
     stroke_width: float = 1.5,
     mesh_inner_width: float = 0.8,
+    outline_width: float = 0.0,
+    outline_color: str = "#000000",
 ) -> list[str]:
-    """Render one lobe in solid/mesh/wire style. Returns SVG element strings."""
+    """Render one lobe in solid/mesh/wire style. Returns SVG element strings.
+
+    ``outline_width`` and ``outline_color`` apply only in solid mode; mesh /
+    contour / dot styles already render strokes around the boundary.
+    """
     d_all = combined_path_d(lobe.loops, grid, scale, cx, cy, canvas_w, canvas_h)
     if not d_all:
         return []
 
     if surface_style == "solid":
+        if outline_width > 0:
+            stroke_attr = f' stroke="{outline_color}" stroke-width="{outline_width:.2f}"'
+        else:
+            stroke_attr = ' stroke="none"'
         return [
             f'  <g opacity="{opacity:.2f}">',
-            f'    <path d="{d_all}" fill="{fill_color}" fill-rule="evenodd" stroke="none"/>',
+            f'    <path d="{d_all}" fill="{fill_color}" fill-rule="evenodd"{stroke_attr}/>',
             "  </g>",
         ]
 

@@ -361,10 +361,19 @@ def main() -> None:
         "--flat-mo",
         action="store_true",
         default=False,
-        help="Disable MO depth classification (all lobes rendered as front)",
+        help="Disable depth-fog colour blend on MO lobes (textbook-style flat colours)",
     )
     surf_g.add_argument("--mo-blur", type=float, default=None, help="MO Gaussian blur sigma (default: 0.8)")
     surf_g.add_argument("--mo-upsample", type=int, default=None, help="MO upsample factor (default: 3)")
+    surf_g.add_argument(
+        "--mo-outline-width",
+        type=float,
+        nargs="?",
+        const=5.0,
+        default=None,
+        help="MO lobe outline width in px (bare flag = 5.0; 0 = off). Solid surface only.",
+    )
+    surf_g.add_argument("--mo-outline-color", default=None, help="MO lobe outline color (hex or named)")
     surf_g.add_argument("--opacity", type=float, default=None, help="Surface opacity (default: 1.0, >1 boosts)")
     surf_g.add_argument(
         "--surface-style",
@@ -886,6 +895,8 @@ def main() -> None:
         bond_color=args.bond_color,
         bond_outline_color=args.bond_outline_color,
         bond_outline_width=args.bond_outline_width,
+        mo_outline_color=args.mo_outline_color,
+        mo_outline_width=args.mo_outline_width,
         ts_color=args.ts_color,
         nci_color=args.nci_color,
         background=args.background,
@@ -1300,6 +1311,8 @@ def main() -> None:
             mo_neg_color=args.mo_colors[1] if args.mo_colors else None,
             mo_blur=args.mo_blur,
             mo_upsample=args.mo_upsample,
+            mo_outline_width=args.mo_outline_width,
+            mo_outline_color=args.mo_outline_color,
             flat_mo=args.flat_mo,
             dens_color=args.dens_color,
             nci_mode=args.nci_mode,
@@ -1394,6 +1407,8 @@ def main() -> None:
                 mo_neg_color=args.mo_colors[1] if args.mo_colors else None,
                 mo_blur=args.mo_blur,
                 mo_upsample=args.mo_upsample,
+                mo_outline_width=args.mo_outline_width,
+                mo_outline_color=args.mo_outline_color,
                 flat_mo=args.flat_mo,
                 dens_color=args.dens_color,
                 surface_style=args.surface_style,
