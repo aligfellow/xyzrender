@@ -1063,9 +1063,17 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         stroke_i,
         stroke_j,
         stroke_w,
+        phase="both",
     ):
-        """Dispatch a single bond line — element-coloured or uniform."""
-        if stroke_i and stroke_w > 0:
+        """Dispatch a single bond line — element-coloured or uniform.
+
+        ``phase`` is ``"both"``, ``"outline"`` or ``"fill"``.  With ``"both"``
+        the outline goes to the back-layer and the fill is emitted inline.
+        ``"outline"`` and ``"fill"`` emit only that part, inline.  Outline is
+        a wider round-capped line at the same endpoints as the fill.
+        """
+        emit_outline = phase != "fill" and stroke_i and stroke_w > 0
+        if emit_outline:
             stroke = stroke_i
             if stroke_j and stroke_j != stroke_i:
                 sid = f"bo{next(_bs_counter)}"
@@ -1078,10 +1086,16 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 )
                 stroke = f"url(#{sid})"
             ow = w + 2 * stroke_w
-            _bond_outline_layer.append(
+            line = (
                 f'  <line x1="{lx1:.1f}" y1="{ly1:.1f}" x2="{lx2:.1f}" y2="{ly2:.1f}" '
                 f'stroke="{stroke}" stroke-width="{ow:.1f}" stroke-linecap="round"{dash}{op_attr}/>'
             )
+            if phase == "both":
+                _bond_outline_layer.append(line)
+            else:
+                svg.append(line)
+        if phase == "outline":
+            return
         if by_element:
             _element_line(
                 lx1,
@@ -1115,6 +1129,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         width_override: float | None = None,
         outline_width_override: float | None = None,
         outline_color_override: str | None = None,
+        phase: str = "both",
     ):
         """Render bond — closure captures shared rendering state."""
         # Config: use base config unless style regions exist and bond is solid
@@ -1239,6 +1254,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 stroke_i=_si,
                 stroke_j=_sj,
                 stroke_w=_stroke_width,
+                phase=phase,
             )
             return
         if style == BondStyle.DOTTED:
@@ -1266,6 +1282,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 stroke_i=_si,
                 stroke_j=_sj,
                 stroke_w=_stroke_width,
+                phase=phase,
             )
             return
 
@@ -1298,6 +1315,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     stroke_i=_si,
                     stroke_j=_sj,
                     stroke_w=_stroke_width,
+                    phase=phase,
                 )
         else:
             nb = max(1, round(bo))
@@ -1326,6 +1344,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     stroke_i=_si,
                     stroke_j=_sj,
                     stroke_w=_stroke_width,
+                    phase=phase,
                 )
 
     # --- Vectorized bond geometry precomputation ---
@@ -1381,6 +1400,11 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     bond_geom[(ai_k, aj_k)] = bond_geom[(aj_k, ai_k)] = None
 
     _molecule_insert_idx = len(svg)
+    # With visible atom discs, bonds draw their outline before the atom and
+    # their fill after, so the disc masks the central join and the visible
+    # outline is the halo along the bond body.  With no atom disc
+    # (atom_scale==0) the outlines all go to one back-layer below the bonds.
+    _interleaved_bonds = cfg.atom_scale > 0
     for idx, ai in enumerate(z_order):
         # Flush all vectors whose origin depth <= this atom's depth.  The hidden
         # check is intentionally after the flush so hidden atoms still act as
@@ -1416,8 +1440,50 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         if _overlays:
             _drain_overlays(float(pos[ai][2]))
 
-        xi, yi = _px[ai], _py[ai]
         is_image = _is_image[ai]
+        # Outgoing bonds to atoms drawn later in z-order; sorted shallowest
+        # last so front bonds paint on top at body crossings.  Resolved up
+        # front because the interleaved path consumes it twice.
+        _outgoing_bonds: list[tuple[int, _BondAttrs, float]] = []
+        if not cfg.hide_bonds and bw > 0:
+            for aj_int in bond_adj.get(ai, ()):
+                if aj_int in hidden or _z_rank[aj_int] <= idx:
+                    continue
+                battrs = bonds[(ai, aj_int)]
+                _aj_image = _is_image[aj_int]
+                _aj_struct_op = struct_opacities[aj_int] if not _aj_image else None
+                _ai_struct_op = struct_opacities[ai]
+                if is_image or _aj_image:
+                    bond_op = cfg.periodic_image_opacity
+                elif _ai_struct_op is not None or _aj_struct_op is not None:
+                    bond_op = min(v for v in (_ai_struct_op, _aj_struct_op) if v is not None)
+                else:
+                    bond_op = 1.0
+                _diff_op = _diffuse_op.get((ai, aj_int))
+                if _diff_op is not None:
+                    bond_op = min(bond_op, _diff_op)
+                if bond_op < 0.01:
+                    continue
+                _outgoing_bonds.append((aj_int, battrs, bond_op))
+            _outgoing_bonds.sort(key=lambda b: _z_rank[b[0]])
+
+        # Outlines first; atom disc next will mask the central part.
+        if _interleaved_bonds and _outgoing_bonds:
+            for aj_int, battrs, bond_op in _outgoing_bonds:
+                add_bond(
+                    ai,
+                    aj_int,
+                    battrs.order,
+                    battrs.style,
+                    opacity=bond_op,
+                    color_override=battrs.color,
+                    width_override=battrs.width,
+                    outline_width_override=battrs.outline_width,
+                    outline_color_override=battrs.outline_color,
+                    phase="outline",
+                )
+
+        xi, yi = _px[ai], _py[ai]
         if is_image:
             atom_op = cfg.periodic_image_opacity
         elif struct_opacities[ai] is not None:
@@ -1507,39 +1573,23 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 _deferred_atom_layers.extend(svg[_atom_layer_start:])
                 del svg[_atom_layer_start:]
 
-        # Bonds to deeper atoms (adjacency list → O(degree) instead of O(n))
-        if not cfg.hide_bonds and bw > 0:
-            for aj_int in bond_adj.get(ai, ()):
-                if aj_int in hidden or _z_rank[aj_int] <= idx:
-                    continue
-                battrs = bonds[(ai, aj_int)]
-                # Use periodic_image_opacity if either endpoint is an image atom
-                _aj_image = _is_image[aj_int]
-                _aj_struct_op = struct_opacities[aj_int] if not _aj_image else None
-                _ai_struct_op = struct_opacities[ai]
-                if is_image or _aj_image:
-                    bond_op = cfg.periodic_image_opacity
-                elif _ai_struct_op is not None or _aj_struct_op is not None:
-                    bond_op = min(v for v in (_ai_struct_op, _aj_struct_op) if v is not None)
-                else:
-                    bond_op = 1.0
-                # Diffuse GIF: fade stretched bonds
-                _diff_op = _diffuse_op.get((ai, aj_int))
-                if _diff_op is not None:
-                    bond_op = min(bond_op, _diff_op)
-                if bond_op < 0.01:
-                    continue  # skip invisible bonds
-                add_bond(
-                    ai,
-                    aj_int,
-                    battrs.order,
-                    battrs.style,
-                    opacity=bond_op,
-                    color_override=battrs.color,
-                    width_override=battrs.width,
-                    outline_width_override=battrs.outline_width,
-                    outline_color_override=battrs.outline_color,
-                )
+        # Fills on top of the atom disc so the bond appears to enter the
+        # atom.  When there's no atom disc, ``phase="both"`` also emits the
+        # back-layer outline alongside the fill.
+        _fill_phase = "fill" if _interleaved_bonds else "both"
+        for aj_int, battrs, bond_op in _outgoing_bonds:
+            add_bond(
+                ai,
+                aj_int,
+                battrs.order,
+                battrs.style,
+                opacity=bond_op,
+                color_override=battrs.color,
+                width_override=battrs.width,
+                outline_width_override=battrs.outline_width,
+                outline_color_override=battrs.outline_color,
+                phase=_fill_phase,
+            )
 
     # Insert edge stroke shadow layer at the base of the molecule group
     if _bond_outline_layer:

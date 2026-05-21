@@ -97,7 +97,9 @@ All available keys:
 
 The `colors` key maps element symbols to hex values (`#D9D9D9`) or [CSS4 named colors](https://matplotlib.org/stable/gallery/color/named_colors.html) (`steelblue`), overriding the default CPK palette.
 
-`bond_outline_color` / `bond_outline_width` add a shadow edge behind bonds (visible as an outline). Set `bond_outline_width` > 0 to activate (color defaults to black).
+`bond_outline_color` / `bond_outline_width` add a shadow edge behind bonds (visible as an outline). Set `bond_outline_width` > 0 to activate (color defaults to black). In styles with a visible atom disc (`pmol`, `btube`, `paton`, `default`), each bond's outline interleaves with the atoms so a front bond keeps its halo where it crosses a back bond. In flat styles (`tube`, `mtube`, `wire`) the outlines all sit in a single back-layer under the bonds.
+
+`bond_gap` sets the spacing between stripes in double, triple, and aromatic bonds (default `0.6`, units = fraction of `bond_width`). Larger values widen the gap between stripes.
 
 The `regions` key defines per-atom-group style overrides. Keys are atom selectors (`M` = metals, `Pt`, `sbm` = s-block metals, `het` = heteroatoms, or numeric `1-5`). Values are a preset name or an inline dict of overrides:
 
