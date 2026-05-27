@@ -88,6 +88,31 @@ xyzrender asparagine.xyz --hy --vdw "1-6"             # atoms 1–6 only
 xyzrender asparagine.xyz --hy --vdw --config paton    # paton style
 ```
 
+### Interlocked spheres
+
+By default the `--vdw` overlay draws each sphere as an interlocked silhouette: where neighbouring spheres overlap, the cut between them is sampled along the actual 3D intersection circle and shared between both polygons. Turn it off with `--no-vdw-interlocking` to fall back to plain `<circle>` elements.
+
+The visibility-filter + convex-hull silhouette approach is adapted from [CineMol](https://github.com/moltools/CineMol) by David Meijer.  
+- D. Meijer, M.H. Medema and J.J.J. van der Hooft, *J. Cheminform.*, 2024, **16**, 58 ([DOI](https://doi.org/10.1186/s13321-024-00851-y)).
+
+The interlocking path also drives the dedicated space-filling preset:
+
+```bash
+xyzrender caffeine.xyz --config vdw           # space-filling render
+xyzrender caffeine.xyz --config bubble --hy   # large atoms, no interlocking
+```
+
+`--config vdw` enables `atom_interlocking` for the primary atom layer (atoms sized at vdW radii, drawn as interlocked silhouettes — no separate overlay needed). The `bubble` preset leaves it off: bubble atoms overlap only slightly, so interlocking would trigger, but at the cost of inflating the size of the SVG, with little visual change. The threshold of `vdw_interlock_samples` and the `min_clip_fraction` cutoff trade off file size against the smoothness of the cut; the defaults skip the polygon path whenever the visible cut is too small to distinguish from a plain circle.
+
+Outline on the `--vdw` overlay is independent of the primary atoms:
+
+```bash
+xyzrender mof.xyz --vdw --vdw-outline-width 3 --vdw-outline-color black
+xyzrender mof.xyz --vdw --vdw-outline-width 0   # no outline
+```
+
+`--vdw-outline-width` / `--vdw-outline-color` fall back to `--atom-stroke-width` / `--atom-stroke-color` when unset, so they only diverge when you set them explicitly.
+
 ## Depth of field
 
 Blur back atoms while keeping front atoms sharp. Uses SVG `feGaussianBlur` filters.

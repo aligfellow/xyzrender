@@ -34,6 +34,7 @@ from xyzrender.hull import (
     hull_facets_svg,
     normalize_hull_subsets,
 )
+from xyzrender.interlock import compute_interlock_polygons
 from xyzrender.mo import mo_lobe_svg_items
 from xyzrender.types import BondStyle, RenderConfig
 from xyzrender.utils import pca_orient
@@ -54,6 +55,17 @@ _RADIUS_SCALE = 0.075  # VdW → atoms display radius
 _REF_SPAN = 6.0  # reference molecular span (Å) for proportional bond/stroke scaling
 _REF_CANVAS = 800  # reference canvas size (px) — bond/label widths are defined at this size
 _CENTROID_VDW = 0.5  # VdW radius (Å) for NCI pi-system centroid dummy nodes
+
+
+def _sphere_gradient_def(gid: str, xi: float, yi: float, r_px: float, stops: list[tuple[str, str]]) -> str:
+    """User-space radial gradient centred on the projected sphere, focal upper-left."""
+    stops_xml = "".join(f'<stop offset="{off}" stop-color="{col}"/>' for off, col in stops)
+    return (
+        f'<defs><radialGradient id="{gid}" gradientUnits="userSpaceOnUse" '
+        f'cx="{round(xi)}" cy="{round(yi)}" r="{round(r_px * 1.32)}" '
+        f'fx="{round(xi - r_px * 0.34)}" fy="{round(yi - r_px * 0.34)}">'
+        f"{stops_xml}</radialGradient></defs>"
+    )
 
 
 class _BondAttrs(NamedTuple):
@@ -1403,15 +1415,11 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     # (atom_scale==0): all outlines go to one back-layer below the bonds.
     _interleaved_bonds = cfg.atom_scale > 0
 
-    # Interlocking atom spheres (--config vdw and similar): pre-compute the
-    # visibility polygon for each atom whose 3D sphere overlaps a neighbour
-    # in screen space.  Atoms with no overlap stay None and are emitted as
-    # plain <circle>.  Hidden atoms have radius zeroed so they don't
-    # participate in the overlap graph.
+    # Interlocking primary atom spheres (--config vdw): pre-compute the
+    # visibility polygon for each atom that 2D-overlaps a neighbour.  Atoms
+    # with no overlap stay None and emit as plain <circle>.
     _atom_polys: list[np.ndarray | None] | None = None
     if cfg.atom_interlocking and n > 0:
-        from xyzrender.interlock import compute_interlock_polygons
-
         _il_radii = radii.copy()
         if hidden:
             _il_radii[list(hidden)] = 0.0
@@ -1557,25 +1565,17 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 )
             if _grad_ai:
                 if _poly_xy is not None:
-                    # Match the circle gradient exactly: centred on the projected
-                    # sphere with the highlight focal offset to the upper-left,
-                    # so polygon and circle paths shade identically.
+                    # Polygon needs its own user-space gradient so the highlight
+                    # stays anchored at the projected sphere centre rather than
+                    # sliding with the (clipped) polygon's bounding box.
                     hi, me, lo = get_gradient_colors(colors[ai], acfg, strength=acfg.atom_gradient_strength)
                     if cfg.fog:
                         t = min(fog_f[ai] ** 2 * 0.7, 0.70)
                         hi, me, lo = hi.blend(WHITE, t), me.blend(WHITE, t), lo.blend(WHITE, t)
                     grad_id = f"p{ai}"
-                    _cx_i, _cy_i = round(xi), round(yi)
-                    _r_out = round(_r_px * 1.32)
-                    _fx_i = round(xi - _r_px * 0.34)
-                    _fy_i = round(yi - _r_px * 0.34)
                     svg.append(
-                        f'  <defs><radialGradient id="{grad_id}" gradientUnits="userSpaceOnUse" '
-                        f'cx="{_cx_i}" cy="{_cy_i}" r="{_r_out}" fx="{_fx_i}" fy="{_fy_i}">'
-                        f'<stop offset="0%" stop-color="{hi.hex}"/>'
-                        f'<stop offset=".4" stop-color="{me.hex}"/>'
-                        f'<stop offset="1" stop-color="{lo.hex}"/>'
-                        f"</radialGradient></defs>"
+                        "  "
+                        + _sphere_gradient_def(grad_id, xi, yi, _r_px, [("0%", hi.hex), (".4", me.hex), ("1", lo.hex)])
                     )
                     fs_atom = atom_fog_stroke[ai] if use_per_atom_grad else _stroke_atom
                 elif use_per_atom_grad:
@@ -1710,14 +1710,11 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     if vdw_set is not None:
         svg.append(f'  <g opacity="{cfg.vdw_opacity}">')
         # Interlocking: compute visibility polygons once for the active VdW set,
-        # then per atom emit either the polygon (overlap with a neighbour) or a
-        # plain <circle> (singleton).
+        # then per atom emit polygon (overlap) or <circle> (singleton).
         _interlock_polys: list[np.ndarray | None] | None = None
         if cfg.vdw_interlocking and vdw_set:
-            from xyzrender.interlock import compute_interlock_polygons
-
-            # Drop any out-of-range indices (the user-facing --vdw selector
-            # can return graph IDs that don't map to our position arrays).
+            # Drop out-of-range indices (the --vdw selector can return graph IDs
+            # outside the in-memory position array).
             _active = np.fromiter((ai for ai in sorted(vdw_set) if 0 <= ai < n), dtype=np.intp)
             if _active.size:
                 _vdw_r3d = raw_vdw_sphere[_active] * cfg.vdw_scale
@@ -1740,11 +1737,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 stroke_attr = f' stroke="{_stroke_col}" stroke-width="{_vdw_sw:.1f}" stroke-linejoin="round"'
             poly = _interlock_polys[ai] if _interlock_polys is not None else None
             if poly is not None:
-                # Per-atom user-space gradient anchored at the projected sphere
-                # centre, so the highlight stays fixed when the polygon is cropped.
                 xi, yi = _proj(pos[ai], scale, cx, cy, canvas_w, canvas_h)
                 vr = raw_vdw_sphere[ai] * cfg.vdw_scale * scale
-                hi = colors[ai]
                 lo = colors[ai].darken(
                     strength=cfg.vdw_gradient_strength,
                     hue_shift_factor=cfg.hue_shift_factor,
@@ -1752,14 +1746,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     saturation_shift_factor=cfg.saturation_shift_factor,
                 )
                 gid = f"vgi{next(_vdw_grad_counter)}"
-                svg.append(
-                    f'    <defs><radialGradient id="{gid}" gradientUnits="userSpaceOnUse" '
-                    f'cx="{xi:.1f}" cy="{yi:.1f}" r="{vr * 1.32:.1f}" '
-                    f'fx="{xi - vr * 0.34:.1f}" fy="{yi - vr * 0.34:.1f}">'
-                    f'<stop offset="0%" stop-color="{hi.hex}"/>'
-                    f'<stop offset="100%" stop-color="{lo.hex}"/>'
-                    f"</radialGradient></defs>"
-                )
+                svg.append("    " + _sphere_gradient_def(gid, xi, yi, vr, [("0%", colors[ai].hex), ("1", lo.hex)]))
                 xs = canvas_w / 2 + scale * (poly[:, 0] - cx)
                 ys = canvas_h / 2 - scale * (poly[:, 1] - cy)
                 pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys, strict=True))
