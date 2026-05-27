@@ -9,7 +9,7 @@
   "bond_color_by_element": true,
   "bond_gradient": true,
   "bond_gradient_strength": 0.3,
-  "bond_gap": 0.5,
+  "bond_gap": 0.55,
   "bond_orders": false,
   "bond_outline_color": "#000000",
   "bond_outline_width": 5.0,
