@@ -1067,9 +1067,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     ):
         """Dispatch a single bond line — element-coloured or uniform.
 
-        ``phase`` is ``"both"``, ``"outline"`` or ``"fill"``.  With ``"both"``
-        the outline goes to the back-layer and the fill is emitted inline.
-        ``"outline"`` and ``"fill"`` emit only that part, inline.  Outline is
+        ``phase``: ``"both"`` → outline to back-layer + fill inline;
+        ``"outline"`` or ``"fill"`` → only that part, inline.  Outline is
         a wider round-capped line at the same endpoints as the fill.
         """
         emit_outline = phase != "fill" and stroke_i and stroke_w > 0
@@ -1400,10 +1399,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     bond_geom[(ai_k, aj_k)] = bond_geom[(aj_k, ai_k)] = None
 
     _molecule_insert_idx = len(svg)
-    # With visible atom discs, bonds draw their outline before the atom and
-    # their fill after, so the disc masks the central join and the visible
-    # outline is the halo along the bond body.  With no atom disc
-    # (atom_scale==0) the outlines all go to one back-layer below the bonds.
+    # With atom discs: outline before atom, fill after — disc masks the
+    # central join, outline is the halo along the bond body.  Without
+    # (atom_scale==0): all outlines go to one back-layer below the bonds.
     _interleaved_bonds = cfg.atom_scale > 0
     for idx, ai in enumerate(z_order):
         # Flush all vectors whose origin depth <= this atom's depth.  The hidden
@@ -1441,9 +1439,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             _drain_overlays(float(pos[ai][2]))
 
         is_image = _is_image[ai]
-        # Outgoing bonds to atoms drawn later in z-order; sorted shallowest
-        # last so front bonds paint on top at body crossings.  Resolved up
-        # front because the interleaved path consumes it twice.
+        # Outgoing bonds to deeper atoms, sorted shallowest-last so front
+        # bonds paint on top at crossings.  Resolved once; the interleaved
+        # path consumes it twice (outline, then fill).
         _outgoing_bonds: list[tuple[int, _BondAttrs, float]] = []
         if not cfg.hide_bonds and bw > 0:
             for aj_int in bond_adj.get(ai, ()):
@@ -1467,7 +1465,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 _outgoing_bonds.append((aj_int, battrs, bond_op))
             _outgoing_bonds.sort(key=lambda b: _z_rank[b[0]])
 
-        # Outlines first; atom disc next will mask the central part.
+        # Phase 1 — outlines first; atom disc next will mask the central join.
         if _interleaved_bonds and _outgoing_bonds:
             for aj_int, battrs, bond_op in _outgoing_bonds:
                 add_bond(
@@ -1573,9 +1571,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 _deferred_atom_layers.extend(svg[_atom_layer_start:])
                 del svg[_atom_layer_start:]
 
-        # Fills on top of the atom disc so the bond appears to enter the
-        # atom.  When there's no atom disc, ``phase="both"`` also emits the
-        # back-layer outline alongside the fill.
+        # Phase 2 — fills on top of the atom disc (stick-into-ball).  No
+        # disc: phase="both" also emits the back-layer outline.
         _fill_phase = "fill" if _interleaved_bonds else "both"
         for aj_int, battrs, bond_op in _outgoing_bonds:
             add_bond(
