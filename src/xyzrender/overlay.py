@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from xyzrender.colors import Color, bond_color_from_atom
 from xyzrender.merge import (
     _Z_NUDGE,
     merge_aromatic_rings,
@@ -264,5 +265,25 @@ def merge_graphs(
         outline_color=ov.bond_outline_color,
     )
     merge_aromatic_rings(merged, mol2_graph, mol2_map)
+
+    # Manual overlay TS bonds — translate overlay-local indices through the
+    # id_map and stamp TS=True (add the edge if missing, with overlay colour).
+    if ov.ts_bonds:
+        n2 = mol2_graph.number_of_nodes()
+        ov_bond_color = ov.bond_color
+        if ov_bond_color is None and ov.color is not None:
+            ov_bond_color = bond_color_from_atom(Color.from_str(ov.color))
+        for i, j in ov.ts_bonds:
+            if not (0 <= i < n2 and 0 <= j < n2):
+                msg = f"--overlay-ts-bond pair ({i + 1}, {j + 1}) out of range for overlay with {n2} atoms"
+                raise ValueError(msg)
+            u, v = mol2_map[mol2_ids[i]], mol2_map[mol2_ids[j]]
+            if merged.has_edge(u, v):
+                merged[u][v]["TS"] = True
+            else:
+                extras: dict = {"molecule_index": 1, "TS": True, "bond_order": 1.0}
+                if ov_bond_color is not None:
+                    extras["bond_color_override"] = ov_bond_color
+                merged.add_edge(u, v, **extras)
 
     return merged

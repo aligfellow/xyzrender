@@ -566,3 +566,72 @@ def test_render_overlay_with_haptic_public_api(tmp_path):
     assert indices == [0, 1], (
         f"Haptic centroids should carry distinct molecule_index values [0, 1] for base + overlay; got {indices}"
     )
+
+
+# ---------------------------------------------------------------------------
+# --overlay-ts / --overlay-ts-bond
+# ---------------------------------------------------------------------------
+
+
+def test_overlay_ts_bond_marks_edge_in_merged_graph(caffeine):
+    """Manual overlay-ts-bond translates overlay-local indices through the id_map."""
+    from xyzrender import OverlayConfig
+
+    g = caffeine.graph
+    n = g.number_of_nodes()
+    cfg = build_config("default")
+    cfg.overlay = OverlayConfig(ts_bonds=[(0, 1)])  # overlay atoms 1-2 (0-indexed)
+    aligned = align(g, copy.deepcopy(g))
+    merged = merge_graphs(g, copy.deepcopy(g), aligned, cfg)
+
+    # Overlay's atom-0/atom-1 → merged nodes n+0, n+1.  Edge should carry TS=True.
+    assert merged.has_edge(n, n + 1)
+    assert merged[n][n + 1].get("TS") is True
+
+    # Primary atoms 0-1 stay un-TS-stamped — the overlay flag is scoped to the overlay.
+    if g.has_edge(0, 1):
+        assert merged[0][1].get("TS", False) is False
+
+
+def test_overlay_ts_bond_out_of_range_raises(caffeine):
+    """Out-of-range overlay-ts-bond pair surfaces a clear ValueError."""
+    from xyzrender import OverlayConfig
+
+    g = caffeine.graph
+    cfg = build_config("default")
+    cfg.overlay = OverlayConfig(ts_bonds=[(0, 999)])  # 999 is way past caffeine's atom count
+    aligned = align(g, copy.deepcopy(g))
+
+    with pytest.raises(ValueError, match="overlay-ts-bond"):
+        merge_graphs(g, copy.deepcopy(g), aligned, cfg)
+
+
+def test_overlay_ts_bond_new_edge_inherits_overlay_colour(caffeine):
+    """A TS bond between non-bonded overlay atoms (forming bond) inherits overlay colour."""
+    from xyzrender import OverlayConfig
+
+    g = caffeine.graph
+    n = g.number_of_nodes()
+    # Pick two overlay atoms that are NOT covalently bonded in caffeine.
+    non_bonded = next((i, j) for i in range(min(n, 10)) for j in range(i + 1, min(n, 10)) if not g.has_edge(i, j))
+    cfg = build_config("default")
+    cfg.overlay = OverlayConfig(color="hotpink", ts_bonds=[non_bonded])
+    aligned = align(g, copy.deepcopy(g))
+    merged = merge_graphs(g, copy.deepcopy(g), aligned, cfg)
+
+    u, v = n + non_bonded[0], n + non_bonded[1]
+    assert merged.has_edge(u, v)
+    assert merged[u][v]["TS"] is True
+    # New TS edge must carry bond_color_override; otherwise it falls back to default.
+    assert "bond_color_override" in merged[u][v]
+    assert merged[u][v]["bond_color_override"].startswith("#")
+
+
+def test_overlay_no_ts_bond_leaves_overlay_edges_unmarked(caffeine):
+    """Without overlay-ts-bond / --overlay-ts, no overlay edge gets TS=True."""
+    g = caffeine.graph
+    n = g.number_of_nodes()
+    aligned = align(g, copy.deepcopy(g))
+    merged = merge_graphs(g, copy.deepcopy(g), aligned, build_config("default"))
+    overlay_edges = [(i, j, d) for i, j, d in merged.edges(data=True) if i >= n or j >= n]
+    assert not any(d.get("TS") for _, _, d in overlay_edges)

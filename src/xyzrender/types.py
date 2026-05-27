@@ -233,6 +233,7 @@ class OverlayConfig:
     unbond: list[str] = field(default_factory=list)  # overlay-only bond-hide rules
     bond: list[str] = field(default_factory=list)  # overlay-only bond force-show / add
     show: list[str] = field(default_factory=list)  # visibility filter (selector grammar)
+    ts_bonds: list[tuple[int, int]] = field(default_factory=list)  # 0-indexed pairs in the overlay's own atom list
     config: "RenderConfig | None" = None  # full escape hatch; see class docstring
 
 

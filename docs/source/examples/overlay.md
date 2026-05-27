@@ -159,6 +159,18 @@ xyzrender isothio_xtb.xyz --overlay isothio_uma.xyz -c 1 --hy \
 xyzrender isothio_xtb.xyz --overlay isothio_uma.xyz -c 1 --hy --no-align
 ```
 
+## TS bonds on the overlay
+
+Mirror `--ts` and `--ts-bond` for the overlay. Both flags require `--overlay FILE`.
+
+```bash
+# Auto-detect TS bonds in the overlay via graphRC (overlay needs freq data)
+xyzrender sn2.out --overlay sn2_alt.out --overlay-ts
+
+# Manual TS bonds on the overlay, 1-indexed in the overlay's atom list
+xyzrender sn2.out --overlay sn2_alt.xyz --overlay-ts-bond "1-7"
+```
+
 | Flag | Description |
 |------|-------------|
 | `--overlay FILE` | Second structure to overlay (RMSD-aligned onto the primary). Molecules can have different atom counts — alignment uses the largest shared connected substructure |
@@ -169,6 +181,8 @@ xyzrender isothio_xtb.xyz --overlay isothio_uma.xyz -c 1 --hy --no-align
 | *(preset / Python only)* | `atom_stroke_width`, `atom_stroke_color`, `bond_color`, `bond_outline_width`, `bond_outline_color` — set inside `"overlay"` in a preset JSON or on `OverlayConfig` directly |
 | `--overlay-unbond SPEC [...]` | Hide bonds on the overlay only (same grammar as `--unbond`) |
 | `--overlay-bond PAIR [...]` | Force-show / add bonds on the overlay only (1-indexed, overlay-local) |
+| `--overlay-ts` | Run graphRC TS detection on the overlay (mirrors `--ts`) |
+| `--overlay-ts-bond "1-6,3-4"` | Manual TS bond pair(s) on the overlay, 1-indexed in the overlay's atom list (mirrors `--ts-bond`) |
 | `--overlay-show SPEC [...]` | Render only these atoms of the overlay (same grammar as `--hl`: ranges, element symbols, `M`, `het`, `all`). Applied after alignment so the fit still uses the full scaffold |
 | `--align` / `--no-align` | Force / skip Kabsch/MCS alignment (default: on). `--align` overrides a preset's `auto_align: false`; `--no-align` keeps raw coordinates |
 | `--align-atoms SPEC` | Alignment subset (min 3 atoms). Numeric: 1-indexed IDs (`1,2,3`, `1-6`). Symbolic: element/category tokens (`M,L` for metal + coord shell; `Fe,P` for Fe centres + bonded P). Symbol specs are resolved per-graph (index-independent); metal-containing specs pivot on the metal centroid so paired metals coincide exactly. |

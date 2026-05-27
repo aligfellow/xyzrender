@@ -84,6 +84,8 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | *(preset JSON / Python only)* | `atom_stroke_width`, `atom_stroke_color`, `bond_color`, `bond_outline_width`, `bond_outline_color` — set inside the `overlay` block of a preset JSON or on `OverlayConfig` to fine-tune styling without CLI flag bloat |
 | `--overlay-unbond SPEC [...]` | Hide bonds on the overlay only (same grammar as `--unbond`; applied pre-merge so indices are overlay-local) |
 | `--overlay-bond PAIR [...]` | Force-show / add bonds on the overlay only (1-indexed, overlay-local) |
+| `--overlay-ts` | Used with `--overlay FILE`. Run graphRC TS detection on the overlay (mirrors `--ts`; soft-fails when overlay has no freq data) |
+| `--overlay-ts-bond "1-6,3-4"` | Used with `--overlay FILE`. Manual TS bond pair(s) on the overlay, 1-indexed in the overlay's own atom list (mirrors `--ts-bond`) |
 | `--align` / `--no-align` | Force / skip Kabsch/MCS alignment for `--overlay` and `--ensemble`. Default: on. `--align` is useful to override a preset with `auto_align: false`; `--no-align` keeps each structure's raw coordinates (interactive `-I` rotation of the base still propagates to the overlay) |
 | `--ensemble` | Ensemble overlay for multi-frame XYZ trajectories; conformers default to CPK atom colours |
 | `--ensemble-color VALUE` | Palette name (`viridis`, `plasma`, `spectral`, `coolwarm`, `RdBu`, `rainbow`), a single colour, or comma-separated colours |

@@ -545,6 +545,19 @@ def main() -> None:
         dest="overlay_bond_width",
         help="Bond width for the overlay only (mirrors --bond-width; independent of primary).",
     )
+    ov_g.add_argument(
+        "--overlay-ts",
+        action="store_true",
+        default=False,
+        dest="overlay_ts",
+        help="Run graphRC TS detection on the overlay (mirrors --ts)",
+    )
+    ov_g.add_argument(
+        "--overlay-ts-bond",
+        default="",
+        dest="overlay_ts_bond",
+        help='Manual TS bond pair(s) on the overlay, 1-indexed in the overlay\'s atom list: "1-6,3-4"',
+    )
     # Fine-tune overlay styling (atom_stroke_*, bond_color, bond_outline_*) lives
     # in preset JSON / OverlayConfig only — kept off the CLI to avoid flag bloat.
     ov_g.add_argument(
@@ -1158,7 +1171,15 @@ def main() -> None:
     if args.overlay and isinstance(args.overlay, str):
         _ov_charge = mol.graph.graph.get("total_charge", 0)
         _ov_mult = mol.graph.graph.get("multiplicity")
-        args.overlay = load(args.overlay, charge=_ov_charge, multiplicity=_ov_mult)
+        args.overlay = load(
+            args.overlay,
+            charge=_ov_charge,
+            multiplicity=_ov_mult,
+            ts_detect=args.overlay_ts,
+        )
+
+    if args.overlay_ts_bond:
+        cfg.overlay.ts_bonds = _parse_pairs(args.overlay_ts_bond)
 
     # --- Measurements (terminal output only) ---
     if args.measure is not None:
