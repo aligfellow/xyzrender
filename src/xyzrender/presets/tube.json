@@ -8,7 +8,7 @@
   "gradient": false,
   "bond_color_by_element": true,
   "bond_gradient": true,
-  "bond_gradient_strength": 0.3,
+  "bond_gradient_strength": 0.2,
   "bond_orders": false,
   "bond_outline_color": "#000000",
   "bond_outline_width": 3.0,
