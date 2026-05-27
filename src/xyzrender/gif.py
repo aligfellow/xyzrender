@@ -175,6 +175,7 @@ def render_vibration_gif(
     fps: int = 10,
     axis: str | None = None,
     n_frames: int | None = None,
+    bounce_degrees: float | None = None,
     reference_graph: nx.Graph | None = None,
     detect_nci: bool = False,
 ) -> None:
@@ -188,7 +189,10 @@ def render_vibration_gif(
     If ``detect_nci`` is True, NCI interactions are detected once on the
     TS geometry and applied to every frame (centroids recomputed per frame).
     If ``axis`` is provided, the vibration is combined with a rotation
-    around that axis (``n_frames`` controls total frames).
+    around that axis (``n_frames`` controls total frames). When
+    ``bounce_degrees`` is also set, the rotation oscillates sinusoidally
+    between ±``bounce_degrees`` over the full frame range instead of a
+    linear 360° sweep.
     """
     try:
         from graphrc import run_vib_analysis
@@ -263,11 +267,27 @@ def render_vibration_gif(
 
     # Fixed viewport across all frames so every PNG has identical dimensions
     rot_cfg = _fixed_viewport(frames, config, rotation_axis=axis_vec)
-    logger.info(
-        "Rendering vibration+rotation GIF (%d vib x %d rot = %d frames, axis=%s)", n_vib, rotations, total, axis
-    )
+    if bounce_degrees is not None:
+        logger.info(
+            "Rendering vibration+bounce GIF (%d vib x %d cycles = %d frames, axis=%s, amplitude=%.2f°)",
+            n_vib,
+            rotations,
+            total,
+            axis,
+            bounce_degrees,
+        )
+    else:
+        logger.info(
+            "Rendering vibration+rotation GIF (%d vib x %d rot = %d frames, axis=%s)", n_vib, rotations, total, axis
+        )
     pngs = _render_frames(
-        ts_graph, all_frames, rot_cfg, fixed_ncis=fixed_ncis, rotation_axis=axis_vec, rotation_sign=axis_sign
+        ts_graph,
+        all_frames,
+        rot_cfg,
+        fixed_ncis=fixed_ncis,
+        rotation_axis=axis_vec,
+        rotation_sign=axis_sign,
+        bounce_degrees=bounce_degrees,
     )
     _stitch_gif(pngs, output, fps)
     logger.info("Wrote %s", output)
@@ -834,7 +854,7 @@ def _render_traj_frame(
     detect_nci_per_frame: bool,
     rotation_axis: np.ndarray | None,
     rotation_sign: float,
-    step: float,
+    angles: np.ndarray | None,
     rf_vec_origins: np.ndarray,
     rf_vec_dirs: np.ndarray,
 ) -> tuple[int, bytes]:
@@ -876,11 +896,12 @@ def _render_traj_frame(
     if hull_factor is not None and config.show_convex_hull:
         frame_config = copy.copy(config)
         frame_config.hull_opacity = config.hull_opacity * hull_factor
-    if rotation_axis is not None:
+    if rotation_axis is not None and angles is not None:
         _rg_nodes = list(render_graph.nodes())
         _rg_centroid = np.mean([render_graph.nodes[n]["position"] for n in _rg_nodes], axis=0)
-        rot_mat = _axis_angle_matrix(rotation_axis, rotation_sign * step * idx)
-        apply_axis_angle_rotation(render_graph, rotation_axis, rotation_sign * step * idx)
+        angle_deg = rotation_sign * float(angles[idx])
+        rot_mat = _axis_angle_matrix(rotation_axis, angle_deg)
+        apply_axis_angle_rotation(render_graph, rotation_axis, angle_deg)
         if config.vectors:
             frame_config = _rotate_vectors_in_cfg(config, rot_mat, _rg_centroid, rf_vec_origins, rf_vec_dirs)
 
@@ -899,6 +920,7 @@ def _render_frames(
     rotation_axis: np.ndarray | None = None,
     rotation_sign: float = 1.0,
     rotation_degrees: float = 360.0,
+    bounce_degrees: float | None = None,
 ) -> list[bytes]:
     """Render each trajectory frame to PNG, keeping graph topology fixed.
 
@@ -909,12 +931,21 @@ def _render_frames(
     If *detect_nci_per_frame* is True, a fresh ``NCIAnalyzer`` is built
     inside each worker from ``frame["graph"]`` (trj_bonds + detect_nci).
     If *rotation_axis* is provided, each frame is incrementally rotated
-    around that axis over *rotation_degrees* (default 360°).
+    around that axis over *rotation_degrees* (default 360°), or, when
+    *bounce_degrees* is set, oscillates sinusoidally between ±bounce_degrees
+    over the full frame range.
     If any frame dict carries a ``"graph"`` key (trj_bonds mode), that
     per-frame graph is used instead of the shared *graph*.
     """
     total = len(frames)
-    step = rotation_degrees / total if rotation_axis is not None else 0
+    if rotation_axis is None:
+        angles = None
+    elif bounce_degrees is not None:
+        phase = (np.arange(total, dtype=float) / float(total)) * 2.0 * np.pi
+        angles = bounce_degrees * np.sin(phase)
+    else:
+        step = rotation_degrees / total
+        angles = step * np.arange(total, dtype=float)
     _rf_vec_origins = (
         np.array([va.origin for va in config.vectors])
         if (config.vectors and rotation_axis is not None)
@@ -934,7 +965,7 @@ def _render_frames(
         detect_nci_per_frame=detect_nci_per_frame,
         rotation_axis=rotation_axis,
         rotation_sign=rotation_sign,
-        step=step,
+        angles=angles,
         rf_vec_origins=_rf_vec_origins,
         rf_vec_dirs=_rf_vec_dirs,
     )

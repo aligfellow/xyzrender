@@ -1521,8 +1521,8 @@ def render_gif(
         if bounce_deg <= 0:
             msg = "render_gif: gif_bounce must be > 0"
             raise ValueError(msg)
-        if gif_ts or gif_trj or gif_diffuse:
-            msg = "render_gif: gif_bounce is mutually exclusive with gif_ts / gif_trj / gif_diffuse"
+        if gif_trj or gif_diffuse:
+            msg = "render_gif: gif_bounce is mutually exclusive with gif_trj / gif_diffuse"
             raise ValueError(msg)
         if gif_rot:
             msg = (
@@ -1732,6 +1732,7 @@ def render_gif(
 
     if gif_ts:
         # render_vibration_gif reads mol_path directly — no ref_graph load needed.
+        _vib_axis = bounce_ax or gif_rot or ("y" if bounce_deg is not None else None)
         render_vibration_gif(
             path=str(mol_path),
             config=cfg,
@@ -1741,8 +1742,9 @@ def render_gif(
             ts_frame=ts_frame,
             reference_graph=reference_graph,
             detect_nci=detect_nci,
-            axis=gif_rot,
-            n_frames=rot_frames if gif_rot else None,
+            axis=_vib_axis,
+            n_frames=rot_frames if _vib_axis else None,
+            bounce_degrees=float(bounce_deg) if bounce_deg is not None else None,
         )
         logger.info("GIF written to %s", gif_path)
         return GIFResult(gif_path)

@@ -619,7 +619,7 @@ def main() -> None:
         nargs="?",
         const="y",
         default=None,
-        help="Rotation GIF (default axis: y). Combinable with --gif-ts.",
+        help="Rotation GIF (default axis: y). Combinable with --gif-ts (also: --gif-bounce + --gif-ts).",
     )
     gif_g.add_argument("--gif-diffuse", action="store_true", help="Diffuse/assembly GIF — atoms scatter and reassemble")
     gif_g.add_argument("-go", "--gif-output", default=None, help="GIF output path")
@@ -1018,8 +1018,8 @@ def main() -> None:
         _bounce_deg, _bounce_ax = args.gif_bounce
         if _bounce_deg <= 0:
             p.error("--gif-bounce must be > 0")
-        if args.gif_ts or args.gif_trj or args.gif_diffuse:
-            p.error("--gif-bounce cannot be combined with --gif-ts, --gif-trj, or --gif-diffuse")
+        if args.gif_trj or args.gif_diffuse:
+            p.error("--gif-bounce cannot be combined with --gif-trj or --gif-diffuse")
         if args.gif_rot:
             p.error("--gif-bounce cannot be combined with --gif-rot — set the axis as --gif-bounce DEG,AXIS")
 
