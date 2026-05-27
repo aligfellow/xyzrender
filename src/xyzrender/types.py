@@ -273,6 +273,7 @@ class RenderConfig:
     haptic: bool = False  # replace pi-coordination bonds with single metal-to-centroid bond
     hide_h: bool = False
     show_h_indices: list[int] = field(default_factory=list)
+    auto_hide_h: bool = True  # CLI default --hy=None hides C-H; set False in presets that want H always visible
     bond_orders: bool = True
     ts_bonds: list[tuple[int, int]] = field(default_factory=list)  # 0-indexed pairs
     nci_bonds: list[tuple[int, int]] = field(default_factory=list)  # 0-indexed pairs
@@ -280,6 +281,15 @@ class RenderConfig:
     vdw_opacity: float = 0.5
     vdw_scale: float = 1.0
     vdw_gradient_strength: float = 1.6  # strength for VdW sphere gradient darken
+    vdw_interlocking: bool = False  # interlocked silhouettes for the --vdw overlay layer
+    atom_interlocking: bool = False  # interlocked silhouettes for primary atom spheres (e.g. --config vdw)
+    vdw_interlock_samples: int = (
+        64  # perimeter samples per sphere on the silhouette great circle (shared by both paths)
+    )
+    vdw_outline_width: float | None = None  # overlay outline width; None inherits atom_stroke_width, 0 = no outline
+    vdw_outline_color: str | None = None  # overlay outline colour; None inherits atom_stroke_color
+    vdw_h_scale: float = 0.65  # hydrogen radius shrink on the --vdw overlay; independent of primary h_scale
+    h_scale: float = 0.6  # hydrogen radius shrink for primary atom rendering (~0.6 ball-and-stick, ~0.8 CPK)
     auto_orient: bool = False
     # Kabsch/MCS alignment applied when merging an overlay or ensemble frames.
     # Disable with --no-align to keep each structure's raw coordinates.

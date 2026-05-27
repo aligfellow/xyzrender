@@ -54,8 +54,6 @@ _RADIUS_SCALE = 0.075  # VdW → atoms display radius
 _REF_SPAN = 6.0  # reference molecular span (Å) for proportional bond/stroke scaling
 _REF_CANVAS = 800  # reference canvas size (px) — bond/label widths are defined at this size
 _CENTROID_VDW = 0.5  # VdW radius (Å) for NCI pi-system centroid dummy nodes
-_H_ATOM_SCALE = 0.6  # display-radius shrink factor for H atoms (ball-and-stick)
-_H_VDW_SCALE = 0.65  # VdW-sphere shrink factor for H atoms
 
 
 class _BondAttrs(NamedTuple):
@@ -137,7 +135,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             cfg.pore_centroids = [(float(r[0]), float(r[1]), float(r[2])) for r in _rotated]
 
     raw_vdw = np.array(
-        [_CENTROID_VDW if s == "*" else DATA.vdw.get(s, 1.5) * (_H_ATOM_SCALE if s == "H" else 1.0) for s in symbols]
+        [_CENTROID_VDW if s == "*" else DATA.vdw.get(s, 1.5) * (cfg.h_scale if s == "H" else 1.0) for s in symbols]
     )
     # Per-atom absolute scale: start from cfg (or style-region _acfg), then
     # overlay / ensemble extras replace it when structure_atom_scale is set.
@@ -167,9 +165,10 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     _per_atom_mult[idx] *= factor
         radii = radii * _per_atom_mult
 
-    # VdW sphere radii use a separate (larger) H scaling
+    # Overlay uses its own H scale so --vdw looks consistent regardless of
+    # which primary preset is active.
     raw_vdw_sphere = np.array(
-        [_CENTROID_VDW if s == "*" else DATA.vdw.get(s, 1.5) * (_H_VDW_SCALE if s == "H" else 1.0) for s in symbols]
+        [_CENTROID_VDW if s == "*" else DATA.vdw.get(s, 1.5) * (cfg.vdw_h_scale if s == "H" else 1.0) for s in symbols]
     )
     if _per_atom_mult is not None:
         raw_vdw_sphere = raw_vdw_sphere * _per_atom_mult
@@ -1403,6 +1402,20 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     # central join, outline is the halo along the bond body.  Without
     # (atom_scale==0): all outlines go to one back-layer below the bonds.
     _interleaved_bonds = cfg.atom_scale > 0
+
+    # Interlocking atom spheres (--config vdw and similar): pre-compute the
+    # visibility polygon for each atom whose 3D sphere overlaps a neighbour
+    # in screen space.  Atoms with no overlap stay None and are emitted as
+    # plain <circle>.  Hidden atoms have radius zeroed so they don't
+    # participate in the overlap graph.
+    _atom_polys: list[np.ndarray | None] | None = None
+    if cfg.atom_interlocking and n > 0:
+        from xyzrender.interlock import compute_interlock_polygons
+
+        _il_radii = radii.copy()
+        if hidden:
+            _il_radii[list(hidden)] = 0.0
+        _atom_polys = compute_interlock_polygons(pos, _il_radii, samples=cfg.vdw_interlock_samples)
     for idx, ai in enumerate(z_order):
         # Flush all vectors whose origin depth <= this atom's depth.  The hidden
         # check is intentionally after the flush so hidden atoms still act as
@@ -1515,22 +1528,57 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     label_color_override=acfg.skeletal_label_color,
                 )
         else:
-            # Atom circle (gradient or flat fill)
+            # Atom circle (gradient or flat fill).  When this atom has an
+            # interlock polygon (overlaps a neighbour in 2D), the main fill
+            # is a <polygon>; otherwise a <circle>.  Glow stays a circle —
+            # it's a blurred background, not a hard silhouette.
             _sw_ai = _atom_sw[ai] if _atom_sw is not None else sw
             _grad_ai = _atom_use_grad[ai] if _atom_use_grad is not None else use_grad
             _stroke_src = struct_stroke_colors[ai] or acfg.atom_stroke_color
             _stroke_atom = _color_hex[ai] if _stroke_src == "atom" else _stroke_src
             dof_attr = f' filter="url(#dof{dof_buckets[ai]})"' if cfg.dof else ""
+            _poly_xy = _atom_polys[ai] if _atom_polys is not None else None
+            _r_px = radii[ai] * scale
+            if _poly_xy is not None:
+                _pxs = canvas_w / 2 + scale * (_poly_xy[:, 0] - cx)
+                _pys = canvas_h / 2 - scale * (_poly_xy[:, 1] - cy)
+                _pts_str = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(_pxs, _pys, strict=True))
+                _shape_geom = f'<polygon points="{_pts_str}"'
+            else:
+                _shape_geom = f'<circle cx="{xi:.1f}" cy="{yi:.1f}" r="{_r_px:.1f}"'
+
             if ai in glow_indices:
                 _glow_fill = colors[ai].blend(WHITE, acfg.atom_wash).hex if acfg.atom_wash > 0 else _color_hex[ai]
                 if cfg.fog:
                     _glow_fill = blend_fog(_glow_fill, fog_rgb, fog_f[ai])
                 svg.append(
-                    f'  <circle cx="{xi:.1f}" cy="{yi:.1f}" r="{radii[ai] * scale:.1f}" '
+                    f'  <circle cx="{xi:.1f}" cy="{yi:.1f}" r="{_r_px:.1f}" '
                     f'fill="{_glow_fill}" filter="url(#glow)"{op_attr_atom}/>'
                 )
             if _grad_ai:
-                if use_per_atom_grad:
+                if _poly_xy is not None:
+                    # Match the circle gradient exactly: centred on the projected
+                    # sphere with the highlight focal offset to the upper-left,
+                    # so polygon and circle paths shade identically.
+                    hi, me, lo = get_gradient_colors(colors[ai], acfg, strength=acfg.atom_gradient_strength)
+                    if cfg.fog:
+                        t = min(fog_f[ai] ** 2 * 0.7, 0.70)
+                        hi, me, lo = hi.blend(WHITE, t), me.blend(WHITE, t), lo.blend(WHITE, t)
+                    grad_id = f"p{ai}"
+                    _cx_i, _cy_i = round(xi), round(yi)
+                    _r_out = round(_r_px * 1.32)
+                    _fx_i = round(xi - _r_px * 0.34)
+                    _fy_i = round(yi - _r_px * 0.34)
+                    svg.append(
+                        f'  <defs><radialGradient id="{grad_id}" gradientUnits="userSpaceOnUse" '
+                        f'cx="{_cx_i}" cy="{_cy_i}" r="{_r_out}" fx="{_fx_i}" fy="{_fy_i}">'
+                        f'<stop offset="0%" stop-color="{hi.hex}"/>'
+                        f'<stop offset=".4" stop-color="{me.hex}"/>'
+                        f'<stop offset="1" stop-color="{lo.hex}"/>'
+                        f"</radialGradient></defs>"
+                    )
+                    fs_atom = atom_fog_stroke[ai] if use_per_atom_grad else _stroke_atom
+                elif use_per_atom_grad:
                     grad_id = f"g{ai}"
                     fs_atom = atom_fog_stroke[ai]
                 else:
@@ -1540,7 +1588,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     grad_id = f"g{gid_suffix}"
                     fs_atom = _stroke_atom
                 svg.append(
-                    f'  <circle cx="{xi:.1f}" cy="{yi:.1f}" r="{radii[ai] * scale:.1f}" '
+                    f"  {_shape_geom} "
                     f'fill="url(#{grad_id})" stroke="{fs_atom}" stroke-width="{_sw_ai:.1f}"{op_attr_atom}{dof_attr}/>'
                 )
             else:
@@ -1550,7 +1598,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     fill = blend_fog(fill, fog_rgb, fog_f[ai])
                     stroke = blend_fog(stroke, fog_rgb, fog_f[ai])
                 svg.append(
-                    f'  <circle cx="{xi:.1f}" cy="{yi:.1f}" r="{radii[ai] * scale:.1f}" '
+                    f"  {_shape_geom} "
                     f'fill="{fill}" stroke="{stroke}" stroke-width="{_sw_ai:.1f}"{op_attr_atom}{dof_attr}/>'
                 )
 
@@ -1661,11 +1709,67 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     # VdW surface overlay — on top of molecule, group opacity for proper occlusion
     if vdw_set is not None:
         svg.append(f'  <g opacity="{cfg.vdw_opacity}">')
+        # Interlocking: compute visibility polygons once for the active VdW set,
+        # then per atom emit either the polygon (overlap with a neighbour) or a
+        # plain <circle> (singleton).
+        _interlock_polys: list[np.ndarray | None] | None = None
+        if cfg.vdw_interlocking and vdw_set:
+            from xyzrender.interlock import compute_interlock_polygons
+
+            # Drop any out-of-range indices (the user-facing --vdw selector
+            # can return graph IDs that don't map to our position arrays).
+            _active = np.fromiter((ai for ai in sorted(vdw_set) if 0 <= ai < n), dtype=np.intp)
+            if _active.size:
+                _vdw_r3d = raw_vdw_sphere[_active] * cfg.vdw_scale
+                _polys_sub = compute_interlock_polygons(pos[_active], _vdw_r3d, samples=cfg.vdw_interlock_samples)
+                _interlock_polys = [None] * n
+                for k, ai in enumerate(_active.tolist()):
+                    _interlock_polys[ai] = _polys_sub[k]
+        # Independent overlay outline: vdw_outline_width / vdw_outline_color
+        # fall back to atom_stroke_width / atom_stroke_color when None.
+        _vdw_sw_raw = cfg.vdw_outline_width if cfg.vdw_outline_width is not None else cfg.atom_stroke_width
+        _vdw_sw = _vdw_sw_raw * scale_ratio
+        _vdw_sc = cfg.vdw_outline_color if cfg.vdw_outline_color is not None else cfg.atom_stroke_color
+        _vdw_grad_counter = itertools.count()
         for ai in z_order:
-            if ai in vdw_set:
+            if ai not in vdw_set:
+                continue
+            stroke_attr = ""
+            if _vdw_sw > 0:
+                _stroke_col = _color_hex[ai] if _vdw_sc == "atom" else _vdw_sc
+                stroke_attr = f' stroke="{_stroke_col}" stroke-width="{_vdw_sw:.1f}" stroke-linejoin="round"'
+            poly = _interlock_polys[ai] if _interlock_polys is not None else None
+            if poly is not None:
+                # Per-atom user-space gradient anchored at the projected sphere
+                # centre, so the highlight stays fixed when the polygon is cropped.
+                xi, yi = _proj(pos[ai], scale, cx, cy, canvas_w, canvas_h)
+                vr = raw_vdw_sphere[ai] * cfg.vdw_scale * scale
+                hi = colors[ai]
+                lo = colors[ai].darken(
+                    strength=cfg.vdw_gradient_strength,
+                    hue_shift_factor=cfg.hue_shift_factor,
+                    light_shift_factor=cfg.light_shift_factor,
+                    saturation_shift_factor=cfg.saturation_shift_factor,
+                )
+                gid = f"vgi{next(_vdw_grad_counter)}"
+                svg.append(
+                    f'    <defs><radialGradient id="{gid}" gradientUnits="userSpaceOnUse" '
+                    f'cx="{xi:.1f}" cy="{yi:.1f}" r="{vr * 1.32:.1f}" '
+                    f'fx="{xi - vr * 0.34:.1f}" fy="{yi - vr * 0.34:.1f}">'
+                    f'<stop offset="0%" stop-color="{hi.hex}"/>'
+                    f'<stop offset="100%" stop-color="{lo.hex}"/>'
+                    f"</radialGradient></defs>"
+                )
+                xs = canvas_w / 2 + scale * (poly[:, 0] - cx)
+                ys = canvas_h / 2 - scale * (poly[:, 1] - cy)
+                pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys, strict=True))
+                svg.append(f'    <polygon points="{pts}" fill="url(#{gid})"{stroke_attr}/>')
+            else:
                 vr = raw_vdw_sphere[ai] * cfg.vdw_scale * scale
                 xi, yi = _proj(pos[ai], scale, cx, cy, canvas_w, canvas_h)
-                svg.append(f'    <circle cx="{xi:.1f}" cy="{yi:.1f}" r="{vr:.1f}" fill="url(#vg{a_nums[ai]})"/>')
+                svg.append(
+                    f'    <circle cx="{xi:.1f}" cy="{yi:.1f}" r="{vr:.1f}" fill="url(#vg{a_nums[ai]})"{stroke_attr}/>'
+                )
         svg.append("  </g>")
 
     # --- Annotations (bond/angle/dihedral/custom labels, always on top) ---

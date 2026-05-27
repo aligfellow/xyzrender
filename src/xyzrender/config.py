@@ -226,7 +226,10 @@ def apply_hydrogen_flags(cfg: RenderConfig, *, hy: bool | list[int] | None, no_h
         cfg.hide_h = True
         cfg.show_h_indices = []
     elif hy is None:
-        cfg.hide_h = True
+        # Presets that want H always visible (e.g. space-filling) opt out of
+        # the auto-hide default by setting auto_hide_h=False.
+        if cfg.auto_hide_h:
+            cfg.hide_h = True
     elif hy is True:
         cfg.hide_h = False
     elif isinstance(hy, list):
