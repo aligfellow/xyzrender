@@ -59,6 +59,12 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--vdw-opacity` | vdW sphere opacity (default: 0.25) |
 | `--vdw-scale` | vdW sphere radius scale |
 | `--vdw-gradient-strength` | vdW sphere gradient strength (default: 1.6) |
+| `--vdw-interlocking` / `--no-vdw-interlocking` | Render the `--vdw` overlay as interlocked silhouettes (default: on) |
+| `--atom-interlocking` / `--no-atom-interlocking` | Render primary atom spheres as interlocked silhouettes; the `vdw` preset turns this on for space-filling renders |
+| `--vdw-outline-width FLOAT` | vdW overlay outline width (default: 0 = no outline) |
+| `--vdw-outline-color COLOR` | vdW overlay outline colour |
+| `--h-scale FLOAT` | H-atom radius scale (primary atoms; default: 0.6) |
+| `--vdw-h-scale FLOAT` | H-atom radius scale on the `--vdw` overlay (default: 0.7) |
 | `--mol-color COLOR` | Flat color for all atoms and bonds (overrides CPK). Highlight paints on top |
 | `--hl ATOMS [COLOR]` | Highlight atom group: `--hl "1-5,8" [color]`. Accepts the same selectors as `--only`/`--region` — indices/ranges (`"1-5,8"`), elements (`"C,N"`), or categories (`"M"`, `"het"`). Can be repeated for multiple groups. Auto-colors from palette if no color given |
 | `--dof` | Depth-of-field blur (does not affect bonds/lines) |

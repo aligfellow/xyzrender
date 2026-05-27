@@ -288,7 +288,7 @@ class RenderConfig:
     )
     vdw_outline_width: float | None = None  # overlay outline width; None inherits atom_stroke_width, 0 = no outline
     vdw_outline_color: str | None = None  # overlay outline colour; None inherits atom_stroke_color
-    vdw_h_scale: float = 0.65  # hydrogen radius shrink on the --vdw overlay; independent of primary h_scale
+    vdw_h_scale: float = 0.7  # hydrogen radius shrink on the --vdw overlay; independent of primary h_scale
     h_scale: float = 0.6  # hydrogen radius shrink for primary atom rendering (~0.6 ball-and-stick, ~0.8 CPK)
     auto_orient: bool = False
     # Kabsch/MCS alignment applied when merging an overlay or ensemble frames.

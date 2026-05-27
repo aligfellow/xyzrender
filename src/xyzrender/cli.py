@@ -242,6 +242,24 @@ def main() -> None:
     style_g.add_argument("--atom-gradient-strength", type=float, default=None, help="Atom gradient strength")
     style_g.add_argument("--bond-gradient-strength", type=float, default=None, help="Bond gradient strength")
     style_g.add_argument("--vdw-gradient-strength", type=float, default=None, help="VdW sphere gradient strength")
+    style_g.add_argument(
+        "--vdw-interlocking",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Draw the --vdw overlay as interlocked silhouettes (default: on)",
+    )
+    style_g.add_argument(
+        "--atom-interlocking",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Draw primary atom spheres as interlocked silhouettes (default: off; on in --config vdw)",
+    )
+    style_g.add_argument(
+        "--vdw-outline-width", type=float, default=None, help="VdW overlay outline width (0 = no outline)"
+    )
+    style_g.add_argument("--vdw-outline-color", type=str, default=None, help="VdW overlay outline colour")
+    style_g.add_argument("--h-scale", type=float, default=None, help="H atom radius scale (primary atoms)")
+    style_g.add_argument("--vdw-h-scale", type=float, default=None, help="H atom radius scale on the --vdw overlay")
 
     # --- Display ---
     disp_g = p.add_argument_group("display")
@@ -1093,6 +1111,21 @@ def main() -> None:
             cfg.vdw_indices = []
         else:
             cfg.vdw_indices = sorted(resolve_atom_indices(args.vdw, mol.graph))
+    # Interlock + scale flags: only override the preset when the user actually set them.
+    if args.vdw_interlocking is not None:
+        cfg.vdw_interlocking = args.vdw_interlocking
+    if args.atom_interlocking is not None:
+        cfg.atom_interlocking = args.atom_interlocking
+    if args.vdw_outline_width is not None:
+        cfg.vdw_outline_width = args.vdw_outline_width
+    if args.vdw_outline_color is not None:
+        from xyzrender.colors import resolve_color
+
+        cfg.vdw_outline_color = resolve_color(args.vdw_outline_color)
+    if args.h_scale is not None:
+        cfg.h_scale = args.h_scale
+    if args.vdw_h_scale is not None:
+        cfg.vdw_h_scale = args.vdw_h_scale
     if args.glow is not None:
         cfg.glow_indices = sorted(resolve_atom_indices(args.glow, mol.graph))
 

@@ -2,7 +2,7 @@
 
 ## Built-in presets
 
-Use `--config` to load a styling preset. Built-in options: `default`, `flat`, `paton`, `pmol`, `skeletal`, `bubble`, `tube`, `mtube`, `btube`, `wire`, `graph`.
+Use `--config` to load a styling preset. Built-in options: `default`, `flat`, `paton`, `pmol`, `skeletal`, `bubble`, `vdw`, `tube`, `mtube`, `btube`, `wire`, `graph`.
 
 | Preset | Description |
 |--------|-------------|
@@ -12,6 +12,7 @@ Use `--config` to load a styling preset. Built-in options: `default`, `flat`, `p
 | `pmol` | Ball-and-stick with element-coloured split bonds and tube shading (PyMOL-inspired) |
 | `skeletal` | Skeletal formula diagram — thin bonds, minimal atoms |
 | `bubble` | Space-filling (CPK) — large atoms, no bonds |
+| `vdw` | True space-filling — atoms at vdW radii, interlocked silhouettes (no gaps at contacts) |
 | `tube` | Tube/stick model — no atoms, thick element-coloured bonds with cylinder shading |
 | `mtube` | Metal tube — tube bonds with black edge stroke; metals auto-highlighted via preset region |
 | `btube` | Ball-and-tube — ball-and-stick atoms with element-coloured tube bonds and outline stroke |
@@ -24,6 +25,7 @@ xyzrender caffeine.xyz --config paton
 xyzrender caffeine.xyz --config pmol
 xyzrender caffeine.xyz --config skeletal
 xyzrender caffeine.xyz --config bubble --hy
+xyzrender caffeine.xyz --config vdw
 xyzrender caffeine.xyz --config tube
 xyzrender caffeine.xyz --config mtube
 xyzrender caffeine.xyz --config btube
