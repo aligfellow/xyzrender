@@ -471,6 +471,12 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 bond_adj.setdefault(i, []).append(j)
                 bond_adj.setdefault(j, []).append(i)
 
+    _has_solid_bond: set[int] = set()
+    for (i, j), attrs in bonds.items():
+        if attrs.style == BondStyle.SOLID:
+            _has_solid_bond.add(i)
+            _has_solid_bond.add(j)
+
     # Only hide C-H hydrogens (not O-H, N-H, free H, etc.)
     hidden = set()
     if cfg.hide_h:
@@ -1587,6 +1593,24 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             dof_attr = f' filter="url(#dof{dof_buckets[ai]})"' if cfg.dof else ""
             _poly_xy = _atom_polys[ai] if _atom_polys is not None else None
             _r_px = radii[ai] * scale
+            # Atoms with only TS/NCI edges (or none) lose position info at
+            # atom_scale=0 — bump to a dot 20% wider than the bond, matching
+            # the bond outline and (if cylinders are shaded) cylinder gradient.
+            _dot_r = (bw / 2) * 1.2
+            if (
+                _r_px < _dot_r
+                and bw > 0
+                and not is_image
+                and symbols[ai] != "*"
+                and ai not in _has_solid_bond
+                and _poly_xy is None
+            ):
+                _r_px = _dot_r
+                if _sw_ai < cfg.bond_outline_width * scale_ratio:
+                    _sw_ai = cfg.bond_outline_width * scale_ratio
+                    _stroke_atom = cfg.bond_outline_color
+                if cfg.bond_gradient:
+                    _grad_ai = True
             if _poly_xy is not None:
                 _pxs = canvas_w / 2 + scale * (_poly_xy[:, 0] - cx)
                 _pys = canvas_h / 2 - scale * (_poly_xy[:, 1] - cy)
@@ -1604,10 +1628,11 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     f'fill="{_glow_fill}" filter="url(#glow)"{op_attr_atom}/>'
                 )
             if _grad_ai:
-                if _poly_xy is not None:
-                    # Polygon needs its own user-space gradient so the highlight
-                    # stays anchored at the projected sphere centre rather than
-                    # sliding with the (clipped) polygon's bounding box.
+                # Inline gradient def when no shared def exists for this atom:
+                # interlock polygons (anchored at sphere centre, not the
+                # polygon's bounding box), or tube/wire dot fallbacks promoted
+                # to gradient without cfg.gradient being set.
+                if _poly_xy is not None or not use_grad:
                     hi, me, lo = get_gradient_colors(colors[ai], acfg, strength=acfg.atom_gradient_strength)
                     if cfg.fog:
                         t = min(fog_f[ai] ** 2 * 0.7, 0.70)
@@ -1617,7 +1642,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                         "  "
                         + _sphere_gradient_def(grad_id, xi, yi, _r_px, [("0%", hi.hex), (".4", me.hex), ("1", lo.hex)])
                     )
-                    fs_atom = atom_fog_stroke[ai] if use_per_atom_grad else _stroke_atom
+                    fs_atom = blend_fog(_stroke_atom, fog_rgb, fog_f[ai]) if use_per_atom_grad else _stroke_atom
                 elif use_per_atom_grad:
                     grad_id = f"g{ai}"
                     fs_atom = atom_fog_stroke[ai]
