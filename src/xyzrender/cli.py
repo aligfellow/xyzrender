@@ -595,7 +595,28 @@ def main() -> None:
     ts_g.add_argument("--ts", action="store_true", dest="ts_detect", help="Auto-detect TS bonds via graphRC")
     ts_g.add_argument("--ts-frame", type=int, default=0, help="TS reference frame for graphRC (0-indexed)")
     ts_g.add_argument("--ts-bond", default="", help='Manual TS bond pair(s), 1-indexed: "1-6,3-4"')
-    ts_g.add_argument("--ts-color", default=None, help="Color for dashed TS bonds (hex or named)")
+    ts_g.add_argument(
+        "--ts-color", default=None, help="Flat colour for TS dashes (hex or named); overrides --ts-element"
+    )
+    ts_g.add_argument(
+        "--ts-element",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Atom-coloured halves on TS dashes (default off; needs a by_element preset)",
+    )
+    ts_g.add_argument(
+        "--ts-dash",
+        default=None,
+        metavar="LEN,GAP",
+        help="TS dash length,gap as bond_width multiples (default 1.2,2.2)",
+    )
+    ts_g.add_argument(
+        "--ts-width",
+        type=float,
+        default=None,
+        metavar="MULT",
+        help="TS line width as a bond_width multiple (default 1.2)",
+    )
     ts_g.add_argument(
         "--nci",
         action="store_true",
@@ -603,7 +624,28 @@ def main() -> None:
         help="Auto-detect NCI interactions via xyzgraph",
     )
     ts_g.add_argument("--nci-bond", default="", help='Manual NCI bond pair(s), 1-indexed: "1-5,2-8"')
-    ts_g.add_argument("--nci-color", default=None, help="Color for dotted NCI bonds (hex or named)")
+    ts_g.add_argument(
+        "--nci-color", default=None, help="Flat colour for NCI/haptic dots (hex or named); overrides --nci-element"
+    )
+    ts_g.add_argument(
+        "--nci-element",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Atom-coloured halves on NCI/haptic dots (default off; on in pmol/btube/tube/mtube)",
+    )
+    ts_g.add_argument(
+        "--nci-dash",
+        default=None,
+        metavar="LEN,GAP",
+        help="NCI/haptic dot length,gap as bond_width multiples (default 0.08,2.0)",
+    )
+    ts_g.add_argument(
+        "--nci-width",
+        type=float,
+        default=None,
+        metavar="MULT",
+        help="NCI/haptic line width as a bond_width multiple (default 1.0)",
+    )
 
     # --- GIF animation ---
     gif_g = p.add_argument_group("GIF animation")
@@ -929,7 +971,13 @@ def main() -> None:
         mo_outline_color=args.mo_outline_color,
         mo_outline_width=args.mo_outline_width,
         ts_color=args.ts_color,
+        ts_element=args.ts_element,
+        ts_dash=args.ts_dash,
+        ts_width=args.ts_width,
         nci_color=args.nci_color,
+        nci_element=args.nci_element,
+        nci_dash=args.nci_dash,
+        nci_width=args.nci_width,
         background=args.background,
         transparent=args.transparent,
         gradient=args.grad,

@@ -10,7 +10,6 @@
   "gradient": false,
   "bond_color_by_element": true,
   "bond_gradient": false,
-  "bond_color": "#606060",
   "bond_outline_color": "#000000",
   "bond_outline_width": 5.0,
   "fog": false,
@@ -21,5 +20,10 @@
       "atom_scale": 4.0,
       "atom_stroke_width": 5.0
     }
-  }
+  },
+  "nci_element": true,
+  "nci_width": 1.5,
+  "ts_element": false,
+  "ts_width": 1.8,
+  "ts_dash": [0.5, 3]
 }

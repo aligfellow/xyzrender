@@ -108,9 +108,15 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--ts-frame` | TS reference frame (0-indexed) |
 | `--ts-bond` | Manual TS bond pair(s) (1-indexed, e.g. `1-2`) |
 | `--ts-color` | Color for dashed TS bonds (hex or named) |
+| `--ts-element` / `--no-ts-element` | Split-half atom colour on TS dashes (off by default; needs a `bond_color_by_element` preset; `--ts-color` overrides) |
+| `--ts-dash LEN,GAP` | TS dash pattern as bond_width multiples — `LEN` is dash length, `GAP` is gap (default `1.2,2.2`) |
+| `--ts-width MULT` | TS line width as a multiple of bond_width (default `1.2`) |
 | `--nci` | Auto-detect NCI interactions |
 | `--nci-bond` | Manual NCI bond pair(s) (1-indexed) |
 | `--nci-color` | Color for dotted NCI bonds (hex or named) |
+| `--nci-element` / `--no-nci-element` | Split-half atom colour on NCI/haptic dots (off by default; pre-enabled in `pmol`/`btube`/`tube`/`mtube` presets where `bond_color_by_element` is also on; `--nci-color` overrides) |
+| `--nci-dash LEN,GAP` | NCI/haptic dot pattern as bond_width multiples — `LEN` is dot length, `GAP` is gap (default `0.08,2.0`) |
+| `--nci-width MULT` | NCI/haptic line width as a multiple of bond_width (default `1.0`) |
 
 ## Surfaces
 

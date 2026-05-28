@@ -57,7 +57,13 @@ All available keys:
   "bond_width": 20,
   "bond_color": "#000000",
   "ts_color": "#1E90FF",
+  "ts_dash": [1.2, 2.2],
+  "ts_width": 1.2,
   "nci_color": "#228B22",
+  "nci_element": true,
+  "nci_dash": [0.08, 2.0],
+  "nci_width": 1.0,
+  "bond_color_by_element": true,
   "atom_stroke_width": 3,
   "gradient": true,
   "atom_gradient_strength": 1.0,
@@ -102,6 +108,8 @@ The `colors` key maps element symbols to hex values (`#D9D9D9`) or [CSS4 named c
 `bond_outline_color` / `bond_outline_width` add a shadow edge behind bonds (visible as an outline). Set `bond_outline_width` > 0 to activate (color defaults to black). In styles with a visible atom disc (`pmol`, `btube`, `paton`, `default`), each bond's outline interleaves with the atoms so a front bond keeps its halo where it crosses a back bond. In flat styles (`tube`, `mtube`, `wire`) the outlines all sit in a single back-layer under the bonds.
 
 `bond_gap` sets the spacing between stripes in double, triple, and aromatic bonds (default `0.6`, units = fraction of `bond_width`). Larger values widen the gap between stripes.
+
+**TS / NCI / haptic styling.** `ts_dash` and `nci_dash` are `[length, gap]` arrays giving the dash/dot length and the empty-gap length, both as multiples of `bond_width`. `ts_width` and `nci_width` are the line stroke widths as multiples of `bond_width`. `ts_element` / `nci_element` opt in to atom-coloured split-halves on these bonds (the same gradient solid bonds use) and require `bond_color_by_element=true`; if `ts_color` / `nci_color` is set, that flat colour wins. Haptic dots follow the NCI controls. See [Transition States and NCI](examples/ts_nci.md) for a styling walkthrough.
 
 The `regions` key defines per-atom-group style overrides. Keys are atom selectors (`M` = metals, `Pt`, `sbm` = s-block metals, `het` = heteroatoms, or numeric `1-5`). Values are a preset name or an inline dict of overrides:
 

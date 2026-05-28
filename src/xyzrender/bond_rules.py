@@ -244,24 +244,25 @@ def _apply_haptic_centroids_from_groups(
 ) -> None:
     """Replace eta-coordination bonds with single metal-to-centroid bonds.
 
-    Consumes pre-collected *pi_groups* (from :func:`_iter_pi_groups`) so the
-    ring/neighbour walk is not repeated.
+    Member atoms are recorded in ``graph.graph["haptic_centroid_sites"]`` so
+    the renderer resolves the centroid's bond-endpoint colour to the modal
+    element of the ring.  Mirrors xyzgraph's ``nci_centroid_sites`` storage
+    convention; could live as a per-node attribute on the centroid.
     """
     next_id = max(graph.nodes()) + 1
+    haptic_sites: dict[int, tuple[int, ...]] = graph.graph.setdefault("haptic_centroid_sites", {})
 
     for nid, bonded_to_ring in pi_groups:
-        # Filter to edges that still exist (earlier --unbond may have removed some)
+        # Skip edges already removed by an earlier --unbond pass
         remaining = {a for a in bonded_to_ring if graph.has_edge(nid, a)}
         if len(remaining) < 2:
             continue
 
-        # Compute centroid of bonded ring atoms
         positions = np.array([graph.nodes[a]["position"] for a in remaining])
         centroid = positions.mean(axis=0)
 
-        # Inherit per-structure style from the external atom so the centroid node
-        # and its bond match the overlay / conformer colour instead of defaulting
-        # to the primary CPK / NCI palette.
+        # Inherit per-structure style from the external atom so the centroid
+        # tracks overlay / conformer colour instead of the primary palette.
         nid_data = graph.nodes[nid]
         node_attrs: dict = {"symbol": "*", "position": tuple(centroid)}
         if "molecule_index" in nid_data:
@@ -274,8 +275,6 @@ def _apply_haptic_centroids_from_groups(
         edge_attrs: dict = {"bond_order": 1.0, "NCI": True}
         if "molecule_index" in nid_data:
             edge_attrs["molecule_index"] = nid_data["molecule_index"]
-        # One of the original eta bonds carries the overlay's bond_color_override;
-        # reuse it for the centroid bond so the dotted stroke matches.
         for a in remaining:
             ov = graph.edges[nid, a].get("bond_color_override")
             if ov is not None:
@@ -285,6 +284,7 @@ def _apply_haptic_centroids_from_groups(
         # Add centroid node and bond (NCI=True → dotted style like NCI bonds)
         graph.add_node(next_id, **node_attrs)
         graph.add_edge(nid, next_id, **edge_attrs)
+        haptic_sites[next_id] = tuple(sorted(remaining))
 
         # Remove individual metal-to-ring-atom bonds
         for ring_atom in remaining:

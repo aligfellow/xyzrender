@@ -14,5 +14,10 @@
   "bond_outline_width": 3.0,
   "colors": {
     "H": "#e5e5e5"
-  }
+  },
+  "nci_element": true,
+  "nci_width": 1.5,
+  "ts_element": false,
+  "ts_width": 1.8,
+  "ts_dash": [0.5, 3]
 }

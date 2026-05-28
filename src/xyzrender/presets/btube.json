@@ -15,5 +15,10 @@
   "bond_outline_width": 4.0,
   "radius_scale": {
     "H": 1.2
-  }
+  },
+  "nci_element": true,
+  "nci_width": 1.2,
+  "ts_element": false,
+  "ts_width": 1.6,
+  "ts_dash": [0.5, 3]
 }

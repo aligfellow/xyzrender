@@ -7,6 +7,7 @@
   "saturation_shift_factor": 0.1,
   "bond_orders": false,
   "bond_color_by_element": true,
+  "nci_element": true,
   "bond_gradient": true,
   "bond_gradient_strength": 0.2,
   "bond_outline_color": "#000000",

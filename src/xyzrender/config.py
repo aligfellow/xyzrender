@@ -116,6 +116,27 @@ def _resolve_color_fields(kw: dict, fields: tuple[str, ...]) -> None:
             kw[key] = resolve_color(v)
 
 
+def _coerce_dash(v) -> tuple[float, float] | None:
+    """Coerce a dash spec to ``(length, gap)`` floats.
+
+    Accepts ``"len,gap"``, ``(len, gap)``, ``[len, gap]``, or ``None``.
+    Both numbers are unitless multipliers of ``bond_width``.
+    """
+    if v is None:
+        return None
+    if isinstance(v, str):
+        parts = v.split(",")
+        if len(parts) != 2:
+            raise ValueError(f"dash spec must be 'length,gap' (e.g. '1.2,2.2'), got {v!r}")
+        try:
+            return (float(parts[0]), float(parts[1]))
+        except ValueError as e:
+            raise ValueError(f"dash spec components must be numeric, got {v!r}") from e
+    if isinstance(v, (list, tuple)) and len(v) == 2:
+        return (float(v[0]), float(v[1]))
+    raise ValueError(f"dash spec must be 'length,gap' string or (length, gap) tuple, got {v!r}")
+
+
 def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
     """Merge config dict with CLI overrides into a RenderConfig.
 
@@ -151,6 +172,11 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
     ):
         if old in merged:
             merged[new] = merged.pop(old)
+
+    # Normalise dash specs: JSON arrays / CLI strings → (float, float) tuple
+    for k in ("ts_dash", "nci_dash"):
+        if k in merged:
+            merged[k] = _coerce_dash(merged[k])
 
     # Resolve all color fields to hex
     _color_fields = (
@@ -250,7 +276,13 @@ def build_config(
     mo_outline_color=None,
     mo_outline_width=None,
     ts_color=None,
+    ts_element: bool | None = None,
+    ts_dash: tuple[float, float] | str | None = None,
+    ts_width: float | None = None,
     nci_color=None,
+    nci_element: bool | None = None,
+    nci_dash: tuple[float, float] | str | None = None,
+    nci_width: float | None = None,
     background=None,
     transparent: bool = False,
     gradient=None,
@@ -335,7 +367,13 @@ def build_config(
         ("mo_outline_color", mo_outline_color),
         ("mo_outline_width", mo_outline_width),
         ("ts_color", ts_color),
+        ("ts_element", ts_element),
+        ("ts_dash", ts_dash),
+        ("ts_width", ts_width),
         ("nci_color", nci_color),
+        ("nci_element", nci_element),
+        ("nci_dash", nci_dash),
+        ("nci_width", nci_width),
         ("background", background),
         ("gradient", gradient),
         ("hue_shift_factor", hue_shift_factor),

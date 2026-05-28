@@ -389,6 +389,36 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     # Pre-cache hex strings so .hex property isn't recomputed in the render loop
     _color_hex = [c.hex for c in colors]
 
+    # Centroids use their members' modal-element colour for the by_element split.
+    _endpoint_color = list(colors)
+    centroid_sites: dict[int, tuple[int, ...]] = {
+        **graph.graph.get("nci_centroid_sites", {}),
+        **graph.graph.get("haptic_centroid_sites", {}),
+    }
+    if centroid_sites:
+        from collections import Counter
+
+        _id_to_idx = {nid: idx for idx, nid in enumerate(node_ids)}
+        for cid, members in centroid_sites.items():
+            ai = _id_to_idx.get(cid)
+            if ai is None or not members:
+                continue
+            modal = Counter(graph.nodes[m]["symbol"] for m in members).most_common(1)[0][0]
+            _endpoint_color[ai] = get_color(DATA.s2n.get(modal, 0), cfg.color_overrides)
+    # Match the darker side of the solid-bond cylinder gradient.
+    if cfg.bond_gradient:
+        _bond_endpoint_hex = [
+            c.darken(
+                strength=cfg.bond_gradient_strength,
+                hue_shift_factor=cfg.hue_shift_factor,
+                light_shift_factor=cfg.light_shift_factor,
+                saturation_shift_factor=cfg.saturation_shift_factor,
+            ).hex
+            for c in _endpoint_color
+        ]
+    else:
+        _bond_endpoint_hex = [c.hex for c in _endpoint_color]
+
     # Bond lookup: per-edge attrs needed by the render loop.
     bonds: dict[tuple[int, int], _BondAttrs] = {}
     if not cfg.hide_bonds:
@@ -1180,7 +1210,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             _gap = bcfg.bond_gap * _bw
         if style == BondStyle.DASHED and bcfg.ts_color is not None:
             _bond_color = bcfg.ts_color
-        if style == BondStyle.DOTTED and bcfg.nci_color is not None:
+        elif style == BondStyle.DOTTED and bcfg.nci_color is not None:
             _bond_color = bcfg.nci_color
 
         if bcfg.skeletal_style:
@@ -1216,11 +1246,19 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             return
         x1, y1, x2, y2, px, py = _bg
 
-        by_element = bcfg.bond_color_by_element and color_override is None and style == BondStyle.SOLID
+        by_element = (
+            color_override is None
+            and bcfg.bond_color_by_element
+            and (
+                style == BondStyle.SOLID
+                or (style == BondStyle.DASHED and bcfg.ts_element and bcfg.ts_color is None)
+                or (style == BondStyle.DOTTED and bcfg.nci_element and bcfg.nci_color is None)
+            )
+        )
         ci_hex = cj_hex = color = ""
         if by_element:
-            ci_hex = _color_hex[ai]
-            cj_hex = _color_hex[aj]
+            ci_hex = _bond_endpoint_hex[ai]
+            cj_hex = _bond_endpoint_hex[aj]
         else:
             color = color_override if color_override is not None else _bond_color
             if cfg.fog:
@@ -1240,14 +1278,15 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             _sj = blend_fog(_stroke_color, fog_rgb, _fj)
 
         if style == BondStyle.DASHED:
-            dd, gg = _bw * 1.2, _bw * 2.2
+            _dm, _gm = bcfg.ts_dash
+            dd, gg = _bw * _dm, _bw * _gm
             dash = f' stroke-dasharray="{dd:.1f},{gg:.1f}"'
             _emit_line(
                 x1,
                 y1,
                 x2,
                 y2,
-                _bw * 1.2,
+                _bw * bcfg.ts_width,
                 color,
                 px,
                 py,
@@ -1268,14 +1307,15 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             )
             return
         if style == BondStyle.DOTTED:
-            dd, gg = _bw * 0.08, _bw * 2
+            _dm, _gm = bcfg.nci_dash
+            dd, gg = _bw * _dm, _bw * _gm
             dash = f' stroke-dasharray="{dd:.1f},{gg:.1f}"'
             _emit_line(
                 x1,
                 y1,
                 x2,
                 y2,
-                _bw,
+                _bw * bcfg.nci_width,
                 color,
                 px,
                 py,

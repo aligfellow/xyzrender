@@ -75,8 +75,10 @@ class TestElementColouredBonds:
         o_color = get_color(8, None).hex  # atomic number 8 = O
         assert o_color in svg
 
-    def test_nci_bonds_never_element_coloured(self):
-        """NCI (dotted) bonds should use uniform colour even with bond_color_by_element."""
+    def test_nci_bonds_uniform_when_nci_element_off(self):
+        """With nci_element=False (default) NCI (dotted) bonds use uniform colour
+        even when bond_color_by_element is on. The split-half element path is
+        opt-in via nci_element=True (pre-enabled in pmol/btube/tube/mtube/wire)."""
         mol = load(STRUCTURES / "Hbond.xyz", nci_detect=True)
         svg = str(render(mol, bond_color_by_element=True, fog=False, gradient=False, orient=False))
         dotted = [line for line in svg.split("\n") if "stroke-dasharray" in line]
@@ -107,6 +109,72 @@ class TestElementColouredBonds:
         dotted = [line for line in svg.split("\n") if "stroke-dasharray" in line and "<line" in line]
         assert len(dotted) > 0
         assert any("#ff00ff" in line for line in dotted)
+
+
+# ---------------------------------------------------------------------------
+# TS / NCI dash + width tuning
+# ---------------------------------------------------------------------------
+
+
+class TestDashAndWidthTuning:
+    def test_coerce_dash_accepts_string_and_tuple(self):
+        from xyzrender.config import _coerce_dash
+
+        assert _coerce_dash(None) is None
+        assert _coerce_dash("0.8,2.2") == (0.8, 2.2)
+        assert _coerce_dash((0.8, 2.2)) == (0.8, 2.2)
+        assert _coerce_dash([0.8, 2.2]) == (0.8, 2.2)
+        with pytest.raises(ValueError, match="dash spec"):
+            _coerce_dash("oops")
+        with pytest.raises(ValueError, match="dash spec"):
+            _coerce_dash("1.0")
+
+    def test_build_config_coerces_dash_strings(self):
+        from xyzrender import build_config
+
+        cfg = build_config("default", ts_dash="0.8,2.2", nci_dash="0.1,3.0")
+        assert cfg.ts_dash == (0.8, 2.2)
+        assert cfg.nci_dash == (0.1, 3.0)
+
+    def test_ts_dash_and_width_propagate_to_svg(self):
+        """Custom ts_dash and ts_width should produce a TS line whose dash and
+        width match the configured multipliers against the same bond_width
+        reference."""
+        import re
+
+        mol = load(STRUCTURES / "sn2.out", ts_detect=True)
+        dash_mults = (2.0, 1.5)
+        width_mult = 0.5
+        svg = str(
+            render(
+                mol,
+                config="pmol",
+                ts_dash=f"{dash_mults[0]},{dash_mults[1]}",
+                ts_width=width_mult,
+                orient=False,
+                fog=False,
+            )
+        )
+        dashed = [line for line in svg.split("\n") if "stroke-dasharray" in line and "<line" in line]
+        assert dashed, "no TS dashed lines in SVG"
+
+        def _grab(pattern: str, s: str) -> str:
+            m = re.search(pattern, s)
+            assert m is not None, f"no match for {pattern!r}"
+            return m.group(1)
+
+        # Dash ratio is independent of width / outline padding — robust check.
+        line = dashed[0]
+        dd, gg = (float(x) for x in _grab(r'stroke-dasharray="([0-9.,]+)"', line).split(","))
+        assert dd / gg == pytest.approx(dash_mults[0] / dash_mults[1], rel=0.01)
+
+        # Inner (fill) stroke width should equal dash_value * (ts_width / ts_dash[0]).
+        # Pick the smaller of the two stroke widths (fill, not outline).
+        widths = sorted(float(_grab(r'stroke-width="([0-9.]+)"', ln)) for ln in dashed[:2])
+        fill_w = widths[0]
+        bw_from_width = fill_w / width_mult
+        bw_from_dash = dd / dash_mults[0]
+        assert abs(bw_from_width - bw_from_dash) / bw_from_dash < 0.05
 
 
 # ---------------------------------------------------------------------------
@@ -447,8 +515,9 @@ class TestOverlayIsolation:
         for w in dashed:
             assert float(w) < 30, f"TS bond width {w} should be capped below tube's bond_width"
 
-    def test_highlight_does_not_colour_nci_bonds(self):
-        """Highlight should not recolour NCI (dotted) bonds."""
+    def test_highlight_does_not_colour_nci_bonds_default(self):
+        """Default config (nci_element=False) keeps NCI dotted bonds flat even
+        when endpoint atoms are highlighted."""
         mol = load(STRUCTURES / "Hbond.xyz", nci_detect=True)
         n = mol.graph.number_of_nodes()
         dark = Color.from_str(resolve_color("orchid")).blend(Color(0, 0, 0), 0.3).hex
@@ -456,7 +525,7 @@ class TestOverlayIsolation:
         dotted_lines = [line for line in svg.split("\n") if "stroke-dasharray" in line and "<line" in line]
         for line in dotted_lines:
             if 'stroke-dasharray="0.' in line or 'stroke-dasharray="1.' in line:
-                assert dark not in line, "NCI dotted bond should not get highlight colour"
+                assert dark not in line, "NCI dotted bond should not get highlight colour by default"
 
 
 # ---------------------------------------------------------------------------

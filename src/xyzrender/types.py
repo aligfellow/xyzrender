@@ -253,8 +253,17 @@ class RenderConfig:
     atoms_above_bonds: bool = False  # draw atoms after all bonds for diagram aesthetic
     bond_width: float = 5.0
     bond_color: str = "#333333"
-    ts_color: str | None = None  # dashed TS bonds; None -> use bond_color
-    nci_color: str | None = None  # dotted NCI bonds; None -> use bond_color
+    # TS / NCI / haptic styling. *_color sets a flat stroke; *_element splits
+    # each dash/dot into atom-coloured halves (needs bond_color_by_element).
+    # *_dash = (length, gap) and *_width are bond_width multipliers.
+    ts_color: str | None = None
+    ts_element: bool = False
+    ts_dash: tuple[float, float] = (1.2, 2.2)
+    ts_width: float = 1.2
+    nci_color: str | None = None  # also applies to haptic
+    nci_element: bool = False
+    nci_dash: tuple[float, float] = (0.08, 2.0)
+    nci_width: float = 1.0
     bond_gap: float = 0.6  # multi-bond spacing as fraction of bond_width
     bond_color_by_element: bool = False  # color bonds by endpoint atom colors
     bond_gradient: bool = False  # cylinder shading on bonds (perpendicular gradient for 3D tube look)

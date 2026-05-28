@@ -55,3 +55,48 @@ xyzrender Hbond.xyz --hy --nci --nci-color teal -o nci_teal.svg
 xyzrender bimp.out --ts --nci --vdw 84-169 -o bimp_ts_nci.svg
 xyzrender bimp.out --ts --nci -vdw 84-169 --ts-color magenta --nci-color teal -o bimp_ts_nci_custom.svg
 ```
+
+## Styling controls
+
+TS and NCI/haptic styling has three independent axes — **colour**, **dash pattern**, and **line width** — plus a TS/NCI categorisation. Haptic always follows NCI's controls.
+
+### Colour
+
+Two ways to set it:
+
+1. **Flat colour** (`--ts-color` / `--nci-color`) — single hex or named colour for every dash/dot.
+2. **Atom-coloured halves** (`--ts-element` / `--nci-element`) — each dash/dot splits into two halves coloured by the endpoint atoms (the same gradient solid bonds use under `bond_color_by_element`). Off by default for TS; on by default for NCI in `pmol`/`btube`/`tube`/`mtube` presets.
+
+Resolution: `--ts-color` / `--nci-color` always wins; otherwise the element split applies when the toggle is on **and** the preset has `bond_color_by_element=True`; otherwise the bond falls back to the default bond colour.
+
+```bash
+xyzrender bimp.out --ts --nci --config pmol                       # NCI element split (preset default)
+xyzrender bimp.out --ts --nci --config pmol --ts-element           # add TS element split
+xyzrender bimp.out --ts --nci --config pmol --no-nci-element       # opt back out
+xyzrender bimp.out --ts --nci --ts-color red --nci-color teal     # flat colours
+```
+
+### Dash pattern (`--ts-dash`, `--nci-dash`)
+
+`LEN,GAP` — both numbers are multiples of `bond_width`. Position 0 is the dash/dot **length** (drawn segment), position 1 is the **gap** (empty segment).
+
+| Default | Visual |
+|---------|--------|
+| `--ts-dash 1.2,2.2`  | medium dashes with a moderate gap |
+| `--ts-dash 2.5,1.0`  | long dashes, near-continuous |
+| `--ts-dash 0.4,2.0`  | short dashes / large gap (sparser) |
+| `--nci-dash 0.08,2.0` | dots with even spacing (default) |
+| `--nci-dash 0.3,1.5` | bigger dots, tighter spacing |
+
+Python: accepts string `"1.2,2.2"` or tuple `(1.2, 2.2)`. JSON: array `[1.2, 2.2]`.
+
+### Line width (`--ts-width`, `--nci-width`)
+
+`MULT` — line stroke width as a multiple of `bond_width`. Defaults: TS = `1.2` (slightly thicker than bonds), NCI = `1.0` (same as bonds).
+
+```bash
+xyzrender sn2.out --ts --config pmol --ts-width 0.5  # thinner TS dashes
+xyzrender sn2.out --ts --config pmol --ts-width 2.0  # thicker, prominent
+```
+
+Dash length and line width are independent — changing `--ts-width` does not rescale `--ts-dash`.
