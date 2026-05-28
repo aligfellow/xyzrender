@@ -2,6 +2,16 @@
 
 Color atoms by a per-atom scalar value (e.g. partial charges, NMR shifts, Fukui indices) using a colormap palette.
 
+> **Python.** All `xyzrender` flags below map 1:1 to keyword arguments on `render()`. Two shapes differ from the CLI:
+>
+> - `--cmap FILE` → either `cmap="charges.txt"` (path) **or** `cmap={1: 0.5, 2: -0.3}` (1-indexed dict, no file needed)
+> - `--cmap-range VMIN VMAX` → `cmap_range=(-0.5, 0.5)` (tuple)
+>
+> ```python
+> render(mol, cmap={1: 0.5, 2: -0.3, 3: 0.04}, cmap_range=(-0.5, 0.5), cbar=True)
+> render(mol, cmap="charges.txt", cmap_symm=True, cmap_palette="coolwarm")
+> ```
+
 | Mulliken charges (rotation) | Symmetric range | With colorbar |
 |----------------------------|----------------|---------------|
 | ![Mulliken charges (rotation)](../../../examples/images/caffeine_cmap.gif) | ![Symmetric range](../../../examples/images/caffeine_cmap.svg) | ![With colorbar](../../../examples/images/caffeine_cmap_colorbar.svg) |

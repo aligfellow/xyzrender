@@ -24,7 +24,9 @@ extensions = [
 templates_path = ["_templates"]
 exclude_patterns = []
 
-suppress_warnings = ["image.not_readable", "ref.python"]
+suppress_warnings = ["image.not_readable", "ref.python", "autodoc.duplicate_object_description"]
+
+myst_heading_anchors = 3
 
 source_suffix = {
     ".rst": "restructuredtext",

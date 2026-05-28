@@ -2,6 +2,16 @@
 
 All GIF output defaults to `{input_basename}.gif`. Override with `-go`.
 
+> **Python.** All `xyzrender` flags below map 1:1 to keyword arguments on `render_gif()` (`--gif-rot y` → `gif_rot="y"`, `--gif-bounce 50,x` → `gif_bounce=(50, "x")`, `-go out.gif` → `output="out.gif"`). The `--anchor "1-5,8"` selector becomes `anchor="1-5,8"` or `anchor=[1, 2, 3, 4, 5, 8]`. See the [Python API guide](../python_api.md).
+>
+> ```python
+> from xyzrender import render_gif
+> render_gif("caffeine.xyz", gif_rot="y", output="caffeine.gif")
+> render_gif("caffeine.xyz", gif_bounce=(50, "x"))
+> render_gif("bimp.out", gif_ts=True, gif_rot="y", vdw="84-169")
+> render_gif("caffeine.xyz", gif_diffuse=True, anchor="1-5,8")
+> ```
+
 ## Rotation GIF
 
 | Rotation (y) | Rotation (xy) |
@@ -84,14 +94,13 @@ xyzrender sn2.v000.xyz --gif-trj --trj-bonds -go sn2_trj_bonds.gif
 :alt: Diffuse assembly animation
 ```
 
-````{tab-set}
-```{tab-item} CLI
+```bash
 xyzrender caffeine.xyz --gif-diffuse -go caffeine_diffuse.gif
 ```
-```{tab-item} Python
+
+```python
 render_gif("caffeine.xyz", gif_diffuse=True, output="caffeine_diffuse.gif")
 ```
-````
 
 Options:
 

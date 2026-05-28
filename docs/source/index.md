@@ -22,38 +22,84 @@ xyzrender bimp.out --gif-ts --gif-rot --nci --vdw 84-169
 ```
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 1
 :caption: Getting Started
 :hidden:
 
 installation
 quickstart_cli
 quickstart_python
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: User Guide
+:hidden:
+
+formats
+configuration
+orientation
 python_api
 ```
 
 ```{toctree}
-:maxdepth: 2
-:caption: User Guide
+:maxdepth: 1
+:caption: Examples — Styling
 :hidden:
 
-userguide
+examples/basics
+examples/highlight
+examples/style_regions
+examples/cmap
 ```
 
 ```{toctree}
-:maxdepth: 2
-:caption: Examples
+:maxdepth: 1
+:caption: Examples — Surfaces & analysis
 :hidden:
 
-examples
+examples/mo
+examples/dens_esp
+examples/nci_surf
+examples/ts_nci
 ```
 
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 1
+:caption: Examples — Geometry tools
+:hidden:
+
+examples/overlay
+examples/ensemble
+examples/hull
+examples/crystal
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Examples — Annotations
+:hidden:
+
+examples/annotations
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Examples — Output
+:hidden:
+
+examples/animations
+```
+
+```{toctree}
+:maxdepth: 1
 :caption: Reference
 :hidden:
 
-reference
+cli_reference
+api/core
+api/types
+api/config
 ```
 
 ```{toctree}

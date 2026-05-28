@@ -17,6 +17,8 @@ For standard NCIPlot output, use `sign(λ₂)·ρ` density as the main input and
 
 As an alternative analysis technique, Multiwfn-style `δg` surfaces use `sl2r.cub` as the main input and `dg.cub`, `dg_inter.cub`, or `dg_intra.cub` as `--nci-surf`. These cubes are typically classified as `high_field`.
 
+> **Python.** All `xyzrender` flags below map 1:1 to keyword arguments on `render()`. The Python kwarg matching `--nci-surf` is **`nci=`** (path to the gradient/δg cube): `render(load("dens.cube"), nci="grad.cube", iso=0.3, nci_mode="pixel")`. See the [Python API guide](../python_api.md).
+
 ```{note}
 The default `--iso` values are *starting points*, not universal thresholds. They reflect the original NCIPLOT (RDG = 0.3) and Multiwfn IGMH (δg = 0.005) literature conventions. In practice you will need to tune `--iso` per cube — especially for IGMH, where `dg_intra` cubes have a much larger value range than `dg_inter` and typically need `--iso` between 0.05 and 0.3 for clean surfaces.
 ```

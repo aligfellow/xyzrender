@@ -4,8 +4,8 @@ Overlay two structures to compare them. With **no flag** the alignment strategy 
 
 1. **Both have metals** → metal-fragment overlay: enumerates every metal-to-metal pairing, narrows ligands to each metal's coordination shell, and pivots Kabsch on the metal so paired metals coincide exactly.
 2. **Same shape + same elements** (no metals) → index-paired Kabsch on every atom.
-3. **Otherwise** → type-aware MCS finds the largest shared connected substructure. Metals of any element can match each other (`M` class), heteroatoms can match each other (`het` class); aromatic-ring seeds bias the search so benzene-like rings land on benzene-like rings.
-4. **Last resort** (no MCS match) → PCA-seeded ICP best-fit.
+3. **Otherwise** → type-aware MCS finds the largest shared connected substructure. Matching classes are `C`, `H`, `M` (any metal), and `het` (everything else — N, O, P, S, halogens all fold together). Aromatic-ring seeds bias the search so benzene-like rings land on benzene-like rings. No halogen-specific class today; use `--align-atoms "F,Cl,Br,I"` to scope a fit to halogens.
+4. **Last resort** (no MCS match) → crude nearest-neighbour RMSD fit, element-blind, on `min(n_ref, n_mob)` atoms. Can map Cl onto methyl if the geometry fits.
 
 With **`--align-atoms SELECTOR`** the user picks the candidate atoms. Metals in the selection on both sides → metal-fragment overlay (paired metals coincide exactly). Otherwise the algorithm tries MCS-on-induced-subgraph and K-subset Kabsch, returning the lowest-RMSD candidate. The selector grammar is identical to every other selector flag (element symbols, categories, atom-index ranges).
 

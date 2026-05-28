@@ -40,12 +40,18 @@ All CLI flags are available as keyword arguments to `render()`:
 
 ### Styling
 
+`config=` accepts a built-in preset name, a path to your own JSON file, or a pre-built `RenderConfig` from [`build_config()`](#reusing-a-style-config).
+
 ```python
 render(mol, config="flat")                                     # built-in preset
 render(mol, config="paton", transparent=True)                  # preset + transparent bg
-render(mol, bond_width=8, atom_scale=1.5, background="#f0f0f0") # individual overrides
+render(mol, config="./my_style.json")                          # custom JSON file
+render(mol, config="./my_style.json", hy=True)                 # kwargs override file values
+render(mol, bond_width=8, atom_scale=1.5, background="#f0f0f0") # individual overrides (no preset)
 render(mol, hide_bonds=True)                                   # hide all bonds
 ```
+
+See [Building a custom preset](configuration.md#building-a-custom-preset) for the JSON schema and `regions` layering.
 
 ### Bond display rules
 
@@ -196,20 +202,25 @@ render(mol, hull=[1, 2, 3, 4, 5, 6],
 render(mol, hull="rings", hull_color="teal")       # auto-detect aromatic rings
 ```
 
-See [Convex Hull](examples/hull.md) for multi-subset hulls and all options.
+See [Convex hull, faces & pores](examples/hull.md) for multi-subset hulls and all options.
 
 ## Reusing a style config
 
-`build_config()` builds a `RenderConfig` object you can pass to `render()` and `render_gif()`. Useful in notebooks or scripts that render several structures with the same style:
+For a single render, pass `config=` to `render()` directly — `render(mol, config="paton")` and `render(mol, config="./my_style.json")` both work without any helper. Use `build_config()` only when you want to build the styling **once** and reuse it across many renders:
 
 ```python
-from xyzrender import build_config
+from xyzrender import build_config, render, render_gif
 
-cfg = build_config("flat", atom_scale=1.5, gradient=False)
+cfg = build_config("flat", atom_scale=1.5, gradient=False)        # built-in + tweaks
+cfg = build_config("./my_style.json")                              # custom JSON file
+cfg = build_config("./my_style.json", bond_color="steelblue")     # custom file + tweaks
+
 render(mol1, config=cfg)
-render(mol2, config=cfg, ts_bonds=[(1, 6)])   # per-render overlay on shared style
+render(mol2, config=cfg, ts_bonds=[(1, 6)])     # per-render overlay on shared style
 render_gif("mol.xyz", gif_rot="y", config=cfg)
 ```
+
+For fields not exposed as `build_config()` kwargs (`vdw_interlocking`, `mo_outline_width`, `surface_style`, `skeletal_label_color`, the `overlay` block, …), either set them in your JSON file or mutate the `RenderConfig` directly afterwards: `cfg.surface_style = "mesh"`. Resolution order is always `default.json < preset/your JSON < build_config() kwargs < render(...) kwargs`.
 
 ## Geometry measurements
 

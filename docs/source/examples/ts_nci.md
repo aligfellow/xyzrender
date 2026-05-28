@@ -4,6 +4,8 @@ xyzrender uses [xyzgraph](https://github.com/aligfellow/xyzgraph) for molecular 
 
 Transition state analysis uses [graphRC](https://github.com/aligfellow/graphRC) for internal coordinate vibrational mode analysis. Given a QM output file (ORCA, Gaussian, etc.), graphRC identifies which bonds are forming or breaking at the transition state with `--ts`. These are rendered as dashed bonds. graphRC is also used to generate TS vibration frames for `--gif-ts` animations.
 
+> **Python.** All `xyzrender` flags below map 1:1 to keyword arguments on `render()` / `render_gif()`. Python is shown where the call shape differs — here, manual bond pairs are passed as 1-indexed tuples (`ts_bonds=[(1, 2)]`) rather than a `"1-2"` string. See the [Python API guide](../python_api.md).
+
 ## Transition states
 
 `--ts` auto-detects forming/breaking bonds from QM output. TS bonds are rendered as dashed lines.
@@ -16,6 +18,14 @@ Transition state analysis uses [graphRC](https://github.com/aligfellow/graphRC) 
 xyzrender sn2.out --ts --hy -o sn2_ts.svg
 xyzrender sn2.out --ts-bond "1-2" -o sn2_ts_man.svg    # specific bond only
 xyzrender sn2.out --ts --ts-color dodgerblue -o sn2_ts_blue.svg
+```
+
+```python
+mol = load("sn2.out", ts_detect=True)            # equivalent to --ts at load-time
+render(mol, hy=True, output="sn2_ts.svg")
+
+render("sn2.out", ts_bonds=[(1, 2)], output="sn2_ts_man.svg")  # 1-indexed tuple list
+render("sn2.out", ts_bonds=[(1, 2), (3, 4)], ts_color="dodgerblue")
 ```
 
 ## QM output files
@@ -43,6 +53,13 @@ For pi-system interactions (e.g. pi-stacking, cation-pi), centroid dummy nodes a
 xyzrender Hbond.xyz --hy --nci -o nci.svg                 # auto-detect all NCI
 xyzrender Hbond.xyz --hy --nci-bond "8-9" -o nci_man.svg  # specific bond only
 xyzrender Hbond.xyz --hy --nci --nci-color teal -o nci_teal.svg
+```
+
+```python
+mol = load("Hbond.xyz", nci_detect=True)          # equivalent to --nci at load-time
+render(mol, hy=True, output="nci.svg")
+
+render("Hbond.xyz", nci_bonds=[(8, 9)], hy=True)  # 1-indexed tuple list
 ```
 
 ## NCI + TS combined

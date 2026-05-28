@@ -48,7 +48,7 @@ render(mol, config="tube", regions=[("1-20", "default"), ("21-40", "flat")])
 render(mol, config="tube", regions=[([1, 2, 3, 4], "default")])
 ```
 
-### Preset-defined regions
+## Preset-defined regions
 
 Presets can define regions directly in JSON. The `"regions"` key maps atom selectors to a preset name or an inline overrides dict:
 

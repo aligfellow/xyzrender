@@ -1,4 +1,14 @@
-# Annotations
+# Annotations & measurements
+
+> **Python.** All `xyzrender` flags below map 1:1 to keyword arguments on `render()` (`--foo bar` → `foo="bar"`). A few have shapes worth flagging:
+>
+> - `-l TOKEN ...` (repeatable) → `labels=["1 2 d", "1 2 3 a", ...]` — each spec is one string
+> - `--label FILE` → `label_file="annot.txt"`
+> - `--stereo` / `--stereo point,ez` → `stereo=True` or `stereo=["point", "ez"]`
+> - `--vector FILE` → `vector="dip.json"` (path) **or** `vector=[{...}, {...}]` (list of dicts inline)
+> - `--measure` is a **separate top-level function**, not a `render()` kwarg: `from xyzrender import measure; measure(mol)` returns the data as a dict (atom indices 0-based on output, see [Geometry measurements](../python_api.md#geometry-measurements))
+>
+> See the [Python API guide](../python_api.md) for the full surface.
 
 ## Atom indices
 
@@ -36,6 +46,11 @@ xyzrender caffeine.xyz -l 13 6 9 4 t -l 1 a -l 14 d -l 7 12 8 a -l 11 d
 xyzrender caffeine.xyz -l 1 best -l 2 "NBO: 0.4"
 ```
 
+```python
+render(mol, labels=["13 6 9 4 t", "1 a", "14 d", "7 12 8 a", "11 d"])
+render(mol, labels=["1 best", "2 NBO: 0.4"])
+```
+
 ## Bulk label file (`--label`)
 
 Same syntax as `-l`, one spec per line. Lines whose first token is not an integer (e.g. CSV headers) are silently skipped. Comment lines (`#`) and quoted labels are supported.
@@ -54,6 +69,10 @@ Same syntax as `-l`, one spec per line. Lines whose first token is not an intege
 
 ```bash
 xyzrender sn2.out --ts --label sn2_label.txt --label-size 40
+```
+
+```python
+render("sn2.out", ts_detect=True, label_file="sn2_label.txt", label_font_size=40)
 ```
 
 ## Stereochemistry (`--stereo`)
@@ -82,31 +101,9 @@ Two display modes for R/S labels: `--stereo-style atom` (default, centered on at
 
 > **Note:** `--stereo` with `--idx` will overlap labels on stereocenters since both draw text at the atom position. Use `--stereo-style label` to offset R/S labels if combining with `--idx`.
 
-## Atom property colormap (`--cmap`)
+## Atom property colormap
 
-Color atoms by a per-atom scalar value (e.g. partial charges) using a Viridis-like colormap.
-
-| Mulliken charges | Symmetric range |
-|-----------------|----------------|
-| ![Mulliken charges](../../../examples/images/caffeine_cmap.gif) | ![Symmetric range](../../../examples/images/caffeine_cmap.svg) |
-
-The colormap file has two columns — **1-indexed atom number** and value. Any extension works. Header lines (first token not an integer), blank lines, and `#` comment lines are silently skipped.
-
-```text
-# charges.txt
-1  +0.512
-2  -0.234
-3   0.041
-```
-
-```bash
-xyzrender caffeine.xyz --hy --cmap caffeine_charges.txt --gif-rot -go caffeine_cmap.gif
-xyzrender caffeine.xyz --hy --cmap caffeine_charges.txt --cmap-range -0.5 0.5
-```
-
-- Atoms **in the file**: colored by Viridis (dark purple → blue → green → bright yellow)
-- Atoms **not in the file**: white (`#ffffff`). Override with `"cmap_unlabeled"` in a custom JSON preset
-- Range defaults to min/max of provided values; use `--cmap-range vmin vmax` for a symmetric scale
+Per-atom scalar colouring (partial charges, NMR shifts, Fukui indices) has its own dedicated page — see [Atom Colormap](cmap.md).
 
 ## Vector arrows
 
@@ -119,6 +116,13 @@ Overlay arbitrary 3D vectors as arrows on the rendered image via a JSON file. Us
 
 ```bash
 xyzrender ethanol.xyz --vector ethanol_dip.json -o ethanol_dip.svg
+```
+
+```python
+render(mol, vector="ethanol_dip.json")                              # path to a JSON file
+render(mol, vector=[{"origin": "com",
+                     "vector": [1.03, -0.04, -1.33],
+                     "color": "red", "label": "μ"}])                # inline list of dicts
 ```
 
 Each entry in the JSON array defines one arrow:
@@ -189,6 +193,19 @@ Print bonded distances, angles, and dihedral angles to stdout. The SVG is still 
 xyzrender ethanol.xyz --measure          # all: distances, angles, dihedrals
 xyzrender ethanol.xyz --measure d        # distances only
 xyzrender ethanol.xyz --measure d a      # distances and angles
+```
+
+`measure()` in Python is a separate top-level function — it does not render anything and returns the data as a dict (atom indices are 0-based on output):
+
+```python
+from xyzrender import measure
+
+data = measure(mol)                       # all: distances, angles, dihedrals
+data = measure("ethanol.xyz")             # also accepts a path directly
+data = measure(mol, modes=["d", "a"])     # distances + angles only
+
+for i, j, d in data["distances"]:
+    print(f"  {i+1}-{j+1}: {d:.3f} Å")
 ```
 
 ```text

@@ -1,5 +1,14 @@
 # Crystal Structures
 
+> **Python.** All `xyzrender` flags below map 1:1 to keyword arguments on `render()`. Worth flagging: `--supercell M N L` → `supercell=(2, 2, 1)` (tuple), `--axis HKL` → `axis="111"` (string), and extXYZ cell loading is `mol = load("foo.xyz", cell=True)` (auto-detected for VASP/QE/PDB-CRYST1/CIF/extXYZ inputs).
+>
+> ```python
+> from xyzrender import load, render
+> mol = load("caffeine_cell.xyz", cell=True)
+> render(mol, supercell=(2, 2, 1), output="cell_221.svg")
+> render(mol, axis="111", no_cell=True)
+> ```
+
 ## extXYZ unit cell
 
 Draw the unit cell box for periodic structures from an extXYZ file with a `Lattice=` header. The cell is detected automatically — no extra flag needed.

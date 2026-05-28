@@ -8,7 +8,7 @@ Use `--config` to load a styling preset. Built-in options: `default`, `flat`, `p
 |--------|-------------|
 | `default` | Radial gradients, depth fog, CPK colors |
 | `flat` | No gradients, no fog — clean flat look |
-| `paton` | PyMOL-inspired style (see [Rob Paton](https://github.com/patonlab)) |
+| `paton` | Based on the graphic style by [Rob Paton](https://github.com/patonlab) (see [gist](https://gist.github.com/bobbypaton/1cdc4784f3fc8374467bae5eb410edef)) |
 | `pmol` | Ball-and-stick with element-coloured split bonds and tube shading (PyMOL-inspired) |
 | `skeletal` | Skeletal formula diagram — thin bonds, minimal atoms |
 | `bubble` | Space-filling (CPK) — large atoms, no bonds |
@@ -48,7 +48,7 @@ Create a JSON file with any keys you want to override. Everything else falls bac
 xyzrender caffeine.xyz --config my_style.json
 ```
 
-All available keys:
+The most commonly overridden keys are below. The full set of fields lives on `RenderConfig` in [`src/xyzrender/types.py`](https://github.com/aligfellow/xyzrender/blob/main/src/xyzrender/types.py) (also rendered in the [Types reference](api/types.rst)) — anything documented there is a valid preset key, including `radius_scale`, `atom_opacity`, `vdw_interlocking`, `atom_interlocking`, `vdw_outline_width`, `vdw_h_scale`, `h_scale`, `mo_outline_width`, `mo_outline_color`, `surface_style`, `skeletal_style`, `skeletal_label_color`, `cell_color`, `cell_line_width`, `axis_colors`, `axis_width_scale`, `highlight_colors`, `hull_colors`, `hull_edge_width_ratio`, `vector_scale`, `vector_color`, `dof_strength`, `glow_strength`, …
 
 ```json
 {
@@ -63,7 +63,6 @@ All available keys:
   "nci_element": true,
   "nci_dash": [0.08, 2.0],
   "nci_width": 1.0,
-  "bond_color_by_element": true,
   "atom_stroke_width": 3,
   "gradient": true,
   "atom_gradient_strength": 1.0,
@@ -73,10 +72,17 @@ All available keys:
   "background": "#ffffff",
   "vdw_opacity": 0.25,
   "vdw_scale": 1.0,
-  "vdw_gradient_strength": 0.845,
+  "vdw_gradient_strength": 1.6,
+  "vdw_interlocking": true,
+  "vdw_outline_width": 0,
+  "h_scale": 0.6,
+  "vdw_h_scale": 0.7,
   "surface_opacity": 1.0,
+  "surface_style": "solid",
   "mo_pos_color": "steelblue",
   "mo_neg_color": "maroon",
+  "mo_outline_width": 0,
+  "mo_outline_color": "#000000",
   "nci_mode": "avg",
   "dens_iso": 0.001,
   "dens_color": "steelblue",
@@ -99,6 +105,12 @@ All available keys:
   },
   "regions": {
     "M": "flat"
+  },
+  "overlay": {
+    "color": "mediumorchid",
+    "opacity": 0.6,
+    "atom_scale": 1.5,
+    "bond_width": 15
   }
 }
 ```
@@ -121,6 +133,85 @@ The `regions` key defines per-atom-group style overrides. Keys are atom selector
 ```
 
 Surface-related keys (`mo_pos_color`, `mo_neg_color`, `dens_iso`, `dens_color`) are only used when `--mo`, `--dens`, or `--esp` is active.
+
+## Building a custom preset
+
+If you find yourself repeating the same `--config + flag` combination across many figures, capture it as a preset. Workflow:
+
+1. **Start small.** A preset only needs the keys that differ from `default`. Everything else inherits.
+
+   ```json
+   // my_style.json
+   {
+     "atom_scale": 1.5,
+     "bond_width": 14,
+     "atom_gradient_strength": 1.4,
+     "fog": false,
+     "bond_color_by_element": true,
+     "bond_gradient": true
+   }
+   ```
+
+2. **Use it like any built-in.** Both `--config` on the CLI and `config=` in Python accept either a preset name *or* a path to your JSON file — there's nothing extra to register:
+
+   ```bash
+   xyzrender mol.xyz --config ./my_style.json
+   xyzrender mol.xyz --config ./my_style.json --hy        # CLI flags still override
+   ```
+
+   ```python
+   from xyzrender import load, render
+   mol = load("mol.xyz")
+   render(mol, config="./my_style.json")                  # exactly the Python equivalent
+   render(mol, config="./my_style.json", hy=True)         # kwargs override preset values
+   ```
+
+3. **Read the built-ins as starting points.** All built-in preset JSON files live in [`src/xyzrender/presets/`](https://github.com/aligfellow/xyzrender/tree/main/src/xyzrender/presets) — copy `tube.json` or `paton.json` and tweak from there rather than starting from scratch.
+
+4. **Layer regions.** For QM/MM-style figures, define a region inside the preset itself so users don't need to repeat `--region` on the CLI:
+
+   ```json
+   {
+     "atom_scale": 1.6,
+     "regions": {
+       "M": { "atom_scale": 2.0, "atom_gradient_strength": 1.5 }
+     }
+   }
+   ```
+
+5. **Reuse the same style across many renders with `build_config()`.** Pass it either a built-in name or your JSON path — the returned `RenderConfig` can be passed to as many `render()` / `render_gif()` calls as you want:
+
+   ```python
+   from xyzrender import build_config, render, render_gif
+
+   cfg = build_config("./my_style.json")                              # your file
+   cfg = build_config("paton", atom_scale=1.6)                         # built-in + tweak
+   cfg = build_config("./my_style.json", bond_color="steelblue")      # file + tweak
+
+   render(mol1, config=cfg)
+   render(mol2, config=cfg, hy=True)
+   render_gif(mol1, gif_rot="y", config=cfg)
+   ```
+
+   `build_config()` is only useful when you want to *reuse* a styling. For a single render, `render(mol, config="./my_style.json")` is exactly equivalent.
+
+   Resolution order is always:
+
+   ```
+   default.json  <  preset / your JSON  <  build_config() kwargs  <  render(...) kwargs
+   ```
+
+6. **Tweak fields not exposed as kwargs.** `build_config()`'s kwargs cover the common style knobs only. For everything else (e.g. `vdw_interlocking`, `mo_outline_width`, `surface_style`, `skeletal_label_color`, the `overlay` block) set the value in your JSON file, or mutate the `RenderConfig` directly:
+
+   ```python
+   cfg = build_config("./my_style.json")
+   cfg.surface_style = "mesh"
+   cfg.mo_outline_width = 5.0
+   cfg.overlay.color = "teal"
+   render(mol, config=cfg)
+   ```
+
+The full set of valid keys is the `RenderConfig` dataclass in [`src/xyzrender/types.py`](https://github.com/aligfellow/xyzrender/blob/main/src/xyzrender/types.py) — see the [Types reference](api/types.rst) for the rendered version.
 
 ## Output formats
 

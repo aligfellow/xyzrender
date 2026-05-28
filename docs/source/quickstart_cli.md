@@ -33,4 +33,4 @@ From stdin:
 cat caffeine.xyz | xyzrender
 ```
 
-See [User Guide](userguide.md) for all input formats, configuration, and the full CLI flag reference.
+See [Input formats](formats.md), [Configuration](configuration.md), [Orientation](orientation.md), and the full [CLI reference](cli_reference.md) for everything else.

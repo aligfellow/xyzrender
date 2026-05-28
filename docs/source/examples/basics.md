@@ -1,10 +1,12 @@
 # Basics
 
+> **Python.** All `xyzrender` flags below map 1:1 to keyword arguments on `render()` (`--config flat` → `config="flat"`, `--hy` → `hy=True`, `--vdw "1-6"` → `vdw=[1, 2, 3, 4, 5, 6]` or `vdw="1-6"`). Most snippets on this page are CLI; equivalent Python is shown where the call shape adds something (lists for selections, kwargs for DoF/glow strength). See the [Python API guide](../python_api.md).
+
 ## Presets
 
-| Default | Flat | Paton (PyMOL-like) | Bubble |
-|---------|------|-------------------|--------|
-| ![Default](../../../examples/images/caffeine_default.svg) | ![Flat](../../../examples/images/caffeine_flat.svg) | ![Paton (PyMOL-like)](../../../examples/images/caffeine_paton.svg) | ![Bubble](../../../examples/images/caffeine_bubble.svg) |
+| Default | Flat | Paton (PyMOL-like) | Bubble | vdW |
+|---------|------|-------------------|--------|-----|
+| ![Default](../../../examples/images/caffeine_default.svg) | ![Flat](../../../examples/images/caffeine_flat.svg) | ![Paton (PyMOL-like)](../../../examples/images/caffeine_paton.svg) | ![Bubble](../../../examples/images/caffeine_bubble.svg) | ![vdW](../../../examples/images/caffeine_vdw.svg) |
 
 | Tube | Wire | Pmol | MTube | BTube |
 |------|------|------|-------|-------|
@@ -16,6 +18,7 @@ xyzrender caffeine.xyz --config flat          # flat: no gradient
 xyzrender caffeine.xyz --config paton         # paton: PyMOL-style
 xyzrender caffeine.xyz --config pmol          # pmol: ball-and-stick + element-coloured bonds (PyMOL-inspired)
 xyzrender caffeine.xyz --config bubble --hy   # space-filling-like
+xyzrender caffeine.xyz --config vdw           # vdw: true space-filling, interlocked silhouettes
 xyzrender caffeine.xyz --config tube          # tube: cylinder-shaded sticks
 xyzrender caffeine.xyz --config mtube         # mtube: metal tube with edge stroke
 xyzrender caffeine.xyz --config btube         # btube: ball-and-tube with element-coloured bonds
