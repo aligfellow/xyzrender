@@ -1478,6 +1478,8 @@ def render_gif(
     trj_bonds: bool = False,
     # --- NCI detection (gif_ts / gif_trj / gif_rot) ---
     detect_nci: bool = False,
+    # --- Manual TS bonds (1-indexed atom numbering) ---
+    ts_bonds: list[tuple[int, int]] | None = None,
     # --- Vector arrows (gif_rot only) ---
     vector: str | Path | dict | list[VectorArrow] | None = None,
     vector_scale: float | None = None,
@@ -1544,6 +1546,9 @@ def render_gif(
         Mutually exclusive with *gif_rot*.
     gif_ts:
         Transition-state vibration animation (requires ``xyzrender[ts]``).
+    ts_bonds:
+        Manual transition-state bond pairs using 1-indexed atom numbers.
+        In *gif_ts* mode these replace graphRC's detected TS bonds.
     output:
         Output ``.gif`` path.  Defaults to ``<stem>.gif`` beside *molecule*.
     gif_fps:
@@ -1696,6 +1701,8 @@ def render_gif(
 
     if haptic:
         cfg.haptic = True
+
+    _apply_render_overlays(cfg, _gif_graph, ts_bonds=ts_bonds)
 
     if opacity is not None and overlay is None:
         cfg.surface_opacity = opacity

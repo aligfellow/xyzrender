@@ -120,6 +120,116 @@ def test_rotate_frames_preserves_extra_keys():
     assert out[0]["hull_opacity_factor"] == 0.8
 
 
+def test_clear_detected_ts_bonds_overrides_auto():
+    import networkx as nx
+
+    from xyzrender.gif import _clear_detected_ts_bonds
+
+    g = nx.Graph()
+    g.add_edge(0, 1, TS=True)
+    g.add_edge(1, 2, TS=True)
+    g.add_edge(3, 4)
+
+    _clear_detected_ts_bonds(g, [(0, 1)])
+
+    assert "TS" not in g[0][1]
+    assert "TS" not in g[1][2]
+    assert "TS" not in g[3][4]
+
+
+def test_clear_detected_ts_bonds_does_not_change_topology():
+    import networkx as nx
+
+    from xyzrender.gif import _clear_detected_ts_bonds
+
+    g = nx.Graph([(0, 1), (1, 2)])
+    g[0][1]["TS"] = True
+
+    _clear_detected_ts_bonds(g, [(0, 2)])
+
+    assert set(g.edges) == {(0, 1), (1, 2)}
+    assert "TS" not in g[0][1]
+
+
+@pytest.mark.parametrize("pair", [(0, 0), (0, 3)])
+def test_clear_detected_ts_bonds_rejects_invalid_pair(pair):
+    import networkx as nx
+
+    from xyzrender.gif import _clear_detected_ts_bonds
+
+    g = nx.Graph([(0, 1), (1, 2)])
+
+    with pytest.raises(ValueError, match="--ts-bond"):
+        _clear_detected_ts_bonds(g, [pair])
+
+
+def test_clear_detected_ts_bonds_noop_when_empty():
+    import networkx as nx
+
+    from xyzrender.gif import _clear_detected_ts_bonds
+
+    g = nx.Graph()
+    g.add_edge(0, 1, TS=True)
+
+    _clear_detected_ts_bonds(g, [])
+
+    assert g[0][1].get("TS") is True
+
+
+def test_render_vibration_gif_uses_manual_ts_bonds(tmp_path):
+    from unittest.mock import patch
+
+    import networkx as nx
+
+    from xyzrender.gif import render_vibration_gif
+    from xyzrender.types import RenderConfig
+
+    graph = nx.Graph()
+    for i in range(3):
+        graph.add_node(i, symbol="C", position=(float(i), 0.0, 0.0))
+    graph.add_edge(0, 1, TS=True)
+    graph.add_edge(1, 2, TS=True)
+    frames = [{"symbols": ["C", "C", "C"], "positions": [[0, 0, 0], [1, 0, 0], [2, 0, 0]]}]
+    analysis = {"graph": {"ts_graph": graph}, "trajectory": {"frames": frames}}
+    captured = {}
+
+    def _capture(render_graph, _frames, config, **_kwargs):
+        captured["graph"] = render_graph
+        captured["config"] = config
+        return [b""]
+
+    with (
+        patch("graphrc.run_vib_analysis", return_value=analysis),
+        patch("xyzrender.gif._render_frames", side_effect=_capture),
+        patch("xyzrender.gif._stitch_gif"),
+    ):
+        render_vibration_gif(
+            "ts.out",
+            RenderConfig(auto_orient=False, ts_bonds=[(0, 2)]),
+            str(tmp_path / "ts.gif"),
+        )
+
+    assert all("TS" not in data for _i, _j, data in captured["graph"].edges(data=True))
+    assert not captured["graph"].has_edge(0, 2)
+    assert captured["config"].ts_bonds == [(0, 2)]
+
+
+def test_render_gif_ts_accepts_manual_ts_bonds(tmp_path):
+    from unittest.mock import patch
+
+    from xyzrender import render_gif
+
+    with patch("xyzrender.gif.render_vibration_gif") as mock_render:
+        render_gif(
+            STRUCTURES / "sn2.out",
+            gif_ts=True,
+            ts_bonds=[(1, 3)],
+            output=tmp_path / "ts.gif",
+        )
+
+    assert mock_render.call_args.kwargs["config"].ts_bonds == [(0, 2)]
+
+
 def test_render_trajectory_gif_trj_bonds(tmp_path):
     """trj_bonds=True must rebuild graphs per frame, and those graphs must
     survive the orient/rotate transforms and reach the worker."""

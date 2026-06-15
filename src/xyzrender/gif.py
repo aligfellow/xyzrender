@@ -162,6 +162,24 @@ def _copy_ts_nci_attrs(target: "nx.Graph", reference: "nx.Graph") -> None:
                     target[u][v][attr] = d[attr]
 
 
+def _clear_detected_ts_bonds(ts_graph: "nx.Graph", ts_bonds: list[tuple[int, int]]) -> None:
+    """Clear graphRC's TS selection when manual renderer bonds are present."""
+    if not ts_bonds:
+        return
+
+    n_atoms = ts_graph.number_of_nodes()
+    for i, j in ts_bonds:
+        if i == j:
+            msg = f"--ts-bond cannot connect atom {i + 1} to itself"
+            raise ValueError(msg)
+        if i not in ts_graph or j not in ts_graph:
+            msg = f"--ts-bond pair ({i + 1}, {j + 1}) out of range for molecule with {n_atoms} atoms"
+            raise ValueError(msg)
+
+    for _u, _v, d in ts_graph.edges(data=True):
+        d.pop("TS", None)
+
+
 def render_vibration_gif(
     path: str,
     config: RenderConfig,
@@ -216,6 +234,8 @@ def render_vibration_gif(
 
     ts_graph = results["graph"]["ts_graph"]
     frames = results["trajectory"]["frames"]
+
+    _clear_detected_ts_bonds(ts_graph, config.ts_bonds)
 
     # NCI: detect once on TS geometry, apply to all frames
     fixed_ncis = None
