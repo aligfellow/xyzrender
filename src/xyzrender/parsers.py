@@ -672,8 +672,8 @@ def parse_shelxl(path: str | Path) -> MolData:
     shx.read_file(str(path))
 
     atoms: list[tuple[str, tuple[float, float, float]]] = []
-    if hasattr(shx, "atoms") and hasattr(shx.atoms, "all_atoms"):
-        for atom in shx.atoms.all_atoms:
+    if hasattr(shx, "pack"):
+        for atom in shx.pack():
             sym = (
                 atom.element.capitalize()
                 if hasattr(atom, "element") and atom.element
