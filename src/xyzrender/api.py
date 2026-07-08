@@ -361,6 +361,50 @@ def load(
             nci_detect=nci_detect,
             reference_mol=reference_mol,
         )
+    
+    # --- Molobject: load rdkit MolObject and conformers (ensemble) ---
+    from xyzrender.readers import _looks_like_rdkit_mol
+
+    if _looks_like_rdkit_mol(molecule): #Attribution check for rdkit MolObject without needing rdkit.Chem import
+        if molecule.GetNumConformers() == 0:
+            msg = "rdkit MolObject has no conformers; embed it first or use smiles"
+            raise ValueError(msg)
+        if molecule.GetNumConformers() > 1: # Defaults to drawing multiple conformers as ensemble
+            mol = _build_ensemble_molecule(
+            molecule,
+            reference_frame=reference_frame,
+            max_frames=max_frames,
+            align_atoms=align_atoms,
+            ensemble_color=ensemble_color,
+            ensemble_opacity=ensemble_opacity,
+            auto_align=auto_align,
+            charge=charge,
+            multiplicity=multiplicity,
+            kekule=kekule,
+            rebuild=rebuild,
+            quick=quick,
+            nci_detect=nci_detect,
+            reference_mol=reference_mol,
+            )
+            return mol
+        else:
+            from xyzrender.parsers import parse_molobject
+            from xyzrender.readers import graph_from_moldata
+            data = parse_molobject(molecule)
+            graph = graph_from_moldata(
+                data,
+                charge=charge,
+                multiplicity=multiplicity,
+                kekule=kekule,
+                rebuild=rebuild,
+                quick=quick,
+            )
+
+            if nci_detect:
+                from xyzrender.readers import detect_nci
+                graph = detect_nci(graph)
+        
+            return Molecule(graph=graph)
 
     import xyzrender.parsers as fmt
     from xyzrender.readers import graph_from_moldata
@@ -1945,7 +1989,6 @@ def render_gif(
 # Ensemble overlay
 # ---------------------------------------------------------------------------
 
-
 def _resolve_ensemble_colors(
     ensemble_color: str | list[str] | None,
     n_conformers: int,
@@ -2003,10 +2046,15 @@ def _build_ensemble_molecule(
     interactive orientation be applied before ensemble alignment.
     """
     from xyzrender.ensemble import align as ensemble_align
-    from xyzrender.readers import load_molecule, load_trajectory_frames
-
-    traj_path = Path(str(trajectory))
-    frames = load_trajectory_frames(traj_path)
+    from xyzrender.readers import load_molecule, load_trajectory_frames, _load_rdkit_frames, _looks_like_rdkit_mol
+    
+    is_rdkit_mol = _looks_like_rdkit_mol(trajectory)
+    if is_rdkit_mol:
+        frames = _load_rdkit_frames(trajectory)
+        traj_path = None
+    else:
+        traj_path = Path(str(trajectory))
+        frames = load_trajectory_frames(traj_path)
     if len(frames) < 2:
         msg = "ensemble: trajectory must contain at least two frames"
         raise ValueError(msg)
@@ -2039,6 +2087,27 @@ def _build_ensemble_molecule(
         ref_graph = copy.deepcopy(reference_mol.graph)
         cell_data = copy.deepcopy(reference_mol.cell_data)
         oriented = reference_mol.oriented
+    elif is_rdkit_mol:
+        from xyzrender.parsers import parse_molobject
+        from xyzrender.readers import graph_from_moldata
+
+        conf = trajectory.GetConformers()[reference_frame]
+        data = parse_molobject(
+            trajectory,
+            conf_id=conf.GetId(),
+        )
+
+        ref_graph = graph_from_moldata(
+            data,
+            charge=charge,
+            multiplicity=multiplicity,
+            kekule=kekule,
+            rebuild=rebuild,
+            quick=quick,
+        )
+        cell_data = None
+        oriented = False
+
     else:
         ref_graph, cell_data = load_molecule(
             traj_path,
