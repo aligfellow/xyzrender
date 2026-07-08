@@ -361,50 +361,36 @@ def load(
             nci_detect=nci_detect,
             reference_mol=reference_mol,
         )
-    
-    # --- Molobject: load rdkit MolObject and conformers (ensemble) ---
+
+    # --- Molobject: load rdkit MolObject and only one conformer ---
     from xyzrender.readers import _looks_like_rdkit_mol
 
-    if _looks_like_rdkit_mol(molecule): #Attribution check for rdkit MolObject without needing rdkit.Chem import
-        if molecule.GetNumConformers() == 0:
+    if _looks_like_rdkit_mol(molecule):  # Attribution check for rdkit MolObject without needing rdkit.Chem import
+        get_num_conformers = getattr(molecule, "GetNumConformers", None)
+        if not callable(get_num_conformers):
+            msg = "rdkit MolObject does not expose GetNumConformers"
+            raise TypeError(msg)
+        n_conformers = get_num_conformers()
+        if n_conformers == 0:
             msg = "rdkit MolObject has no conformers; embed it first or use smiles"
             raise ValueError(msg)
-        if molecule.GetNumConformers() > 1: # Defaults to drawing multiple conformers as ensemble
-            mol = _build_ensemble_molecule(
-            molecule,
-            reference_frame=reference_frame,
-            max_frames=max_frames,
-            align_atoms=align_atoms,
-            ensemble_color=ensemble_color,
-            ensemble_opacity=ensemble_opacity,
-            auto_align=auto_align,
+        from xyzrender.parsers import parse_molobject
+        from xyzrender.readers import graph_from_moldata
+
+        data = parse_molobject(molecule)  # defaults to conf_id = -1
+        graph = graph_from_moldata(
+            data,
             charge=charge,
             multiplicity=multiplicity,
             kekule=kekule,
             rebuild=rebuild,
             quick=quick,
-            nci_detect=nci_detect,
-            reference_mol=reference_mol,
-            )
-            return mol
-        else:
-            from xyzrender.parsers import parse_molobject
-            from xyzrender.readers import graph_from_moldata
-            data = parse_molobject(molecule)
-            graph = graph_from_moldata(
-                data,
-                charge=charge,
-                multiplicity=multiplicity,
-                kekule=kekule,
-                rebuild=rebuild,
-                quick=quick,
-            )
+        )
+        if nci_detect:
+            from xyzrender.readers import detect_nci
 
-            if nci_detect:
-                from xyzrender.readers import detect_nci
-                graph = detect_nci(graph)
-        
-            return Molecule(graph=graph)
+            graph = detect_nci(graph)
+        return Molecule(graph=graph)
 
     import xyzrender.parsers as fmt
     from xyzrender.readers import graph_from_moldata
@@ -1989,6 +1975,7 @@ def render_gif(
 # Ensemble overlay
 # ---------------------------------------------------------------------------
 
+
 def _resolve_ensemble_colors(
     ensemble_color: str | list[str] | None,
     n_conformers: int,
@@ -2046,12 +2033,20 @@ def _build_ensemble_molecule(
     interactive orientation be applied before ensemble alignment.
     """
     from xyzrender.ensemble import align as ensemble_align
-    from xyzrender.readers import load_molecule, load_trajectory_frames, _load_rdkit_frames, _looks_like_rdkit_mol
-    
+    from xyzrender.readers import (
+        _load_rdkit_frames,
+        _looks_like_rdkit_mol,
+        load_molecule,
+        load_trajectory_frames,
+    )
+
     is_rdkit_mol = _looks_like_rdkit_mol(trajectory)
     if is_rdkit_mol:
-        frames = _load_rdkit_frames(trajectory)
-        traj_path = None
+        if hasattr(trajectory, "GetConformers"):
+            frames = _load_rdkit_frames(trajectory)
+            traj_path = None
+        else:
+            raise AttributeError("Molecule doesn't have conformers attribute")
     else:
         traj_path = Path(str(trajectory))
         frames = load_trajectory_frames(traj_path)
@@ -2091,7 +2086,13 @@ def _build_ensemble_molecule(
         from xyzrender.parsers import parse_molobject
         from xyzrender.readers import graph_from_moldata
 
-        conf = trajectory.GetConformers()[reference_frame]
+        get_conformers = getattr(trajectory, "GetConformers", None)
+        if not callable(get_conformers):
+            msg = "rdkit MolObject does not expose GetConformers"
+            raise TypeError(msg)
+        conformers = get_conformers()
+
+        conf = conformers[reference_frame]
         data = parse_molobject(
             trajectory,
             conf_id=conf.GetId(),
@@ -2109,6 +2110,7 @@ def _build_ensemble_molecule(
         oriented = False
 
     else:
+        assert traj_path is not None
         ref_graph, cell_data = load_molecule(
             traj_path,
             frame=reference_frame,
