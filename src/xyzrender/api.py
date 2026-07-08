@@ -761,6 +761,7 @@ def render(
     cell_color: str | None = None,
     cell_width: float | None = None,
     ghost_opacity: float | None = None,
+    whole: bool = False,
     # --- Rendering overlays (1-indexed atom numbering) ---
     ts_bonds: list[tuple[int, int]] | None = None,
     nci_bonds: list[tuple[int, int]] | None = None,
@@ -1222,6 +1223,7 @@ def render(
             cell_width=cell_width,
             ghost_opacity=ghost_opacity,
             bo_explicit=bo,
+            whole=whole,
         )
     elif "lattice" in mol.graph.graph:
         logger.info("Lattice found in graph; use load(..., cell=True) to draw the unit cell box")
@@ -1467,6 +1469,7 @@ def render_gif(
     cell_color: str | None = None,
     cell_width: float | None = None,
     ghost_opacity: float | None = None,
+    whole: bool = False,
 ) -> GIFResult:
     """Render a molecule to an animated GIF and return a :class:`GIFResult`.
 
@@ -1897,6 +1900,7 @@ def render_gif(
                 cell_width=cell_width,
                 ghost_opacity=ghost_opacity,
                 bo_explicit=bo,
+                whole=whole,
             )
             ref_graph = _cell_mol.graph
 
@@ -2960,6 +2964,7 @@ def _apply_cell_config(
     cell_width: float | None,
     ghost_opacity: float | None,
     bo_explicit: bool | None,
+    whole: bool = False,
 ) -> None:
     """Configure crystal/cell display options on *cfg* from *mol.cell_data*."""
     cell_data = mol.cell_data
@@ -2978,6 +2983,14 @@ def _apply_cell_config(
         cfg.cell_line_width = cell_width
     if ghost_opacity is not None:
         cfg.periodic_image_opacity = ghost_opacity
+
+    # Reassemble molecules split across periodic boundaries.
+    # Must run *before* any rotation (axis HKL or interactive viewer) so that
+    # boundary detection operates in the original unrotated coordinate frame.
+    if whole:
+        from xyzrender.crystal import make_whole
+
+        make_whole(mol.graph, cell_data)
 
     # axis HKL: orient so [hkl] points along the viewing (+z) axis
     if axis is not None:
@@ -3011,8 +3024,9 @@ def _apply_cell_config(
             ]
         )
 
-    # Ghost (periodic image) atoms — default: on when cell_data is present
-    _show_ghosts = ghosts if ghosts is not None else True
+    # Ghost (periodic image) atoms — default: on when cell_data is present,
+    # but disabled when --whole is active (molecules are already reassembled).
+    _show_ghosts = ghosts if ghosts is not None else (not whole)
     if _show_ghosts:
         from xyzrender.crystal import add_crystal_images
         from xyzrender.types import CellData as _CellData

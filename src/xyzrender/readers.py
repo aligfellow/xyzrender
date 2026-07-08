@@ -252,6 +252,8 @@ def load_molecule(
             # so without this adjustment the cell box appears disconnected.
             centroid = np.array([pos for _, pos in data.atoms], dtype=float).mean(axis=0)
             cell_origin = centroid - 0.5 * data.pbc_cell.sum(axis=0)
+            graph.graph["lattice"] = data.pbc_cell
+            graph.graph["lattice_origin"] = cell_origin
             crystal = CellData(lattice=data.pbc_cell, cell_origin=cell_origin)
     elif p.endswith(".smi"):
         smi = Path(p).read_text(encoding="utf-8").splitlines()[0].strip()
@@ -269,6 +271,8 @@ def load_molecule(
         # CIF is always periodic — bond orders are always suppressed at render time
         graph = build_graph(data.atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=True)
         assert data.pbc_cell is not None
+        graph.graph["lattice"] = data.pbc_cell
+        graph.graph["lattice_origin"] = np.zeros(3)
         crystal = CellData(lattice=data.pbc_cell)
     elif _is_vasp_file(p):
         from xyzrender.inputs import parse_poscar

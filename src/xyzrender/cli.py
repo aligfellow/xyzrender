@@ -925,6 +925,12 @@ def main() -> None:
         metavar=("M", "N", "L"),
         help="Repeat the unit cell M N L times along a, b, c. Default: 1 1 1.",
     )
+    crystal_g.add_argument(
+        "--whole",
+        action="store_true",
+        default=False,
+        help="Reassemble molecules split across periodic boundaries. Ghost atoms are disabled.",
+    )
 
     args = p.parse_args()
 
@@ -1298,6 +1304,14 @@ def main() -> None:
                 args.ref,
             )
         else:
+            # Reassemble molecules before interactive rotation so the viewer
+            # shows whole molecules and boundary detection works on the
+            # original (unrotated) coordinate frame.
+            if args.whole and mol.cell_data is not None:
+                from xyzrender.crystal import make_whole
+
+                make_whole(mol.graph, mol.cell_data)
+
             # Pre-loaded overlay (if any) receives the same rigid rotation so its
             # geometry tracks the base under --no-align.  With Kabsch alignment
             # this is a harmless no-op (Kabsch re-aligns).
@@ -1404,6 +1418,7 @@ def main() -> None:
             cell_color=args.cell_color,
             cell_width=args.cell_width,
             ghost_opacity=args.ghost_opacity,
+            whole=args.whole,
             mo=args.mo,
             dens=args.dens,
             esp=args.esp,
@@ -1522,6 +1537,7 @@ def main() -> None:
                 cell_color=args.cell_color,
                 cell_width=args.cell_width,
                 ghost_opacity=args.ghost_opacity,
+                whole=args.whole,
                 vector=args.vector,
                 vector_scale=args.vector_scale,
                 glow=args.glow,
