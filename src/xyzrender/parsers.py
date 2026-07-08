@@ -649,3 +649,48 @@ def parse_cif(path: str | Path) -> MolData:
         (sym, (float(x), float(y), float(z))) for sym, (x, y, z) in zip(symbols, positions, strict=True)
     ]
     return MolData(atoms=atoms, bonds=None, pbc_cell=cell, name=str(path))
+
+
+# ---------------------------------------------------------------------------
+# SHELXL  (requires shelxfile)
+# ---------------------------------------------------------------------------
+
+
+def parse_shelxl(path: str | Path) -> MolData:
+    """Parse a SHELXL .res or .ins file via shelxfile. Requires ``pip install 'xyzrender[shelxl]'``.
+
+    bonds is None (we don't extract them from SHELXL currently, relying on distance detection);
+    pbc_cell holds the lattice matrix.
+    """
+    try:
+        from shelxfile import Shelxfile
+    except ImportError:
+        msg = "SHELXL parsing requires shelxfile: pip install 'xyzrender[shelxl]'"
+        raise ImportError(msg) from None
+
+    shx = Shelxfile()
+    shx.read_file(str(path))
+
+    atoms: list[tuple[str, tuple[float, float, float]]] = []
+    if hasattr(shx, "atoms") and hasattr(shx.atoms, "all_atoms"):
+        for atom in shx.atoms.all_atoms:
+            sym = (
+                atom.element.capitalize()
+                if hasattr(atom, "element") and atom.element
+                else atom.name.rstrip("0123456789").capitalize()
+            )
+            if hasattr(atom, "cart_coords") and atom.cart_coords is not None:
+                x, y, z = atom.cart_coords
+            elif hasattr(atom, "xc") and hasattr(atom, "yc") and hasattr(atom, "zc"):
+                x, y, z = atom.xc, atom.yc, atom.zc
+            else:
+                x, y, z = 0.0, 0.0, 0.0
+            atoms.append((sym, (float(x), float(y), float(z))))
+
+    pbc_cell = None
+    if hasattr(shx, "cell"):
+        c = shx.cell
+        if all(hasattr(c, attr) for attr in ("a", "b", "c", "alpha", "beta", "gamma")):
+            pbc_cell = _abc_angles_to_cell(c.a, c.b, c.c, c.alpha, c.beta, c.gamma)
+
+    return MolData(atoms=atoms, bonds=None, pbc_cell=pbc_cell, name=str(path))

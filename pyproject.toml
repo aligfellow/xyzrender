@@ -34,8 +34,9 @@ xyzrender = "xyzrender.cli:main"
 [project.optional-dependencies]
 smi     = ["rdkit"]
 cif     = ["ase"]
+shelxl  = ["shelxfile"]
 v       = ["vmol>=3.0rc7"]
-all     = ["rdkit", "ase", "vmol>=3.0rc7"]
+all     = ["rdkit", "ase", "vmol>=3.0rc7", "shelxfile"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

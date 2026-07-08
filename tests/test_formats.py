@@ -24,6 +24,7 @@ _WATER_PDB = _STRUCTURES / "water.pdb"
 _WATER_PDB_CRYST = _STRUCTURES / "water_cryst.pdb"
 _ALA_PDB = _STRUCTURES / "ala_phe_ala.pdb"
 _CIF_FILE = _STRUCTURES / "caffeine_cif.cif"
+_SHELXL_FILE = _STRUCTURES / "roy.res"
 
 _CAFFEINE_ATOMS = 24  # C8N4O2 + 10H
 
@@ -316,6 +317,35 @@ class TestParseCif:
         from xyzrender.types import CellData
 
         g, crystal = load_molecule(_CIF_FILE)
+        assert g.number_of_nodes() > 0
+        assert isinstance(crystal, CellData)
+        assert crystal.lattice.shape == (3, 3)
+
+
+# ---------------------------------------------------------------------------
+# parse_shelxl / load_molecule(.res/.ins) -- uses examples/structures/roy.res
+# ---------------------------------------------------------------------------
+
+
+class TestParseShelxl:
+    def test_atoms_present(self):
+        from xyzrender.parsers import parse_shelxl
+
+        d = parse_shelxl(_SHELXL_FILE)
+        assert len(d.atoms) > 0
+
+    def test_has_pbc_cell(self):
+        from xyzrender.parsers import parse_shelxl
+
+        d = parse_shelxl(_SHELXL_FILE)
+        assert d.pbc_cell is not None
+        assert d.pbc_cell.shape == (3, 3)
+
+    def test_load_molecule_shelxl_graph(self):
+        from xyzrender.readers import load_molecule
+        from xyzrender.types import CellData
+
+        g, crystal = load_molecule(_SHELXL_FILE)
         assert g.number_of_nodes() > 0
         assert isinstance(crystal, CellData)
         assert crystal.lattice.shape == (3, 3)
