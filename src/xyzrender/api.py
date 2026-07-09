@@ -32,7 +32,7 @@ import copy
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import networkx as nx
 import numpy as np
@@ -247,7 +247,7 @@ class Molecule:
 
 
 def load(
-    molecule: str | os.PathLike,
+    molecule: "str | os.PathLike | Any",
     *,
     smiles: bool = False,
     charge: int = 0,
@@ -271,12 +271,13 @@ def load(
     auto_align: bool = True,
     reference_mol: Molecule | None = None,
 ) -> Molecule:
-    """Load a molecule from file (or SMILES string) and return a :class:`Molecule`.
+    """Load a molecule from file, SMILES string, or RDKit Mol and return a :class:`Molecule`.
 
     Parameters
     ----------
     molecule:
-        Path to the input file, or a SMILES string when *smiles* is ``True``.
+        Path to the input file, a SMILES string when *smiles* is ``True``, or
+        an RDKit ``Mol`` with embedded conformers.
         Supported extensions: ``.xyz``, ``.cube``, ``.cub``, ``.mol``, ``.sdf``,
         ``.mol2``, ``.pdb``, ``.smi``, ``.cif``, and any QM output
         supported by cclib.
@@ -312,8 +313,9 @@ def load(
         ``render(mol, bo=False)``).  CIF and PDB-with-cell always use
         ``quick=True`` automatically regardless of this flag.
     ensemble:
-        Load as a multi-frame trajectory ensemble.  All frames are
-        RMSD-aligned onto *reference_frame* and merged into a single graph.
+        Load as a multi-frame trajectory (or RDKit Mol conformer) ensemble.
+        All frames are RMSD-aligned onto *reference_frame* and merged into a
+        single graph.
     reference_frame:
         Index of the reference frame for ensemble alignment (default: 0).
     max_frames:
