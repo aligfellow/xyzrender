@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xyzrender"
-version = "0.3.1"
+version = "0.3.2"
 description = "Publication-quality molecular graphics."
-authors = [{name = "Dr Alister S. Goodfellow"}]
+authors = [{name = "Alister S. Goodfellow"}]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
