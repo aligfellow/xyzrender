@@ -626,12 +626,13 @@ def parse_smiles(smiles: str, kekule: bool = False) -> MolData:
 # ---------------------------------------------------------------------------
 
 
-def parse_molobject(mol, *, conf_id: int = -1, name: str | None = None) -> MolData:
+def parse_molobject(mol, *, conf_id: int = -1, kekule: bool = False, name: str | None = None) -> MolData:
     """Convert an RDKit Mol with a conformer into xyzrender MolData.
 
     The RDKit mol must already have 3D coordinates unless you add an embedding
     fallback before calling this; ensemble=True expects multiple conformers creating a
-    MolData ensemble
+    MolData ensemble.  ``kekule=True`` converts aromatic bonds to alternating
+    single/double, matching :func:`parse_smiles`.
     """
     try:
         from rdkit import Chem
@@ -644,6 +645,9 @@ def parse_molobject(mol, *, conf_id: int = -1, name: str | None = None) -> MolDa
         raise ValueError(msg)
 
     mol = Chem.Mol(mol)
+
+    if kekule:
+        Chem.Kekulize(mol)
 
     conf = mol.GetConformer(conf_id)
 

@@ -377,7 +377,7 @@ def load(
         from xyzrender.parsers import parse_molobject
         from xyzrender.readers import graph_from_moldata
 
-        data = parse_molobject(molecule)  # defaults to conf_id = -1
+        data = parse_molobject(molecule, kekule=kekule)  # defaults to conf_id = -1
         graph = graph_from_moldata(
             data,
             charge=charge,
