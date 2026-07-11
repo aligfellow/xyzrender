@@ -154,9 +154,9 @@ Full usage, the Python API guide, every flag, and runnable examples live in the 
 |---------|---------------|----------------|-----------------------|
 | ![overlay](examples/images/isothio_overlay.svg) | ![overlay custom](examples/images/isothio_overlay_custom.svg) | ![cross-molecule overlay](examples/images/isothio_overlay_cross.svg) | ![overlay styled](examples/images/isothio_overlay_styled.svg) |
 
-| Ensemble (CPK) | Ensemble (viridis) |
-|----------------|--------------------|
-| ![ensemble](examples/images/triphenylbenzol_ensemble.svg) | ![ensemble custom](examples/images/triphenylbenzol_ensemble_custom.svg) |
+| Ensemble (spectral) | Ensemble (CPK) | Ensemble (viridis) |
+|---------------------|----------------|--------------------|
+| ![ensemble](examples/images/triphenylbenzol_ensemble.svg) | ![ensemble cpk](examples/images/triphenylbenzol_ensemble_cpk.svg) | ![ensemble custom](examples/images/triphenylbenzol_ensemble_custom.svg) |
 
 ### Transition states & NCI
 

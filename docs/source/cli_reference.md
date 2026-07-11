@@ -159,8 +159,8 @@ These flags draw graph-detected bond overlays (dashes / dots) on top of the mole
 | `--overlay-ts` | Run graphRC TS detection on the overlay (mirrors `--ts`; soft-fails if overlay has no freq data) |
 | `--overlay-ts-bond PAIR` | Manual TS bond pair(s) on the overlay, 1-indexed in the overlay's atom list |
 | `--align` / `--no-align` | Force / skip Kabsch/MCS alignment for `--overlay` and `--ensemble`. Default: on |
-| `--ensemble` | Ensemble overlay for multi-frame XYZ trajectories; conformers default to CPK atom colours |
-| `--ensemble-color VALUE` | Palette name (`viridis`, `plasma`, `spectral`, `coolwarm`, `RdBu`, `rainbow`, `batlow`, `roma`, `vik`, `bam`, `managua`), a single colour, or comma-separated colours |
+| `--ensemble` | Ensemble overlay for multi-frame XYZ trajectories; conformers default to the `spectral` palette (pass `--ensemble-color cpk` for per-element atom colours) |
+| `--ensemble-color VALUE` | Palette name (`viridis`, `plasma`, `spectral`, `coolwarm`, `RdBu`, `rainbow`, `batlow`, `roma`, `vik`, `bam`, `managua`), a single colour, comma-separated colours, or `cpk` for per-element atom colours (default: `spectral`) |
 | `--align-atoms SELECTOR` | Alignment candidates for `--overlay` and `--ensemble` (min 3 atoms). 1-indexed IDs (`1,2,3`, `1-6`), element symbols (`Fe,P,Cl`), categories (`M`, `L`, `het`, `sbm`), or a mix (`1-5,Fe`). Metal-containing specs pivot on the metal so paired metals coincide; otherwise MCS + K-subset Kabsch picks the lowest-RMSD candidate |
 
 Fine-grained overlay style (`atom_stroke_width`, `atom_stroke_color`, `bond_color`, `bond_outline_*`) lives in preset JSON or `OverlayConfig` only — not exposed as CLI flags.
