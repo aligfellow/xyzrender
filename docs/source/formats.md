@@ -81,6 +81,8 @@ xyzrender --smi "C1CCCCC1" --hy -o cyclohexane.svg
 
 An XYZ file of the optimised 3D geometry is automatically saved alongside the rendered image (e.g. `cyclohexane.xyz`).
 
+From the Python API you can also pass a prebuilt RDKit `Mol` (with embedded 3D conformers) directly to `load()` — `load(mol)` renders one conformer, `load(mol, ensemble=True)` overlays all of them. See [Python API](python_api.md).
+
 ## CIF
 
 Requires `pip install 'xyzrender[cif]'` (ase):
