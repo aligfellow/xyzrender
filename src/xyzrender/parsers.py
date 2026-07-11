@@ -746,9 +746,8 @@ def parse_shelxl(path: str | Path) -> MolData:
             atoms.append((sym, (float(x), float(y), float(z))))
 
     pbc_cell = None
-    if hasattr(shx, "cell"):
-        c = shx.cell
-        if all(hasattr(c, attr) for attr in ("a", "b", "c", "alpha", "beta", "gamma")):
-            pbc_cell = _abc_angles_to_cell(c.a, c.b, c.c, c.alpha, c.beta, c.gamma)
+    cell = getattr(shx, "cell", None)
+    if cell is not None:
+        pbc_cell = _abc_angles_to_cell(cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma)
 
     return MolData(atoms=atoms, bonds=None, pbc_cell=pbc_cell, name=str(path))
