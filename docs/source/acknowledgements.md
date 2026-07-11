@@ -39,6 +39,9 @@ Falls back to CairoSVG automatically (filters silently ignored). SVG output alwa
 - [James O'Brien (@JamesOBrien2)](https://github.com/JamesOBrien2) — stereochemistry detection and integration, nci/ts colour control, graph styling, pmol styling, colour palette extension, ase viewer integration, igmh cubes
 - [Vinicius Port (@caprilesport)](https://github.com/caprilesport) — `v` binary path discovery
 - [Lucas Attia (@lucasattia)](https://github.com/lucasattia) — transparent background
+- [Jonathan Di Pietro (@jonathandip)](https://github.com/jonathandip) — CVD colour palettes, bug fixes
+- [Henry Teahan (@HenryTeahan)](https://github.com/HenryTeahan) — direct rdkit mol object rendering
+- [Pedro Juan Royo (@Parzival1918)](https://github.com/Parzival1918) — unwrap for molecular crystals, SHELXL support
 
 ## License
 
