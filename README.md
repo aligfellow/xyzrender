@@ -208,9 +208,13 @@ Full usage, the Python API guide, every flag, and runnable examples live in the 
 
 ### Crystal / periodic structures
 
-| Unit cell | Rotation | VASP | Supercell 2×2×1 | Viewing direction |
-|-----------|----------|------|-----------------|-------------------|
-| ![cell](examples/images/caffeine_cell.svg) | ![cell rot](examples/images/caffeine_cell.gif) | ![vasp](examples/images/NV63_vasp.svg) | ![supercell](examples/images/NV63_cell_supercell_221.svg) | ![111](examples/images/NV63_111.gif) |
+| Unit cell | Unwrapped | Rotation |
+|-----------|-----------|----------|
+| ![cell](examples/images/caffeine_cell.svg) | ![unwrap](examples/images/caffeine_cell_unwrap.svg) | ![cell rot](examples/images/caffeine_cell.gif) |
+
+| VASP | Supercell 2×2×1 | Viewing direction |
+|------|-----------------|-------------------|
+| ![vasp](examples/images/NV63_vasp.svg) | ![supercell](examples/images/NV63_cell_supercell_221.svg) | ![111](examples/images/NV63_111.gif) |
 
 ### GIF animations
 

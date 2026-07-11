@@ -54,6 +54,30 @@ xyzrender NV63.vasp --gif-rot -go NV63_vasp.gif
 xyzrender NV63.in --no-axes -o NV63_qe.svg
 ```
 
+## Unwrap molecules across boundaries
+
+Molecular crystals are often stored with molecules wrapped into the unit cell, so a molecule that straddles a face is split across the periodic boundary. `--unwrap` reassembles each molecule as a single whole fragment by shifting atoms by integer lattice translations, anchoring every molecule at the image where most of its atoms already sat. Ghost atoms are turned off (the molecules are already contiguous), and fully-connected frameworks — ionic or covalent networks with no discrete molecules — are left unchanged.
+
+| Wrapped (default) | Unwrapped (`--unwrap`) |
+|-------------------|------------------------|
+| ![Wrapped](../../../examples/images/caffeine_cell.svg) | ![Unwrapped](../../../examples/images/caffeine_cell_unwrap.svg) |
+
+```bash
+xyzrender caffeine_cell.xyz --unwrap -o caffeine_cell_unwrap.svg
+```
+
+In the Python API this is a `render()` kwarg, or the standalone `unwrap_molecules()` transform on a graph:
+
+```python
+from xyzrender import load, render
+from xyzrender.crystal import unwrap_molecules
+
+mol = load("caffeine_cell.xyz", cell=True)
+render(mol, unwrap=True, output="caffeine_cell_unwrap.svg")
+
+unwrap_molecules(mol.graph, mol.cell_data)  # apply the transform directly
+```
+
 ## Periodic codes
 
 VASP, Quantum ESPRESSO, SIESTA, ABINIT, and CP2K periodic input files are auto-detected from file content. No extra dependencies or flags required.
@@ -91,3 +115,4 @@ xyzrender NV63_cell.xyz --axis 111 --gif-rot 111 -o NV63_111.svg -go NV63_111.gi
 | `--cell-width` | Unit cell box line width (default: 2.0) |
 | `--axis HKL` | Orient looking down a crystallographic direction (e.g. `111`, `001`) |
 | `--supercell M N L` | Repeat the unit cell `M×N×L` times along a/b/c (requires lattice/unit-cell data; default: `1 1 1`) |
+| `--unwrap` | Reassemble molecules split across periodic boundaries so each is drawn whole (disables ghost atoms; frameworks left unchanged) |

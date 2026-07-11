@@ -237,6 +237,18 @@ render(mol, hull="rings", hull_color="teal")       # auto-detect aromatic rings
 
 See [Convex hull, faces & pores](examples/hull.md) for multi-subset hulls and all options.
 
+### Crystal / periodic structures
+
+For structures with a unit cell (loaded with `cell=True` or auto-detected from VASP/QE/CIF/…), `render()` accepts the crystal display kwargs that mirror the CLI flags: `supercell=(m, n, l)`, `ghosts=`, `ghost_opacity=`, `cell_color=`, `cell_width=`, `axis=`, and `unwrap=`.
+
+```python
+mol = load("caffeine_cell.xyz", cell=True)
+render(mol, unwrap=True)                 # reassemble molecules split across boundaries
+render(mol, supercell=(2, 2, 1))         # 2×2×1 supercell with ghost atoms
+```
+
+`unwrap=True` moves atoms by integer lattice translations so each molecule is drawn whole, anchoring every molecule at the image where most of its atoms already sat (it is **not** a centre-of-mass wrap). Ghost (periodic-image) atoms default off when `unwrap` is on, since molecules are already contiguous. Fully-connected frameworks (ionic or covalent networks) have no discrete molecules to reassemble and are left unchanged, with a warning. This is the primary entry point — the CLI `--unwrap` flag simply forwards here. The underlying transform is also exposed as [`xyzrender.crystal.unwrap_molecules(graph, cell_data)`](#) if you want to apply it to a graph directly.
+
 ## Reusing a style config
 
 For a single render, pass `config=` to `render()` directly — `render(mol, config="paton")` and `render(mol, config="./my_style.json")` both work without any helper. Use `build_config()` only when you want to build the styling **once** and reuse it across many renders:

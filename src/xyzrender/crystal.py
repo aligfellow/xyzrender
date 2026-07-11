@@ -13,6 +13,9 @@ build_supercell
 add_crystal_images
     Populate a crystal graph with ghost atoms from the 26 neighbouring unit
     cells so that bonds crossing cell boundaries are visible.
+unwrap_molecules
+    Move atoms in a graph so that molecules are not split across periodic
+    boundaries.
 """
 
 from __future__ import annotations
@@ -38,7 +41,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["add_crystal_images", "build_supercell", "load_crystal"]
+__all__ = ["add_crystal_images", "build_supercell", "load_crystal", "unwrap_molecules"]
 
 
 def _build_threshold_matrix(syms: list[str]) -> np.ndarray:
@@ -251,6 +254,153 @@ def load_crystal(
     graph.graph["lattice"] = lattice
     graph.graph["lattice_origin"] = np.zeros(3)
     return graph, CellData(lattice=lattice)
+
+
+def unwrap_molecules(graph: "nx.Graph", crystal_data: CellData) -> None:
+    """Reassemble molecules that are split across periodic boundaries.
+
+    Atoms belonging to the same molecule but separated by a cell boundary are
+    shifted by integer lattice translations so that each molecule is contiguous.
+    Each molecule is anchored at the *modal* lattice shift of its atoms — i.e.
+    the whole molecule is translated to the image where the majority of its atoms
+    already sat — so reassembly moves the molecule as little as possible. This is
+    not a centre-of-mass wrap: a molecule whose atoms mostly lie outside the
+    ``[0, 1)`` fractional range stays there.
+
+    New edges are added between atom pairs that were bonded across boundaries so
+    the renderer draws those bonds.
+
+    Fully-connected periodic structures (frameworks, ionic or covalent networks)
+    have no discrete molecules to reassemble: at least one bond loop returns to
+    its start with a net non-zero lattice shift. Such components are left
+    untouched (positions unchanged, no edges added) and a warning is logged.
+
+    Parameters
+    ----------
+    graph:
+        Molecular graph with ``position`` and ``symbol`` node attributes.
+        Modified in-place.
+    crystal_data:
+        ``CellData`` providing the 3x3 lattice matrix.
+    """
+    from collections import deque
+
+    lattice = np.asarray(crystal_data.lattice, dtype=float)
+    a, b, c = lattice[0], lattice[1], lattice[2]
+    inv_lattice = np.linalg.inv(lattice)
+
+    cell_ids = list(graph.nodes())
+    if not cell_ids:
+        return
+
+    id_to_idx = {node_id: i for i, node_id in enumerate(cell_ids)}
+    cell_syms = [graph.nodes[n]["symbol"] for n in cell_ids]
+    cell_pos = np.array([graph.nodes[n]["position"] for n in cell_ids])
+
+    elem_thresh, eidx, max_cutoff = _build_elem_thresh(cell_syms)
+
+    # Build adjacency: idx → list of (neighbour_idx, lattice_shift_vector, is_cross).
+    # ``is_cross`` is precomputed so the BFS never needs np.any(shift != 0).
+    n_atoms = len(cell_ids)
+    adj: list[list[tuple[int, np.ndarray, bool]]] = [[] for _ in range(n_atoms)]
+
+    # Intra-cell edges (zero shift)
+    _zero = np.zeros(3)
+    for u_id, v_id in graph.edges():
+        u_idx = id_to_idx[u_id]
+        v_idx = id_to_idx[v_id]
+        adj[u_idx].append((v_idx, _zero, False))
+        adj[v_idx].append((u_idx, _zero, False))
+
+    # Cross-boundary bonds via the 26 neighbouring images
+    shifts = [(dx, dy, dz) for dx, dy, dz in _product((-1, 0, 1), repeat=3) if (dx, dy, dz) != (0, 0, 0)]
+    for dx, dy, dz in shifts:
+        offset = dx * a + dy * b + dz * c
+        img_pos = cell_pos + offset
+        pairs = _find_bonded_pairs(img_pos, cell_pos, eidx, eidx, elem_thresh, max_cutoff)
+        for src_idx, tgt_idx in pairs:
+            adj[tgt_idx].append((src_idx, offset, True))
+            adj[src_idx].append((tgt_idx, -offset, True))
+
+    # BFS to find connected components and accumulate shifts.
+    # A component is "periodic" (a framework, not a discrete molecule) if a bond
+    # loop closes with a net non-zero lattice shift — detected when the BFS
+    # reaches an already-visited atom whose accumulated shift disagrees with the
+    # one implied by the current edge. Such components are left untouched.
+    visited = np.zeros(n_atoms, dtype=bool)
+    accumulated = np.zeros((n_atoms, 3), dtype=float)
+    new_edges: set[tuple[int, int]] = set()
+    _frac_tol = 1e-3  # fractional-coordinate tolerance for loop-closure consistency
+    n_periodic = 0
+
+    for start in range(n_atoms):
+        if visited[start]:
+            continue
+
+        queue = deque([start])
+        visited[start] = True
+        component = [start]
+        component_edges: set[tuple[int, int]] = set()
+        periodic = False
+
+        while queue:
+            curr = queue.popleft()
+            for nbr, shift, is_cross in adj[curr]:
+                if not visited[nbr]:
+                    visited[nbr] = True
+                    accumulated[nbr] = accumulated[curr] + shift
+                    queue.append(nbr)
+                    component.append(nbr)
+                elif not periodic:
+                    # Loop-closure check: the shift implied by this edge must
+                    # match the already-assigned accumulated shift.
+                    residual = accumulated[nbr] - (accumulated[curr] + shift)
+                    if np.abs(residual @ inv_lattice).max() > _frac_tol:
+                        periodic = True
+                if is_cross:
+                    pair = (min(cell_ids[curr], cell_ids[nbr]), max(cell_ids[curr], cell_ids[nbr]))
+                    component_edges.add(pair)
+
+        if periodic:
+            # Framework component: undo any accumulated shift and add no bonds.
+            n_periodic += 1
+            accumulated[component] = 0.0
+            continue
+
+        # Anchor the molecule at the image where most of its atoms originally sat:
+        # subtract the modal (most common) integer lattice shift, per dimension.
+        # This keeps the reassembled molecule as close to its original position as
+        # possible.
+        accumulated_frac = accumulated[component] @ inv_lattice
+        best_shift_frac = np.zeros(3)
+        for dim in range(3):
+            vals, counts = np.unique(np.round(accumulated_frac[:, dim]), return_counts=True)
+            best_shift_frac[dim] = vals[np.argmax(counts)]
+        accumulated[component] -= best_shift_frac @ lattice
+        new_edges |= component_edges
+
+    # Apply position shifts
+    for i, shift in enumerate(accumulated):
+        if np.any(shift != 0):
+            old = graph.nodes[cell_ids[i]]["position"]
+            graph.nodes[cell_ids[i]]["position"] = (
+                old[0] + shift[0],
+                old[1] + shift[1],
+                old[2] + shift[2],
+            )
+
+    # Add edges for bonds that spanned boundaries
+    for u_id, v_id in new_edges:
+        if not graph.has_edge(u_id, v_id):
+            graph.add_edge(u_id, v_id, bond_order=1.0)
+
+    if n_periodic:
+        logger.warning(
+            "unwrap_molecules: %d fully-connected periodic component(s) left unchanged "
+            "(frameworks/networks have no discrete molecules to reassemble)",
+            n_periodic,
+        )
+    logger.debug("unwrap_molecules: reassembled molecules in %d-atom cell", n_atoms)
 
 
 def build_supercell(graph: "nx.Graph", cell_data: CellData, repeats: tuple[int, int, int]) -> "nx.Graph":
