@@ -121,7 +121,8 @@ xyzrender "$DIR/ethanol.xyz" --vector "$DIR/ethanol_dip.json" -o "$IMG/ethanol_d
 xyzrender "$DIR/ethanol.xyz" --hy --vector "$DIR/ethanol_forces_efield.json" --vector-scale 1.5 -o "$IMG/ethanol_forces_efield.svg" -go "$IMG/ethanol_forces_efield.gif" --gif-rot  # per-atom forces, with rotation
 
 echo "=== Crystal / unit cell ==="
-xyzrender "$DIR/caffeine_cell.xyz" --cell -o "$IMG/caffeine_cell.svg" --no-orient --gif-rot -go "$IMG/caffeine_cell.gif" 
+xyzrender "$DIR/caffeine_cell.xyz" --cell -o "$IMG/caffeine_cell.svg" --no-orient --gif-rot -go "$IMG/caffeine_cell.gif"
+xyzrender "$DIR/caffeine_cell.xyz" --cell --unwrap --no-orient -o "$IMG/caffeine_cell_unwrap.svg"  # reassemble molecules split across boundaries
 xyzrender "$DIR/caffeine_cell.xyz" --cell-color maroon -o "$IMG/caffeine_cell_custom.svg" # custom edge color
 xyzrender "$DIR/caffeine_cell.xyz" --supercell 2 2 1 -o "$IMG/caffeine_cell_supercell_221.svg"                      # with ghosts
 xyzrender "$DIR/caffeine_cell.xyz" --supercell 2 2 1 --hy -o "$IMG/caffeine_cell_supercell_221_hy.svg"              # ghosts + all H

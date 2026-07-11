@@ -925,6 +925,15 @@ def main() -> None:
         metavar=("M", "N", "L"),
         help="Repeat the unit cell M N L times along a, b, c. Default: 1 1 1.",
     )
+    crystal_g.add_argument(
+        "--unwrap",
+        action="store_true",
+        default=False,
+        help=(
+            "Reassemble molecules split across periodic boundaries so each is drawn whole. "
+            "Ghost atoms are disabled. Fully-connected frameworks are left unchanged."
+        ),
+    )
 
     args = p.parse_args()
 
@@ -1298,6 +1307,13 @@ def main() -> None:
                 args.ref,
             )
         else:
+            # Unwrap before the viewer opens so it shows whole molecules;
+            # render(unwrap=True) re-runs it for the output image.
+            if args.unwrap and mol.cell_data is not None:
+                from xyzrender.crystal import unwrap_molecules
+
+                unwrap_molecules(mol.graph, mol.cell_data)
+
             # Pre-loaded overlay (if any) receives the same rigid rotation so its
             # geometry tracks the base under --no-align.  With Kabsch alignment
             # this is a harmless no-op (Kabsch re-aligns).
@@ -1404,6 +1420,7 @@ def main() -> None:
             cell_color=args.cell_color,
             cell_width=args.cell_width,
             ghost_opacity=args.ghost_opacity,
+            unwrap=args.unwrap,
             mo=args.mo,
             dens=args.dens,
             esp=args.esp,
@@ -1522,6 +1539,7 @@ def main() -> None:
                 cell_color=args.cell_color,
                 cell_width=args.cell_width,
                 ghost_opacity=args.ghost_opacity,
+                unwrap=args.unwrap,
                 vector=args.vector,
                 vector_scale=args.vector_scale,
                 glow=args.glow,

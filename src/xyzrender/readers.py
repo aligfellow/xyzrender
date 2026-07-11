@@ -252,6 +252,8 @@ def load_molecule(
             # so without this adjustment the cell box appears disconnected.
             centroid = np.array([pos for _, pos in data.atoms], dtype=float).mean(axis=0)
             cell_origin = centroid - 0.5 * data.pbc_cell.sum(axis=0)
+            graph.graph["lattice"] = data.pbc_cell
+            graph.graph["lattice_origin"] = cell_origin
             crystal = CellData(lattice=data.pbc_cell, cell_origin=cell_origin)
     elif p.endswith(".smi"):
         smi = Path(p).read_text(encoding="utf-8").splitlines()[0].strip()
@@ -269,6 +271,8 @@ def load_molecule(
         # CIF is always periodic — bond orders are always suppressed at render time
         graph = build_graph(data.atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=True)
         assert data.pbc_cell is not None
+        graph.graph["lattice"] = data.pbc_cell
+        graph.graph["lattice_origin"] = np.zeros(3)
         crystal = CellData(lattice=data.pbc_cell)
     elif p.endswith((".res", ".ins")):
         data = fmt.parse_shelxl(p)
@@ -675,6 +679,42 @@ def _load_xyz_frames(path: str) -> list[dict]:
                 "positions": [list(a[1]) for a in atoms],
             }
         )
+    return frames
+
+
+def _looks_like_rdkit_mol(obj) -> bool:
+    """Return True if *obj* looks like an RDKit Mol without importing rdkit."""
+    cls = type(obj)
+    return (
+        cls.__name__ == "Mol"
+        and cls.__module__.startswith("rdkit.")
+        and hasattr(obj, "GetAtoms")
+        and hasattr(obj, "GetNumAtoms")
+    )
+
+
+def _load_rdkit_frames(mol) -> list[dict]:
+    """Convert RDKit conformers to xyzrender ensemble frame dicts."""
+    symbols = [atom.GetSymbol() for atom in mol.GetAtoms()]
+    frames = []
+    logger.debug(
+        "RDKit MolObject: %d conformers, %d atoms per conformer",
+        mol.GetNumConformers(),
+        mol.GetNumAtoms(),
+    )
+    for conf in mol.GetConformers():
+        positions = []
+        for i in range(mol.GetNumAtoms()):
+            p = conf.GetAtomPosition(i)
+            positions.append([float(p.x), float(p.y), float(p.z)])
+
+        frames.append(  # Frames contains all atom symbols and their positions in a dictionary -> Conformer-wise entry
+            {
+                "symbols": symbols,
+                "positions": positions,
+            }
+        )
+
     return frames
 
 

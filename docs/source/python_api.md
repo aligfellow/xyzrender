@@ -48,6 +48,7 @@ mol = load("ts.out", ts_detect=True)            # detect TS bonds via graphRC
 mol = load("mol.xyz", nci_detect=True)          # detect NCI interactions
 mol = load("mol.sdf", mol_frame=2, kekule=True) # SDF frame + Kekule bonds
 mol = load("CC(=O)O", smiles=True)              # SMILES → 3D (requires rdkit)
+mol = load(rdkit_mol)                           # RDKit Mol w/ embedded confs; ensemble=True overlays all
 mol = load("POSCAR")                            # VASP/QE/SIESTA/ABINIT auto-detected
 mol = load("caffeine_cell.xyz", cell=True)      # extXYZ Lattice= header
 mol = load("mol.xyz", quick=True)               # skip BO detection (faster, use with bo=False)
@@ -235,6 +236,18 @@ render(mol, hull="rings", hull_color="teal")       # auto-detect aromatic rings
 ```
 
 See [Convex hull, faces & pores](examples/hull.md) for multi-subset hulls and all options.
+
+### Crystal / periodic structures
+
+For structures with a unit cell (loaded with `cell=True` or auto-detected from VASP/QE/CIF/…), `render()` accepts the crystal display kwargs that mirror the CLI flags: `supercell=(m, n, l)`, `ghosts=`, `ghost_opacity=`, `cell_color=`, `cell_width=`, `axis=`, and `unwrap=`.
+
+```python
+mol = load("caffeine_cell.xyz", cell=True)
+render(mol, unwrap=True)                 # reassemble molecules split across boundaries
+render(mol, supercell=(2, 2, 1))         # 2×2×1 supercell with ghost atoms
+```
+
+`unwrap=True` moves atoms by integer lattice translations so each molecule is drawn whole, anchoring every molecule at the image where most of its atoms already sat (it is **not** a centre-of-mass wrap). Ghost (periodic-image) atoms default off when `unwrap` is on, since molecules are already contiguous. Fully-connected frameworks (ionic or covalent networks) have no discrete molecules to reassemble and are left unchanged, with a warning. This is the primary entry point — the CLI `--unwrap` flag simply forwards here. The underlying transform is also exposed as [`xyzrender.crystal.unwrap_molecules(graph, cell_data)`](#) if you want to apply it to a graph directly.
 
 ## Reusing a style config
 

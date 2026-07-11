@@ -32,7 +32,7 @@ import copy
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import networkx as nx
 import numpy as np
@@ -247,7 +247,7 @@ class Molecule:
 
 
 def load(
-    molecule: str | os.PathLike,
+    molecule: "str | os.PathLike | Any",
     *,
     smiles: bool = False,
     charge: int = 0,
@@ -271,12 +271,13 @@ def load(
     auto_align: bool = True,
     reference_mol: Molecule | None = None,
 ) -> Molecule:
-    """Load a molecule from file (or SMILES string) and return a :class:`Molecule`.
+    """Load a molecule from file, SMILES string, or RDKit Mol and return a :class:`Molecule`.
 
     Parameters
     ----------
     molecule:
-        Path to the input file, or a SMILES string when *smiles* is ``True``.
+        Path to the input file, a SMILES string when *smiles* is ``True``, or
+        an RDKit ``Mol`` with embedded conformers.
         Supported extensions: ``.xyz``, ``.cube``, ``.cub``, ``.mol``, ``.sdf``,
         ``.mol2``, ``.pdb``, ``.smi``, ``.cif``, and any QM output
         supported by cclib.
@@ -312,8 +313,9 @@ def load(
         ``render(mol, bo=False)``).  CIF and PDB-with-cell always use
         ``quick=True`` automatically regardless of this flag.
     ensemble:
-        Load as a multi-frame trajectory ensemble.  All frames are
-        RMSD-aligned onto *reference_frame* and merged into a single graph.
+        Load as a multi-frame trajectory (or RDKit Mol conformer) ensemble.
+        All frames are RMSD-aligned onto *reference_frame* and merged into a
+        single graph.
     reference_frame:
         Index of the reference frame for ensemble alignment (default: 0).
     max_frames:
@@ -361,6 +363,36 @@ def load(
             nci_detect=nci_detect,
             reference_mol=reference_mol,
         )
+
+    # --- Molobject: load rdkit MolObject and only one conformer ---
+    from xyzrender.readers import _looks_like_rdkit_mol
+
+    if _looks_like_rdkit_mol(molecule):  # Attribution check for rdkit MolObject without needing rdkit.Chem import
+        get_num_conformers = getattr(molecule, "GetNumConformers", None)
+        if not callable(get_num_conformers):
+            msg = "rdkit MolObject does not expose GetNumConformers"
+            raise TypeError(msg)
+        n_conformers = get_num_conformers()
+        if n_conformers == 0:
+            msg = "rdkit MolObject has no conformers; embed it first or use smiles"
+            raise ValueError(msg)
+        from xyzrender.parsers import parse_molobject
+        from xyzrender.readers import graph_from_moldata
+
+        data = parse_molobject(molecule, kekule=kekule)  # defaults to conf_id = -1
+        graph = graph_from_moldata(
+            data,
+            charge=charge,
+            multiplicity=multiplicity,
+            kekule=kekule,
+            rebuild=rebuild,
+            quick=quick,
+        )
+        if nci_detect:
+            from xyzrender.readers import detect_nci
+
+            graph = detect_nci(graph)
+        return Molecule(graph=graph)
 
     import xyzrender.parsers as fmt
     from xyzrender.readers import graph_from_moldata
@@ -761,6 +793,7 @@ def render(
     cell_color: str | None = None,
     cell_width: float | None = None,
     ghost_opacity: float | None = None,
+    unwrap: bool = False,
     # --- Rendering overlays (1-indexed atom numbering) ---
     ts_bonds: list[tuple[int, int]] | None = None,
     nci_bonds: list[tuple[int, int]] | None = None,
@@ -975,6 +1008,15 @@ def render(
         Transparency 0 to 1.  Applied to the overlay when ``overlay`` is
         given, to the ensemble when the molecule is an ensemble, else to the
         active surface.  The three modes are mutually exclusive.
+    unwrap:
+        For periodic structures only.  Reassemble molecules that are split
+        across the cell boundaries so each is drawn whole (see
+        :func:`xyzrender.crystal.unwrap_molecules`), anchoring every molecule at the
+        image where most of its atoms already sat.  Ghost (periodic-image) atoms
+        default off when this is on, since molecules are already contiguous.
+        Fully-connected frameworks are left unchanged.  This is the primary,
+        supported entry point for unwrapping — the CLI ``--unwrap`` flag simply
+        forwards here.
 
     Returns
     -------
@@ -1222,6 +1264,7 @@ def render(
             cell_width=cell_width,
             ghost_opacity=ghost_opacity,
             bo_explicit=bo,
+            unwrap=unwrap,
         )
     elif "lattice" in mol.graph.graph:
         logger.info("Lattice found in graph; use load(..., cell=True) to draw the unit cell box")
@@ -1467,6 +1510,7 @@ def render_gif(
     cell_color: str | None = None,
     cell_width: float | None = None,
     ghost_opacity: float | None = None,
+    unwrap: bool = False,
 ) -> GIFResult:
     """Render a molecule to an animated GIF and return a :class:`GIFResult`.
 
@@ -1897,6 +1941,7 @@ def render_gif(
                 cell_width=cell_width,
                 ghost_opacity=ghost_opacity,
                 bo_explicit=bo,
+                unwrap=unwrap,
             )
             ref_graph = _cell_mol.graph
 
@@ -2003,10 +2048,23 @@ def _build_ensemble_molecule(
     interactive orientation be applied before ensemble alignment.
     """
     from xyzrender.ensemble import align as ensemble_align
-    from xyzrender.readers import load_molecule, load_trajectory_frames
+    from xyzrender.readers import (
+        _load_rdkit_frames,
+        _looks_like_rdkit_mol,
+        load_molecule,
+        load_trajectory_frames,
+    )
 
-    traj_path = Path(str(trajectory))
-    frames = load_trajectory_frames(traj_path)
+    is_rdkit_mol = _looks_like_rdkit_mol(trajectory)
+    if is_rdkit_mol:
+        if hasattr(trajectory, "GetConformers"):
+            frames = _load_rdkit_frames(trajectory)
+            traj_path = None
+        else:
+            raise AttributeError("Molecule doesn't have conformers attribute")
+    else:
+        traj_path = Path(str(trajectory))
+        frames = load_trajectory_frames(traj_path)
     if len(frames) < 2:
         msg = "ensemble: trajectory must contain at least two frames"
         raise ValueError(msg)
@@ -2039,7 +2097,35 @@ def _build_ensemble_molecule(
         ref_graph = copy.deepcopy(reference_mol.graph)
         cell_data = copy.deepcopy(reference_mol.cell_data)
         oriented = reference_mol.oriented
+    elif is_rdkit_mol:
+        from xyzrender.parsers import parse_molobject
+        from xyzrender.readers import graph_from_moldata
+
+        get_conformers = getattr(trajectory, "GetConformers", None)
+        if not callable(get_conformers):
+            msg = "rdkit MolObject does not expose GetConformers"
+            raise TypeError(msg)
+        conformers = get_conformers()
+
+        conf = conformers[reference_frame]
+        data = parse_molobject(
+            trajectory,
+            conf_id=conf.GetId(),
+        )
+
+        ref_graph = graph_from_moldata(
+            data,
+            charge=charge,
+            multiplicity=multiplicity,
+            kekule=kekule,
+            rebuild=rebuild,
+            quick=quick,
+        )
+        cell_data = None
+        oriented = False
+
     else:
+        assert traj_path is not None
         ref_graph, cell_data = load_molecule(
             traj_path,
             frame=reference_frame,
@@ -2960,6 +3046,7 @@ def _apply_cell_config(
     cell_width: float | None,
     ghost_opacity: float | None,
     bo_explicit: bool | None,
+    unwrap: bool = False,
 ) -> None:
     """Configure crystal/cell display options on *cfg* from *mol.cell_data*."""
     cell_data = mol.cell_data
@@ -2978,6 +3065,14 @@ def _apply_cell_config(
         cfg.cell_line_width = cell_width
     if ghost_opacity is not None:
         cfg.periodic_image_opacity = ghost_opacity
+
+    # Reassemble molecules split across periodic boundaries.
+    # Must run *before* any rotation (axis HKL or interactive viewer) so that
+    # boundary detection operates in the original unrotated coordinate frame.
+    if unwrap:
+        from xyzrender.crystal import unwrap_molecules
+
+        unwrap_molecules(mol.graph, cell_data)
 
     # axis HKL: orient so [hkl] points along the viewing (+z) axis
     if axis is not None:
@@ -3011,8 +3106,9 @@ def _apply_cell_config(
             ]
         )
 
-    # Ghost (periodic image) atoms — default: on when cell_data is present
-    _show_ghosts = ghosts if ghosts is not None else True
+    # Ghost (periodic image) atoms — default: on when cell_data is present,
+    # but disabled when unwrap is active (molecules are already reassembled).
+    _show_ghosts = ghosts if ghosts is not None else (not unwrap)
     if _show_ghosts:
         from xyzrender.crystal import add_crystal_images
         from xyzrender.types import CellData as _CellData

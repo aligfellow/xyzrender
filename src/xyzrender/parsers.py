@@ -622,6 +622,64 @@ def parse_smiles(smiles: str, kekule: bool = False) -> MolData:
 
 
 # ---------------------------------------------------------------------------
+# rdkit MolObject
+# ---------------------------------------------------------------------------
+
+
+def parse_molobject(mol, *, conf_id: int = -1, kekule: bool = False, name: str | None = None) -> MolData:
+    """Convert an RDKit Mol with a conformer into xyzrender MolData.
+
+    The RDKit mol must already have 3D coordinates unless you add an embedding
+    fallback before calling this; ensemble=True expects multiple conformers creating a
+    MolData ensemble.  ``kekule=True`` converts aromatic bonds to alternating
+    single/double, matching :func:`parse_smiles`.
+    """
+    try:
+        from rdkit import Chem
+    except ImportError:
+        msg = "MolObject parsing requires rdkit: pip install 'xyzrender[smi]'"
+        raise ImportError(msg) from None
+
+    if mol.GetNumConformers() == 0:
+        msg = "rdkit MolObject has no conformers; embed it first or create Molecule via smiles: load(smiles)"
+        raise ValueError(msg)
+
+    mol = Chem.Mol(mol)
+
+    if kekule:
+        Chem.Kekulize(mol)
+
+    conf = mol.GetConformer(conf_id)
+
+    atoms: list[tuple[str, tuple[float, float, float]]] = []
+    for atom in mol.GetAtoms():
+        pos = conf.GetAtomPosition(atom.GetIdx())
+        atoms.append(
+            (
+                atom.GetSymbol(),
+                (float(pos.x), float(pos.y), float(pos.z)),
+            )
+        )
+    bonds: list[tuple[int, int, float]] = [
+        (
+            bond.GetBeginAtomIdx(),
+            bond.GetEndAtomIdx(),
+            float(bond.GetBondTypeAsDouble()),
+        )
+        for bond in mol.GetBonds()
+    ]
+    charge = int(sum(atom.GetFormalCharge() for atom in mol.GetAtoms()))
+    if not name:
+        name = mol.GetProp("_Name") if mol.HasProp("_Name") else ""
+    return MolData(
+        atoms=atoms,
+        bonds=bonds,
+        name=name,
+        charge=charge,
+    )
+
+
+# ---------------------------------------------------------------------------
 # CIF  (requires ase)
 # ---------------------------------------------------------------------------
 
