@@ -4,7 +4,7 @@
 
 # xyzrender: Publication-quality molecular graphics.
 
-Render molecular structures as publication-quality SVG, PNG, PDF, and animated GIF from XYZ, mol/SDF, MOL2, PDB, SMILES, CIF, cube files, quantum chemistry input or output — from the command line or from Python/Jupyter.
+Render molecular structures as publication-quality SVG, PNG, PDF, and animated GIF from XYZ, mol/SDF, MOL2, PDB, SMILES, CIF, SHELXL, cube files, quantum chemistry input or output — from the command line or from Python/Jupyter.
 
 [![PyPI Downloads](https://static.pepy.tech/badge/xyzrender)](https://pepy.tech/projects/xyzrender)
 [![License](https://img.shields.io/github/license/aligfellow/xyzrender)](https://github.com/aligfellow/xyzrender/blob/main/LICENSE)
@@ -16,7 +16,7 @@ Render molecular structures as publication-quality SVG, PNG, PDF, and animated G
 [![Documentation](https://readthedocs.org/projects/xyzrender/badge/?version=latest)](https://xyzrender.readthedocs.io/en/latest/)
 [![Docs](https://img.shields.io/badge/docs-readthedocs-blue?logo=readthedocs)](https://xyzrender.readthedocs.io)
 
-xyzrender turns molecular structures into clean vector SVG graphics — plus PNG, PDF, and animated GIF — ready for papers, presentations, and supporting information. It reads XYZ, mol/SDF, MOL2, PDB, SMILES, CIF, cube files, and QM input/output files from Gaussian, ORCA, NWChem, Q-Chem, Psi4, MOPAC, GAMESS, Turbomole, and periodic codes (VASP, Quantum ESPRESSO, SIESTA, ABINIT, CP2K). The SVG rendering approach is built on and inspired by [**xyz2svg**](https://github.com/briling/xyz2svg) by [Ksenia Briling **@briling**](https://github.com/briling).
+xyzrender turns molecular structures into clean vector SVG graphics — plus PNG, PDF, and animated GIF — ready for papers, presentations, and supporting information. It reads XYZ, mol/SDF, MOL2, PDB, SMILES, CIF, SHELXL, cube files, and QM input/output files from Gaussian, ORCA, NWChem, Q-Chem, Psi4, MOPAC, GAMESS, Turbomole, and periodic codes (VASP, Quantum ESPRESSO, SIESTA, ABINIT, CP2K). The SVG rendering approach is built on and inspired by [**xyz2svg**](https://github.com/briling/xyz2svg) by [Ksenia Briling **@briling**](https://github.com/briling).
 
 Most molecular visualisation tools require manual setup: loading files into a GUI, tweaking camera angles, exporting at the right resolution and adding specific TS or NCI bonds. `xyzrender` skips this. One command gives you a (mostly) oriented, depth-cued structure with correct bond orders, aromatic ring rendering, automatic bond connectivity, with automatic TS / NCI bond detection. Orientation control is available through an interface to [**v**](https://github.com/briling/v) by [Ksenia Briling **@briling**](https://github.com/briling).
 
@@ -36,8 +36,8 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Conformer ensemble** — overlay all frames from a multi-frame XYZ trajectory, with palette colouring and opacity control
 - **Convex hull, hull faces & pores** — semi-transparent facets over selected atoms or rings, exposed faces of molecular cages, and pore rendering
 - **GIF animations** — rotation, TS vibration, trajectory, diffuse/assembly, and depth-of-field animations
-- **Input formats** — XYZ, mol/SDF, MOL2, PDB, SMILES, CIF, cube files, and QM input/output from Gaussian, ORCA, NWChem, Q-Chem, Psi4, MOPAC, GAMESS, Turbomole, CP2K, VASP, Quantum ESPRESSO, SIESTA, and ABINIT
-- **Crystal / periodic structures** — unit cell box, ghost atoms, supercells, and crystallographic axis arrows; auto-detected from VASP POSCAR, QE pw.in, SIESTA FDF, ABINIT, CP2K, and extXYZ `Lattice=` headers
+- **Input formats** — XYZ, mol/SDF, MOL2, PDB, SMILES, CIF, SHELXL, cube files, and QM input/output from Gaussian, ORCA, NWChem, Q-Chem, Psi4, MOPAC, GAMESS, Turbomole, CP2K, VASP, Quantum ESPRESSO, SIESTA, and ABINIT
+- **Crystal / periodic structures** — unit cell box, ghost atoms, supercells, and crystallographic axis arrows; auto-detected from VASP POSCAR, QE pw.in, SIESTA FDF, ABINIT, CP2K, SHELXL `.res`/`.ins`, CIF, and extXYZ `Lattice=` headers
 - **Multiple output formats** — vector SVG (default), PNG, PDF, and GIF — all from the same command
 
 **Preconfigured but extensible.** Built-in presets (`default`, `flat`, `paton`, `pmol`, `skeletal`, `bubble`, `vdw`, `tube`, `mtube`, `btube`, `wire`, `graph`) cover common use cases. Every setting — colors, radii, bond widths, gradients, fog — can be overridden via CLI flags or a custom JSON config file.
@@ -59,7 +59,7 @@ uvx xyzrender mol.xyz                                              # try without
 pip install git+https://github.com/aligfellow/xyzrender.git        # from source
 ```
 
-Optional extras (`[smi]`, `[cif]`, `[v]`, `[all]`) and full setup in the [installation docs](https://xyzrender.readthedocs.io/en/latest/installation.html).
+Optional extras (`[smi]`, `[cif]`, `[shelxl]`, `[v]`, `[all]`) and full setup in the [installation docs](https://xyzrender.readthedocs.io/en/latest/installation.html).
 
 ## Quick start
 
@@ -264,6 +264,7 @@ Optional dependencies:
 
 - [**rdkit**](https://www.rdkit.org/) — SMILES 3D embedding (`pip install 'xyzrender[smi]'`)
 - [**ase**](https://wiki.fysik.dtu.dk/ase/) — CIF parsing, and ASE viewer integration (`pip install 'xyzrender[cif]'`)
+- [**shelxfile**](https://github.com/dkratzert/ShelXFile) — SHELXL `.res`/`.ins` parsing (`pip install 'xyzrender[shelxl]'`)
 - [**v**](https://github.com/briling/v) — interactive molecule orientation (`pip install xyzrender[v]`, Linux only, not included into `[all]`)
 
 Contributors:
@@ -298,8 +299,7 @@ xyzrender uses [xyzgraph](https://github.com/aligfellow/xyzgraph) and [graphRC](
 
 ## Development
 
-<details>
-<summary>Information on dev setup and CI</summary>
+### Dev setup and justfile
 
 Requires [uv](https://docs.astral.sh/uv/) and [just](https://github.com/casey/just).
 
@@ -324,8 +324,6 @@ just check   # lint + type-check + tests
 ### CI
 
 GitHub Actions runs lint, type-check, and tests on every push to `main` and every PR targeting `main`. Coverage is uploaded to [Codecov](https://codecov.io).
-
-</details>
 
 ## Template
 Generated from [aligfellow/python-template](https://github.com/aligfellow/python-template).

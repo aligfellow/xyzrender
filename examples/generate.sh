@@ -136,6 +136,7 @@ xyzrender "$DIR/NV63_cell.xyz" --no-cell -o "$IMG/NV63_cell_no_cell.svg"
 xyzrender "$DIR/NV63_cell.xyz" --supercell 2 2 1 --no-axes -o "$IMG/NV63_cell_supercell_221.svg"                    # with ghosts
 xyzrender "$DIR/NV63_cell.xyz" --axis 001 -o "$IMG/NV63_001.svg"   # looking down [001]
 xyzrender "$DIR/NV63_cell.xyz" --axis 111 --gif-rot 111 -o "$IMG/NV63_111.svg" -go "$IMG/NV63_111.gif"  # look down [111], rotate around [111]
+xyzrender "$DIR/roy.res" --axis 100 --unwrap -o "$IMG/roy_shelxl.svg"  # SHELXL .res (view down short a-axis; requires [shelxl])
 
 echo "=== Highlight ==="
 xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" -o "$IMG/caffeine_hl.svg" --gif-rot -go "$IMG/caffeine_hl.gif"

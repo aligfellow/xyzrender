@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xyzrender"
-version = "0.3.4"
+version = "0.3.5"
 description = "Publication-quality molecular graphics."
 authors = [{name = "Alister S. Goodfellow"}]
 readme = "README.md"
@@ -34,8 +34,9 @@ xyzrender = "xyzrender.cli:main"
 [project.optional-dependencies]
 smi     = ["rdkit"]
 cif     = ["ase"]
+shelxl  = ["shelxfile"]
 v       = ["vmol>=3.0rc7"]
-all     = ["rdkit", "ase", "vmol>=3.0rc7"]
+all     = ["rdkit", "ase", "vmol>=3.0rc7", "shelxfile"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -53,6 +54,7 @@ dev = [
     "ase",      # optional dep (needed for test_formats.py pdb fixtures)
     "rdkit",    # optional dep (needed for test_formats.py mol/sdf fixtures)
     "vmol>=3.0rc7",
+    "shelxfile", # optional dep (needed for test_formats.py shelx)
 ]
 
 # ===== Ruff =====

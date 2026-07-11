@@ -5,6 +5,7 @@ All fixtures use checked-in example files — no rdkit or ase generation needed.
 
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 
 import numpy as np
@@ -24,6 +25,7 @@ _WATER_PDB = _STRUCTURES / "water.pdb"
 _WATER_PDB_CRYST = _STRUCTURES / "water_cryst.pdb"
 _ALA_PDB = _STRUCTURES / "ala_phe_ala.pdb"
 _CIF_FILE = _STRUCTURES / "caffeine_cif.cif"
+_SHELXL_FILE = _STRUCTURES / "roy.res"
 
 _CAFFEINE_ATOMS = 24  # C8N4O2 + 10H
 
@@ -319,6 +321,50 @@ class TestParseCif:
         assert g.number_of_nodes() > 0
         assert isinstance(crystal, CellData)
         assert crystal.lattice.shape == (3, 3)
+
+
+# ---------------------------------------------------------------------------
+# parse_shelxl / load_molecule(.res/.ins) -- uses examples/structures/roy.res
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(
+    importlib.util.find_spec("shelxfile") is None,
+    reason="shelxfile required for SHELXL tests",
+)
+class TestParseShelxl:
+    # roy.res is the ROY polymorph: UNIT C48 H36 N12 O8 S4 → 108 atoms per cell
+    def test_atoms_present(self):
+        from collections import Counter
+
+        from xyzrender.parsers import parse_shelxl
+
+        d = parse_shelxl(_SHELXL_FILE)
+        assert len(d.atoms) == 108
+        assert Counter(sym for sym, _ in d.atoms) == {"C": 48, "H": 36, "N": 12, "O": 8, "S": 4}
+
+    def test_has_pbc_cell(self):
+        from xyzrender.parsers import parse_shelxl
+
+        d = parse_shelxl(_SHELXL_FILE)
+        assert d.pbc_cell is not None
+        assert d.pbc_cell.shape == (3, 3)
+        # CELL 3.9453 18.685 16.3948 → row norms recover the a/b/c lengths
+        lengths = np.linalg.norm(d.pbc_cell, axis=1)
+        np.testing.assert_allclose(lengths, [3.9453, 18.685, 16.3948], atol=1e-3)
+
+    def test_load_molecule_shelxl_graph(self):
+        from xyzrender.readers import load_molecule
+        from xyzrender.types import CellData
+
+        g, crystal = load_molecule(_SHELXL_FILE)
+        assert g.number_of_nodes() == 108
+        assert isinstance(crystal, CellData)
+        assert crystal.lattice.shape == (3, 3)
+        # lattice must be published on the graph so the interactive viewer and
+        # rotation code keep the cell box aligned with the atoms.
+        assert "lattice" in g.graph
+        assert "lattice_origin" in g.graph
 
 
 # ---------------------------------------------------------------------------
