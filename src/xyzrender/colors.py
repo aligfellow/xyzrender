@@ -356,6 +356,7 @@ PALETTE_NAMES: list[str] = list(PALETTES)
 
 DEFAULT_CMAP_PALETTE = "viridis"
 DEFAULT_ESP_PALETTE = "rainbow"
+DEFAULT_ENSEMBLE_PALETTE = "spectral"
 
 
 def palette_color(name: str, t: float) -> Color:

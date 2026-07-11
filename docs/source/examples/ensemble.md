@@ -1,13 +1,14 @@
 # Conformer Ensemble
 
-Visualise multiple conformers from a multi-frame XYZ trajectory overlaid on a single reference frame. Each frame is RMSD-aligned onto the reference (frame 0) via the Kabsch algorithm. By default, conformers render with standard CPK atom colours. Use `--ensemble-color` to apply a continuous palette or a fixed colour.
+Visualise multiple conformers from a multi-frame XYZ trajectory overlaid on a single reference frame. Each frame is RMSD-aligned onto the reference (frame 0) via the Kabsch algorithm. By default, conformers are coloured across the `spectral` palette so each frame is distinguishable. Use `--ensemble-color` to choose a different palette or a fixed colour, or pass `cpk` for standard per-element atom colours.
 
-| Default (CPK) | Viridis + opacity |
-|---------------|-------------------|
-| ![Default ensemble](../../../examples/images/triphenylbenzol_ensemble.svg) | ![Custom ensemble](../../../examples/images/triphenylbenzol_ensemble_custom.svg) |
+| Default (spectral) | CPK per-element | Viridis + opacity |
+|--------------------|-----------------|-------------------|
+| ![Default ensemble](../../../examples/images/triphenylbenzol_ensemble.svg) | ![CPK ensemble](../../../examples/images/triphenylbenzol_ensemble_cpk.svg) | ![Custom ensemble](../../../examples/images/triphenylbenzol_ensemble_custom.svg) |
 
 ```bash
 xyzrender triphenylbenzol.xyz --ensemble -o triphenylbenzol_ensemble.svg
+xyzrender triphenylbenzol.xyz --ensemble --ensemble-color cpk -o triphenylbenzol_ensemble_cpk.svg
 xyzrender triphenylbenzol.xyz --ensemble --align-atoms 21,22,23 --ensemble-color viridis --opacity 0.4 -o triphenylbenzol_ensemble_custom.svg
 ```
 
@@ -16,8 +17,8 @@ From Python, the ensemble options are passed to `load()`, which builds the multi
 ```python
 from xyzrender import load, render
 
-render(load("triphenylbenzol.xyz", ensemble=True))                                          # CPK colours
-render(load("triphenylbenzol.xyz", ensemble=True, ensemble_color="spectral"))               # spectral palette
+render(load("triphenylbenzol.xyz", ensemble=True))                                          # spectral palette (default)
+render(load("triphenylbenzol.xyz", ensemble=True, ensemble_color="cpk"))                    # per-element CPK colours
 render(load("triphenylbenzol.xyz", ensemble=True, ensemble_color="#FF0000"))                # single colour
 render(load("triphenylbenzol.xyz", ensemble=True, ensemble_color="viridis"), opacity=0.4)   # faded palette
 render(load("triphenylbenzol.xyz", ensemble=True, align_atoms=[21, 22, 23]))                # align on subset
@@ -44,7 +45,7 @@ xyzrender triphenylbenzol.xyz --ensemble --no-align -o ensemble_raw.svg
 | Flag | Description |
 |------|-------------|
 | `--ensemble` | Enable ensemble mode for multi-frame XYZ trajectories |
-| `--ensemble-color VALUE` | Palette name (`viridis`, `plasma`, `spectral`, `coolwarm`, `RdBu`, `rainbow`), a single colour, or comma-separated colours |
+| `--ensemble-color VALUE` | Palette name (`viridis`, `plasma`, `spectral`, `coolwarm`, `RdBu`, `rainbow`), a single colour, comma-separated colours, or `cpk` for per-element atom colours (default: `spectral`) |
 | `--opacity FLOAT` | Opacity for non-reference conformers (0–1, default: 1.0) |
 | `--align-atoms INDICES` | 1-indexed atom subset for alignment (min 3), e.g. `21,22,23` or `1-6` |
 | `--align` / `--no-align` | Force / skip Kabsch alignment (default: on) |
