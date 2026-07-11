@@ -124,7 +124,7 @@ Overlay / Ensemble:
   --opacity F             Overlay / ensemble transparency 0..1
   --align / --no-align    Force / skip Kabsch/MCS alignment (default: on)
   --ensemble              Multi-frame overlay from trajectory
-  --ensemble-color VALUE  Palette name, single colour, or comma list
+  --ensemble-color VALUE  Palette name, single colour, comma list, or 'cpk' (default: spectral)
 
 Annotations:
   --idx [FMT]             Atom index labels: sn (C1), s (C), n (1)
@@ -565,7 +565,8 @@ def main() -> None:
         default=None,
         dest="ensemble_color",
         help="Palette name (viridis, plasma, spectral, coolwarm, RdBu, rainbow, batlow, roma, vik, bam, managua), "
-        "a single color, or comma-separated colors",
+        "a single color, comma-separated colors, or 'cpk' for per-element atom colours "
+        "(default: spectral)",
     )
     # --- Orientation ---
     orient_g = p.add_argument_group("orientation")

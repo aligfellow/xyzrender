@@ -66,8 +66,8 @@ def test_build_ensemble_molecule(tmp_path: Path) -> None:
     assert len(ens.colors) == 3
     assert len(ens.opacities) == 3
 
-    # Default: no palette → CPK atom colors → all colors None
-    assert all(c is None for c in ens.colors)
+    # Default: spectral palette → non-None hex per conformer
+    assert all(c is not None and c.startswith("#") for c in ens.colors)
 
 
 def test_ensemble_opacity(tmp_path: Path) -> None:
@@ -107,6 +107,16 @@ def test_ensemble_palette_colors(tmp_path: Path) -> None:
     assert ens is not None
 
     assert all(c is not None and c.startswith("#") for c in ens.colors)
+
+
+def test_ensemble_cpk_colors(tmp_path: Path) -> None:
+    """'cpk' → no palette override; all conformer colors None (CPK atom colours)."""
+    xyz_path = _make_traj(tmp_path)
+    mol = _build_ensemble_molecule(xyz_path, ensemble_color="cpk")
+    ens = mol.ensemble
+    assert ens is not None
+
+    assert all(c is None for c in ens.colors)
 
 
 def test_ensemble_single_color_expanded(tmp_path: Path) -> None:
@@ -160,10 +170,10 @@ def test_merge_graphs_structure(tmp_path: Path) -> None:
     assert all(g.nodes[n].get("structure_color", "").startswith("#") for n in non_ref)
 
 
-def test_merge_graphs_no_colors(tmp_path: Path) -> None:
-    """Default (no palette): merge_graphs sets no structure_color — CPK used by renderer."""
+def test_merge_graphs_cpk_no_structure_color(tmp_path: Path) -> None:
+    """'cpk': merge_graphs sets no structure_color override — renderer falls back to CPK."""
     xyz_path = _make_traj(tmp_path)
-    mol = _build_ensemble_molecule(xyz_path)
+    mol = _build_ensemble_molecule(xyz_path, ensemble_color="cpk")
     ens = mol.ensemble
     assert ens is not None
 

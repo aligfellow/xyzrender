@@ -328,7 +328,11 @@ def load(
         Conformer colour spec.  May be a palette name from
         :data:`xyzrender.colors.PALETTE_NAMES` (sampled across frames),
         a single hex/named colour (broadcast to every conformer), a
-        comma-separated list, or an explicit list of colours.
+        comma-separated list, or an explicit list of colours.  Pass
+        ``"cpk"`` to render each conformer with standard per-element atom
+        colours.  When unspecified (``None``), the default palette
+        (:data:`xyzrender.colors.DEFAULT_ENSEMBLE_PALETTE`, ``spectral``)
+        is used.
     ensemble_opacity:
         Opacity for non-reference conformer atoms (0-1).
     auto_align:
@@ -1997,22 +2001,30 @@ def _resolve_ensemble_colors(
 ) -> list[str] | None:
     """Resolve ensemble colour spec to one hex string per conformer.
 
-    Accepts a palette name (sampled across *n_conformers*), a single hex /
-    named colour (broadcast), a comma-separated list, or an explicit list.
-    Returns ``None`` when no colouring is requested (CPK default).
+    ``"cpk"`` renders each conformer with standard per-element CPK atom
+    colours (returns ``None``).  Otherwise the spec may be a palette name
+    (sampled across *n_conformers*), a single hex / named colour (broadcast),
+    a comma-separated list, or an explicit list of colours.  When the spec is
+    unspecified (``None``) or otherwise unrecognised, the default palette
+    (:data:`xyzrender.colors.DEFAULT_ENSEMBLE_PALETTE`) is used.
     """
-    from xyzrender.colors import PALETTES, sample_palette
+    from xyzrender.colors import DEFAULT_ENSEMBLE_PALETTE, PALETTES, sample_palette
 
-    if ensemble_color is None:
-        return None
-    if isinstance(ensemble_color, list):
+    if ensemble_color is None:  # unspecified -> default palette
+        ensemble_color = DEFAULT_ENSEMBLE_PALETTE
+    if isinstance(ensemble_color, list):  # explicit per-conformer colours
         return [resolve_color(c) for c in ensemble_color]
-    if ensemble_color in PALETTES:
+    if ensemble_color.strip().lower() == "cpk":  # per-element CPK atom colours
+        return None
+    if ensemble_color in PALETTES:  # palette name, sampled across conformers
         return sample_palette(ensemble_color, n_conformers)
     parts = [c.strip() for c in ensemble_color.split(",")]
-    if len(parts) > 1:
+    if len(parts) > 1:  # comma-separated colours
         return [resolve_color(c) for c in parts]
-    return [resolve_color(ensemble_color)] * n_conformers
+    try:  # single hex / named colour, broadcast to every conformer
+        return [resolve_color(ensemble_color)] * n_conformers
+    except ValueError:  # unrecognised -> default palette
+        return sample_palette(DEFAULT_ENSEMBLE_PALETTE, n_conformers)
 
 
 def _build_ensemble_molecule(
