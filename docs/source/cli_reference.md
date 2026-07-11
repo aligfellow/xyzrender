@@ -225,3 +225,4 @@ Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Pref
 | `--axes` / `--no-axes` | Show/hide the a/b/c axis arrows |
 | `--axis HKL` | Orient looking down a crystallographic direction (e.g. `111`, `001`) |
 | `--supercell M N L` | Repeat the unit cell `M×N×L` times along a/b/c (requires lattice/unit-cell data; default: `1 1 1`) |
+| `--unwrap` | Reassemble molecules split across periodic boundaries so each is drawn whole. Ghost atoms are disabled (molecules are already contiguous). Fully-connected frameworks are left unchanged. Wraps `render(..., unwrap=True)` |

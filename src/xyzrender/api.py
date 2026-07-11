@@ -761,7 +761,7 @@ def render(
     cell_color: str | None = None,
     cell_width: float | None = None,
     ghost_opacity: float | None = None,
-    whole: bool = False,
+    unwrap: bool = False,
     # --- Rendering overlays (1-indexed atom numbering) ---
     ts_bonds: list[tuple[int, int]] | None = None,
     nci_bonds: list[tuple[int, int]] | None = None,
@@ -976,6 +976,15 @@ def render(
         Transparency 0 to 1.  Applied to the overlay when ``overlay`` is
         given, to the ensemble when the molecule is an ensemble, else to the
         active surface.  The three modes are mutually exclusive.
+    unwrap:
+        For periodic structures only.  Reassemble molecules that are split
+        across the cell boundaries so each is drawn whole (see
+        :func:`xyzrender.crystal.unwrap_molecules`), anchoring every molecule at the
+        image where most of its atoms already sat.  Ghost (periodic-image) atoms
+        default off when this is on, since molecules are already contiguous.
+        Fully-connected frameworks are left unchanged.  This is the primary,
+        supported entry point for unwrapping — the CLI ``--unwrap`` flag simply
+        forwards here.
 
     Returns
     -------
@@ -1223,7 +1232,7 @@ def render(
             cell_width=cell_width,
             ghost_opacity=ghost_opacity,
             bo_explicit=bo,
-            whole=whole,
+            unwrap=unwrap,
         )
     elif "lattice" in mol.graph.graph:
         logger.info("Lattice found in graph; use load(..., cell=True) to draw the unit cell box")
@@ -1469,7 +1478,7 @@ def render_gif(
     cell_color: str | None = None,
     cell_width: float | None = None,
     ghost_opacity: float | None = None,
-    whole: bool = False,
+    unwrap: bool = False,
 ) -> GIFResult:
     """Render a molecule to an animated GIF and return a :class:`GIFResult`.
 
@@ -1900,7 +1909,7 @@ def render_gif(
                 cell_width=cell_width,
                 ghost_opacity=ghost_opacity,
                 bo_explicit=bo,
-                whole=whole,
+                unwrap=unwrap,
             )
             ref_graph = _cell_mol.graph
 
@@ -2964,7 +2973,7 @@ def _apply_cell_config(
     cell_width: float | None,
     ghost_opacity: float | None,
     bo_explicit: bool | None,
-    whole: bool = False,
+    unwrap: bool = False,
 ) -> None:
     """Configure crystal/cell display options on *cfg* from *mol.cell_data*."""
     cell_data = mol.cell_data
@@ -2987,10 +2996,10 @@ def _apply_cell_config(
     # Reassemble molecules split across periodic boundaries.
     # Must run *before* any rotation (axis HKL or interactive viewer) so that
     # boundary detection operates in the original unrotated coordinate frame.
-    if whole:
-        from xyzrender.crystal import make_whole
+    if unwrap:
+        from xyzrender.crystal import unwrap_molecules
 
-        make_whole(mol.graph, cell_data)
+        unwrap_molecules(mol.graph, cell_data)
 
     # axis HKL: orient so [hkl] points along the viewing (+z) axis
     if axis is not None:
@@ -3025,8 +3034,8 @@ def _apply_cell_config(
         )
 
     # Ghost (periodic image) atoms — default: on when cell_data is present,
-    # but disabled when --whole is active (molecules are already reassembled).
-    _show_ghosts = ghosts if ghosts is not None else (not whole)
+    # but disabled when unwrap is active (molecules are already reassembled).
+    _show_ghosts = ghosts if ghosts is not None else (not unwrap)
     if _show_ghosts:
         from xyzrender.crystal import add_crystal_images
         from xyzrender.types import CellData as _CellData

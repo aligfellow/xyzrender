@@ -571,3 +571,109 @@ def test_apply_axis_angle_rotation_keeps_ghost_atoms_with_parent_offset():
             f"Ghost atom {gh} (source={src}) drifted relative to its source under rotation. "
             f"expected offset={expected.tolist()}, got={off_after.tolist()}"
         )
+
+
+# ---------------------------------------------------------------------------
+# unwrap_molecules (--unwrap) tests — small mock cells, no rendering
+# ---------------------------------------------------------------------------
+
+_CUBE10 = np.array([[10.0, 0.0, 0.0], [0.0, 10.0, 0.0], [0.0, 0.0, 10.0]], dtype=float)
+
+
+def _mock_graph(atoms, edges=()):
+    """Build a bare graph from (symbol, position) atoms and optional edges."""
+    import networkx as nx
+
+    g = nx.Graph()
+    for i, (sym, pos) in enumerate(atoms):
+        g.add_node(i, symbol=sym, position=pos)
+    for u, v in edges:
+        g.add_edge(u, v, bond_order=1.0)
+    return g
+
+
+def test_unwrap_reassembles_split_molecule():
+    """A diatomic split across the x boundary is reassembled to its true bond."""
+    from xyzrender.crystal import unwrap_molecules
+    from xyzrender.types import CellData
+
+    # Atoms at x=0.2 and x=9.8: in-cell gap is 9.6 Å, but the image at -0.2 is
+    # 0.4 Å from atom 0, so they are one molecule split across the boundary.
+    g = _mock_graph([("Cl", (0.2, 5.0, 5.0)), ("Cl", (9.8, 5.0, 5.0))])
+    unwrap_molecules(g, CellData(lattice=_CUBE10))
+
+    bond = np.linalg.norm(np.subtract(g.nodes[0]["position"], g.nodes[1]["position"]))
+    assert bond == pytest.approx(0.4, abs=1e-6)
+    assert g.has_edge(0, 1)  # cross-boundary bond recorded for the renderer
+
+
+def test_unwrap_anchors_at_majority_position():
+    """The majority of atoms stay put; only the minority (wrapped) atom moves.
+
+    Two atoms sit near the far x face (9.6, 9.9); one is wrapped to 0.2. Anchoring
+    keeps the majority in place and moves the wrapped atom out to 10.2 — this is
+    modal-shift anchoring, not a centre-of-mass wrap.
+    """
+    from xyzrender.crystal import unwrap_molecules
+    from xyzrender.types import CellData
+
+    g = _mock_graph(
+        [("Cl", (9.6, 5.0, 5.0)), ("Cl", (9.9, 5.0, 5.0)), ("Cl", (0.2, 5.0, 5.0))],
+        edges=[(0, 1)],
+    )
+    unwrap_molecules(g, CellData(lattice=_CUBE10))
+
+    assert g.nodes[0]["position"][0] == pytest.approx(9.6, abs=1e-6)
+    assert g.nodes[1]["position"][0] == pytest.approx(9.9, abs=1e-6)
+    assert g.nodes[2]["position"][0] == pytest.approx(10.2, abs=1e-6)
+    assert g.has_edge(1, 2)
+
+
+def test_unwrap_already_whole_is_noop():
+    """A contiguous molecule is left completely unchanged (no moves, no edges)."""
+    from xyzrender.crystal import unwrap_molecules
+    from xyzrender.types import CellData
+
+    g = _mock_graph([("Cl", (4.9, 5.0, 5.0)), ("Cl", (5.3, 5.0, 5.0))], edges=[(0, 1)])
+    pos0 = {n: g.nodes[n]["position"] for n in g.nodes()}
+    unwrap_molecules(g, CellData(lattice=_CUBE10))
+
+    assert g.number_of_edges() == 1
+    for n in g.nodes():
+        assert np.allclose(g.nodes[n]["position"], pos0[n])
+
+
+def test_unwrap_disconnected_atoms_untouched():
+    """Atoms with no bonds (nor image bonds) are each their own component: no-op."""
+    from xyzrender.crystal import unwrap_molecules
+    from xyzrender.types import CellData
+
+    g = _mock_graph([("Na", (1.0, 1.0, 1.0)), ("Cl", (5.0, 5.0, 5.0))])
+    pos0 = {n: g.nodes[n]["position"] for n in g.nodes()}
+    unwrap_molecules(g, CellData(lattice=_CUBE10))
+
+    assert g.number_of_edges() == 0
+    for n in g.nodes():
+        assert np.allclose(g.nodes[n]["position"], pos0[n])
+
+
+def test_unwrap_framework_is_noop_and_warns(caplog):
+    """A fully-connected periodic network (1D chain bonding to its own image) is
+    detected as a framework: positions unchanged, no edges added, warning logged."""
+    import logging
+
+    from xyzrender.crystal import unwrap_molecules
+    from xyzrender.types import CellData
+
+    # Cell edge 2 Å along x: atom 1 bonds atom 0's +x image → infinite chain.
+    lat = np.array([[2.0, 0.0, 0.0], [0.0, 20.0, 0.0], [0.0, 0.0, 20.0]], dtype=float)
+    g = _mock_graph([("C", (0.0, 0.0, 0.0)), ("C", (1.0, 0.0, 0.0))], edges=[(0, 1)])
+    pos0 = {n: g.nodes[n]["position"] for n in g.nodes()}
+
+    with caplog.at_level(logging.WARNING, logger="xyzrender.crystal"):
+        unwrap_molecules(g, CellData(lattice=lat))
+
+    assert g.number_of_edges() == 1  # no image bonds added
+    for n in g.nodes():
+        assert np.allclose(g.nodes[n]["position"], pos0[n])
+    assert any("periodic" in rec.message for rec in caplog.records)
