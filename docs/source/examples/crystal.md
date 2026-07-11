@@ -90,7 +90,13 @@ Format is auto-detected from extension (`.vasp`, `POSCAR`, `CONTCAR` → VASP; `
 
 ## Crystallographic viewing direction
 
-Orient the crystal looking down a given crystallographic direction with `--axis` (3-digit Miller index):
+Periodic structures are **not** PCA auto-oriented; they render in the raw crystallographic frame (**a**‖x, **b**‖y, **c**≈z). If one cell edge is much shorter than the others the default view looks cramped — pick a direction with `--axis` (3-digit Miller index), often the shortest edge:
+
+```bash
+xyzrender structure.res --axis 100 --unwrap   # look down a short a-axis; reassemble whole molecules
+```
+
+For a periodic material, any Miller index works as a viewing direction:
 
 | View along [001] | View along [111] | Rotate around [111] |
 |-----------------|-----------------|-------------------|

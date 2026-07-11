@@ -91,6 +91,17 @@ Requires `pip install 'xyzrender[cif]'` (ase):
 xyzrender structure.cif
 ```
 
+## SHELXL
+
+Requires `pip install 'xyzrender[shelxl]'` (shelxfile). Reads SHELXL small-molecule refinement files (`.res`, `.ins`). The full unit cell contents are expanded from the space-group symmetry, and — like CIF — the cell box, ghost atoms, and axis arrows are enabled automatically:
+
+```bash
+xyzrender structure.res
+xyzrender structure.ins
+```
+
+See [Crystal Structures](examples/crystal.md).
+
 ## Cube files
 
 Cube files contain both molecular geometry and a 3D volumetric grid. Used for molecular orbitals ([Molecular Orbitals](examples/mo.md)), electron density and ESP ([Electron Density and ESP](examples/dens_esp.md)), and NCI surfaces ([NCI Surface](examples/nci_surf.md)).

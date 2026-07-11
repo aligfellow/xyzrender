@@ -276,9 +276,11 @@ def load_molecule(
         crystal = CellData(lattice=data.pbc_cell)
     elif p.endswith((".res", ".ins")):
         data = fmt.parse_shelxl(p)
-        # SHELXL is periodic
+        # SHELXL is periodic — bond orders are always suppressed at render time
         graph = build_graph(data.atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=True)
         assert data.pbc_cell is not None
+        graph.graph["lattice"] = data.pbc_cell
+        graph.graph["lattice_origin"] = np.zeros(3)
         crystal = CellData(lattice=data.pbc_cell)
     elif _is_vasp_file(p):
         from xyzrender.inputs import parse_poscar
