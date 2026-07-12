@@ -237,6 +237,7 @@ def main() -> None:
     )
     style_g.add_argument("--grad", action=argparse.BooleanOptionalAction, default=None, help="Radial gradients")
     style_g.add_argument("-F", "--fog-strength", type=float, default=None, help="Fog strength")
+    style_g.add_argument("--fog-color", default=None, help="Fog tint (default: derived from the background)")
     style_g.add_argument("--vdw-opacity", type=float, default=None, help="VdW sphere opacity")
     style_g.add_argument("--vdw-scale", type=float, default=None, help="VdW sphere radius scale")
     style_g.add_argument("--atom-gradient-strength", type=float, default=None, help="Atom gradient strength")
@@ -996,6 +997,7 @@ def main() -> None:
         saturation_shift_factor=args.saturation_shift_factor,
         fog=args.fog,
         fog_strength=args.fog_strength,
+        fog_color=args.fog_color,
         bo=args.bo,
         hy=hy_spec,
         hide_bonds=args.no_bonds,

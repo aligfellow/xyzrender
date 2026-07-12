@@ -9,7 +9,7 @@
   "bond_color_by_element": true,
   "nci_element": true,
   "bond_gradient": true,
-  "bond_gradient_strength": 0.2,
+  "bond_gradient_strength": 0.15,
   "bond_outline_color": "#000000",
   "bond_outline_width": 3.0,
   "colors": {

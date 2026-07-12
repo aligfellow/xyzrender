@@ -129,7 +129,7 @@ def compute_esp_surface(
     params:
         ESP surface parameters (isovalue of the density isosurface).
     """
-    from xyzrender.colors import DEFAULT_ESP_PALETTE
+    from xyzrender.colors import DEFAULT_ESP_PALETTE, fog_target
     from xyzrender.esp import build_esp_surface
     from xyzrender.utils import align_cube_to_atoms
 
@@ -147,6 +147,9 @@ def compute_esp_surface(
         target_centroid=target_centroid,
         esp_range=cfg.cmap_range,
         esp_symm=cfg.cmap_symm,
+        fog_strength=cfg.fog_strength if cfg.fog else 0.0,
+        fog_col=fog_target(cfg.background, cfg.fog_color),
+        surface_opacity=cfg.surface_opacity,
     )
 
 
