@@ -6,9 +6,14 @@ Called from ``renderer.render_svg`` when ``cfg.skeletal_style`` is enabled.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 
 from xyzrender.renderer import BondStyle, _proj, _ring_side, blend_fog
+
+if TYPE_CHECKING:
+    from xyzrender.colors import Color
 
 # ---------------------------------------------------------------------------
 # Bond drawing
@@ -54,7 +59,7 @@ def skeletal_bond_svg(
     canvas_w: int,
     canvas_h: int,
     fog_f: np.ndarray,
-    fog_rgb: np.ndarray,
+    fog_col: Color,
     fog_enabled: bool,
     bond_color: str,
     color_override: str | None,
@@ -84,8 +89,8 @@ def skeletal_bond_svg(
 
     color = color_override if color_override is not None else bond_color
     if fog_enabled:
-        avg_fog = (fog_f[ai] + fog_f[aj]) / 2 * 0.75
-        color = blend_fog(color, fog_rgb, avg_fog)
+        avg_fog = (fog_f[ai] + fog_f[aj]) / 2
+        color = blend_fog(color, fog_col, avg_fog)
 
     op_attr = f' opacity="{opacity:.2f}"' if opacity < 1.0 else ""
 
@@ -159,7 +164,7 @@ def skeletal_atom_svg(
     colors: list,
     fs_label: float,
     fog_enabled: bool,
-    fog_rgb: np.ndarray,
+    fog_col: Color,
     fog_f: np.ndarray,
     label_color_override: str | None,
 ) -> None:
@@ -178,7 +183,7 @@ def skeletal_atom_svg(
     else:
         fill = colors[ai].hex
         if fog_enabled:
-            fill = blend_fog(fill, fog_rgb, fog_f[ai])
+            fill = blend_fog(fill, fog_col, fog_f[ai])
 
     svg.append(
         f'  <text x="{xi:.1f}" y="{yi:.1f}" '

@@ -41,6 +41,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--bond-gradient-strength` | Bond cylinder gradient strength (default: 0.3) |
 | `-F`, `--fog-strength` | Depth fog strength |
 | `--fog` / `--no-fog` | Depth fog toggle |
+| `--fog-color` | Fog tint (default: the background). Fog never fully reaches it, so atoms cannot dissolve into the page |
 | `--bo` / `--no-bo` | Bond order rendering toggle |
 | `--bond-by-element` / `--no-bond-by-element` | Color bonds by endpoint atom colors |
 | `--radius-scale ATOMS FACTOR` | Scale selected atoms (repeatable). Multiplies on top of `-a` |

@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from xyzrender.cmap import build_palette_lut
+from xyzrender.colors import WHITE, Color, fog_alpha
 from xyzrender.contours import (
     MIN_LOOP_PERIMETER,
     LobeContour2D,
@@ -91,6 +92,9 @@ def build_esp_surface(
     esp_range: tuple[float, float] | None = None,
     esp_symm: bool = False,
     normals_phys: np.ndarray | None = None,
+    fog_strength: float = 0.0,
+    fog_col: Color = WHITE,
+    surface_opacity: float = 1.0,
 ) -> ESPSurface:
     """Build an ESP surface: heatmap PNG + density contour layers.
 
@@ -304,7 +308,7 @@ def build_esp_surface(
     # 3D surface normals → Lambertian shading
     diffuse = np.clip(up_light, 0.0, 1.0)
 
-    # Z-depth fog: front vivid, back washed toward white
+    # Z-depth: 1.0 at the front-most surface point, 0.0 at the back-most
     z_surf = up_z[surface_mask]
     if z_surf.size > 0:
         z_lo, z_hi = float(z_surf.min()), float(z_surf.max())
@@ -340,13 +344,17 @@ def build_esp_surface(
     # The sat-boosted colors are vivid enough to survive the darkening.
     brightness = 0.20 + 0.95 * diffuse * depth_fade
 
-    # Fog: blend back parts toward white for subtle depth cue.
-    fog = (1.0 - depth_fade) * 0.12
+    # Depth fog: the same ramp the atoms use, scaled by the opacity each layer is drawn
+    # at — the surface is already mostly background before fog touches it, so it has
+    # only that much contrast left to spend (see mo.py).
+    layer_opacity = _ESP_BASE_OPACITY * surface_opacity / n_layers
+    fog = layer_opacity * fog_alpha(1.0 - z_norm, fog_strength)
+    fog_rgb = (fog_col.r, fog_col.g, fog_col.b)
 
     for ch in range(3):
         rgb_f[:, :, ch] = np.where(
             surface_mask,
-            rgb_f[:, :, ch] * brightness * (1.0 - fog) + 255.0 * fog,
+            rgb_f[:, :, ch] * brightness * (1.0 - fog) + fog_rgb[ch] * fog,
             255.0,
         )
     # Post-upsample smooth: remove residual grid structure (checkerboard)

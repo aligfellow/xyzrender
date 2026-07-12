@@ -181,6 +181,7 @@ def build_render_config(config_data: dict, cli_overrides: dict) -> RenderConfig:
     # Resolve all color fields to hex
     _color_fields = (
         "background",
+        "fog_color",
         "bond_color",
         "bond_outline_color",
         "mo_outline_color",
@@ -291,6 +292,7 @@ def build_config(
     saturation_shift_factor=None,
     fog=None,
     fog_strength=None,
+    fog_color=None,
     bo=None,
     label_font_size=None,
     vdw_opacity=None,
@@ -381,6 +383,7 @@ def build_config(
         ("saturation_shift_factor", saturation_shift_factor),
         ("fog", fog),
         ("fog_strength", fog_strength),
+        ("fog_color", fog_color),
         ("bond_orders", bo),
         ("label_font_size", label_font_size),
         ("vdw_opacity", vdw_opacity),

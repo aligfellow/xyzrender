@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from xyzrender.colors import _FOG_NEAR, blend_fog
+from xyzrender.colors import _FOG_NEAR, Color, blend_fog, fog_alpha
 from xyzrender.contours import (
     BLUR_SIGMA,
     MIN_LOBE_VOLUME_BOHR3,
@@ -317,10 +317,6 @@ def build_mo_contours(
 # conceptually translucent isosurfaces so the out-of-the-box look is partial.
 MO_DEFAULT_OPACITY = 0.6
 
-# Fog strength multiplier for MO lobes — lobes are large and diffuse, so full
-# atom-strength fog washes them out.
-_MO_FOG_FACTOR = 0.7
-
 
 def _lobe_effective_z(
     lobe: LobeContour2D,
@@ -424,7 +420,7 @@ def mo_lobe_svg_items(
     atom_radii: np.ndarray | None = None,
     fog_enabled: bool = False,
     fog_strength: float = 0.0,
-    fog_rgb: np.ndarray | None = None,
+    fog_col: Color | None = None,
     fog_z_front: float = 0.0,
     fog_z_range: float = 1.0,
 ) -> list[tuple[float, list[str]]]:
@@ -437,26 +433,24 @@ def mo_lobe_svg_items(
     resolved via per-atom occlusion constraints (see :func:`_lobe_effective_z`);
     otherwise it falls back to the lobe's centroid z.
 
-    Depth cueing comes from the z-interleaved drawing order plus the shared fog
-    colour blend, attenuated by :data:`_MO_FOG_FACTOR` (full atom-strength fog
-    washes diffuse lobes out).  ``flat=True`` disables fog on MO lobes.
+    Depth cueing comes from the z-interleaved drawing order plus the same fog blend the
+    atoms use.  ``flat=True`` disables fog on MO lobes.
 
     Items are returned sorted ascending by their queue z; the caller pools them
     with other surface overlays and re-sorts.
     """
     items: list[tuple[float, list[str]]] = []
     use_constraints = atom_pos is not None and atom_radii is not None
-    use_fog = fog_enabled and fog_rgb is not None and fog_strength > 0 and fog_z_range > 0 and not flat
+    use_fog = fog_enabled and fog_col is not None and fog_strength > 0 and fog_z_range > 0 and not flat
     for lobe in mo.lobes:
         color_hex = mo.pos_color if lobe.phase == "pos" else mo.neg_color
         if use_fog:
-            assert fog_rgb is not None
-            # Same depth normalization as atoms (renderer.py): distance from
-            # frontmost atom, scaled by molecule depth range, with a near
-            # dead-zone before fog kicks in.
+            assert fog_col is not None
+            # Scaled by opacity: a lobe at opacity o is already (1 - o) of the way to the
+            # background, so it has only o of its contrast left to spend on fog.
             depth = max(fog_z_front - lobe.z_depth, 0.0)
-            fog_f = fog_strength * _MO_FOG_FACTOR * float(np.clip((depth - _FOG_NEAR) / fog_z_range, 0.0, 1.0))
-            color_hex = blend_fog(color_hex, fog_rgb, fog_f)
+            d = float(np.clip((depth - _FOG_NEAR) / fog_z_range, 0.0, 1.0))
+            color_hex = blend_fog(color_hex, fog_col, surface_opacity * float(fog_alpha(d, fog_strength)))
         if use_constraints:
             assert atom_pos is not None
             assert atom_radii is not None

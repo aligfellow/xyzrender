@@ -5,6 +5,7 @@ from __future__ import annotations
 import colorsys
 import json
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -254,7 +255,8 @@ def get_gradient_colors(
 
 
 _FOG_NEAR = 1.0  # Å of depth before fog kicks in
-_MAX_FOG = 0.70  # deepest atoms retain at least 30% of their color
+_MAX_FOG = 0.70  # deepest primitives keep at least 30% of their own colour
+_FOG_MIN_DELTA_E = 10.0  # ...and never come within this much CIELAB ΔE of the background
 
 # ---------------------------------------------------------------------------
 # Colormap palettes
@@ -389,11 +391,64 @@ def bond_color_from_atom(atom: Color) -> str:
     return atom.blend(Color(0, 0, 0), _BOND_DARKEN_T).hex
 
 
-def blend_fog(hex_color: str, fog_rgb: np.ndarray, strength: float) -> str:
-    """Blend color toward fog using strength**2, capped so atoms stay visible."""
-    s = min(strength**2, _MAX_FOG)
-    hex_color = resolve_color(hex_color)
-    rgb = np.array([int(hex_color[i : i + 2], 16) for i in (1, 3, 5)])
-    blended = (1 - s) * rgb + s * fog_rgb
-    r, g, b = np.clip(blended, 0, 255).astype(int)
-    return f"#{r:02x}{g:02x}{b:02x}"
+def _lab(color: Color) -> tuple[float, float, float]:
+    r"""CIELAB (L\*, a\*, b\*) under D65."""
+
+    def lin(v: int) -> float:
+        s = v / 255.0
+        return s / 12.92 if s <= 0.04045 else ((s + 0.055) / 1.055) ** 2.4
+
+    def f(t: float) -> float:
+        return t ** (1 / 3) if t > 216 / 24389 else t * (841 / 108) + 4 / 29
+
+    r, g, b = lin(color.r), lin(color.g), lin(color.b)
+    fx = f((0.4124564 * r + 0.3575761 * g + 0.1804375 * b) / 0.95047)
+    fy = f(0.2126729 * r + 0.7151522 * g + 0.0721750 * b)
+    fz = f((0.0193339 * r + 0.1191920 * g + 0.9503041 * b) / 1.08883)
+    return 116.0 * fy - 16.0, 500.0 * (fx - fy), 200.0 * (fy - fz)
+
+
+def delta_e(c1: Color, c2: Color) -> float:
+    """CIE76 perceptual colour difference. ~2.3 is just noticeable, 10 is obvious."""
+    (l1, a1, b1), (l2, a2, b2) = _lab(c1), _lab(c2)
+    return ((l1 - l2) ** 2 + (a1 - a2) ** 2 + (b1 - b2) ** 2) ** 0.5
+
+
+@lru_cache(maxsize=1024)
+def _legible_fog(base: Color, fog: Color) -> float:
+    """Largest blend fraction leaving *base* ``_FOG_MIN_DELTA_E`` clear of *fog*.
+
+    Bounding the blend fraction does not bound the result: what survives is
+    ``(1 - a) * |base - fog|``, so the alpha that leaves ``#888888`` visible wipes out a
+    near-white ``#d9d9d9``.  Uses full ΔE, not a lightness difference — a yellow sits
+    ~3 L* from white but has chroma to spend, and would otherwise never fog at all.
+    """
+    if delta_e(base, fog) <= _FOG_MIN_DELTA_E:
+        return 0.0  # already indistinguishable from the fog; read from the outline instead
+    lo, hi = 0.0, 1.0
+    for _ in range(24):  # ΔE is monotone in a for a fixed pair
+        mid = (lo + hi) / 2
+        if delta_e(base.blend(fog, mid), fog) >= _FOG_MIN_DELTA_E:
+            lo = mid
+        else:
+            hi = mid
+    return lo
+
+
+def fog_target(background: str, fog_color: str | None = None) -> Color:
+    """Colour depth fog converges on: the background, unless *fog_color* overrides it."""
+    try:
+        return Color.from_str(fog_color if fog_color is not None else background)
+    except ValueError:
+        return WHITE  # "none"/"transparent" are legal SVG fills but not colours
+
+
+def fog_alpha(depth_norm: float | np.ndarray, strength: float) -> np.ndarray:
+    """Fog blend fraction at a normalized depth. Shared by atoms, bonds and surfaces."""
+    return np.minimum(strength * depth_norm**2, _MAX_FOG)
+
+
+def blend_fog(hex_color: str, fog: Color, alpha: float) -> str:
+    """Lerp *hex_color* toward *fog* by *alpha*, floored so it stays legible."""
+    base = Color.from_str(hex_color)
+    return base.blend(fog, min(max(alpha, 0.0), 1.0, _legible_fog(base, fog))).hex

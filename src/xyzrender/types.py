@@ -277,6 +277,7 @@ class RenderConfig:
     saturation_shift_factor: float = 0.2
     fog: bool = False
     fog_strength: float = 0.8
+    fog_color: str | None = None  # None = derive from background (pulled toward grey)
     hide_bonds: bool = False
     unbond: list[str] = field(default_factory=list)  # raw specs: ["M-L", "sbm", "1-3"]
     bond: list[str] = field(default_factory=list)  # raw index pairs: ["4-5"]

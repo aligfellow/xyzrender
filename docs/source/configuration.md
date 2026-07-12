@@ -244,6 +244,7 @@ If no `-o` is given, output defaults to `{input_basename}.svg`.
 | `--vdw-gradient-strength` | vdW sphere gradient strength (default: 1.6) |
 | `--fog` / `--no-fog` | Toggle depth fog |
 | `-F`, `--fog-strength` | Depth fog strength |
+| `--fog-color` | Fog tint (default: the background) |
 | `--bo` / `--no-bo` | Toggle bond order rendering |
 | `--vdw-opacity` | vdW sphere opacity |
 | `--vdw-scale` | vdW sphere radius scale |
