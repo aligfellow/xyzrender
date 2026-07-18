@@ -4,6 +4,9 @@ Overlays and style params are tested in combinations where possible to
 minimise the number of full render calls.
 """
 
+import re
+import subprocess
+import sys
 from pathlib import Path
 
 import networkx as nx
@@ -83,6 +86,25 @@ def test_svgresult_str(caffeine):
 def test_svgresult_jupyter_display(caffeine):
     result = render(caffeine, orient=False)
     assert result._repr_svg_().startswith("<svg")
+
+
+def test_render_svg_ids_are_unique_across_processes():
+    structure = STRUCTURES / "ethanol.xyz"
+    src = Path(__file__).parent.parent / "src"
+    script = (
+        f"import sys; sys.path.insert(0, {str(src)!r}); "
+        "from xyzrender import load, render; "
+        f"print(render(load({str(structure)!r}), orient=False, gradient=True)._repr_svg_())"
+    )
+
+    svgs = [
+        subprocess.run([sys.executable, "-c", script], check=True, capture_output=True, text=True).stdout
+        for _ in range(2)
+    ]
+    id_sets = [set(re.findall(r'id="([^"]+)', svg)) for svg in svgs]
+
+    assert id_sets[0]
+    assert id_sets[0].isdisjoint(id_sets[1])
 
 
 def test_svgresult_save(caffeine, tmp_path):

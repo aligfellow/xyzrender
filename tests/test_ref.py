@@ -11,8 +11,8 @@ from xyzrender import load, render
 
 
 def _strip_svg_ids(svg: str) -> str:
-    """Strip render-counter IDs so SVGs from different render() calls can be compared."""
-    return re.sub(r'id="x\d+', 'id="x0', re.sub(r"url\(#x\d+", "url(#x0", svg))
+    """Normalize render IDs so SVGs from different render() calls can be compared."""
+    return re.sub(r"x[0-9a-f]{32}", "x0", svg)
 
 
 STRUCTURES = Path(__file__).parent.parent / "examples" / "structures"
