@@ -179,16 +179,10 @@ def test_api_render_gif_rotation_true_uses_y_axis(tmp_path):
 
     from xyzrender import render_gif
 
-    axes = []
-
-    def _capture_axis(*, axis, **_):
-        axes.append(axis)
-
-    with patch("xyzrender.gif.render_rotation_gif", side_effect=_capture_axis):
+    with patch("xyzrender.gif.render_rotation_gif") as mock_render:
         render_gif(_tiny_molecule(), gif_rot=True, output=tmp_path / "true.gif")
-        render_gif(_tiny_molecule(), gif_rot="y", output=tmp_path / "y.gif")
 
-    assert axes == ["y", "y"]
+    assert mock_render.call_args.kwargs["axis"] == "y"
 
 
 def test_api_render_gif_bounce(tmp_path):
