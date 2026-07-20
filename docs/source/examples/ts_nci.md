@@ -4,7 +4,7 @@ xyzrender uses [xyzgraph](https://github.com/aligfellow/xyzgraph) for molecular 
 
 Transition state analysis uses [graphRC](https://github.com/aligfellow/graphRC) for internal coordinate vibrational mode analysis. Given a QM output file (ORCA, Gaussian, etc.), graphRC identifies which bonds are forming or breaking at the transition state with `--ts`. These are rendered as dashed bonds. graphRC is also used to generate TS vibration frames for `--gif-ts` animations.
 
-> **Python.** Most `xyzrender` flags map 1:1 to keyword arguments on `render()` / `render_gif()`. Two things to note here: `--ts` (and `--nci-detect`) are **`load()`** options — `mol = load("sn2.out", ts_detect=True)` — while the *manual* overlay bonds are `render()` kwargs passed as 1-indexed tuples (`ts_bonds=[(1, 2)]`) rather than a `"1-2"` string. See the [Python API guide](../python_api.md) for the load/render split.
+> **Python.** Most `xyzrender` flags map 1:1 to keyword arguments on `render()` / `render_gif()`. Two things to note here: `--ts` (and `--nci-detect`) are **`load()`** options — `mol = load("sn2.out", ts_detect=True)` — while manual overlay bonds are passed to `render()` or `render_gif()` as 1-indexed tuples (`ts_bonds=[(1, 2)]`) rather than a `"1-2"` string. See the [Python API guide](../python_api.md) for the load/render split.
 
 ## Transition states
 

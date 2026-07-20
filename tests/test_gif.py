@@ -120,6 +120,69 @@ def test_rotate_frames_preserves_extra_keys():
     assert out[0]["hull_opacity_factor"] == 0.8
 
 
+@pytest.mark.parametrize(
+    ("ts_bonds", "auto_detect", "expected"),
+    [(None, True, []), ([], False, []), ([(1, 3)], False, [(0, 2)])],
+)
+def test_render_gif_ts_detection_mode(tmp_path, ts_bonds, auto_detect, expected):
+    from unittest.mock import patch
+
+    import networkx as nx
+
+    from xyzrender import render_gif
+
+    frames = [{"symbols": ["C", "C", "C"], "positions": [[0, 0, 0], [1.4, 0, 0], [2.8, 0, 0]]}]
+    auto_graph = nx.Graph()
+    auto_graph.add_nodes_from(
+        (i, {"symbol": "C", "position": tuple(position)}) for i, position in enumerate(frames[0]["positions"])
+    )
+    auto_graph.add_edge(0, 1, TS=True)
+    analysis = {"graph": {"ts_graph": auto_graph}, "trajectory": {"frames": frames}}
+
+    with (
+        patch("graphrc.load_trajectory", return_value={"frames": frames}) as mock_load,
+        patch("graphrc.run_vib_analysis", return_value=analysis) as mock_analysis,
+        patch("xyzrender.gif._render_frames", return_value=[b""]) as mock_render,
+        patch("xyzrender.gif._stitch_gif"),
+    ):
+        render_gif(
+            STRUCTURES / "sn2.out",
+            gif_ts=True,
+            ts_bonds=ts_bonds,
+            vib_frames=4,
+            orient=False,
+            output=tmp_path / "ts.gif",
+        )
+
+    assert mock_analysis.call_count == int(auto_detect)
+    assert mock_load.call_count == int(not auto_detect)
+    graph, _frames, config = mock_render.call_args.args
+    assert any(data.get("TS") for _i, _j, data in graph.edges(data=True)) is auto_detect
+    assert config.ts_bonds == expected
+
+
+@pytest.mark.parametrize("ts_bonds", [[(1, 1)], [(1, 999)]])
+def test_render_gif_ts_rejects_invalid_manual_bonds(tmp_path, ts_bonds):
+    from unittest.mock import patch
+
+    from xyzrender import render_gif
+
+    frames = [{"symbols": ["C", "C"], "positions": [[0, 0, 0], [1.4, 0, 0]]}]
+    with (
+        patch("graphrc.load_trajectory", return_value={"frames": frames}),
+        patch("graphrc.run_vib_analysis", side_effect=AssertionError("automatic TS identification ran")),
+        pytest.raises(ValueError, match="ts-bond"),
+    ):
+        render_gif(
+            STRUCTURES / "sn2.out",
+            gif_ts=True,
+            ts_bonds=ts_bonds,
+            vib_frames=4,
+            orient=False,
+            output=tmp_path / "ts.gif",
+        )
+
+
 def test_render_trajectory_gif_trj_bonds(tmp_path):
     """trj_bonds=True must rebuild graphs per frame, and those graphs must
     survive the orient/rotate transforms and reach the worker."""
