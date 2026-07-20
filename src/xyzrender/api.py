@@ -1387,7 +1387,7 @@ def render(
 def render_gif(
     molecule: str | os.PathLike | Molecule,
     *,
-    gif_rot: str | None = None,
+    gif_rot: str | bool | None = None,
     gif_bounce: float | tuple[float, str] | None = None,
     gif_trj: bool = False,
     gif_ts: bool = False,
@@ -1534,7 +1534,8 @@ def render_gif(
         trajectory or vibration data is read directly from disk).
     gif_rot:
         Rotation axis: ``"x"``, ``"y"``, ``"z"``, diagonal (``"xy"``,
-        …), or a 3-digit Miller index (``"111"``).
+        …), or a 3-digit Miller index (``"111"``). Pass ``True`` to use
+        the default ``"y"`` axis.
     gif_trj:
         Trajectory animation — *molecule* must be a multi-frame XYZ.
     gif_bounce:
@@ -1568,6 +1569,9 @@ def render_gif(
         render_trajectory_gif,
         render_vibration_gif,
     )
+
+    if isinstance(gif_rot, bool):
+        gif_rot = "y" if gif_rot else None
 
     if isinstance(gif_bounce, tuple):
         bounce_deg, bounce_ax = gif_bounce

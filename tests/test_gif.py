@@ -174,6 +174,17 @@ def test_api_render_gif_rotation(tmp_path):
     assert result.path.exists()
 
 
+def test_api_render_gif_rotation_true_uses_y_axis(tmp_path):
+    from unittest.mock import patch
+
+    from xyzrender import render_gif
+
+    with patch("xyzrender.gif.render_rotation_gif") as mock_render:
+        render_gif(_tiny_molecule(), gif_rot=True, output=tmp_path / "true.gif")
+
+    assert mock_render.call_args.kwargs["axis"] == "y"
+
+
 def test_api_render_gif_bounce(tmp_path):
     pytest.importorskip("cairosvg", reason="cairosvg required")
     from xyzrender import render_gif
