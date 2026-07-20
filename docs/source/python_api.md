@@ -330,7 +330,7 @@ from xyzrender import render_gif
 
 render_gif("caffeine.xyz", gif_rot="y")           # rotation GIF
 render_gif("ts.out", gif_ts=True)                  # TS vibration GIF
-render_gif("ts.out", gif_ts=True, ts_bonds=[(1, 6)])  # override detected TS bonds
+render_gif("ts.out", gif_ts=True, ts_bonds=[(1, 6)])  # skip auto-detection; use this TS bond
 render_gif("traj.xyz", gif_trj=True)               # trajectory GIF
 render_gif("mep.xyz", gif_trj=True, trj_bonds=True)  # re-detect bonds per frame
 render_gif("mol.xyz", gif_rot="y", config=cfg)     # with shared style config

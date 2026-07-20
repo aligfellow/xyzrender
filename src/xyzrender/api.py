@@ -1549,7 +1549,7 @@ def render_gif(
         Transition-state vibration animation (requires ``xyzrender[ts]``).
     ts_bonds:
         Manual transition-state bond pairs using 1-indexed atom numbers.
-        In *gif_ts* mode these replace graphRC's detected TS bonds.
+        In *gif_ts* mode, supplying this skips automatic TS identification.
     output:
         Output ``.gif`` path.  Defaults to ``<stem>.gif`` beside *molecule*.
     gif_fps:
@@ -1829,6 +1829,7 @@ def render_gif(
             ts_frame=ts_frame,
             reference_graph=reference_graph,
             detect_nci=detect_nci,
+            auto_detect_ts=ts_bonds is None and not cfg.ts_bonds,
             axis=_vib_axis,
             n_frames=rot_frames if _vib_axis else None,
             bounce_degrees=float(bounce_deg) if bounce_deg is not None else None,

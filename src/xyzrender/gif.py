@@ -162,22 +162,16 @@ def _copy_ts_nci_attrs(target: "nx.Graph", reference: "nx.Graph") -> None:
                     target[u][v][attr] = d[attr]
 
 
-def _clear_detected_ts_bonds(ts_graph: "nx.Graph", ts_bonds: list[tuple[int, int]]) -> None:
-    """Clear graphRC's TS selection when manual renderer bonds are present."""
-    if not ts_bonds:
-        return
-
+def _validate_manual_ts_bonds(ts_graph: "nx.Graph", ts_bonds: list[tuple[int, int]]) -> None:
+    """Validate renderer-only TS pairs against the vibration graph."""
     n_atoms = ts_graph.number_of_nodes()
     for i, j in ts_bonds:
         if i == j:
             msg = f"--ts-bond cannot connect atom {i + 1} to itself"
             raise ValueError(msg)
-        if i not in ts_graph or j not in ts_graph:
+        if not (0 <= i < n_atoms and 0 <= j < n_atoms):
             msg = f"--ts-bond pair ({i + 1}, {j + 1}) out of range for molecule with {n_atoms} atoms"
             raise ValueError(msg)
-
-    for _u, _v, d in ts_graph.edges(data=True):
-        d.pop("TS", None)
 
 
 def render_vibration_gif(
@@ -196,11 +190,14 @@ def render_vibration_gif(
     bounce_degrees: float | None = None,
     reference_graph: nx.Graph | None = None,
     detect_nci: bool = False,
+    auto_detect_ts: bool | None = None,
 ) -> None:
     """Render a TS vibrational mode as an animated GIF.
 
     Uses graphRC to generate the trajectory, renders each frame as SVG
     with TS bonds dashed, converts to PNG via cairosvg, and stitches into a GIF.
+    Automatic mode uses graphRC's TS identification; manual mode loads only
+    the trajectory and builds ordinary topology with xyzgraph.
 
     If ``reference_graph`` is provided (e.g. from ``-V`` viewer rotation),
     all frames are rotated to match that orientation.
@@ -212,30 +209,49 @@ def render_vibration_gif(
     between ±``bounce_degrees`` over the full frame range instead of a
     linear 360° sweep.
     """
-    try:
-        from graphrc import run_vib_analysis
-    except ImportError:
-        msg = "Vibration GIF requires graphrc"
-        raise ImportError(msg) from None
-
     vib_kwargs = {}
     if vib_frames is not None:
         vib_kwargs["n_frames"] = vib_frames
-    results = run_vib_analysis(
-        input_file=path,
-        mode=mode,
-        ts_frame=ts_frame,
-        enable_graph=True,
-        charge=charge,
-        multiplicity=multiplicity,
-        print_output=False,
-        **vib_kwargs,
-    )
+    if auto_detect_ts is None:
+        auto_detect_ts = not config.ts_bonds
 
-    ts_graph = results["graph"]["ts_graph"]
-    frames = results["trajectory"]["frames"]
+    if not auto_detect_ts:
+        try:
+            from graphrc import load_trajectory
+        except ImportError:
+            msg = "Vibration GIF requires graphrc"
+            raise ImportError(msg) from None
 
-    _clear_detected_ts_bonds(ts_graph, config.ts_bonds)
+        trajectory = load_trajectory(path, mode=mode, print_output=False, **vib_kwargs)
+        frames = trajectory["frames"]
+
+        from xyzgraph import build_graph
+
+        ts_data = frames[ts_frame]
+        atoms = list(zip(ts_data["symbols"], [tuple(p) for p in ts_data["positions"]], strict=True))
+        ts_graph = build_graph(atoms, charge=charge, multiplicity=multiplicity)
+    else:
+        try:
+            from graphrc import run_vib_analysis
+        except ImportError:
+            msg = "Vibration GIF requires graphrc"
+            raise ImportError(msg) from None
+
+        results = run_vib_analysis(
+            input_file=path,
+            mode=mode,
+            ts_frame=ts_frame,
+            enable_graph=True,
+            charge=charge,
+            multiplicity=multiplicity,
+            print_output=False,
+            **vib_kwargs,
+        )
+        ts_graph = results["graph"]["ts_graph"]
+        frames = results["trajectory"]["frames"]
+
+    if not auto_detect_ts:
+        _validate_manual_ts_bonds(ts_graph, config.ts_bonds)
 
     # NCI: detect once on TS geometry, apply to all frames
     fixed_ncis = None
