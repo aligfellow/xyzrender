@@ -65,6 +65,12 @@ xyzrender mn-h2.log --gif-ts -go mn-h2.gif
 xyzrender bimp.out --gif-rot --gif-ts --vdw 84-169 -go bimp.gif
 ```
 
+Use `--ts-bond` to skip automatic TS identification and provide a manual selection:
+
+```bash
+xyzrender mn-h2.log --gif-ts --ts-bond "1-2" -go mn-h2.gif
+```
+
 ## Trajectory
 
 ```{image} ../../../examples/images/bimp_trj.gif

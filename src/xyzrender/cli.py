@@ -1124,7 +1124,7 @@ def main() -> None:
             p.error(f"GIF output must have .gif extension, got: .{gif_ext}")
 
     # --- Load molecule ---
-    needs_ts = args.ts_detect or args.gif_ts
+    needs_ts = (args.ts_detect or args.gif_ts) and not cfg.ts_bonds
     if is_cube and needs_ts:
         logger.warning(
             "--ts/--gif-ts has no effect with cube files (single geometry, no frequency data). "
