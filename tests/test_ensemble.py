@@ -134,6 +134,64 @@ def test_rebuilt_ensemble_detects_ncis_on_supplied_reference() -> None:
     assert any(data.get("NCI") for *_edge, data in reference_graph.edges(data=True))
 
 
+def test_load_ensemble_filters_detected_nci_types():
+    mol = load(
+        "examples/structures/bimp.v000.xyz",
+        ensemble=True,
+        max_frames=2,
+        nci_detect=["hb"],
+    )
+
+    nci_types = {data["nci_type"] for *_edge, data in mol.graph.edges(data=True) if data.get("NCI")}
+    assert nci_types == {"hbond_bifurcated"}
+    assert mol.ensemble is not None
+    assert mol.ensemble.conformer_graphs is not None
+    for graph in mol.ensemble.conformer_graphs:
+        frame_types = {data["nci_type"] for *_edge, data in graph.edges(data=True) if data.get("NCI")}
+        assert frame_types <= {"hbond", "hbond_bifurcated", "hb_pi"}
+
+
+def test_render_ensemble_filters_ncis_per_conformer_without_mutation():
+    from unittest.mock import patch
+
+    mol = load("examples/structures/bimp.v000.xyz", ensemble=True, max_frames=2)
+
+    with patch("xyzrender.renderer.render_svg", return_value="<svg />") as mock_render:
+        render(mol, detect_nci=["hb"], orient=False)
+
+    rendered_graph = mock_render.call_args.args[0]
+    nci_types = {data["nci_type"] for *_edge, data in rendered_graph.edges(data=True) if data.get("NCI")}
+    assert nci_types <= {"hbond", "hbond_bifurcated", "hb_pi"}
+    assert nci_types
+    assert any(
+        data.get("molecule_index") == 1 and data.get("nci_type") == "hbond"
+        for *_edge, data in rendered_graph.edges(data=True)
+    )
+    assert mol.ensemble is not None
+    assert mol.ensemble.conformer_graphs is None
+    assert not any(data.get("NCI") for *_edge, data in mol.graph.edges(data=True))
+
+
+def test_render_gif_ensemble_filters_ncis_per_conformer(tmp_path):
+    from unittest.mock import patch
+
+    from xyzrender import render_gif
+
+    mol = load("examples/structures/bimp.v000.xyz", ensemble=True, max_frames=2)
+
+    with patch("xyzrender.gif.render_rotation_gif") as mock_render:
+        render_gif(mol, gif_rot="y", detect_nci=["hb"], output=tmp_path / "ensemble.gif")
+
+    rendered_graph = mock_render.call_args.kwargs["graph"]
+    nci_types = {data["nci_type"] for *_edge, data in rendered_graph.edges(data=True) if data.get("NCI")}
+    assert nci_types <= {"hbond", "hbond_bifurcated", "hb_pi"}
+    assert nci_types
+    assert any(
+        data.get("molecule_index") == 1 and data.get("nci_type") == "hbond"
+        for *_edge, data in rendered_graph.edges(data=True)
+    )
+
+
 def test_ensemble_opacity(tmp_path: Path) -> None:
     xyz_path = _make_traj(tmp_path)
     mol = _build_ensemble_molecule(xyz_path, ensemble_opacity=0.4)
