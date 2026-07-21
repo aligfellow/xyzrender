@@ -53,7 +53,7 @@ For pi-system interactions (e.g. pi-stacking, cation-pi), centroid dummy nodes a
 
 ```bash
 xyzrender Hbond.xyz --hy --nci -o nci.svg                 # auto-detect all NCI
-xyzrender bimp.xyz --nci hb,pi -o selected_nci.svg        # hydrogen-bond and pi groups
+xyzrender bimp.out --nci hb,pi -o selected_nci.svg        # hydrogen-bond and pi groups
 xyzrender Hbond.xyz --nci hbond -o hbond.svg              # one exact xyzgraph type
 xyzrender Hbond.xyz --hy --nci-bond "8-9" -o nci_man.svg  # specific bond only
 xyzrender Hbond.xyz --hy --nci --nci-color teal -o nci_teal.svg
@@ -63,8 +63,8 @@ xyzrender Hbond.xyz --hy --nci --nci-color teal -o nci_teal.svg
 mol = load("Hbond.xyz", nci_detect=True)          # equivalent to --nci at load-time
 render(mol, hy=True, output="nci.svg")
 
-mol = load("bimp.xyz", nci_detect="hb,pi")       # selected groups at load-time
-render(load("bimp.xyz"), detect_nci=["hb", "pi"])
+mol = load("bimp.out", nci_detect="hb,pi")       # selected groups at load-time
+render(load("bimp.out"), detect_nci=["hb", "pi"])
 render_gif("trajectory.xyz", gif_trj=True, detect_nci="ion")
 
 render("Hbond.xyz", nci_bonds=[(8, 9)], hy=True)  # 1-indexed tuple list
