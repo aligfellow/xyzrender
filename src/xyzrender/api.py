@@ -75,9 +75,9 @@ class EnsembleFrames:
     opacities:
         Per-conformer opacity override (``None`` = fully opaque).
     conformer_graphs:
-        Optional per-frame graphs for ``rebuild=True`` ensembles (topology
-        can differ per frame).  ``None`` means all frames share the reference
-        topology.
+        Optional per-frame graphs for rebuilt topology or independently
+        detected NCI interactions.  ``None`` means all frames share the
+        reference topology.
     reference_idx:
         Index into *positions* / *colors* / *opacities* that is the reference.
     """
@@ -1905,7 +1905,12 @@ def render_gif(
 
             ens = molecule.ensemble
             ref_graph = merge_graphs(
-                ref_graph, ens.positions, conformer_colors=ens.colors, conformer_opacities=ens.opacities, z_nudge=False
+                ref_graph,
+                ens.positions,
+                conformer_colors=ens.colors,
+                conformer_opacities=ens.opacities,
+                conformer_graphs=ens.conformer_graphs,
+                z_nudge=False,
             )
 
         # Overlay & Bond Rules
@@ -2043,6 +2048,29 @@ def _resolve_ensemble_colors(
         return sample_palette(DEFAULT_ENSEMBLE_PALETTE, n_conformers)
 
 
+def _detect_ensemble_ncis(reference_graph: nx.Graph, aligned_positions: list[np.ndarray]) -> list[nx.Graph]:
+    """Detect NCIs per conformer while reusing a fixed covalent topology."""
+    from xyzgraph.nci import NCIAnalyzer, build_nci_graph
+
+    topology_graph = copy.deepcopy(reference_graph)
+    topology_graph.remove_edges_from([(i, j) for i, j, data in topology_graph.edges(data=True) if data.get("NCI")])
+    topology_graph.remove_nodes_from(topology_graph.graph.get("nci_centroid", []))
+    for key in ("ncis", "nci_centroid", "nci_centroid_sites"):
+        topology_graph.graph.pop(key, None)
+
+    analyzer = NCIAnalyzer(topology_graph)
+    atom_nodes = list(topology_graph.nodes())
+    conformer_graphs = []
+    for positions in aligned_positions:
+        for node, position in zip(atom_nodes, positions, strict=True):
+            topology_graph.nodes[node]["position"] = tuple(float(value) for value in position)
+        ncis = analyzer.detect(np.asarray(positions))
+        topology_graph.graph["ncis"] = ncis
+        conformer_graphs.append(build_nci_graph(topology_graph, ncis))
+
+    return conformer_graphs
+
+
 def _build_ensemble_molecule(
     trajectory: str | os.PathLike,
     *,
@@ -2070,6 +2098,9 @@ def _build_ensemble_molecule(
     so that bonding can differ between conformers — analogous to ``--gif-trj``
     but rendered on one image.  NCI detection is run on each rebuilt frame too
     when *nci_detect* is also ``True``.
+
+    With fixed topology, NCI detection reuses one analyzer but decorates each
+    conformer independently so geometry-dependent interactions remain distinct.
 
     When *reference_mol* is given, its graph (and positions) are used as the
     reference frame instead of loading from *trajectory*.  This lets
@@ -2220,24 +2251,25 @@ def _build_ensemble_molecule(
         # --no-align: keep each frame's raw coordinates; no Kabsch step.
         aligned_positions = [np.array(fr["positions"], dtype=float) for fr in frames]
 
-    # NCI detection and per-frame graph building happen *after* alignment so that
-    # centroid dummy nodes don't interfere with position array sizes.
-    if nci_detect:
+    conformer_graphs: list[nx.Graph] | None = None
+    if nci_detect and not rebuild:
+        conformer_graphs = _detect_ensemble_ncis(ref_graph, aligned_positions)
+        ref_graph = conformer_graphs[reference_frame]
+
+    elif rebuild:
+        from xyzgraph import build_graph
+
         from xyzrender.readers import detect_nci as _detect_nci
 
-        if reference_mol is None:
-            ref_graph = _detect_nci(ref_graph)
-
-    conformer_graphs: list[nx.Graph] | None = None
-    if rebuild:
-        from xyzgraph import build_graph
+        if nci_detect:
+            ref_graph = _detect_ensemble_ncis(ref_graph, [aligned_positions[reference_frame]])[0]
 
         conformer_graphs = []
         for fi, frame in enumerate(frames):
             if fi == reference_frame:
                 conformer_graphs.append(ref_graph)
                 continue
-            atoms = list(zip(frame["symbols"], [tuple(p) for p in frame["positions"]], strict=True))
+            atoms = list(zip(frame["symbols"], [tuple(p) for p in aligned_positions[fi]], strict=True))
             fg = build_graph(atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick)
             for _i, _j, d in fg.edges(data=True):
                 if "bond_order" in d:
