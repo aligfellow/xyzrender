@@ -505,7 +505,7 @@ def load_ts_molecule(
 # ---------------------------------------------------------------------------
 
 
-def detect_nci(graph: nx.Graph) -> nx.Graph:
+def detect_nci(graph: nx.Graph, nci_types: bool | str | list[str] = True) -> nx.Graph:
     """Detect non-covalent interactions and return a decorated graph.
 
     Uses xyzgraph's NCI detection algorithm.  Returns a new graph with
@@ -516,20 +516,33 @@ def detect_nci(graph: nx.Graph) -> nx.Graph:
     ----------
     graph:
         Molecular graph built by xyzgraph (e.g. from :func:`load_molecule`).
+    nci_types:
+        ``True`` selects every detected interaction.  Exact xyzgraph type
+        names and the ``hb``, ``pi``, and ``ion`` groups may be supplied as
+        a string or list.
 
     Returns
     -------
     networkx.Graph
         New graph with NCI edges and centroid nodes added.
     """
-    from xyzgraph import detect_ncis
     from xyzgraph.nci import build_nci_graph
 
     logger.info("Detecting NCI interactions")
-    detect_ncis(graph)
-    nci_graph = build_nci_graph(graph)
-    n_nci = sum(1 for _, _, d in nci_graph.edges(data=True) if d.get("NCI"))
-    logger.info("Detected %d NCI interactions", n_nci)
+    from xyzrender.nci_filter import filter_ncis
+
+    if "ncis" in graph.graph:
+        graph.remove_edges_from([(i, j) for i, j, data in graph.edges(data=True) if data.get("NCI")])
+        graph.remove_nodes_from(graph.graph.get("nci_centroid", []))
+        for key in ("ncis", "nci_centroid", "nci_centroid_sites"):
+            graph.graph.pop(key, None)
+
+    from xyzgraph import detect_ncis
+
+    ncis = filter_ncis(detect_ncis(graph), nci_types)
+    graph.graph["ncis"] = ncis
+    nci_graph = build_nci_graph(graph, ncis)
+    logger.info("Detected %d NCI interactions", len(ncis))
     return nci_graph
 
 

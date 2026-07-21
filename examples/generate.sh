@@ -55,6 +55,7 @@ echo "=== TS and NCI options ==="
 xyzrender "$DIR/sn2.out" --ts-bond "1-2" -o "$IMG/sn2_ts_man.svg"
 xyzrender "$DIR/sn2.out" --ts --hy -o "$IMG/sn2_ts.svg"
 xyzrender "$DIR/bimp.out" --nci -o "$IMG/bimp_nci.svg"
+xyzrender "$DIR/bimp.out" --nci hb -o "$IMG/bimp_nci_hb.svg"
 xyzrender "$DIR/Hbond.xyz" --hy --nci-bond "8-9" -o "$IMG/nci_man.svg"  # specific NCI bond only
 xyzrender "$DIR/Hbond.xyz" --hy --nci -o "$IMG/nci.svg"  # specific NCI bond only
 xyzrender "$DIR/bimp.out" --ts --nci --vdw "84-169" --ts-color magenta --nci-color teal -o "$IMG/bimp_ts_nci_custom.svg"

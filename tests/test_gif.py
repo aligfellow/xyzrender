@@ -161,6 +161,47 @@ def test_render_gif_ts_detection_mode(tmp_path, ts_bonds, auto_detect, expected)
     assert config.ts_bonds == expected
 
 
+def test_render_gif_vibration_filters_detected_nci_types(tmp_path):
+    from unittest.mock import patch
+
+    import networkx as nx
+    from xyzgraph.nci import NCIData
+
+    from xyzrender import render_gif
+
+    frames = [{"symbols": ["C", "C", "C"], "positions": [[0, 0, 0], [1.4, 0, 0], [2.8, 0, 0]]}]
+    ts_graph = nx.Graph()
+    ts_graph.add_nodes_from(
+        (i, {"symbol": "C", "position": tuple(position)}) for i, position in enumerate(frames[0]["positions"])
+    )
+    analysis = {"graph": {"ts_graph": ts_graph}, "trajectory": {"frames": frames}}
+    detected = [
+        NCIData("hbond", (0,), (1,), (), {}, 1.0),
+        NCIData("pi_pi_parallel", (1,), (2,), (), {}, 1.0),
+    ]
+
+    def _detect(graph):
+        graph.graph["ncis"] = detected
+        return detected
+
+    with (
+        patch("graphrc.run_vib_analysis", return_value=analysis),
+        patch("xyzgraph.detect_ncis", side_effect=_detect),
+        patch("xyzrender.gif._render_frames", return_value=[b""]) as mock_render,
+        patch("xyzrender.gif._stitch_gif"),
+    ):
+        render_gif(
+            STRUCTURES / "sn2.out",
+            gif_ts=True,
+            detect_nci=["hb"],
+            orient=False,
+            output=tmp_path / "ts.gif",
+        )
+
+    fixed_ncis = mock_render.call_args.kwargs["fixed_ncis"]
+    assert [nci.type for nci in fixed_ncis] == ["hbond"]
+
+
 @pytest.mark.parametrize("ts_bonds", [[(1, 1)], [(1, 999)]])
 def test_render_gif_ts_rejects_invalid_manual_bonds(tmp_path, ts_bonds):
     from unittest.mock import patch
@@ -214,6 +255,57 @@ def test_render_trajectory_gif_trj_bonds(tmp_path):
     assert len({id(f["graph"]) for f in seen}) == len(seen)
 
 
+def test_render_trajectory_frame_filters_detected_nci_types():
+    from unittest.mock import Mock, patch
+
+    import networkx as nx
+    from xyzgraph.nci import NCIData
+
+    from xyzrender.gif import _render_traj_frame
+    from xyzrender.types import RenderConfig
+
+    graph = nx.Graph()
+    graph.add_nodes_from(
+        [
+            (0, {"symbol": "C", "position": (0.0, 0.0, 0.0)}),
+            (1, {"symbol": "C", "position": (1.4, 0.0, 0.0)}),
+        ]
+    )
+    frame = {"symbols": ["C", "C"], "positions": [[0.0, 0.0, 0.0], [1.4, 0.0, 0.0]]}
+    analyzer = Mock()
+    analyzer.detect.return_value = [
+        NCIData("hbond", (0,), (1,), (), {}, 1.0),
+        NCIData("pi_pi_parallel", (0,), (1,), (), {}, 1.0),
+    ]
+    captured = {}
+
+    def _build(source, ncis):
+        captured["types"] = [nci.type for nci in ncis]
+        return source
+
+    with (
+        patch("xyzgraph.nci.build_nci_graph", side_effect=_build),
+        patch("xyzrender.gif.render_svg", return_value="<svg />"),
+        patch("xyzrender.gif.svg_to_png_bytes", return_value=b"png"),
+    ):
+        _render_traj_frame(
+            (0, frame),
+            graph,
+            RenderConfig(),
+            analyzer,
+            None,
+            False,
+            ["hb"],
+            None,
+            1.0,
+            None,
+            np.full((0, 3), np.nan),
+            np.full((0, 3), np.nan),
+        )
+
+    assert captured["types"] == ["hbond"]
+
+
 # ---------------------------------------------------------------------------
 # render_gif API — rotation GIF via public API
 # ---------------------------------------------------------------------------
@@ -246,6 +338,63 @@ def test_api_render_gif_rotation_true_uses_y_axis(tmp_path):
         render_gif(_tiny_molecule(), gif_rot=True, output=tmp_path / "true.gif")
 
     assert mock_render.call_args.kwargs["axis"] == "y"
+
+
+def test_render_gif_rotation_filters_detected_nci_types(tmp_path):
+    from unittest.mock import patch
+
+    from xyzrender import render_gif
+
+    with patch("xyzrender.gif.render_rotation_gif") as mock_render:
+        render_gif(
+            STRUCTURES / "bimp.v000.xyz",
+            gif_rot="y",
+            detect_nci=["hb"],
+            output=tmp_path / "nci.gif",
+        )
+
+    graph = mock_render.call_args.kwargs["graph"]
+    nci_types = {data["nci_type"] for *_edge, data in graph.edges(data=True) if data.get("NCI")}
+    assert nci_types == {"hbond_bifurcated"}
+
+
+def test_render_gif_rotation_filters_molecule_without_mutating_it(tmp_path):
+    from unittest.mock import patch
+
+    from xyzrender import load, render_gif
+
+    molecule = load(STRUCTURES / "bimp.v000.xyz")
+
+    with patch("xyzrender.gif.render_rotation_gif") as mock_render:
+        render_gif(
+            molecule,
+            gif_rot="y",
+            detect_nci=["hb"],
+            output=tmp_path / "nci.gif",
+        )
+
+    graph = mock_render.call_args.kwargs["graph"]
+    nci_types = {data["nci_type"] for *_edge, data in graph.edges(data=True) if data.get("NCI")}
+    assert nci_types == {"hbond_bifurcated"}
+    assert not any(data.get("NCI") for *_edge, data in molecule.graph.edges(data=True))
+
+
+def test_render_gif_rotation_detects_ncis_after_atom_filtering(tmp_path):
+    from unittest.mock import patch
+
+    from xyzrender import render_gif
+
+    with patch("xyzrender.gif.render_rotation_gif") as mock_render:
+        render_gif(
+            STRUCTURES / "bimp.v000.xyz",
+            gif_rot="y",
+            detect_nci="pi",
+            only="1-172",
+            output=tmp_path / "nci.gif",
+        )
+
+    graph = mock_render.call_args.kwargs["graph"]
+    assert any(data.get("NCI") for *_edge, data in graph.edges(data=True))
 
 
 def test_api_render_gif_bounce(tmp_path):

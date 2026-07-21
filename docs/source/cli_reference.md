@@ -101,7 +101,7 @@ These flags draw graph-detected bond overlays (dashes / dots) on top of the mole
 | `--ts-element` / `--no-ts-element` | Atom-coloured halves on TS dashes |
 | `--ts-dash LEN,GAP` | TS dash length,gap as bond-width multiples (default `1.2,2.2`) |
 | `--ts-width MULT` | TS line width as a bond-width multiple (default `1.2`) |
-| `--nci` | Auto-detect NCI interactions (graph topology, not the volumetric surface — see `--nci-surf`) |
+| `--nci [TYPES]` | Auto-detect all NCIs, or select comma-separated exact types / `hb`, `pi`, and `ion` groups (graph topology, not the volumetric surface — see `--nci-surf`) |
 | `--nci-bond PAIR` | Manual NCI bond pair(s) (1-indexed) |
 | `--nci-color` | Colour for dotted NCI/haptic bonds (hex or named); overrides `--nci-element` |
 | `--nci-element` / `--no-nci-element` | Atom-coloured halves on NCI/haptic dots (on in pmol/btube/tube/mtube) |

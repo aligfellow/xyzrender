@@ -257,7 +257,7 @@ def load(
     mol_frame: int = 0,
     ts_detect: bool = False,
     ts_frame: int = 0,
-    nci_detect: bool = False,
+    nci_detect: bool | str | list[str] = False,
     cell: bool = False,
     quick: bool = False,
     bohr: bool | None = None,
@@ -302,6 +302,9 @@ def load(
         Reference frame index for TS detection in multi-frame files.
     nci_detect:
         Detect non-covalent interactions with xyzgraph after loading.
+        ``True`` selects all interactions; an exact type/group name or list
+        selects only those interactions.  Groups are ``hb``, ``pi``, and
+        ``ion``.
         When used with ``ensemble=True``, NCI detection is run on
         each frame independently.
     cell:
@@ -395,7 +398,7 @@ def load(
         if nci_detect:
             from xyzrender.readers import detect_nci
 
-            graph = detect_nci(graph)
+            graph = detect_nci(graph, nci_detect)
         return Molecule(graph=graph)
 
     import xyzrender.parsers as fmt
@@ -472,7 +475,7 @@ def load(
     if nci_detect:
         from xyzrender.readers import detect_nci
 
-        graph = detect_nci(graph)
+        graph = detect_nci(graph, nci_detect)
 
     return Molecule(graph=graph, cube_data=cube_data, cell_data=cell_data)
 
@@ -800,6 +803,7 @@ def render(
     ghost_opacity: float | None = None,
     unwrap: bool = False,
     # --- Rendering overlays (1-indexed atom numbering) ---
+    detect_nci: bool | str | list[str] = False,
     ts_bonds: list[tuple[int, int]] | None = None,
     nci_bonds: list[tuple[int, int]] | None = None,
     vdw: bool | list[int] | None = None,
@@ -924,6 +928,10 @@ def render(
         Force-show or add bonds as 1-indexed index-pair strings
         (``["4-5"]``).  Overrides ``unbond`` — a bond listed here
         will not be removed even if it matches an unbond rule.
+    detect_nci:
+        Detect geometric non-covalent interactions.  ``True`` selects all
+        xyzgraph NCI types; a type/group name or list selects only those
+        interactions.  Groups are ``hb``, ``pi``, and ``ion``.
     ts_bonds, nci_bonds:
         Manual TS / NCI bond overlays as 1-indexed atom pairs.
     vdw:
@@ -1210,6 +1218,18 @@ def render(
     # across repeated renders.
     rmol = mol.copy()
 
+    detected_conformer_graphs: list[nx.Graph] | None = None
+    if detect_nci:
+        if _is_ensemble:
+            ens = mol.ensemble
+            assert ens is not None
+            detected_conformer_graphs = _detect_ensemble_ncis(rmol.graph, ens.positions, detect_nci)
+            rmol.graph = detected_conformer_graphs[ens.reference_idx]
+        else:
+            from xyzrender.readers import detect_nci as _detect_nci
+
+            rmol.graph = _detect_nci(rmol.graph, detect_nci)
+
     # --- Orientation reference ---
     if ref is not None:
         ref_path = Path(ref)
@@ -1234,7 +1254,7 @@ def render(
             ens.positions,
             conformer_colors=ens.colors,
             conformer_opacities=ens.opacities,
-            conformer_graphs=ens.conformer_graphs,
+            conformer_graphs=detected_conformer_graphs or ens.conformer_graphs,
             z_nudge=True,
         )
         rmol = Molecule(
@@ -1477,7 +1497,7 @@ def render_gif(
     # --- Per-frame bond detection (gif_trj only) ---
     trj_bonds: bool = False,
     # --- NCI detection (gif_ts / gif_trj / gif_rot) ---
-    detect_nci: bool = False,
+    detect_nci: bool | str | list[str] = False,
     # --- Manual TS bonds (1-indexed atom numbering) ---
     ts_bonds: list[tuple[int, int]] | None = None,
     # --- Vector arrows (gif_rot only) ---
@@ -1550,6 +1570,10 @@ def render_gif(
     ts_bonds:
         Manual transition-state bond pairs using 1-indexed atom numbers.
         In *gif_ts* mode, supplying this skips automatic TS identification.
+    detect_nci:
+        Detect geometric non-covalent interactions.  ``True`` selects all
+        xyzgraph NCI types; a type/group name or list selects only those
+        interactions.  Groups are ``hb``, ``pi``, and ``ion``.
     output:
         Output ``.gif`` path.  Defaults to ``<stem>.gif`` beside *molecule*.
     gif_fps:
@@ -1649,10 +1673,24 @@ def render_gif(
         logger.warning("vib_frames has no effect without gif_ts")
 
     # Resolve config
-    _gif_mol = molecule if isinstance(molecule, Molecule) else load(molecule)
+    _dynamic_nci = gif_ts or gif_trj
+    _gif_conformer_graphs: list[nx.Graph] | None = None
+    if isinstance(molecule, Molecule):
+        _gif_mol = molecule.copy() if detect_nci and not _dynamic_nci else molecule
+    else:
+        _gif_mol = load(molecule)
     if only is not None or exclude is not None:
         _gif_mol = _filter_molecule_atoms(_gif_mol, only=only, exclude=exclude)
         molecule = _gif_mol
+    if detect_nci and not _dynamic_nci:
+        if _gif_mol.ensemble is not None:
+            ens = _gif_mol.ensemble
+            _gif_conformer_graphs = _detect_ensemble_ncis(_gif_mol.graph, ens.positions, detect_nci)
+            _gif_mol.graph = _gif_conformer_graphs[ens.reference_idx]
+        else:
+            from xyzrender.readers import detect_nci as _detect_nci
+
+            _gif_mol.graph = _detect_nci(_gif_mol.graph, detect_nci)
     _gif_graph = _gif_mol.graph
     if not isinstance(config, str):
         cfg = copy.copy(config)
@@ -1793,10 +1831,11 @@ def render_gif(
             )
             raise ValueError(msg)
         mol_path = None
-        ref_graph = molecule.graph
+        ref_graph = _gif_graph
     else:
         mol_path = Path(str(molecule))
-        ref_graph = None
+        # Preserve the graph already prepared for static GIF modes.
+        ref_graph = None if gif_ts or gif_trj else _gif_graph
 
     # Resolve output path
     if output is not None:
@@ -1900,16 +1939,16 @@ def render_gif(
                 _apply_and_save_ref(_ref_mol, cfg, _ref_path)
             ref_graph = _ref_mol.graph
 
-        if isinstance(molecule, Molecule) and molecule.ensemble is not None:
+        if _gif_mol.ensemble is not None:
             from xyzrender.ensemble import merge_graphs
 
-            ens = molecule.ensemble
+            ens = _gif_mol.ensemble
             ref_graph = merge_graphs(
                 ref_graph,
                 ens.positions,
                 conformer_colors=ens.colors,
                 conformer_opacities=ens.opacities,
-                conformer_graphs=ens.conformer_graphs,
+                conformer_graphs=_gif_conformer_graphs or ens.conformer_graphs,
                 z_nudge=False,
             )
 
@@ -2048,10 +2087,17 @@ def _resolve_ensemble_colors(
         return sample_palette(DEFAULT_ENSEMBLE_PALETTE, n_conformers)
 
 
-def _detect_ensemble_ncis(reference_graph: nx.Graph, aligned_positions: list[np.ndarray]) -> list[nx.Graph]:
-    """Detect NCIs per conformer while reusing a fixed covalent topology."""
+def _detect_ensemble_ncis(
+    reference_graph: nx.Graph,
+    aligned_positions: list[np.ndarray] | np.ndarray,
+    selection: bool | str | list[str] = True,
+) -> list[nx.Graph]:
+    """Detect selected NCIs per conformer while reusing fixed topology."""
     from xyzgraph.nci import NCIAnalyzer, build_nci_graph
 
+    from xyzrender.nci_filter import resolve_nci_types
+
+    selected_types = resolve_nci_types(selection)
     topology_graph = copy.deepcopy(reference_graph)
     topology_graph.remove_edges_from([(i, j) for i, j, data in topology_graph.edges(data=True) if data.get("NCI")])
     topology_graph.remove_nodes_from(topology_graph.graph.get("nci_centroid", []))
@@ -2061,10 +2107,12 @@ def _detect_ensemble_ncis(reference_graph: nx.Graph, aligned_positions: list[np.
     analyzer = NCIAnalyzer(topology_graph)
     atom_nodes = list(topology_graph.nodes())
     conformer_graphs = []
-    for positions in aligned_positions:
-        for node, position in zip(atom_nodes, positions, strict=True):
+    for frame_positions in aligned_positions:
+        for node, position in zip(atom_nodes, frame_positions, strict=True):
             topology_graph.nodes[node]["position"] = tuple(float(value) for value in position)
-        ncis = analyzer.detect(np.asarray(positions))
+        ncis = analyzer.detect(np.asarray(frame_positions))
+        if selected_types is not None:
+            ncis = [nci for nci in ncis if nci.type in selected_types]
         topology_graph.graph["ncis"] = ncis
         conformer_graphs.append(build_nci_graph(topology_graph, ncis))
 
@@ -2085,7 +2133,7 @@ def _build_ensemble_molecule(
     kekule: bool = False,
     rebuild: bool = False,
     quick: bool = False,
-    nci_detect: bool = False,
+    nci_detect: bool | str | list[str] = False,
     reference_mol: Molecule | None = None,
 ) -> Molecule:
     """Build a :class:`Molecule` representing an ensemble of conformers.
@@ -2097,7 +2145,7 @@ def _build_ensemble_molecule(
     When *rebuild* is ``True``, each frame's graph is built independently
     so that bonding can differ between conformers — analogous to ``--gif-trj``
     but rendered on one image.  NCI detection is run on each rebuilt frame too
-    when *nci_detect* is also ``True``.
+    when *nci_detect* is enabled.
 
     With fixed topology, NCI detection reuses one analyzer but decorates each
     conformer independently so geometry-dependent interactions remain distinct.
@@ -2253,7 +2301,7 @@ def _build_ensemble_molecule(
 
     conformer_graphs: list[nx.Graph] | None = None
     if nci_detect and not rebuild:
-        conformer_graphs = _detect_ensemble_ncis(ref_graph, aligned_positions)
+        conformer_graphs = _detect_ensemble_ncis(ref_graph, aligned_positions, nci_detect)
         ref_graph = conformer_graphs[reference_frame]
 
     elif rebuild:
@@ -2262,7 +2310,11 @@ def _build_ensemble_molecule(
         from xyzrender.readers import detect_nci as _detect_nci
 
         if nci_detect:
-            ref_graph = _detect_ensemble_ncis(ref_graph, [aligned_positions[reference_frame]])[0]
+            ref_graph = _detect_ensemble_ncis(
+                ref_graph,
+                [aligned_positions[reference_frame]],
+                nci_detect,
+            )[0]
 
         conformer_graphs = []
         for fi, frame in enumerate(frames):
@@ -2275,7 +2327,7 @@ def _build_ensemble_molecule(
                 if "bond_order" in d:
                     d["bond_order"] = 1
             if nci_detect:
-                fg = _detect_nci(fg)
+                fg = _detect_nci(fg, nci_detect)
             conformer_graphs.append(fg)
 
     n_conf = len(frames)
