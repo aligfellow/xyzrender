@@ -538,7 +538,7 @@ def detect_nci(graph: nx.Graph) -> nx.Graph:
 # ---------------------------------------------------------------------------
 
 
-def load_trajectory_frames(path: str | Path) -> list[dict]:
+def load_trajectory_frames(path: str | Path, *, allow_variable_atoms: bool = False) -> list[dict]:
     """Load all frames from a multi-frame XYZ or QM output (cclib).
 
     Returns list of ``{"symbols": [...], "positions": [[x,y,z], ...]}``
@@ -548,6 +548,9 @@ def load_trajectory_frames(path: str | Path) -> list[dict]:
     ----------
     path:
         Path to a multi-frame XYZ file or QM output file.
+    allow_variable_atoms:
+        Allow frames with differing atom counts instead of raising
+        ``ValueError`` (default: treat a non-uniform trajectory as malformed).
 
     Returns
     -------
@@ -558,6 +561,23 @@ def load_trajectory_frames(path: str | Path) -> list[dict]:
     logger.info("Loading trajectory from %s", p)
     frames = _load_xyz_frames(p) if p.endswith(".xyz") else _load_qm_frames(p)
     logger.info("Loaded %d frames", len(frames))
+
+    counts = [len(f["symbols"]) for f in frames]
+    if counts and len(set(counts)) > 1:
+        if not allow_variable_atoms:
+            first_n = counts[0]
+            bad_idx, bad_n = next((i, n) for i, n in enumerate(counts) if n != first_n)
+            msg = (
+                f"Trajectory has non-uniform atom counts: first frame N={first_n}, "
+                f"frame {bad_idx} N={bad_n}. Pass allow_variable_atoms=True "
+                "(CLI: --trj-allow-variable-atoms) to explicitly allow this."
+            )
+            raise ValueError(msg)
+        logger.info(
+            "Trajectory has non-uniform atom counts (min=%d, max=%d atoms); allow_variable_atoms=True",
+            min(counts),
+            max(counts),
+        )
     return frames
 
 
@@ -667,20 +687,58 @@ def _parse_qm_output(path: str) -> tuple[_Atoms, int, int | None]:
 
 
 def _load_xyz_frames(path: str) -> list[dict]:
-    """Read all frames from a multi-frame XYZ file."""
-    from xyzgraph import count_frames_and_atoms
+    """Read all frames from a multi-frame XYZ file, each sized by its own header."""
+    with open(path) as f:
+        lines = f.read().splitlines()
 
-    n_frames, n_atoms = count_frames_and_atoms(path)
-    logger.debug("XYZ file: %d frames, %d atoms per frame", n_frames, n_atoms)
     frames = []
-    for i in range(n_frames):
-        atoms = read_xyz_file(path, frame=i)
-        frames.append(
-            {
-                "symbols": [a[0] for a in atoms],
-                "positions": [list(a[1]) for a in atoms],
-            }
-        )
+    n_lines = len(lines)
+    i = 0
+    frame_idx = 0
+    while i < n_lines:
+        if not lines[i].strip():
+            i += 1
+            continue
+        try:
+            n_atoms = int(lines[i].strip())
+        except ValueError as e:
+            msg = f"Invalid XYZ format at line {i + 1} (frame {frame_idx}): expected atom count"
+            raise ValueError(msg) from e
+
+        atoms_start = i + 2
+        if atoms_start + n_atoms > n_lines:
+            msg = f"Frame {frame_idx} declares {n_atoms} atoms but the file ends before they are all present"
+            raise ValueError(msg)
+
+        symbols = []
+        positions = []
+        for j in range(n_atoms):
+            parts = lines[atoms_start + j].split()
+            if len(parts) < 4:
+                msg = f"Frame {frame_idx}, atom {j}: expected at least 4 columns"
+                raise ValueError(msg)
+            elem = parts[0]
+            try:
+                x, y, z = (float(v) for v in parts[1:4])
+            except ValueError as e:
+                msg = f"Frame {frame_idx}, atom {j}: invalid coordinates"
+                raise ValueError(msg) from e
+            if elem.isdigit():
+                atomic_num = int(elem)
+                if atomic_num not in DATA.n2s:
+                    msg = f"Frame {frame_idx}, atom {j}: unknown atomic number {atomic_num}"
+                    raise ValueError(msg)
+                symbol = DATA.n2s[atomic_num]
+            else:
+                symbol = elem
+            symbols.append(symbol)
+            positions.append([x, y, z])
+
+        frames.append({"symbols": symbols, "positions": positions})
+        i = atoms_start + n_atoms
+        frame_idx += 1
+
+    logger.debug("XYZ file: %d frames (atom counts: %s)", len(frames), sorted({len(f["symbols"]) for f in frames}))
     return frames
 
 

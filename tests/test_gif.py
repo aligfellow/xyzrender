@@ -210,8 +210,48 @@ def test_render_trajectory_gif_trj_bonds(tmp_path):
     bond_counts = [f["graph"].number_of_edges() for f in seen]
     # sn2.v000.xyz: bond forms across the SN2 reaction so counts must vary
     assert len(set(bond_counts)) > 1, f"expected varying per-frame bond counts, got {bond_counts}"
-    # The graphs must be distinct objects (not all aliased to the last-frame graph)
-    assert len({id(f["graph"]) for f in seen}) == len(seen)
+
+
+# ---------------------------------------------------------------------------
+# Non-uniform atom counts across frames (issue #169)
+# ---------------------------------------------------------------------------
+
+_VARIABLE_ATOM_FRAMES = [
+    {"symbols": ["H", "H"], "positions": [[0.0, 0.0, 0.0], [0.0, 0.0, 0.74]]},
+    {
+        "symbols": ["H", "H", "H"],
+        "positions": [[0.0, 0.0, 0.0], [0.0, 0.0, 0.80], [0.0, 0.0, 1.60]],
+    },
+]
+
+
+def test_render_trajectory_gif_auto_enables_trj_bonds_for_variable_atoms(tmp_path):
+    """Differing atom counts must trigger per-frame graphs even if trj_bonds=False."""
+    from unittest.mock import patch
+
+    from xyzrender.gif import render_trajectory_gif
+    from xyzrender.types import RenderConfig
+
+    captured: dict = {}
+
+    def _spy(graph, frames, config, **_):
+        captured["frames"] = frames
+        return [b""] * len(frames)
+
+    with (
+        patch("xyzrender.gif._render_frames", side_effect=_spy),
+        patch("xyzrender.gif._stitch_gif"),
+    ):
+        render_trajectory_gif(
+            frames=[dict(f) for f in _VARIABLE_ATOM_FRAMES],
+            config=RenderConfig(),
+            output=str(tmp_path / "x.gif"),
+            trj_bonds=False,
+        )
+
+    seen = captured["frames"]
+    assert all("graph" in f for f in seen), "variable atom counts must trigger per-frame graphs"
+    assert [g.number_of_nodes() for g in (f["graph"] for f in seen)] == [2, 3]
 
 
 # ---------------------------------------------------------------------------

@@ -531,9 +531,15 @@ def render_trajectory_gif(
     If ``detect_nci`` is True, NCI interactions are re-detected per frame
     using xyzgraph's NCIAnalyzer (topology built once, geometry per frame).
     If ``axis`` is provided, the molecule rotates 360° around that axis
-    over the course of the trajectory.
+    over the course of the trajectory. Frames with differing atom counts
+    always get a fresh graph per frame, regardless of ``trj_bonds``.
     """
     from xyzgraph import build_graph
+
+    frame_atom_counts = {len(f["symbols"]) for f in frames}
+    if len(frame_atom_counts) > 1 and not trj_bonds:
+        # A shared graph assumes a fixed atom count; force the per-frame path.
+        trj_bonds = True
 
     if trj_bonds:
         # Build one graph per frame so changing connectivity is shown correctly.
@@ -678,7 +684,8 @@ def _fixed_viewport(frames: list[dict], config: RenderConfig, rotation_axis: np.
 
     from xyzgraph import DATA
 
-    max_vdw = max(DATA.vdw.get(s, 1.5) for s in set(frames[0]["symbols"]))
+    all_symbols = {s for f in frames for s in f["symbols"]}
+    max_vdw = max(DATA.vdw.get(s, 1.5) for s in all_symbols)
     if config.vdw_indices is not None:
         atom_pad = max_vdw * config.vdw_scale
     else:

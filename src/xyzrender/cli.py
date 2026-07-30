@@ -652,11 +652,18 @@ def main() -> None:
     # --- GIF animation ---
     gif_g = p.add_argument_group("GIF animation")
     gif_g.add_argument("--gif-ts", action="store_true", help="TS vibration GIF (via graphRC)")
-    gif_g.add_argument("--gif-trj", action="store_true", help="Trajectory/optimization GIF (multi-frame input)")
+    gif_g.add_argument(
+        "--gif-trj", action="store_true", help="Trajectory/optimization GIF (multi-frame input)"
+    )
     gif_g.add_argument(
         "--trj-bonds",
         action="store_true",
         help="Re-detect bonds for every frame (use for NEB-TS MEPs where connectivity changes)",
+    )
+    gif_g.add_argument(
+        "--trj-allow-variable-atoms",
+        action="store_true",
+        help="Allow --gif-trj frames with differing atom counts instead of rejecting them",
     )
     gif_g.add_argument(
         "--gif-rot",
@@ -1521,6 +1528,7 @@ def main() -> None:
                 opacity=args.opacity,
                 reference_graph=_ref_graph,
                 trj_bonds=args.trj_bonds,
+                trj_allow_variable_atoms=args.trj_allow_variable_atoms,
                 detect_nci=args.nci_detect,
                 mo=args.mo,
                 dens=args.dens,

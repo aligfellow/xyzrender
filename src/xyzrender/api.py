@@ -1476,6 +1476,8 @@ def render_gif(
     reference_graph: "nx.Graph | None" = None,
     # --- Per-frame bond detection (gif_trj only) ---
     trj_bonds: bool = False,
+    # --- Allow non-uniform atom counts across frames (gif_trj only) ---
+    trj_allow_variable_atoms: bool = False,
     # --- NCI detection (gif_ts / gif_trj / gif_rot) ---
     detect_nci: bool = False,
     # --- Manual TS bonds (1-indexed atom numbering) ---
@@ -1539,7 +1541,15 @@ def render_gif(
         …), or a 3-digit Miller index (``"111"``). Pass ``True`` to use
         the default ``"y"`` axis.
     gif_trj:
-        Trajectory animation — *molecule* must be a multi-frame XYZ.
+        Trajectory animation — *molecule* must be a multi-frame XYZ with a
+        fixed atom count, unless *trj_allow_variable_atoms* is set.
+    trj_bonds:
+        Rebuild the molecular graph from every frame instead of once from
+        the last frame, so changing connectivity (e.g. NEB-TS MEPs) is shown
+        correctly.
+    trj_allow_variable_atoms:
+        Allow *gif_trj* frames with differing atom counts instead of
+        raising an error.
     gif_bounce:
         Bounce rotation GIF. Either an amplitude in degrees (axis defaults
         to ``"y"``) or a ``(degrees, axis)`` tuple — e.g. ``50`` or
@@ -1848,7 +1858,7 @@ def render_gif(
     if gif_trj:
         from xyzrender.readers import load_trajectory_frames
 
-        frames = load_trajectory_frames(str(mol_path))
+        frames = load_trajectory_frames(str(mol_path), allow_variable_atoms=trj_allow_variable_atoms)
         if len(frames) < 2:
             raise ValueError("render_gif(gif_trj=True) requires a multi-frame XYZ file")
 

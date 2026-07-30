@@ -497,6 +497,65 @@ def test_trajectory_diagnostic_warns_on_single_frame(caplog, monkeypatch):
     assert any("may not contain the expected multistep data" in m for m in msgs)
 
 
+_UNIFORM_XYZ = """2
+frame 0
+H 0.0 0.0 0.0
+H 0.0 0.0 0.74
+2
+frame 1
+H 0.0 0.0 0.0
+H 0.0 0.0 0.80
+"""
+
+_NON_UNIFORM_XYZ = """2
+frame 0
+H 0.0 0.0 0.0
+H 0.0 0.0 0.74
+3
+frame 1
+H 0.0 0.0 0.0
+H 0.0 0.0 0.80
+H 0.0 0.0 1.60
+"""
+
+
+def test_load_trajectory_frames_uniform_atom_counts(tmp_path):
+    """A fixed-atom-count trajectory loads normally with no error."""
+    from xyzrender.readers import load_trajectory_frames
+
+    p = tmp_path / "uniform.xyz"
+    p.write_text(_UNIFORM_XYZ)
+
+    frames = load_trajectory_frames(str(p))
+    assert len(frames) == 2
+    assert [len(f["symbols"]) for f in frames] == [2, 2]
+    assert frames[1]["positions"][1] == [0.0, 0.0, 0.80]
+
+
+def test_load_trajectory_frames_non_uniform_raises(tmp_path):
+    """A trajectory whose frames have differing atom counts is rejected by
+    default with a clear, early ValueError."""
+    from xyzrender.readers import load_trajectory_frames
+
+    p = tmp_path / "non_uniform.xyz"
+    p.write_text(_NON_UNIFORM_XYZ)
+
+    with pytest.raises(ValueError, match="non-uniform atom counts"):
+        load_trajectory_frames(str(p))
+
+
+def test_load_trajectory_frames_non_uniform_allowed_with_flag(tmp_path):
+    """allow_variable_atoms=True opts into loading a non-uniform trajectory
+    instead of raising."""
+    from xyzrender.readers import load_trajectory_frames
+
+    p = tmp_path / "non_uniform.xyz"
+    p.write_text(_NON_UNIFORM_XYZ)
+
+    frames = load_trajectory_frames(str(p), allow_variable_atoms=True)
+    assert [len(f["symbols"]) for f in frames] == [2, 3]
+
+
 class TestQeSniff:
     """Test QE vs Q-Chem disambiguation for .in files."""
 
