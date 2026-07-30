@@ -652,9 +652,7 @@ def main() -> None:
     # --- GIF animation ---
     gif_g = p.add_argument_group("GIF animation")
     gif_g.add_argument("--gif-ts", action="store_true", help="TS vibration GIF (via graphRC)")
-    gif_g.add_argument(
-        "--gif-trj", action="store_true", help="Trajectory/optimization GIF (multi-frame input)"
-    )
+    gif_g.add_argument("--gif-trj", action="store_true", help="Trajectory/optimization GIF (multi-frame input)")
     gif_g.add_argument(
         "--trj-bonds",
         action="store_true",
