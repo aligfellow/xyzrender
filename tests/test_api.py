@@ -340,6 +340,46 @@ def test_render_no_hy_keeps_h_in_manual_ts_bond(caffeine):
     assert n_with_ts == n_no_hy + 1
 
 
+def test_render_no_hy_keeps_h_on_rs_stereocenter():
+    """An explicit H defining an R/S carbon center must remain visible."""
+    graph = nx.Graph()
+    atoms = [
+        ("C", (0.0, 0.0, 0.0)),
+        ("H", (1.0, 1.0, 1.0)),
+        ("F", (1.0, -1.0, -1.0)),
+        ("Cl", (-1.0, 1.0, -1.0)),
+        ("Br", (-1.0, -1.0, 1.0)),
+    ]
+    for i, (symbol, position) in enumerate(atoms):
+        graph.add_node(i, symbol=symbol, position=position)
+    for neighbor in range(1, 5):
+        graph.add_edge(0, neighbor, bond_order=1.0)
+
+    svg = str(render(Molecule(graph), no_hy=True, orient=False, gradient=False))
+
+    assert svg.count("<circle ") == 5
+
+
+def test_render_no_hy_hides_h_on_non_stereogenic_carbon():
+    """The stereo carve-out must not expose ordinary carbon hydrogens."""
+    graph = nx.Graph()
+    atoms = [
+        ("C", (0.0, 0.0, 0.0)),
+        ("H", (1.0, 1.0, 1.0)),
+        ("F", (1.0, -1.0, -1.0)),
+        ("F", (-1.0, 1.0, -1.0)),
+        ("Br", (-1.0, -1.0, 1.0)),
+    ]
+    for i, (symbol, position) in enumerate(atoms):
+        graph.add_node(i, symbol=symbol, position=position)
+    for neighbor in range(1, 5):
+        graph.add_edge(0, neighbor, bond_order=1.0)
+
+    svg = str(render(Molecule(graph), no_hy=True, orient=False, gradient=False))
+
+    assert svg.count("<circle ") == 4
+
+
 # ---------------------------------------------------------------------------
 # render() — style params
 # ---------------------------------------------------------------------------

@@ -271,7 +271,12 @@ def main() -> None:
         metavar="ATOMS",
         help='Show H atoms (no args=all, or indices like "1-5,8")',
     )
-    disp_g.add_argument("--no-hy", action="store_true", default=False, help="Hide all H atoms")
+    disp_g.add_argument(
+        "--no-hy",
+        action="store_true",
+        default=False,
+        help="Hide H atoms except those on R/S stereocenters or explicit TS/NCI bonds",
+    )
     disp_g.add_argument(
         "--only",
         action="append",
