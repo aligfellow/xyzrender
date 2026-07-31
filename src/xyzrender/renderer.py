@@ -49,6 +49,46 @@ _REF_CANVAS = 800  # reference canvas size (px) — bond/label widths are define
 _CENTROID_VDW = 0.5  # VdW radius (Å) for NCI pi-system centroid dummy nodes
 
 
+def _stereocenter_hydrogens(graph: nx.Graph) -> set[int]:
+    """Return H atoms bonded to point stereocenters detected by xyzgraph.
+
+    Only covalent atoms and bonds participate, matching xyzgraph's unified
+    stereo annotator while avoiding unrelated E/Z, axial, and planar work.
+    """
+    from xyzgraph.stereo import assign_rs
+
+    def is_specified_atom(node: int) -> bool:
+        """Exclude nodes (atoms) with unspecified/wildcard symbols."""
+        symbol = graph.nodes[node].get("symbol")
+        return symbol != "*"
+
+    def is_not_ts_or_nci(left: int, right: int) -> bool:
+        """Exclude edges pertaining to NCIs or TSs."""
+        bond = graph.edges[left, right]
+        is_nci = bond.get("NCI", False)
+        is_ts = bond.get("TS", False)
+        return not is_nci and not is_ts
+
+    # return filtered graph without unspecified atoms and NCIs or TSs.
+    covalent_graph = nx.subgraph_view(
+        graph,
+        filter_node=is_specified_atom,
+        filter_edge=is_not_ts_or_nci,
+    )
+
+    centers = set(assign_rs(covalent_graph))  # Assign and return the set of r/s stereocenters.
+
+    # Returns hydrogen atoms covalently bonded to stereocenters.
+    hydrogen_indices: set[int] = set()
+
+    for center in centers:
+        for neighbor in covalent_graph.neighbors(center):
+            symbol = covalent_graph.nodes[neighbor].get("symbol")
+            if symbol == "H":
+                hydrogen_indices.add(neighbor)
+    return hydrogen_indices
+
+
 def _sphere_gradient_def(gid: str, xi: float, yi: float, r_px: float, stops: list[tuple[str, str]]) -> str:
     """User-space radial gradient centred on the projected sphere, focal upper-left."""
     stops_xml = "".join(f'<stop offset="{off}" stop-color="{col}"/>' for off, col in stops)
@@ -460,6 +500,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     hidden = set()
     if cfg.hide_h:
         show = set(cfg.show_h_indices)
+        # A hydrogen can define the stereochemistry of an R/S stereocenter.
+        # Keep steric hydrogen explicit so an R/S center remains unambiguous.
+        show.update(_stereocenter_hydrogens(graph))
         # Auto-show H atoms involved in manual NCI/TS pairs — these aren't in
         # graph.edges (cfg.{nci,ts}_bonds is renderer-only), so the C-only
         # neighbour check below would otherwise hide them and orphan the bond.
