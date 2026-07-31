@@ -135,9 +135,12 @@ Atom indices are **1-indexed**.
 ```python
 ethanol = load("ethanol.xyz")
 render(ethanol, hy=True)            # show all H
-render(ethanol, no_hy=True)         # hide all H
+render(ethanol, no_hy=True)         # hide non-essential H
 render(ethanol, hy=[7, 8, 9])       # show specific H atoms
 ```
+
+Hydrogens bonded to R/S point stereocenters remain visible automatically, as
+do hydrogens referenced by explicit TS or NCI bonds.
 
 ### Atom filtering
 

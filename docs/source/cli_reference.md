@@ -58,7 +58,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | Flag | Description |
 |------|-------------|
 | `--hy [ATOMS]` | Show H atoms (no args = all, or indices like `"1-5,8"`) |
-| `--no-hy` | Hide all H atoms |
+| `--no-hy` | Hide C-bound H except those on R/S stereocenters or explicit TS/NCI bonds |
 | `--only ATOMS` | Render only selected atoms before orientation/canvas fitting. Repeatable; same selector grammar as `--hl`, e.g. `"1-24"`, `"C,N,O"`, `"M"`. Cube/surface fields are not cropped |
 | `--exclude ATOMS` | Remove selected atoms before orientation/canvas fitting. Repeatable; same selector grammar as `--hl`, e.g. `"25-40"`, `"Na,Cl"`. Cube/surface fields are not cropped |
 | `-k`, `--kekule` | Use Kekulé bond orders (no aromatic 1.5) |

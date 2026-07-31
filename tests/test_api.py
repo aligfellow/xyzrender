@@ -12,7 +12,7 @@ from pathlib import Path
 import networkx as nx
 import pytest
 
-from xyzrender import build_config, load, measure, render
+from xyzrender import build_config, load, measure, render, renderer
 from xyzrender.api import Molecule, SVGResult
 
 STRUCTURES = Path(__file__).parent.parent / "examples" / "structures"
@@ -433,6 +433,46 @@ def test_render_no_hy_keeps_h_in_manual_ts_bond(caffeine):
     n_no_hy = str(render(caffeine, no_hy=True, orient=False)).count("<circle")
     n_with_ts = str(render(caffeine, no_hy=True, ts_bonds=[(h_idx + 1, heavy_idx + 1)], orient=False)).count("<circle")
     assert n_with_ts == n_no_hy + 1
+
+
+def _tetrahedral_carbon_graph(substituents: tuple[str, str, str, str]) -> nx.Graph:
+    """Build a tetrahedral carbon with the given substituent symbols."""
+    graph = nx.Graph()
+    graph.add_node(0, symbol="C", position=(0.0, 0.0, 0.0))
+    positions = [
+        (1.0, 1.0, 1.0),
+        (1.0, -1.0, -1.0),
+        (-1.0, 1.0, -1.0),
+        (-1.0, -1.0, 1.0),
+    ]
+    for index, (symbol, position) in enumerate(zip(substituents, positions, strict=True), start=1):
+        graph.add_node(index, symbol=symbol, position=position)
+        graph.add_edge(0, index, bond_order=1.0)
+    return graph
+
+
+def test_stereocenter_hydrogens():
+    stereogenic = _tetrahedral_carbon_graph(("H", "F", "Cl", "Br"))
+    non_stereogenic = _tetrahedral_carbon_graph(("H", "F", "F", "Br"))
+
+    assert renderer._stereocenter_hydrogens(stereogenic) == {1}
+    assert renderer._stereocenter_hydrogens(non_stereogenic) == set()
+
+
+def test_render_wires_stereocenter_hydrogens(monkeypatch):
+    graph = _tetrahedral_carbon_graph(("H", "F", "Cl", "Br"))
+    calls = []
+
+    def track_call(render_graph):
+        calls.append(render_graph)
+        return {1}
+
+    monkeypatch.setattr(renderer, "_stereocenter_hydrogens", track_call)
+
+    render(Molecule(graph), no_hy=True, orient=False, gradient=False)
+
+    assert len(calls) == 1
+    assert nx.utils.graphs_equal(calls[0], graph)
 
 
 # ---------------------------------------------------------------------------
