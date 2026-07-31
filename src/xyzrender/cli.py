@@ -276,7 +276,7 @@ def main() -> None:
         "--no-hy",
         action="store_true",
         default=False,
-        help="Hide H atoms except those on R/S stereocenters or explicit TS/NCI bonds",
+        help="Hide C-bound H except those on R/S stereocenters or explicit TS/NCI bonds",
     )
     disp_g.add_argument(
         "--only",
