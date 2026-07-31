@@ -248,6 +248,7 @@ def apply_hydrogen_flags(cfg: RenderConfig, *, hy: bool | list[int] | None, no_h
     """Single source of truth for --hy / --no-hy logic. Called by CLI and Python API.
 
     hy=None → hide C-H (default), hy=True → show all, hy=[1,3] → show specific (1-indexed).
+    Hydrogens attached to R/S stereocenters remain visible in every mode.
     """
     if no_hy:
         cfg.hide_h = True
