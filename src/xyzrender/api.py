@@ -1538,10 +1538,12 @@ def render_gif(
     # --- Orientation reference (gif_ts / gif_trj: graph after orient()) ---
     reference_graph: "nx.Graph | None" = None,
     annotation_graph: "nx.Graph | None" = None,
+    # --- Source trajectory frame corresponding to reference_graph ---
+    trj_reference_frame: int | None = None,
     # --- Per-frame bond detection (gif_trj only) ---
     trj_bonds: bool = False,
     # --- Allow non-uniform atom counts across frames (gif_trj only) ---
-    trj_allow_variable_atoms: bool = False,
+    var_atoms: bool = False,
     # --- NCI detection (gif_ts / gif_trj / gif_rot) ---
     detect_nci: bool = False,
     # --- Manual TS bonds (1-indexed atom numbering) ---
@@ -1606,14 +1608,20 @@ def render_gif(
         the default ``"y"`` axis.
     gif_trj:
         Trajectory animation — *molecule* must be a multi-frame XYZ with a
-        fixed atom count, unless *trj_allow_variable_atoms* is set.
+        fixed atom count, unless *var_atoms* is set.
     trj_bonds:
         Rebuild the molecular graph from every frame instead of once from
         the last frame, so changing connectivity (e.g. NEB-TS MEPs) is shown
         correctly.
-    trj_allow_variable_atoms:
+    var_atoms:
         Allow *gif_trj* frames with differing atom counts instead of
         raising an error.
+    trj_reference_frame:
+        Zero-based trajectory frame corresponding to *reference_graph*.
+        The same frame is used to derive a rotation that is applied to all
+        trajectory frames. By default this matches the frame used by
+        :func:`load`: the first frame for XYZ and the last geometry for QM
+        outputs.
     gif_bounce:
         Bounce rotation GIF. Either an amplitude in degrees (axis defaults
         to ``"y"``) or a ``(degrees, axis)`` tuple — e.g. ``50`` or
@@ -1931,11 +1939,15 @@ def render_gif(
         from xyzrender.readers import load_trajectory_frames
 
         assert mol_path is not None
-        frames = load_trajectory_frames(str(mol_path), allow_variable_atoms=trj_allow_variable_atoms)
+        frames = load_trajectory_frames(str(mol_path), var_atoms=var_atoms)
         if len(frames) < 2:
             raise ValueError("render_gif(gif_trj=True) requires a multi-frame XYZ file")
         # A caller-supplied reference (CLI: loaded with -c/-m) carries the electronic state.
         trj_ref = reference_graph if reference_graph is not None else rmol.graph
+
+        reference_frame = trj_reference_frame
+        if reference_frame is None:
+            reference_frame = 0 if Path(mol_path).suffix.lower() == ".xyz" else len(frames) - 1
 
         render_trajectory_gif(
             frames=frames,
@@ -1943,7 +1955,7 @@ def render_gif(
             output=str(gif_path),
             fps=gif_fps,
             reference_graph=reference_graph,
-            reference_frame=0 if mol_path.suffix.lower() == ".xyz" else len(frames) - 1,
+            reference_frame=reference_frame,
             annotation_graph=annotation_graph,
             axis=gif_rot,
             trj_bonds=trj_bonds,

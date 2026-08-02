@@ -777,6 +777,15 @@ def _rotate_vectors_in_cfg(
 def _compute_rotation(original_graph: nx.Graph, rotated_graph: nx.Graph) -> np.ndarray:
     """Compute 3x3 rotation matrix from original to rotated graph positions."""
     n = original_graph.number_of_nodes()
+    if rotated_graph.number_of_nodes() != n:
+        msg = (
+            "Trajectory reference orientation requires the reference graph and source frame to have the same atom count"
+        )
+        raise ValueError(msg)
+    original_symbols = [original_graph.nodes[i].get("symbol") for i in range(n)]
+    rotated_symbols = [rotated_graph.nodes[i].get("symbol") for i in range(n)]
+    if all(symbol is not None for symbol in original_symbols + rotated_symbols) and original_symbols != rotated_symbols:
+        raise ValueError("Trajectory reference graph and source frame must use the same atom order")
     orig = np.array([original_graph.nodes[i]["position"] for i in range(n)])
     rot = np.array([rotated_graph.nodes[i]["position"] for i in range(n)])
     return kabsch_rotation(orig, rot)
