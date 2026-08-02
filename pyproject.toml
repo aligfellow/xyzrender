@@ -11,7 +11,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.24",
-    "xyzgraph>=1.6.13",
+    "xyzgraph>=1.6.15",
     "cclib",
     "graphrc>=1.3.7",
     "cairosvg",
@@ -27,6 +27,9 @@ classifiers = [
 
 [project.urls]
 homepage = "https://github.com/aligfellow/xyzrender"
+
+[tool.uv.sources]
+xyzgraph = { git = "https://github.com/JamesOBrien2/xyzgraph.git", rev = "63fcbd33611e73c9476d6b581bd0b387496f879d" }
 
 [project.scripts]
 xyzrender = "xyzrender.cli:main"

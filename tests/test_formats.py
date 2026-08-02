@@ -6,6 +6,7 @@ All fixtures use checked-in example files — no rdkit or ase generation needed.
 from __future__ import annotations
 
 import importlib.util
+import re
 from pathlib import Path
 
 import numpy as np
@@ -540,19 +541,24 @@ def test_load_trajectory_frames_non_uniform_raises(tmp_path):
     p = tmp_path / "non_uniform.xyz"
     p.write_text(_NON_UNIFORM_XYZ)
 
-    with pytest.raises(ValueError, match="non-uniform atom counts"):
+    message = (
+        "Trajectory has non-uniform atom counts: first frame has 2 atoms, "
+        "frame 1 has 3. If this is intentional, use --var-atoms"
+    )
+    with pytest.raises(ValueError, match=re.escape(message)) as exc_info:
         load_trajectory_frames(str(p))
+    assert str(exc_info.value) == message
 
 
 def test_load_trajectory_frames_non_uniform_allowed_with_flag(tmp_path):
-    """allow_variable_atoms=True opts into loading a non-uniform trajectory
+    """var_atoms=True opts into loading a non-uniform trajectory
     instead of raising."""
     from xyzrender.readers import load_trajectory_frames
 
     p = tmp_path / "non_uniform.xyz"
     p.write_text(_NON_UNIFORM_XYZ)
 
-    frames = load_trajectory_frames(str(p), allow_variable_atoms=True)
+    frames = load_trajectory_frames(str(p), var_atoms=True)
     assert [len(f["symbols"]) for f in frames] == [2, 3]
 
 

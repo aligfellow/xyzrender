@@ -516,6 +516,7 @@ def render_trajectory_gif(
     multiplicity: int | None = None,
     fps: int = 10,
     reference_graph: nx.Graph | None = None,
+    reference_frame: int = 0,
     detect_nci: bool = False,
     axis: str | None = None,
     kekule: bool = False,
@@ -527,7 +528,8 @@ def render_trajectory_gif(
     to get correct bond orders, then updates positions per frame.
     If ``trj_bonds`` is True, builds a fresh graph for every frame so
     that changing connectivity (e.g. NEB-TS MEPs) is shown correctly.
-    If ``reference_graph`` is provided, all frames are rotated to match.
+    If ``reference_graph`` is provided, all frames are rotated using the
+    matching ``reference_frame`` as the un-oriented source.
     If ``detect_nci`` is True, NCI interactions are re-detected per frame
     using xyzgraph's NCIAnalyzer (topology built once, geometry per frame).
     If ``axis`` is provided, the molecule rotates 360° around that axis
@@ -535,6 +537,10 @@ def render_trajectory_gif(
     always get a fresh graph per frame, regardless of ``trj_bonds``.
     """
     from xyzgraph import build_graph
+
+    if not 0 <= reference_frame < len(frames):
+        msg = f"Trajectory reference frame {reference_frame} is out of range for {len(frames)} frames"
+        raise ValueError(msg)
 
     frame_atom_counts = {len(f["symbols"]) for f in frames}
     if len(frame_atom_counts) > 1 and not trj_bonds:
@@ -558,7 +564,8 @@ def render_trajectory_gif(
             max(bond_counts),
             bond_counts[-1],
         )
-        # Use last frame's graph as the topology anchor for Kabsch alignment.
+        reference_source_graph = frames[reference_frame]["graph"]
+        # Use last frame's graph as the topology anchor for rendering.
         graph = frames[-1]["graph"]
     else:
         # Build graph from last frame (optimized geometry → correct bond orders)
@@ -568,6 +575,18 @@ def render_trajectory_gif(
 
         if reference_graph is not None:
             _copy_ts_nci_attrs(graph, reference_graph)
+
+        source = frames[reference_frame]
+        if reference_frame == len(frames) - 1:
+            reference_source_graph = graph
+        else:
+            source_atoms = list(zip(source["symbols"], [tuple(p) for p in source["positions"]], strict=True))
+            reference_source_graph = build_graph(
+                source_atoms,
+                charge=charge,
+                multiplicity=multiplicity,
+                kekule=kekule,
+            )
 
     # NCI: build analyzer once from the fixed topology, or rebuild per frame
     # when bonds change (trj_bonds) since π-systems / sites / pair list depend
@@ -581,7 +600,7 @@ def render_trajectory_gif(
     # Apply viewer rotation if reference orientation was given
     if reference_graph is not None:
         logger.debug("Applying Kabsch rotation from viewer orientation")
-        rot = _compute_rotation(graph, reference_graph)
+        rot = _compute_rotation(reference_source_graph, reference_graph)
         frames = _rotate_frames(frames, rot)
 
     # PCA: compute once from first frame, apply consistently to all
@@ -763,6 +782,15 @@ def _rotate_vectors_in_cfg(
 def _compute_rotation(original_graph: nx.Graph, rotated_graph: nx.Graph) -> np.ndarray:
     """Compute 3x3 rotation matrix from original to rotated graph positions."""
     n = original_graph.number_of_nodes()
+    if rotated_graph.number_of_nodes() != n:
+        msg = (
+            "Trajectory reference orientation requires the reference graph and source frame to have the same atom count"
+        )
+        raise ValueError(msg)
+    original_symbols = [original_graph.nodes[i].get("symbol") for i in range(n)]
+    rotated_symbols = [rotated_graph.nodes[i].get("symbol") for i in range(n)]
+    if all(symbol is not None for symbol in original_symbols + rotated_symbols) and original_symbols != rotated_symbols:
+        raise ValueError("Trajectory reference graph and source frame must use the same atom order")
     orig = np.array([original_graph.nodes[i]["position"] for i in range(n)])
     rot = np.array([rotated_graph.nodes[i]["position"] for i in range(n)])
     return kabsch_rotation(orig, rot)

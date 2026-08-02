@@ -2192,8 +2192,8 @@ wheels = [
 
 [[package]]
 name = "xyzgraph"
-version = "1.6.14"
-source = { registry = "https://pypi.org/simple" }
+version = "1.6.15"
+source = { git = "https://github.com/JamesOBrien2/xyzgraph.git?rev=63fcbd33611e73c9476d6b581bd0b387496f879d#63fcbd33611e73c9476d6b581bd0b387496f879d" }
 dependencies = [
     { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -2201,14 +2201,10 @@ dependencies = [
     { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "rdkit" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0d/90/93e5da04ef7efed8d8737aff24171886dd2738060295cd3b881b3a0d6919/xyzgraph-1.6.14.tar.gz", hash = "sha256:360cbee22172c0823dbc2c43ca109a3a1212bd7bdb029fd8998da676b3fe99a3", size = 181173, upload-time = "2026-07-20T14:48:22.813Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b9/e7/35f138e79a0ba3fae37f23af80a55cbdf3a616b635799579bb3fd87e29d2/xyzgraph-1.6.14-py3-none-any.whl", hash = "sha256:1aecb1c07f4b32364cd21e1d52e2f657a93b15504225c2cddb672d24b783aea7", size = 131082, upload-time = "2026-07-20T14:48:20.53Z" },
-]
 
 [[package]]
 name = "xyzrender"
-version = "0.3.8"
+version = "0.3.9"
 source = { editable = "." }
 dependencies = [
     { name = "cairosvg" },
@@ -2275,7 +2271,7 @@ requires-dist = [
     { name = "shelxfile", marker = "extra == 'shelxl'" },
     { name = "vmol", marker = "extra == 'all'", specifier = ">=3.0rc7" },
     { name = "vmol", marker = "extra == 'v'", specifier = ">=3.0rc7" },
-    { name = "xyzgraph", specifier = ">=1.6.13" },
+    { name = "xyzgraph", git = "https://github.com/JamesOBrien2/xyzgraph.git?rev=63fcbd33611e73c9476d6b581bd0b387496f879d" },
 ]
 provides-extras = ["smi", "cif", "shelxl", "v", "all"]
 
