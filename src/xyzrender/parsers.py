@@ -1151,25 +1151,32 @@ def parse_shelxl(path: str | Path) -> MolData:
     shx = Shelxfile()
     shx.read_file(str(path))
 
+    cell = getattr(shx, "cell", None)
+    pbc_cell = None
+    if cell is not None:
+        pbc_cell = _abc_angles_to_cell(cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma)
+
     atoms: list[tuple[str, tuple[float, float, float]]] = []
-    if hasattr(shx, "pack"):
-        for atom in shx.pack():
+    source_atoms = getattr(getattr(shx, "atoms", None), "all_atoms", ())
+    symmetry_ops = tuple(getattr(shx, "symmcards", ())) or (None,)
+    for atom in source_atoms:
+        for symm in symmetry_ops:
             sym = (
                 atom.element.capitalize()
                 if hasattr(atom, "element") and atom.element
                 else atom.name.rstrip("0123456789").capitalize()
             )
-            if hasattr(atom, "cart_coords") and atom.cart_coords is not None:
+            if pbc_cell is not None and hasattr(atom, "frac_coords"):
+                frac = np.asarray(atom.frac_coords, dtype=float)
+                if symm is not None:
+                    frac = np.asarray(symm.matrix, dtype=float) @ frac + np.asarray(symm.trans, dtype=float)
+                x, y, z = np.mod(frac, 1.0) @ pbc_cell
+            elif hasattr(atom, "cart_coords") and atom.cart_coords is not None:
                 x, y, z = atom.cart_coords
             elif hasattr(atom, "xc") and hasattr(atom, "yc") and hasattr(atom, "zc"):
                 x, y, z = atom.xc, atom.yc, atom.zc
             else:
                 x, y, z = 0.0, 0.0, 0.0
             atoms.append((sym, (float(x), float(y), float(z))))
-
-    pbc_cell = None
-    cell = getattr(shx, "cell", None)
-    if cell is not None:
-        pbc_cell = _abc_angles_to_cell(cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma)
 
     return MolData(atoms=atoms, bonds=None, pbc_cell=pbc_cell, name=str(path))
