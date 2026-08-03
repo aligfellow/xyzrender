@@ -252,6 +252,36 @@ render(mol, supercell=(2, 2, 1))         # 2×2×1 supercell with ghost atoms
 
 `unwrap=True` moves atoms by integer lattice translations so each molecule is drawn whole, anchoring every molecule at the image where most of its atoms already sat (it is **not** a centre-of-mass wrap). Ghost (periodic-image) atoms default off when `unwrap` is on, since molecules are already contiguous. Fully-connected frameworks (ionic or covalent networks) have no discrete molecules to reassemble and are left unchanged, with a warning. This is the primary entry point — the CLI `--unwrap` flag simply forwards here. The underlying transform is also exposed as [`xyzrender.crystal.unwrap_molecules(graph, cell_data)`](#) if you want to apply it to a graph directly.
 
+### Proteins
+
+`protein=True` replaces backbone and side-chain atoms with a shaded cartoon; ligands, ions and waters keep drawing as ball-and-stick alongside it.
+
+```python
+mol = load("8UWL.pdb")
+
+render(mol, protein=True)                                  # gloss cartoon, chain colours
+render(mol, protein="illustration", color_by="ss")         # flat textbook look
+render(mol, protein=True, exclude_chains="A,B")            # drop chains and their heteroatoms
+render(mol, protein=True, chain_colors={"C": "steelblue"})
+
+# Binding site: ligand recoloured and glowing, its contacts kept, side chains shown
+render(mol, protein=True, ligand_highlight=True, ligand_color="#ff9f45",
+       glow="ligand", sidechain="45,102-108", nci_ligand_protein_only=True)
+```
+
+| Option | Description |
+|--------|-------------|
+| `protein` | `True` for the default style, or `"gloss"` / `"illustration"` / `"cartoon"` |
+| `color_by` | `"chain"` (default), `"rainbow"`, `"ss"`, `"bfactor"` |
+| `chain_colors` | Per-chain overrides, e.g. `{"A": "steelblue"}` |
+| `exclude_chains` | Chain IDs to drop, as `"A,B"` or `["A", "B"]` |
+| `sidechain` | `True` for all, or a residue selector such as `"45,102-108"` / `"A:45"` |
+| `ligand_highlight` / `ligand_color` | Recolour ligands (HETATM excluding water and ions) |
+| `ribbon_width` / `loop_width` | Tape and coil-tube widths in Å (defaults 4.5 / 0.9) |
+| `nci_ligand_protein_only` | Keep only ligand-associated NCI contacts |
+
+`glow=` also accepts the semantic tokens `ligand`, `protein`, `backbone`, `sidechain`, `water`, `ion`, `hetatm` on protein input. See [Proteins & biomolecules](examples/protein.md).
+
 ## Reusing a style config
 
 For a single render, pass `config=` to `render()` directly — `render(mol, config="paton")` and `render(mol, config="./my_style.json")` both work without any helper. Use `build_config()` only when you want to build the styling **once** and reuse it across many renders:

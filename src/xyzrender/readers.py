@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import re
 import sys
+from itertools import pairwise
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeAlias
 
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
     import networkx as nx
 
     from xyzrender.cube import CubeData
+    from xyzrender.types import ProteinData, ProteinSemantics
 
 _Atoms: TypeAlias = list[tuple[str, tuple[float, float, float]]]
 
@@ -266,7 +268,7 @@ def load_molecule(
             rebuild=rebuild,
             quick=quick,
         )
-    elif p.endswith(".cif"):
+    elif p.lower().endswith(".cif"):
         data = fmt.parse_cif(p)
         # CIF is always periodic — bond orders are always suppressed at render time
         graph = build_graph(data.atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=True)
@@ -350,6 +352,76 @@ def load_cube(
     return graph, cube
 
 
+def _rescue_hetatm_bonds(graph: "nx.Graph", data: object) -> None:
+    """Detect bonds for heteroatoms the file's CONECT records left bare.
+
+    A deposited structure ships CONECT for its own HETATM, so ``data.bonds`` is
+    non-empty and file connectivity wins -- but a ligand appended afterwards
+    (a docked pose) has no records and would draw as loose spheres.  Detection
+    runs on the heteroatom slice alone: ~2 ms, against 131 s for a whole protein.
+    """
+    pd = getattr(data, "protein_data", None)
+    het = sorted(getattr(pd, "hetatm_indices", ()) or ())
+    if not het or all(graph.degree(i) for i in het):
+        return
+
+    from xyzgraph import build_graph
+
+    atoms = getattr(data, "atoms", None)
+    if atoms is None:
+        return
+    sub = build_graph([atoms[i] for i in het], quick=True)
+    for u, v, attrs in sub.edges(data=True):
+        a, b = het[u], het[v]
+        if not graph.has_edge(a, b):
+            graph.add_edge(a, b, bond_order=attrs.get("bond_order", 1.0))
+
+
+def _rescue_polymer_bonds(graph: "nx.Graph", data: object) -> None:
+    """Fill polymer bonds omitted from PDB ``CONECT`` records.
+
+    Deposited PDB files generally list connectivity for HETATMs only.  Detecting
+    each residue independently avoids the quadratic cost and false contacts of
+    rebuilding a whole protein, then adjacent C--N pairs restore peptide links.
+    """
+    pd = getattr(data, "protein_data", None)
+    atoms = getattr(data, "atoms", None)
+    if pd is None or atoms is None:
+        return
+
+    from math import dist
+
+    from xyzgraph import build_graph
+
+    for chain in pd.chains.values():
+        for residue in chain.residues:
+            indices = residue.atom_indices
+            sub = build_graph([atoms[i] for i in indices], quick=True)
+            for u, v, attrs in sub.edges(data=True):
+                a, b = indices[u], indices[v]
+                if not graph.has_edge(a, b):
+                    graph.add_edge(a, b, bond_order=attrs.get("bond_order", 1.0))
+
+        for left, right in pairwise(chain.residues):
+            if left.c_index is None or right.n_index is None:
+                continue
+            a, b = left.c_index, right.n_index
+            if dist(atoms[a][1], atoms[b][1]) <= 1.9 and not graph.has_edge(a, b):
+                graph.add_edge(a, b, bond_order=1.0)
+
+
+def _isolated_atoms_are_drawn_as_ribbon(isolated: list[int], data: object) -> bool:
+    """Whether every bondless atom is backbone/sidechain, i.e. drawn as cartoon.
+
+    Those atoms never needed bonds; warning about them is noise on any protein.
+    """
+    pd = getattr(data, "protein_data", None)
+    if pd is None:
+        return False
+    covered = set(getattr(pd, "backbone_indices", ())) | set(getattr(pd, "sidechain_indices", ()))
+    return bool(covered) and all(i in covered for i in isolated)
+
+
 def graph_from_moldata(
     data: object,
     charge: int = 0,
@@ -390,14 +462,20 @@ def graph_from_moldata(
             graph.add_node(i, symbol=sym, position=pos)
         for i, j, order in data.bonds:
             graph.add_edge(i, j, bond_order=order)
-        isolated = sum(1 for n in graph.nodes if graph.degree(n) == 0)
-        if isolated > 0:
+        _rescue_hetatm_bonds(graph, data)
+        _rescue_polymer_bonds(graph, data)
+        isolated = [n for n in graph.nodes if graph.degree(n) == 0]
+        if isolated and not _isolated_atoms_are_drawn_as_ribbon(isolated, data):
+            # Detection is O(n^2) -- 131 s on an 8.6k-atom protein -- so only
+            # suggest it where it would actually finish.
+            hint = " — use --rebuild to re-detect with xyzgraph" if graph.number_of_nodes() <= 2000 else ""
             logger.warning(
-                "%d/%d atoms have no bonds from file connectivity — use --rebuild to re-detect with xyzgraph",
-                isolated,
+                "%d/%d atoms have no bonds from file connectivity%s",
+                len(isolated),
                 graph.number_of_nodes(),
+                hint,
             )
-        else:
+        elif not isolated:
             logger.info(
                 "Graph from file connectivity: %d atoms, %d bonds",
                 graph.number_of_nodes(),
@@ -505,7 +583,79 @@ def load_ts_molecule(
 # ---------------------------------------------------------------------------
 
 
-def detect_nci(graph: nx.Graph) -> nx.Graph:
+def filter_ligand_protein_nci(graph: nx.Graph, protein_data: "ProteinData | ProteinSemantics") -> nx.Graph:
+    """Keep ligand-associated protein NCI components and drop all other NCI edges.
+
+    Parameters
+    ----------
+    graph:
+        Graph that already contains ``NCI=True`` edges.
+    protein_data:
+        Protein metadata from PDB parsing.
+
+    Returns
+    -------
+    networkx.Graph
+        Filtered graph.  Isolated NCI centroid dummy nodes are removed.
+    """
+    import networkx as nx
+
+    ligand = set(getattr(protein_data, "ligand_indices", set()))
+    protein: set[int] = set()
+    chains = getattr(protein_data, "chains", {})
+    for chain in chains.values():
+        for res in chain.residues:
+            protein.update(res.atom_indices)
+    for idxs in getattr(protein_data, "trace_chains", {}).values():
+        protein.update(idxs)
+    if not protein:
+        protein.update(getattr(protein_data, "backbone_indices", set()))
+        protein.update(getattr(protein_data, "sidechain_indices", set()))
+    protein.difference_update(ligand)
+
+    out = graph.copy()
+    nci_edges = [(i, j) for i, j, data in out.edges(data=True) if data.get("NCI", False)]
+    if not nci_edges:
+        return out
+
+    nci_sub = nx.Graph()
+    nci_sub.add_edges_from(nci_edges)
+
+    def _cls(node: int) -> str:
+        if node in ligand:
+            return "ligand"
+        if node in protein:
+            return "protein"
+        return "other"
+
+    keep_nci_edges: set[tuple[int, int]] = set()
+    for component_nodes in nx.connected_components(nci_sub):
+        classes = {_cls(node) for node in component_nodes}
+        if "ligand" not in classes or "protein" not in classes:
+            continue
+        comp = nci_sub.subgraph(component_nodes)
+        keep_nci_edges.update((min(i, j), max(i, j)) for i, j in comp.edges())
+
+    for i, j, data in list(out.edges(data=True)):
+        if not data.get("NCI", False):
+            continue
+        if (min(i, j), max(i, j)) not in keep_nci_edges:
+            out.remove_edge(i, j)
+
+    # Pi-system centroid dummy nodes ("*") can become isolated after filtering.
+    orphan_centroids = [n for n, d in out.nodes(data=True) if d.get("symbol") == "*" and out.degree(n) == 0]
+    if orphan_centroids:
+        out.remove_nodes_from(orphan_centroids)
+
+    return out
+
+
+def detect_nci(
+    graph: nx.Graph,
+    *,
+    protein_data: "ProteinData | ProteinSemantics | None" = None,
+    ligand_protein_only: bool = False,
+) -> nx.Graph:
     """Detect non-covalent interactions and return a decorated graph.
 
     Uses xyzgraph's NCI detection algorithm.  Returns a new graph with
@@ -516,6 +666,12 @@ def detect_nci(graph: nx.Graph) -> nx.Graph:
     ----------
     graph:
         Molecular graph built by xyzgraph (e.g. from :func:`load_molecule`).
+
+    protein_data:
+        Optional protein metadata. Required when ``ligand_protein_only=True``.
+    ligand_protein_only:
+        Keep only ligand-associated protein NCI components. Components
+        that do not contain both ligand and protein context are dropped.
 
     Returns
     -------
@@ -528,6 +684,16 @@ def detect_nci(graph: nx.Graph) -> nx.Graph:
     logger.info("Detecting NCI interactions")
     detect_ncis(graph)
     nci_graph = build_nci_graph(graph)
+    if ligand_protein_only:
+        if protein_data is None:
+            logger.warning(
+                "ligand_protein_only requested but no protein/ligand semantics are available; leaving all NCI edges"
+            )
+        else:
+            nci_graph = filter_ligand_protein_nci(nci_graph, protein_data)
+            n_after_filter = sum(1 for _, _, d in nci_graph.edges(data=True) if d.get("NCI"))
+            if n_after_filter == 0:
+                logger.info("ligand_protein_only filter applied; 0 NCI interactions remained")
     n_nci = sum(1 for _, _, d in nci_graph.edges(data=True) if d.get("NCI"))
     logger.info("Detected %d NCI interactions", n_nci)
     return nci_graph

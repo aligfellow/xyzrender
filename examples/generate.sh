@@ -51,6 +51,15 @@ echo "=== Input files ==="
 xyzrender "$DIR/ala_phe_ala.pdb" -o "$IMG/ala_phe_ala.svg"
 xyzrender --smi "C1CCCCC1" --hy -o "$IMG/cyclohexane_smi.svg"
 
+echo "=== Protein ribbon + ligand/NCI showcase ==="
+# One chain per figure: a 5-chain assembly is unreadable at README thumbnail
+# size, and the whole-assembly SVG is ~4.5 MB against ~1.5 MB for a chain.
+xyzrender "$DIR/8UWL.pdb" --protein gloss --exclude-chains "A,B,D,E" --no-orient -o "$IMG/protein_gloss.svg"
+xyzrender "$DIR/8UWL.pdb" --protein illustration --exclude-chains "A,B,D,E" --no-orient -o "$IMG/protein_illustration.svg"
+xyzrender "$DIR/8UWL.pdb" --protein --exclude-chains "B,C,D,E" --highlight-ligand --ligand-color "#ff9f45" --no-orient -o "$IMG/protein_highlight_ligand.svg"
+xyzrender "$DIR/protein_ligand.pdb" --protein --nci-ligand --no-orient -o "$IMG/protein_nci_ligand.svg"
+xyzrender "$DIR/protein_ligand.pdb" --protein --nci-ligand --nci-color teal --no-orient -o "$IMG/protein_nci_ligand_custom_color.svg"
+
 echo "=== TS and NCI options ==="
 xyzrender "$DIR/sn2.out" --ts-bond "1-2" -o "$IMG/sn2_ts_man.svg"
 xyzrender "$DIR/sn2.out" --ts --hy -o "$IMG/sn2_ts.svg"
@@ -143,6 +152,7 @@ xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" -o "$IMG/caffeine_hl.svg" --gif-rot -
 xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" lightseagreen -o "$IMG/caffeine_hl_custom.svg"
 xyzrender "$DIR/caffeine.xyz" --hl "1-3,5,10,11,15,16,19,21" darkorchid --hl "4,6-9,12-14,17,18,20,22-24" teal --hy -o "$IMG/caffeine_multi_hl.svg"
 xyzrender "$DIR/caffeine.xyz" --hl "1-3,5,10,11,15,16,19,21" --mol-color mediumseagreen --hy --idx n -o "$IMG/caffeine_mol_color_hl_idx.svg"
+xyzrender "$DIR/caffeine.xyz" --hl "1-3,7" --glow "1-3,7" orchid --glow-scale 2 -o "$IMG/caffeine_glow.svg"
 
 echo "=== Optional scaling ==="
 xyzrender "$DIR/CoCl6.xyz" --radius-scale "Co" 2 -o "$IMG/CoCl6_scaled_Co18.svg"

@@ -150,7 +150,7 @@ if TYPE_CHECKING:
     from xyzgraph.nci import NCIAnalyzer
 
     from xyzrender.cube import CubeData
-    from xyzrender.types import DensParams, MOParams, RenderConfig
+    from xyzrender.types import DensParams, MOParams, ProteinData, ProteinSemantics, RenderConfig
 
 
 def _copy_ts_nci_attrs(target: "nx.Graph", reference: "nx.Graph") -> None:
@@ -342,6 +342,7 @@ def render_rotation_gif(
     mo_cube: CubeData | None = None,
     dens_params: DensParams | None = None,
     dens_cube: CubeData | None = None,
+    protein_data: "ProteinData | ProteinSemantics | None" = None,
 ) -> None:
     """Render a rotation animation as a GIF.
 
@@ -487,6 +488,7 @@ def render_rotation_gif(
         dens_cube=dens_cube,
         mo_cache=_mo_cache,
         dens_cache=_dens_cache,
+        protein_data=protein_data,
     )
     worker = partial(
         _render_rot_frame,
@@ -801,6 +803,7 @@ class RotationFrameContext:
     dens_cube: "CubeData | None"
     mo_cache: dict
     dens_cache: dict
+    protein_data: "ProteinData | ProteinSemantics | None" = None
 
 
 def _render_rot_frame(
@@ -857,7 +860,7 @@ def _render_rot_frame(
 
         recompute_dens(graph, frame_cfg, ctx.dens_params, ctx.dens_cube, frame_cfg.surface_opacity, ctx.dens_cache)
 
-    svg = render_svg(graph, frame_cfg, _log=False, _unique_ids=False)
+    svg = render_svg(graph, frame_cfg, protein_data=ctx.protein_data, _log=False, _unique_ids=False)
     return frame_idx, svg_to_png_bytes(svg, size=config.canvas_size)
 
 

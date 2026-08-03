@@ -12,15 +12,34 @@ All parsers return a :class:`MolData` instance which carries:
 - ``name`` — molecule name/title (may be empty)
 - ``charge`` — formal charge parsed from the file (0 when unavailable)
 - ``pbc_cell`` — ``(3, 3)`` float array of row lattice vectors (Å) or ``None``
+- ``atom_annotations`` — optional canonical per-atom metadata used for
+  protein semantics extraction
 """
 
 from __future__ import annotations
 
+import bisect
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING, NamedTuple
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from xyzrender.types import ProteinData
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Protein HETATM classification sets
+# ---------------------------------------------------------------------------
+
+_WATER_RESNAMES: frozenset[str] = frozenset({"HOH", "WAT", "DOD", "H2O", "TIP", "TIP3", "SOL"})
+_ION_RESNAMES: frozenset[str] = frozenset(
+    {"NA", "K", "CA", "MG", "ZN", "CL", "FE", "CU", "MN", "CO", "NI", "SO4", "PO4"}
+)
 
 # ---------------------------------------------------------------------------
 # Common data container
@@ -45,6 +64,9 @@ class MolData:
     pbc_cell:
         ``(3, 3)`` float array whose rows are the lattice vectors **a**, **b**,
         **c** in Ångström, or ``None`` for non-periodic structures.
+    atom_annotations:
+        Optional canonical per-atom metadata rows used for downstream protein
+        semantics extraction.
     """
 
     atoms: list[tuple[str, tuple[float, float, float]]]
@@ -52,6 +74,8 @@ class MolData:
     name: str = ""
     charge: int = 0
     pbc_cell: np.ndarray | None = field(default=None, repr=False)
+    protein_data: "ProteinData | None" = field(default=None, repr=False)
+    atom_annotations: list[dict[str, object]] | None = field(default=None, repr=False)
 
 
 # ---------------------------------------------------------------------------
@@ -355,6 +379,7 @@ def parse_mol2(path: str | Path) -> MolData:
 
     atoms: list[tuple[str, tuple[float, float, float]]] = []
     bonds: list[tuple[int, int, float]] = []
+    atom_annotations: list[dict[str, object]] = []
 
     # --- ATOM section ---
     if "ATOM" in section_indices:
@@ -375,6 +400,31 @@ def parse_mol2(path: str | Path) -> MolData:
                     raw_type = parts[5] if len(parts) > 5 else parts[1]
                     sym = raw_type.split(".")[0].capitalize()
                     atoms.append((sym, (x, y, z)))
+                    atom_name = parts[1]
+                    if len(parts) > 6:
+                        try:
+                            subst_id = int(parts[6])
+                        except ValueError:
+                            subst_id = 0
+                    else:
+                        subst_id = 0
+                    subst_name = parts[7] if len(parts) > 7 else "RES"
+                    m_chain = re.search(r"[:_]([A-Za-z0-9])$", subst_name)
+                    chain_id = m_chain.group(1) if m_chain else "A"
+                    m_res = re.match(r"([A-Za-z]{3})", subst_name)
+                    res_name = m_res.group(1).upper() if m_res else "RES"
+                    m_seq = re.search(r"(-?\d+)", subst_name)
+                    res_seq = int(m_seq.group(1)) if m_seq else subst_id
+                    atom_annotations.append(
+                        {
+                            "record_type": "ATOM",
+                            "atom_name": atom_name,
+                            "res_name": res_name,
+                            "res_seq": res_seq,
+                            "chain_id": chain_id,
+                            "ss_type": "C",
+                        }
+                    )
             idx += 1
 
     # --- BOND section ---
@@ -397,12 +447,22 @@ def parse_mol2(path: str | Path) -> MolData:
                     bonds.append((a1, a2, _MOL2_BOND_ORDER.get(btype, 1.0)))
             idx += 1
 
-    return MolData(atoms=atoms, bonds=bonds or None, name=name)
+    return MolData(atoms=atoms, bonds=bonds or None, name=name, atom_annotations=atom_annotations or None)
 
 
 # ---------------------------------------------------------------------------
 # PDB
 # ---------------------------------------------------------------------------
+
+
+def _is_placeholder_cryst1(a: float, b: float, c: float, alpha: float, beta: float, gamma: float) -> bool:
+    """Whether a CRYST1 record is the ``1 1 1 90 90 90 P 1`` no-cell sentinel.
+
+    The PDB spec mandates a CRYST1 record, so non-crystallographic entries
+    (cryo-EM, NMR, predicted models) carry a unit cell of 1 A.  Taking it
+    literally draws a sub-Angstrom cell box and axis triad over the structure.
+    """
+    return (a, b, c) == (1.0, 1.0, 1.0) and (alpha, beta, gamma) == (90.0, 90.0, 90.0)
 
 
 def _abc_angles_to_cell(a: float, b: float, c: float, alpha: float, beta: float, gamma: float) -> np.ndarray:
@@ -423,9 +483,22 @@ def _abc_angles_to_cell(a: float, b: float, c: float, alpha: float, beta: float,
     numpy.ndarray
         Shape ``(3, 3)`` float array; rows are **a**, **b**, **c** vectors.
     """
+    parameters = np.array([a, b, c, alpha, beta, gamma], dtype=float)
+    if (
+        not np.isfinite(parameters).all()
+        or min(a, b, c) <= 0
+        or not all(0 < angle < 180 for angle in (alpha, beta, gamma))
+    ):
+        msg = "invalid CRYST1 geometry: lengths must be positive and angles must lie between 0 and 180 degrees"
+        raise ValueError(msg)
+
     ar, br, gr = np.radians(alpha), np.radians(beta), np.radians(gamma)
     ca, cb, cg = np.cos(ar), np.cos(br), np.cos(gr)
     sg = np.sin(gr)
+    volume_factor = 1.0 + 2.0 * ca * cb * cg - ca**2 - cb**2 - cg**2
+    if abs(sg) <= 1e-12 or volume_factor <= 1e-12:
+        msg = "invalid CRYST1 geometry: unit cell is degenerate"
+        raise ValueError(msg)
 
     ax = a
     bx = b * cg
@@ -433,9 +506,76 @@ def _abc_angles_to_cell(a: float, b: float, c: float, alpha: float, beta: float,
     cx = c * cb
     cy = c * (ca - cb * cg) / sg
     cz_sq = c**2 - cx**2 - cy**2
-    cz = float(np.sqrt(max(cz_sq, 0.0)))
+    if cz_sq <= 1e-12:
+        msg = "invalid CRYST1 geometry: unit cell volume is zero"
+        raise ValueError(msg)
+    cz = float(np.sqrt(cz_sq))
 
-    return np.array([[ax, 0.0, 0.0], [bx, by, 0.0], [cx, cy, cz]], dtype=float)
+    cell = np.array([[ax, 0.0, 0.0], [bx, by, 0.0], [cx, cy, cz]], dtype=float)
+    if not np.isfinite(cell).all():
+        msg = "invalid CRYST1 geometry: non-finite lattice vectors"
+        raise ValueError(msg)
+    return cell
+
+
+_BACKBONE_ATOM_NAMES = frozenset({"N", "CA", "C", "O", "OXT"})
+
+# altLoc values (col 17) that are kept.  Blank means "no alternate conformer";
+# "A" is the conventional first/highest-occupancy alternate.  Keeping every
+# atoms at the same residue key, and the residue's CA would silently become
+# whichever came last.
+_KEPT_ALTLOCS = frozenset({"", "A"})
+
+
+class _AtomRecord(NamedTuple):
+    """Per-atom PDB metadata carried from the record loop to residue assembly."""
+
+    record: str  # "ATOM" or "HETATM"
+    atom_name: str
+    res_name: str
+    chain_id: str
+    res_seq: int
+    i_code: str  # insertion code (col 27); part of the residue identity
+    b_factor: float  # temperature factor / pLDDT (cols 61-66)
+
+
+def _residue_key(chain_id: str, res_seq: int, i_code: str, res_name: str) -> tuple[str, int, str, str]:
+    """Identity of a residue.
+
+    The insertion code is part of this on purpose.  Without it, an inserted
+    residue sharing a ``res_name`` with its neighbour (antibody CDRs are full
+    of these) collides on the key and the two residues *merge*, with
+    ``ca_index`` overwritten by whichever CA was seen last — a silent jump in
+    the backbone trace.
+    """
+    return chain_id, int(res_seq), i_code, res_name
+
+
+def _build_span_index(spans: list[tuple[str, int, int]]) -> dict[str, list[tuple[int, int]]]:
+    """Group HELIX/SHEET spans by chain, sorted by start for bisect lookup."""
+    out: dict[str, list[tuple[int, int]]] = {}
+    for chain, start, end in spans:
+        out.setdefault(chain, []).append((start, end))
+    for runs in out.values():
+        runs.sort()
+    return out
+
+
+def _span_contains(index: dict[str, list[tuple[int, int]]], chain_id: str, res_seq: int) -> bool:
+    """Whether *res_seq* falls in any span for *chain_id*.
+
+    Binary search rather than the previous linear scan: this used to be run
+    once per residue *and* once per atom, so a 8.6k-atom structure with 93
+    spans did ~800k pure-Python range checks.
+    """
+    runs = index.get(chain_id)
+    if not runs:
+        return False
+    lo = bisect.bisect_right(runs, (res_seq, _INF_SEQ)) - 1
+    return lo >= 0 and runs[lo][0] <= res_seq <= runs[lo][1]
+
+
+_INF_SEQ = 1 << 62
 
 
 def parse_pdb(path: str | Path) -> MolData:
@@ -443,6 +583,9 @@ def parse_pdb(path: str | Path) -> MolData:
 
     Reads ``ATOM``/``HETATM`` records for coordinates, ``CONECT`` records for
     connectivity, and the ``CRYST1`` record for the unit cell (if present).
+    Also extracts protein chain/residue/secondary-structure metadata when
+    present (HELIX/SHEET records), returning a :class:`ProteinData` on the
+    result.
 
     When ``CONECT`` records are absent (e.g. protein backbone only) ``bonds``
     is ``None`` and xyzgraph distance-based detection will be used instead.
@@ -456,7 +599,9 @@ def parse_pdb(path: str | Path) -> MolData:
     -------
     MolData
         Parsed structure.  ``pbc_cell`` is a ``(3, 3)`` array when a
-        ``CRYST1`` record is present, otherwise ``None``.
+        ``CRYST1`` record is present, otherwise ``None``.  ``protein_data``
+        is populated when the file contains ATOM records with chain/residue
+        information.
     """
     text = Path(path).read_text(encoding="utf-8", errors="replace")
     lines = text.splitlines()
@@ -470,10 +615,41 @@ def parse_pdb(path: str | Path) -> MolData:
     # CONECT entries: serial → set of connected serials
     conect: dict[int, set[int]] = {}
 
+    # Protein metadata: per-atom record info for later assembly
+    atom_meta: list[_AtomRecord] = []
+
+    # Secondary structure spans
+    helix_spans: list[tuple[str, int, int]] = []
+    sheet_spans: list[tuple[str, int, int]] = []
+    modified_polymer_residues: set[tuple[str, int, str, str]] = set()
+
+    has_chain_info = False  # set True when we see chain IDs
+    # Multi-model files (NMR ensembles) hold the same molecule many times over.
+    # Without this guard every model is concatenated into one atom list and
+    # ribboned on top of itself, and because res_seq restarts per model the
+    # backbone is also shredded into fragments.  Take the first model, as
+    # PyMOL and ChimeraX do.
+    past_first_model = False
+    n_models = 0
+
     for ln in lines:
         rec = ln[:6].strip().upper()
 
+        if rec == "MODEL":
+            n_models += 1
+            continue
+        if rec == "ENDMDL":
+            past_first_model = True
+            continue
+
         if rec in ("ATOM", "HETATM"):
+            if past_first_model:
+                continue
+            # Alternate conformers share a residue key; keeping both would let
+            # the residue's CA silently become whichever was parsed last.
+            altloc = ln[16].strip() if len(ln) > 16 else ""
+            if altloc not in _KEPT_ALTLOCS:
+                continue
             # PDB fixed-column format
             try:
                 serial = int(ln[6:11])
@@ -492,6 +668,23 @@ def parse_pdb(path: str | Path) -> MolData:
             idx = len(atoms)
             serial_to_idx[serial] = idx
             atoms.append((sym, (x, y, z)))
+
+            # Protein metadata columns
+            atom_name = ln[12:16].strip() if len(ln) > 15 else ""
+            res_name = ln[17:20].strip() if len(ln) > 19 else ""
+            chain_id = ln[21].strip() if len(ln) > 21 else ""
+            try:
+                res_seq = int(ln[22:26])
+            except (ValueError, IndexError):
+                res_seq = 0
+            i_code = ln[26].strip() if len(ln) > 26 else ""
+            try:
+                b_factor = float(ln[60:66])
+            except (ValueError, IndexError):
+                b_factor = 0.0
+            atom_meta.append(_AtomRecord(rec, atom_name, res_name, chain_id, res_seq, i_code, b_factor))
+            if chain_id:
+                has_chain_info = True
 
         elif rec == "CONECT":
             # CONECT lines: serial followed by up to 4 bonded serials (cols 7-10, 11-15, ...)
@@ -518,13 +711,63 @@ def parse_pdb(path: str | Path) -> MolData:
                 alpha = float(ln[33:40])
                 beta = float(ln[40:47])
                 gamma = float(ln[47:54])
+            except (ValueError, IndexError) as exc:
+                msg = "invalid CRYST1 record: expected numeric lengths and angles"
+                raise ValueError(msg) from exc
+            if not _is_placeholder_cryst1(a, b, c, alpha, beta, gamma):
                 pbc_cell = _abc_angles_to_cell(a, b, c, alpha, beta, gamma)
+
+        elif rec == "HELIX":
+            # HELIX  seqNum helixID initResName initChainID initSeqNum ...
+            # cols: chain=19, start=21-24, end=33-36 (all 1-indexed)
+            try:
+                chain = ln[19].strip() if len(ln) > 19 else ""
+                start = int(ln[21:25])
+                end = int(ln[33:37])
+                if chain:
+                    helix_spans.append((chain, start, end))
             except (ValueError, IndexError):
                 pass
+
+        elif rec == "SHEET":
+            # SHEET  strand sheetID numStrands initResName initChainID initSeqNum ...
+            # cols: chain=21, start=22-25, end=33-36
+            try:
+                chain = ln[21].strip() if len(ln) > 21 else ""
+                start = int(ln[22:26])
+                end = int(ln[33:37])
+                if chain:
+                    sheet_spans.append((chain, start, end))
+            except (ValueError, IndexError):
+                pass
+
+        elif rec == "MODRES":
+            # MODRES identifies a HETATM residue that belongs to the polymer,
+            # such as selenomethionine (MSE).  Preserve arbitrary hetero
+            # ligands as HETATM; only the exact chain/residue named here is
+            # promoted into the protein residue sequence.
+            try:
+                res_name = ln[12:15].strip()
+                chain_id = ln[16].strip() if len(ln) > 16 else ""
+                res_seq = int(ln[18:22])
+                i_code = ln[22].strip() if len(ln) > 22 else ""
+            except (ValueError, IndexError):
+                continue
+            if res_name:
+                modified_polymer_residues.add(_residue_key(chain_id, res_seq, i_code, res_name))
 
         elif rec in ("COMPND", "HEADER"):
             if not name:
                 name = ln[10:].strip()
+
+    if modified_polymer_residues:
+        atom_meta = [
+            atom._replace(record="ATOM")
+            if atom.record == "HETATM"
+            and _residue_key(atom.chain_id, atom.res_seq, atom.i_code, atom.res_name) in modified_polymer_residues
+            else atom
+            for atom in atom_meta
+        ]
 
     # Build bond list from CONECT data (deduplicate by storing only i < j)
     bonds: list[tuple[int, int, float]] | None = None
@@ -545,7 +788,166 @@ def parse_pdb(path: str | Path) -> MolData:
                     bond_list.append((key[0], key[1], 1.0))
         bonds = bond_list or None
 
-    return MolData(atoms=atoms, bonds=bonds, name=name, pbc_cell=pbc_cell)
+    # Build ProteinData when chain info is present
+    protein_data: ProteinData | None = None
+    if has_chain_info and atom_meta:
+        protein_data = _build_protein_data(atom_meta, helix_spans, sheet_spans)
+    helix_index = _build_span_index(helix_spans)
+    sheet_index = _build_span_index(sheet_spans)
+
+    def _ss_type(chain_id: str, res_seq: int, rec: str) -> str:
+        if rec != "ATOM":
+            return "C"
+        if _span_contains(helix_index, chain_id, res_seq):
+            return "H"
+        if _span_contains(sheet_index, chain_id, res_seq):
+            return "E"
+        return "C"
+
+    atom_annotations: list[dict[str, object]] = [
+        {
+            "record_type": a.record,
+            "atom_name": a.atom_name,
+            "res_name": a.res_name or "UNK",
+            "res_seq": a.res_seq,
+            "chain_id": a.chain_id or "A",
+            "i_code": a.i_code,
+            "b_factor": a.b_factor,
+            "ss_type": _ss_type(a.chain_id, a.res_seq, a.record),
+        }
+        for a in atom_meta
+    ]
+
+    if n_models > 1:
+        logger.info("PDB contains %d models; rendering model 1", n_models)
+
+    return MolData(
+        atoms=atoms,
+        bonds=bonds,
+        name=name,
+        pbc_cell=pbc_cell,
+        protein_data=protein_data,
+        atom_annotations=atom_annotations or None,
+    )
+
+
+def _build_protein_data(
+    atom_meta: list[_AtomRecord],
+    helix_spans: list[tuple[str, int, int]],
+    sheet_spans: list[tuple[str, int, int]],
+) -> "ProteinData":
+    """Assemble :class:`ProteinData` from per-atom metadata."""
+    from xyzrender.types import ChainData, ProteinData, ResidueData
+
+    helix_index = _build_span_index(helix_spans)
+    sheet_index = _build_span_index(sheet_spans)
+
+    def _ss_type(chain_id: str, res_seq: int) -> str:
+        if _span_contains(helix_index, chain_id, res_seq):
+            return "H"
+        if _span_contains(sheet_index, chain_id, res_seq):
+            return "E"
+        return "C"
+
+    # Accumulate residues per chain, grouping consecutive (chain_id, res_seq, res_name)
+    chains: dict[str, list[ResidueData]] = {}
+    hetatm_indices: set[int] = set()
+    ligand_indices: set[int] = set()
+    water_indices: set[int] = set()
+    ion_indices: set[int] = set()
+    backbone_indices: set[int] = set()
+    sidechain_indices: set[int] = set()
+
+    # Group atoms into residues: key = (chain_id, res_seq, res_name)
+    residue_atoms: dict[tuple[str, int, str, str], list[tuple[int, str, float]]] = {}
+    residue_order: list[tuple[str, int, str, str]] = []
+    # Heteroatoms never join a chain's residue list; keep them addressable so
+    # excluding a chain can drop its ligands too.
+    het_chains: dict[str, set[int]] = {}
+
+    for idx, a in enumerate(atom_meta):
+        if a.record == "HETATM":
+            hetatm_indices.add(idx)
+            het_chains.setdefault(a.chain_id or "A", set()).add(idx)
+            if a.res_name in _WATER_RESNAMES:
+                water_indices.add(idx)
+            elif a.res_name in _ION_RESNAMES:
+                ion_indices.add(idx)
+            else:
+                ligand_indices.add(idx)
+            continue
+
+        key = _residue_key(a.chain_id, a.res_seq, a.i_code, a.res_name)
+        if key not in residue_atoms:
+            residue_atoms[key] = []
+            residue_order.append(key)
+        residue_atoms[key].append((idx, a.atom_name, a.b_factor))
+
+    # Build ResidueData objects
+    for key in residue_order:
+        chain_id, res_seq, i_code, res_name = key
+        entries = residue_atoms[key]
+        all_indices = [i for i, _, _ in entries]
+        ca_index: int | None = None
+        c_index: int | None = None
+        o_index: int | None = None
+        n_index: int | None = None
+
+        ca_b_factor: float | None = None
+        for i, atom_name, b_fac in entries:
+            aname_upper = atom_name.upper()
+            if aname_upper == "CA":
+                ca_b_factor = b_fac
+            if aname_upper == "CA":
+                ca_index = i
+                backbone_indices.add(i)
+            elif aname_upper == "C":
+                c_index = i
+                backbone_indices.add(i)
+            elif aname_upper in ("O", "OXT"):
+                if aname_upper == "O" and o_index is None:
+                    o_index = i
+                backbone_indices.add(i)
+            elif aname_upper == "N":
+                n_index = i
+                backbone_indices.add(i)
+            else:
+                sidechain_indices.add(i)
+
+        ss = _ss_type(chain_id, res_seq)
+        # CA B-factor is the per-residue value (it is what pLDDT is reported
+        # on); fall back to the residue mean when the CA is missing.
+        if ca_b_factor is None:
+            b_vals = [b for _, _, b in entries]
+            ca_b_factor = sum(b_vals) / len(b_vals) if b_vals else 0.0
+        res = ResidueData(
+            res_name=res_name,
+            res_seq=res_seq,
+            chain_id=chain_id,
+            atom_indices=all_indices,
+            ca_index=ca_index,
+            c_index=c_index,
+            o_index=o_index,
+            n_index=n_index,
+            ss_type=ss,
+            i_code=i_code,
+            b_factor=ca_b_factor,
+        )
+        chains.setdefault(chain_id, []).append(res)
+
+    chain_data = {cid: ChainData(chain_id=cid, residues=residues) for cid, residues in chains.items()}
+    return ProteinData(
+        chains=chain_data,
+        hetatm_indices=hetatm_indices,
+        backbone_indices=backbone_indices,
+        sidechain_indices=sidechain_indices,
+        helix_spans=helix_spans,
+        sheet_spans=sheet_spans,
+        ligand_indices=ligand_indices,
+        water_indices=water_indices,
+        ion_indices=ion_indices,
+        het_chains=het_chains,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -684,8 +1086,25 @@ def parse_molobject(mol, *, conf_id: int = -1, kekule: bool = False, name: str |
 # ---------------------------------------------------------------------------
 
 
+def _reject_mmcif(path: str | Path) -> None:
+    """Raise on mmCIF, which ase's CIF reader cannot parse.
+
+    ase reads small-molecule CIF, whose tags are underscore-joined
+    (``_atom_site_Cartn_x``); mmCIF uses a dotted form (``_atom_site.Cartn_x``)
+    that every ase block rejects, leaving the caller a bare StopIteration.
+    """
+    with open(path, encoding="utf-8", errors="ignore") as fh:
+        for ln in fh:
+            token = ln.strip()
+            if token.startswith("_atom_site."):
+                msg = f"{path}: mmCIF is not supported yet (small-molecule CIF only)"
+                raise ValueError(msg)
+            if token.startswith("_atom_site_"):
+                return
+
+
 def parse_cif(path: str | Path) -> MolData:
-    """Parse a CIF file via ase.  Requires ``pip install 'xyzrender[cif]'``.
+    """Parse a small-molecule CIF via ase.  Requires ``pip install 'xyzrender[cif]'``.
 
     bonds is None (ase does not store bonds); pbc_cell holds the lattice matrix.
     """
@@ -696,7 +1115,9 @@ def parse_cif(path: str | Path) -> MolData:
         msg = "CIF parsing requires ase: pip install 'xyzrender[cif]'"
         raise ImportError(msg) from None
 
-    structure = ase.io.read(str(path), format="cif")
+    _reject_mmcif(path)
+    structure = ase.io.read(str(path), format="cif", store_tags=True)
+
     assert isinstance(structure, ase.Atoms), f"Expected Atoms from CIF, got {type(structure)}"
 
     symbols: list[str] = list(structure.get_chemical_symbols())
@@ -706,6 +1127,7 @@ def parse_cif(path: str | Path) -> MolData:
     atoms: list[tuple[str, tuple[float, float, float]]] = [
         (sym, (float(x), float(y), float(z))) for sym, (x, y, z) in zip(symbols, positions, strict=True)
     ]
+
     return MolData(atoms=atoms, bonds=None, pbc_cell=cell, name=str(path))
 
 
@@ -729,25 +1151,32 @@ def parse_shelxl(path: str | Path) -> MolData:
     shx = Shelxfile()
     shx.read_file(str(path))
 
+    cell = getattr(shx, "cell", None)
+    pbc_cell = None
+    if cell is not None:
+        pbc_cell = _abc_angles_to_cell(cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma)
+
     atoms: list[tuple[str, tuple[float, float, float]]] = []
-    if hasattr(shx, "pack"):
-        for atom in shx.pack():
+    source_atoms = getattr(getattr(shx, "atoms", None), "all_atoms", ())
+    symmetry_ops = tuple(getattr(shx, "symmcards", ())) or (None,)
+    for atom in source_atoms:
+        for symm in symmetry_ops:
             sym = (
                 atom.element.capitalize()
                 if hasattr(atom, "element") and atom.element
                 else atom.name.rstrip("0123456789").capitalize()
             )
-            if hasattr(atom, "cart_coords") and atom.cart_coords is not None:
+            if pbc_cell is not None and hasattr(atom, "frac_coords"):
+                frac = np.asarray(atom.frac_coords, dtype=float)
+                if symm is not None:
+                    frac = np.asarray(symm.matrix, dtype=float) @ frac + np.asarray(symm.trans, dtype=float)
+                x, y, z = np.mod(frac, 1.0) @ pbc_cell
+            elif hasattr(atom, "cart_coords") and atom.cart_coords is not None:
                 x, y, z = atom.cart_coords
             elif hasattr(atom, "xc") and hasattr(atom, "yc") and hasattr(atom, "zc"):
                 x, y, z = atom.xc, atom.yc, atom.zc
             else:
                 x, y, z = 0.0, 0.0, 0.0
             atoms.append((sym, (float(x), float(y), float(z))))
-
-    pbc_cell = None
-    cell = getattr(shx, "cell", None)
-    if cell is not None:
-        pbc_cell = _abc_angles_to_cell(cell.a, cell.b, cell.c, cell.alpha, cell.beta, cell.gamma)
 
     return MolData(atoms=atoms, bonds=None, pbc_cell=pbc_cell, name=str(path))

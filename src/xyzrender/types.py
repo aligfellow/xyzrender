@@ -28,6 +28,14 @@ class BondStyle(Enum):
     DOTTED = "dot"  # NCI bonds
 
 
+class ProteinConfidence(Enum):
+    """Confidence tiers for protein semantics extraction."""
+
+    FULL_RIBBON = "full_ribbon"
+    TRACE_ONLY = "trace_only"
+    INSUFFICIENT = "insufficient"
+
+
 @dataclass
 class VectorArrow:
     """A 3D vector to be drawn as an arrow in the rendered image.
@@ -238,6 +246,118 @@ class OverlayConfig:
 
 
 @dataclass
+class GlowGroup:
+    """One set of atoms glowed together, with its own colour and geometry.
+
+    The glow circle is emitted in the same depth slot as its atom, so nearer
+    geometry occludes it and it never tints bonds that were drawn earlier.
+
+    Parameters
+    ----------
+    indices:
+        0-indexed atom indices to glow.
+    color:
+        Resolved hex colour of the glow, or ``None`` to use each atom's own
+        display colour (the original ``--glow`` behaviour).
+    opacity:
+        Fill opacity of the glow circle, 0-1.  Note that with ``scale`` above
+        1 the blurred circles of neighbouring atoms overlap and their alpha
+        compounds, so values below 1 read unevenly on dense selections.
+    scale:
+        Glow radius as a multiple of the atom display radius.  1.0 keeps the
+        glow behind the sphere, so only the blur bleed shows as a rim.
+    strength:
+        Gaussian blur ``stdDeviation``, in output pixels -- independent of the
+        atom's size, so every glow in a render is equally soft.
+    """
+
+    indices: list[int]
+    color: str | None = None
+    opacity: float = 1.0
+    scale: float = 1.0
+    strength: float = 5.0
+    _index_set: set[int] = field(default_factory=set, repr=False, init=False)
+
+    def __post_init__(self) -> None:
+        """Pre-compute the index set for O(1) membership checks."""
+        self._index_set = set(self.indices)
+
+
+# ---------------------------------------------------------------------------
+# Protein structure types
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ResidueData:
+    """Per-residue data extracted from a PDB file."""
+
+    res_name: str  # three-letter code, e.g. "ALA"
+    res_seq: int  # residue sequence number from PDB
+    chain_id: str
+    atom_indices: list[int]  # 0-indexed positions in Molecule.graph
+    ca_index: int | None  # CA atom index (None for non-standard residues)
+    c_index: int | None  # backbone C
+    o_index: int | None  # backbone O (used for ribbon plane normal)
+    n_index: int | None  # backbone N
+    ss_type: str = "C"  # "H" helix, "E" sheet, "C" coil/loop
+    i_code: str = ""  # PDB insertion code; part of residue identity
+    b_factor: float = 0.0  # CA temperature factor (doubles as AlphaFold pLDDT)
+
+
+@dataclass
+class ChainData:
+    """Ordered residues for a single protein chain."""
+
+    chain_id: str
+    residues: list[ResidueData]
+
+
+@dataclass
+class ProteinData:
+    """Protein-level metadata parsed from a PDB file.
+
+    Populated by :func:`xyzrender.parsers.parse_pdb` when ATOM/HETATM
+    records are present with chain and residue information.
+    """
+
+    chains: dict[str, ChainData]  # chain_id → ChainData
+    hetatm_indices: set[int]  # 0-indexed HETATM atoms (ligands, water, ions)
+    backbone_indices: set[int]  # 0-indexed backbone atoms (N, CA, C, O)
+    sidechain_indices: set[int]  # 0-indexed sidechain atoms (all protein non-backbone)
+    helix_spans: list[tuple[str, int, int]]  # (chain_id, start_seq, end_seq)
+    sheet_spans: list[tuple[str, int, int]]  # (chain_id, start_seq, end_seq)
+    ligand_indices: set[int] = field(default_factory=set)  # HETATM excl. water and ions
+    water_indices: set[int] = field(default_factory=set)  # HOH, WAT, etc.
+    ion_indices: set[int] = field(default_factory=set)  # ions and inorganic counter-ions (incl. SO4/PO4)
+    confidence_tier: ProteinConfidence = ProteinConfidence.FULL_RIBBON
+    confidence_reasons: list[str] = field(default_factory=list)
+    provenance: list[str] = field(default_factory=list)
+    trace_chains: dict[str, list[int]] = field(default_factory=dict)
+    het_chains: dict[str, set[int]] = field(default_factory=dict)  # non-polymer atoms by chain
+
+
+@dataclass
+class ProteinSemantics:
+    """Format-agnostic protein semantics used by renderer and feature logic."""
+
+    chains: dict[str, ChainData]
+    hetatm_indices: set[int]
+    backbone_indices: set[int]
+    sidechain_indices: set[int]
+    helix_spans: list[tuple[str, int, int]]
+    sheet_spans: list[tuple[str, int, int]]
+    ligand_indices: set[int] = field(default_factory=set)
+    water_indices: set[int] = field(default_factory=set)
+    ion_indices: set[int] = field(default_factory=set)
+    confidence_tier: ProteinConfidence = ProteinConfidence.FULL_RIBBON
+    confidence_reasons: list[str] = field(default_factory=list)
+    provenance: list[str] = field(default_factory=list)
+    trace_chains: dict[str, list[int]] = field(default_factory=dict)  # fallback trace atom indices by chain
+    het_chains: dict[str, set[int]] = field(default_factory=dict)  # non-polymer atom indices by chain
+
+
+@dataclass
 class RenderConfig:
     """Rendering settings."""
 
@@ -365,8 +485,11 @@ class RenderConfig:
     dof: bool = False
     dof_strength: float = 3.0  # max blur stdDeviation in SVG units
     # Atom glow (blurred duplicate circle rendered under selected atoms)
+    # `glow_indices` / `glow_strength` are the original single-group form and
+    # still work; `glow_groups`, when non-empty, supersedes them.
     glow_indices: list[int] = field(default_factory=list)  # 0-indexed
     glow_strength: float = 5.0
+    glow_groups: list["GlowGroup"] = field(default_factory=list)
     # Overlay (nested sub-config so new per-overlay knobs slot in without churn)
     overlay: OverlayConfig = field(default_factory=OverlayConfig)
     # Ensemble
@@ -426,6 +549,39 @@ class RenderConfig:
     style_regions: list[StyleRegion] = field(default_factory=list)
     # Preset-defined regions: {"M": "flat"} or {"M": {"atom_scale": 4.0}} resolved at render time
     region_specs: dict[str, str | dict] | None = None
+    # Protein ribbon rendering
+    protein: bool = False
+    protein_style: str = "gloss"  # ribbon style profile (gloss or illustration)
+    chain_colors: dict[str, str] | None = None  # chain_id → resolved hex; None = auto-palette
+    # Å — full width of the helix/sheet tape.  Helix turns are ~5.4 Å apart, so
+    # a tape near this width makes successive turns almost close up, which is
+    # what makes a cartoon helix read as a coiled solid rather than a thin strap.
+    ribbon_width: float = 4.5
+    loop_width: float = 0.9  # Å — full diameter of the round coil tube
+    # Cartoon colouring: "chain" (default), "rainbow" (N->C per chain),
+    # "ss" (helix/sheet/coil), "bfactor" (temperature factor / AlphaFold pLDDT).
+    color_by: str = "chain"
+    show_sidechain: bool = False  # show amino-acid side chains as sticks
+    # Restrict sidechains to these residues, as "45,102-108" (residue numbers,
+    # optionally "A:45" to name a chain).  None means every residue, which is
+    # almost never the figure you want -- a whole chain of sidechains is an
+    # unreadable thicket.
+    sidechain_residues: str | None = None
+    exclude_chains: set[str] = field(default_factory=set)  # chain IDs hidden in protein mode
+    ligand_highlight: bool = False  # recolor ligand atoms/bonds in protein mode
+    ligand_color: str = "#ffb347"  # default ligand highlight color (hex)
+    protein_palette: list[str] = field(
+        default_factory=lambda: [
+            "#6A8FBF",
+            "#62A882",
+            "#C27C5E",
+            "#B07BB5",
+            "#D4A35A",
+            "#6AABAB",
+            "#C26A7A",
+            "#8A8A8A",
+        ]
+    )
 
 
 @dataclass

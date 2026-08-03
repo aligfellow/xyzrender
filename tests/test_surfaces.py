@@ -48,7 +48,7 @@ def cube_from_array(
         atoms=[("H", (0.0, 0.0, 0.0))],
         origin=np.array(origin, dtype=float),
         steps=np.array(steps, dtype=float),
-        grid_shape=arr.shape,
+        grid_shape=(int(arr.shape[0]), int(arr.shape[1]), int(arr.shape[2])),
         grid_data=arr,
         mo_index=None,
     )

@@ -134,6 +134,26 @@ The `regions` key defines per-atom-group style overrides. Keys are atom selector
 
 Surface-related keys (`mo_pos_color`, `mo_neg_color`, `dens_iso`, `dens_color`) are only used when `--mo`, `--dens`, or `--esp` is active.
 
+**Protein cartoon keys.** Only used when `protein` is active (`--protein` / `protein=True`):
+
+```json
+{
+  "protein": false,
+  "protein_style": "gloss",
+  "color_by": "chain",
+  "ribbon_width": 4.5,
+  "loop_width": 0.9,
+  "show_sidechain": false,
+  "sidechain_residues": null,
+  "ligand_highlight": false,
+  "ligand_color": "#ffb347",
+  "chain_colors": { "A": "steelblue" },
+  "protein_palette": ["#6A8FBF", "#62A882", "#C27C5E", "#B07BB5"]
+}
+```
+
+`protein_style` is `gloss` (shaded, the default), `illustration` (flatter, heavier contour), or `cartoon` (alias for `gloss`). `color_by` is `chain`, `rainbow`, `ss`, or `bfactor`. `protein_palette` is the cycle chains are assigned from when `chain_colors` does not name them; `ribbon_width` and `loop_width` are full widths in Å. See [Proteins & biomolecules](examples/protein.md).
+
 ## Building a custom preset
 
 If you find yourself repeating the same `--config + flag` combination across many figures, capture it as a preset. Workflow:

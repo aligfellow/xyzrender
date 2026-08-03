@@ -12,8 +12,9 @@ from pathlib import Path
 import networkx as nx
 import pytest
 
-from xyzrender import build_config, load, measure, render, renderer
+from xyzrender import build_config, load, measure, render, render_gif, renderer
 from xyzrender.api import Molecule, SVGResult
+from xyzrender.protein_semantics import xyzgraph_protein_available
 
 STRUCTURES = Path(__file__).parent.parent / "examples" / "structures"
 
@@ -31,6 +32,11 @@ def caffeine():
 @pytest.fixture(scope="module")
 def ethanol():
     return load(STRUCTURES / "ethanol.xyz")
+
+
+@pytest.fixture(scope="module")
+def caffeine_cell():
+    return load(STRUCTURES / "caffeine_cell.xyz", cell=True)
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +68,46 @@ def test_load_nci_detect():
     # nci_detect marks NCI edges; molecule must still load correctly
     mol = load(STRUCTURES / "ethanol.xyz", nci_detect=True)
     assert mol.graph.number_of_nodes() > 0
+
+
+def test_atom_filter_remaps_protein_metadata_and_preserves_source():
+    """Filtering must keep protein atom references aligned after relabeling."""
+    from xyzrender.api import _filter_molecule_atoms
+
+    original = load(STRUCTURES / "1UBQ.pdb")
+    assert original.protein_data is not None
+    filtered = _filter_molecule_atoms(original, exclude=[1])
+
+    assert filtered.protein_data is not None
+    assert filtered.source_path == original.source_path
+    assert "protein_semantics" not in filtered.graph.graph
+    original_residues = [res for chain in original.protein_data.chains.values() for res in chain.residues]
+    filtered_residues = [res for chain in filtered.protein_data.chains.values() for res in chain.residues]
+    assert len(filtered_residues) == len(original_residues)
+    for before, after in zip(original_residues, filtered_residues, strict=True):
+        if before.ca_index is not None:
+            assert after.ca_index is not None
+            assert filtered.graph.nodes[after.ca_index]["_xyzrender_original_index"] == before.ca_index
+        if before.o_index is not None:
+            assert after.o_index is not None
+            assert filtered.graph.nodes[after.o_index]["_xyzrender_original_index"] == before.o_index
+
+
+def test_load_nci_ligand_auto_enables_detection(monkeypatch, caplog):
+    calls: dict[str, bool] = {}
+
+    def _fake_detect_nci(graph, *, protein_data=None, ligand_protein_only=False):
+        calls["called"] = True
+        calls["ligand_protein_only"] = ligand_protein_only
+        return graph
+
+    monkeypatch.setattr("xyzrender.readers.detect_nci", _fake_detect_nci)
+    with caplog.at_level("INFO"):
+        mol = load(STRUCTURES / "ethanol.xyz", nci_detect=False, nci_ligand_protein_only=True)
+    assert mol.graph.number_of_nodes() > 0
+    assert calls.get("called") is True
+    assert calls.get("ligand_protein_only") is True
+    assert "enabling nci_detect automatically" in caplog.text
 
 
 def test_load_smiles():
@@ -123,6 +169,103 @@ def test_svgresult_save(caffeine, tmp_path):
 def test_render_accepts_path():
     result = render(STRUCTURES / "ethanol.xyz", orient=False)
     assert isinstance(result, SVGResult)
+
+
+@pytest.mark.skipif(
+    not xyzgraph_protein_available(),
+    reason="installed xyzgraph does not provide xyzgraph.protein",
+)
+def test_render_protein_default_ghosts_off_for_cell_data(monkeypatch, caffeine_cell):
+    captured: dict[str, bool] = {}
+
+    def _fake_apply_cell_config(*args, **kwargs):
+        captured["ghosts"] = kwargs["ghosts"]
+        raise RuntimeError("__ghost_probe__")
+
+    monkeypatch.setattr("xyzrender.api._apply_cell_config", _fake_apply_cell_config)
+    with pytest.raises(RuntimeError, match="__ghost_probe__"):
+        render(caffeine_cell, orient=False, protein=True)
+    assert captured["ghosts"] is False
+
+
+@pytest.mark.skipif(
+    not xyzgraph_protein_available(),
+    reason="installed xyzgraph does not provide xyzgraph.protein",
+)
+def test_render_protein_explicit_ghosts_true_overrides_default(monkeypatch, caffeine_cell):
+    captured: dict[str, bool] = {}
+
+    def _fake_apply_cell_config(*args, **kwargs):
+        captured["ghosts"] = kwargs["ghosts"]
+        raise RuntimeError("__ghost_probe__")
+
+    monkeypatch.setattr("xyzrender.api._apply_cell_config", _fake_apply_cell_config)
+    with pytest.raises(RuntimeError, match="__ghost_probe__"):
+        render(caffeine_cell, orient=False, protein=True, ghosts=True)
+    assert captured["ghosts"] is True
+
+
+def test_render_non_protein_cell_default_keeps_ghosts_on(monkeypatch, caffeine_cell):
+    captured: dict[str, bool] = {}
+
+    def _fake_apply_cell_config(*args, **kwargs):
+        captured["ghosts"] = kwargs["ghosts"]
+        raise RuntimeError("__ghost_probe__")
+
+    monkeypatch.setattr("xyzrender.api._apply_cell_config", _fake_apply_cell_config)
+    with pytest.raises(RuntimeError, match="__ghost_probe__"):
+        render(caffeine_cell, orient=False, protein=False)
+    assert captured["ghosts"] is True
+
+
+def test_render_gif_protein_default_ghosts_off_for_cell_data(monkeypatch, caffeine_cell, tmp_path):
+    captured: dict[str, bool] = {}
+
+    def _fake_apply_cell_config(*args, **kwargs):
+        captured["ghosts"] = kwargs["ghosts"]
+        raise RuntimeError("__ghost_probe__")
+
+    monkeypatch.setattr("xyzrender.api._apply_cell_config", _fake_apply_cell_config)
+    with pytest.raises(RuntimeError, match="__ghost_probe__"):
+        render_gif(caffeine_cell, gif_rot="y", protein=True, output=tmp_path / "probe.gif")
+    assert captured["ghosts"] is False
+
+
+@pytest.mark.parametrize(("mode_name", "enabled"), [("gif_trj", True), ("gif_ts", True)])
+def test_render_gif_rejects_unsupported_protein_trajectory_modes(mode_name, enabled, tmp_path):
+    """Trajectory readers cannot silently discard requested protein cartoons."""
+    with pytest.raises(ValueError, match=r"protein.*only supported.*rotation"):
+        render_gif(
+            STRUCTURES / "ethanol.xyz",
+            protein=True,
+            output=tmp_path / "protein.gif",
+            **{mode_name: enabled},
+        )
+
+
+@pytest.mark.parametrize(("mode_name", "enabled"), [("gif_trj", True), ("gif_ts", True)])
+def test_render_gif_rejects_ligand_protein_nci_filter_for_trajectory_modes(mode_name, enabled, tmp_path):
+    """Trajectory readers cannot apply a stale single-frame protein partition."""
+    with pytest.raises(ValueError, match=r"nci_ligand_protein_only.*only supported.*rotation"):
+        render_gif(
+            STRUCTURES / "ethanol.xyz",
+            nci_ligand_protein_only=True,
+            output=tmp_path / "nci.gif",
+            **{mode_name: enabled},
+        )
+
+
+def test_render_gif_path_preserves_protein_semantics(monkeypatch, tmp_path):
+    """Path-based rotation GIFs must receive the loaded protein semantics."""
+    captured: dict[str, object] = {}
+
+    def _fake_rotation_gif(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr("xyzrender.gif.render_rotation_gif", _fake_rotation_gif)
+    render_gif(STRUCTURES / "1UBQ.pdb", gif_rot="y", protein=True, output=tmp_path / "protein.gif")
+
+    assert captured["protein_data"] is not None
 
 
 def test_render_accepts_molecule(caffeine):
@@ -605,6 +748,27 @@ def test_build_config_returns_render_config():
 
     cfg = build_config("default")
     assert isinstance(cfg, RenderConfig)
+
+
+def test_resolve_protein_mode_defaults_to_gloss():
+    from xyzrender.api import _resolve_protein_mode
+
+    assert _resolve_protein_mode(True) == (True, "gloss")
+    assert _resolve_protein_mode("gloss") == (True, "gloss")
+    assert _resolve_protein_mode("illustration") == (True, "illustration")
+
+
+def test_resolve_protein_mode_rejects_removed_styles():
+    from xyzrender.api import _resolve_protein_mode
+
+    with pytest.raises(ValueError, match="unknown style"):
+        _resolve_protein_mode("plastic")
+
+
+def test_resolve_protein_mode_accepts_the_cartoon_alias():
+    from xyzrender.api import _resolve_protein_mode
+
+    assert _resolve_protein_mode("cartoon") == (True, "gloss")
 
 
 # ---------------------------------------------------------------------------

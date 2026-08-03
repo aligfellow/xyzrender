@@ -73,6 +73,7 @@ examples/overlay
 examples/ensemble
 examples/hull
 examples/crystal
+examples/protein
 ```
 
 ```{toctree}
