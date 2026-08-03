@@ -134,9 +134,9 @@ Full usage, the Python API guide, every flag, and runnable examples live in the 
 
 ### Highlight & molecule color
 
-| Default (orchid) | Custom colour | Multi-group | Mol color + highlight |
-|------------------|---------------|-------------|-----------------------|
-| ![hl](examples/images/caffeine_hl.svg) | ![hl custom](examples/images/caffeine_hl_custom.svg) | ![multi hl](examples/images/caffeine_multi_hl.svg) | ![mol color hl](examples/images/caffeine_mol_color_hl_idx.svg) |
+| Default (orchid) | Custom colour | Multi-group | Mol color + highlight | Glow |
+|------------------|---------------|-------------|-----------------------|------|
+| ![hl](examples/images/caffeine_hl.svg) | ![hl custom](examples/images/caffeine_hl_custom.svg) | ![multi hl](examples/images/caffeine_multi_hl.svg) | ![mol color hl](examples/images/caffeine_mol_color_hl_idx.svg) | ![glow](examples/images/caffeine_glow.svg) |
 
 | Single atom scaled (Co ×2) | Multi-group (N,O ×1.4 + H ×0.8) | Per-atom opacity + radius scale |
 |------------------------------|----------------------------------|---------------------------------|
@@ -215,6 +215,12 @@ Full usage, the Python API guide, every flag, and runnable examples live in the 
 | VASP | Supercell 2×2×1 | Viewing direction |
 |------|-----------------|-------------------|
 | ![vasp](examples/images/NV63_vasp.svg) | ![supercell](examples/images/NV63_cell_supercell_221.svg) | ![111](examples/images/NV63_111.gif) |
+
+### Protein visualisation
+
+| Gloss | Illustration | Ligand highlight | Ligand NCI | Ligand NCI (custom colour) |
+|-------|--------------|------------------|------------|----------------------------|
+| ![protein gloss](examples/images/protein_gloss.svg) | ![protein illustration](examples/images/protein_illustration.svg) | ![protein highlight ligand](examples/images/protein_highlight_ligand.svg) | ![protein nci ligand](examples/images/protein_nci_ligand.svg) | ![protein nci ligand custom](examples/images/protein_nci_ligand_custom_color.svg) |
 
 ### GIF animations
 

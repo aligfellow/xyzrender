@@ -115,8 +115,9 @@ def resolve_atom_indices(spec: str, graph: nx.Graph) -> set[int]:
     """Resolve a spec string to a set of 0-indexed atom indices in *graph*.
 
     Accepts comma-separated tokens where each token is a category/element
-    (``"M"``, ``"Fe"``), a numeric index (``"8"``), or a numeric range
-    (``"1-5"``).  Numeric specs are 1-indexed (converted to 0-indexed).
+    (``"M"``, ``"Fe"``), an explicit chain selector (``"chain:A"``), a
+    numeric index (``"8"``), or a numeric range (``"1-5"``).  Numeric specs
+    are 1-indexed (converted to 0-indexed).
 
     The ``L`` and ``het`` category tokens are **graph-context-aware**: when the
     graph has metals they resolve to *atoms bonded to a metal* (the chemistry
@@ -152,8 +153,14 @@ def resolve_atom_indices(spec: str, graph: nx.Graph) -> set[int]:
         return result
     # "all" / "*": every atom in the graph (symbol != "*" excludes NCI centroid
     # dummy nodes, which aren't real atoms).
-    if spec.strip() in {"all", "*"}:
+    stripped_spec = spec.strip()
+    if stripped_spec in {"all", "*"}:
         return {nid for nid, data in graph.nodes(data=True) if data.get("symbol", "") != "*"}
+    if stripped_spec.lower().startswith("chain:"):
+        chain_id = stripped_spec.split(":", 1)[1]
+        if not chain_id:
+            raise ValueError("Chain selector requires an ID, for example 'chain:A'")
+        return {nid for nid, data in graph.nodes(data=True) if data.get("chain_id") == chain_id}
     # Numeric range?  Check BEFORE normalize_token (which rejects digits).
     # Filtered render graphs may carry the original 0-indexed atom number so
     # user-facing selectors can still refer to the input file after relabeling.

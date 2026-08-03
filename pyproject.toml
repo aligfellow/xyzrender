@@ -11,7 +11,8 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.24",
-    "xyzgraph>=1.6.13",
+    # Protein semantics (xyzgraph.protein) land in 1.6.15; 1.6.14 has no such module.
+    "xyzgraph>=1.6.15",
     "cclib",
     "graphrc>=1.3.7",
     "cairosvg",

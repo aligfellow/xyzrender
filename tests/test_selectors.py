@@ -109,6 +109,17 @@ def test_resolve_element():
     assert resolve_atom_indices("pt", g) == {0}  # case-insensitive
 
 
+def test_resolve_explicit_chain_selector():
+    g = nx.Graph()
+    g.add_node(0, symbol="C", chain_id="A")
+    g.add_node(1, symbol="N", chain_id="B")
+    g.add_node(2, symbol="O", chain_id="A")
+
+    assert resolve_atom_indices("chain:A", g) == {0, 2}
+    assert resolve_atom_indices("chain:B", g) == {1}
+    assert resolve_atom_indices("chain:missing", g) == set()
+
+
 def test_resolve_numeric():
     g = _metal_graph()
     assert resolve_atom_indices("1", g) == {0}

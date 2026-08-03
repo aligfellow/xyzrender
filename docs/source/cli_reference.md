@@ -76,8 +76,10 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--hl ATOMS [COLOR]` | Highlight atom group. Accepts the same selectors as `--only`/`--region` — indices/ranges (`"1-5,8"`), elements (`"C,N"`), or categories (`"M"`, `"het"`, `"hal"`, `"chal"`, `"pnic"`, …). Repeatable; auto-colours from palette if no colour given |
 | `--dof` | Depth-of-field blur (does not affect bonds/lines) |
 | `--dof-strength FLOAT` | DoF max blur strength (default: 3.0) |
-| `--glow ATOMS` | Add blurred glow under selected atoms (same selector grammar as `--hl` / `--vdw`) |
+| `--glow ATOMS [COLOR]` | Add blurred glow under selected atoms (same selector grammar as `--hl` / `--vdw`); repeatable. On protein input the selector also takes `ligand`, `protein`, `backbone`, `sidechain`, `water`, `ion`, `hetatm` |
 | `--glow-strength FLOAT` | Glow blur strength (default: 5.0) |
+| `--glow-opacity FLOAT` | Glow fill opacity (default: 1.0) |
+| `--glow-scale FLOAT` | Glow radius as a multiple of atom radius (default: 1.0) |
 
 ## Orientation
 
@@ -212,6 +214,23 @@ Fine-grained overlay style (`atom_stroke_width`, `atom_stroke_color`, `bond_colo
 | `--vib-frames` | Vibration frames for `--gif-ts` (default: 20) |
 
 Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Prefix `-` to reverse (e.g. `-xy`). For crystal inputs, a 3-digit Miller index string is also accepted (e.g. `111`, `001`).
+
+## Proteins
+
+Applies to inputs carrying protein semantics (`.pdb`). See [Proteins & biomolecules](examples/protein.md) for worked examples.
+
+| Flag | Description |
+|------|-------------|
+| `--protein [STYLE]` | Render the backbone as a shaded cartoon instead of atoms and bonds. `STYLE` is `gloss` (default), `illustration`, or `cartoon` (alias for `gloss`) |
+| `--color-by MODE` | Cartoon colouring: `chain` (default), `rainbow` (N→C per chain), `ss` (helix/sheet/coil), `bfactor` (temperature factor / AlphaFold pLDDT — the ramp maps min→max as given, and low B means *well* ordered while low pLDDT means *less* confident) |
+| `--chain-color CHAIN COLOR` | Per-chain colour override, e.g. `--chain-color A steelblue`; repeatable |
+| `--exclude-chains CHAINS` | Drop chains by ID, e.g. `"A,B"` — their ribbon and their heteroatoms alike |
+| `--sidechain [RESIDUES]` | Draw side chains as sticks on the ribbon. Optionally restrict, e.g. `"45,102-108"` or `"A:45,B:12"` |
+| `--highlight-ligand` | Recolour ligands (HETATM excluding water/ions) |
+| `--ligand-color COLOR` | Ligand highlight colour (hex or named, default: `#ffb347`) |
+| `--ribbon-width FLOAT` | Ribbon width in Å for helices and sheets (default: 4.5) |
+| `--loop-width FLOAT` | Loop-width cap in Å for coil segments (default: 0.9) |
+| `--nci-ligand` | Keep only ligand-associated NCI contacts (implies `--nci`) |
 
 ## Crystal / unit cell
 
