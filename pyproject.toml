@@ -60,7 +60,7 @@ dev = [
 
 # Temporary stacked-PR pin for xyzgraph PR #51. Remove once 1.6.15 is published.
 [tool.uv.sources]
-xyzgraph = { git = "https://github.com/JamesOBrien2/xyzgraph.git", rev = "8aa9c3f4fd2a36507308cd934d198e2c4b6760f5" }
+xyzgraph = { git = "https://github.com/JamesOBrien2/xyzgraph.git", rev = "9f76fbc3c8c56f49fbd6fe34a361632cd656d2f2" }
 
 # ===== Ruff =====
 [tool.ruff]
