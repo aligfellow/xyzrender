@@ -120,6 +120,238 @@ def test_rotate_frames_preserves_extra_keys():
     assert out[0]["hull_opacity_factor"] == 0.8
 
 
+def test_scale_vibration_frames_about_equilibrium():
+    from xyzrender.gif import _scale_vibration_frames
+
+    frames = [
+        {"symbols": ["H"], "positions": [[1.0, 2.0, 3.0]]},
+        {"symbols": ["H"], "positions": [[1.2, 1.5, 4.0]]},
+    ]
+
+    scaled = _scale_vibration_frames(frames, 2.0)
+
+    assert scaled[0]["positions"] == [[1.0, 2.0, 3.0]]
+    assert np.allclose(scaled[1]["positions"], [[1.4, 1.0, 5.0]])
+    assert frames[1]["positions"] == [[1.2, 1.5, 4.0]]
+
+
+def test_normal_mode_normalization_uses_active_atom_rms():
+    from xyzrender.gif import _normal_mode_normalization_scale, _scale_vibration_frames
+
+    frames = [
+        {"positions": [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]]},
+        {"positions": [[0.1, 0.0, 0.0], [1.2, 0.0, 0.0], [2.001, 0.0, 0.0]]},
+    ]
+
+    scale = _normal_mode_normalization_scale(frames)
+    scaled = _scale_vibration_frames(frames, scale)
+    displacement = np.asarray(scaled[1]["positions"]) - np.asarray(scaled[0]["positions"])
+    active_rms = np.sqrt(np.mean(np.square(np.linalg.norm(displacement[:2], axis=1))))
+
+    assert active_rms == pytest.approx(0.25)
+    assert displacement[0, 0] / displacement[1, 0] == pytest.approx(0.5)
+
+
+def test_normal_mode_normalization_handles_zero_displacement():
+    from xyzrender.gif import _normal_mode_normalization_scale
+
+    frames = [{"positions": [[0.0, 0.0, 0.0]]}, {"positions": [[0.0, 0.0, 0.0]]}]
+
+    assert _normal_mode_normalization_scale(frames) == 1.0
+
+
+def test_limit_normal_mode_scale_prevents_zero_bond_distance():
+    import networkx as nx
+
+    from xyzrender.gif import _limit_normal_mode_scale
+
+    graph = nx.Graph()
+    graph.add_edge(0, 1)
+    frames = [
+        {"positions": [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]},
+        {"positions": [[0.0, 0.0, 0.0], [-1.0, 0.0, 0.0]]},
+    ]
+
+    safe_scale = _limit_normal_mode_scale(frames, graph, requested_scale=2.0)
+
+    assert safe_scale == pytest.approx(0.475)
+    compressed_bond = 1.0 + safe_scale * (-2.0)
+    assert compressed_bond == pytest.approx(0.05)
+
+
+def test_limit_normal_mode_scale_does_not_restrict_bond_rotation():
+    import networkx as nx
+
+    from xyzrender.gif import _limit_normal_mode_scale
+
+    graph = nx.Graph()
+    graph.add_edge(0, 1)
+    frames = [
+        {"positions": [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]},
+        {"positions": [[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]]},
+    ]
+
+    # The bond's projection on its original axis becomes negative above scale
+    # 1, but its true distance never approaches zero because it rotates away.
+    assert _limit_normal_mode_scale(frames, graph, requested_scale=2.0) == 2.0
+
+
+def test_limit_normal_mode_scale_leaves_safe_amplitude_unchanged():
+    import networkx as nx
+
+    from xyzrender.gif import _limit_normal_mode_scale
+
+    graph = nx.Graph()
+    graph.add_edge(0, 1)
+    frames = [
+        {"positions": [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]},
+        {"positions": [[0.0, 0.0, 0.0], [0.9, 0.0, 0.0]]},
+    ]
+
+    assert _limit_normal_mode_scale(frames, graph, requested_scale=2.0) == 2.0
+
+
+def test_format_vibrational_frequency_preserves_sign():
+    from xyzrender.gif import _format_vibrational_frequency
+
+    assert _format_vibrational_frequency(1234.567) == "\u03bd\u0303 = 1234.6 cm⁻¹"
+    assert _format_vibrational_frequency(-748.483) == "\u03bd\u0303 = -748.5 cm⁻¹"
+
+
+def test_add_frequency_label_to_png():
+    from io import BytesIO
+
+    from PIL import Image
+
+    from xyzrender.gif import _add_png_label
+    from xyzrender.types import RenderConfig
+
+    source = BytesIO()
+    Image.new("RGBA", (200, 100), "white").save(source, format="PNG")
+    labelled = _add_png_label(source.getvalue(), "\u03bd\u0303 = 1234.6 cm⁻¹", RenderConfig(canvas_size=200))
+    image = np.asarray(Image.open(BytesIO(labelled)).convert("RGB"))
+
+    assert np.any(image[:50] < 128)
+
+
+def test_render_gif_normal_mode_selection_and_scale(tmp_path):
+    from unittest.mock import patch
+
+    from xyzrender import render_gif
+
+    frames = [
+        {"symbols": ["C", "C"], "positions": [[0.0, 0.0, 0.0], [1.4, 0.0, 0.0]]},
+        {"symbols": ["C", "C"], "positions": [[0.1, 0.0, 0.0], [1.3, 0.0, 0.0]]},
+    ]
+    with (
+        patch("graphrc.load_trajectory", return_value={"frames": frames}) as mock_load,
+        patch("graphrc.run_vib_analysis", side_effect=AssertionError("TS analysis must not run")),
+        patch("xyzrender.gif._render_frames", return_value=[b"", b""]) as mock_render,
+        patch("xyzrender.gif._stitch_gif"),
+    ):
+        render_gif(
+            STRUCTURES / "sn2.out",
+            gif_vib=7,
+            vib_scale=2.0,
+            orient=False,
+            output=tmp_path / "mode7.gif",
+        )
+
+    assert mock_load.call_args.kwargs["mode"] == 7
+    assert mock_load.call_args.kwargs["save_to_disk"] is False
+    graph, rendered_frames, config = mock_render.call_args.args
+    assert np.allclose(rendered_frames[1]["positions"], [[0.5, 0.0, 0.0], [0.9, 0.0, 0.0]])
+    assert not any(data.get("TS") for _i, _j, data in graph.edges(data=True))
+    assert config.ts_bonds == []
+    assert config.hide_h is False
+
+
+def test_render_gif_normal_mode_frequency_label(tmp_path):
+    from unittest.mock import patch
+
+    from xyzrender import render_gif
+
+    frames = [{"symbols": ["C", "C"], "positions": [[0.0, 0.0, 0.0], [1.4, 0.0, 0.0]]}]
+    with (
+        patch("graphrc.load_trajectory", return_value={"frames": frames, "frequencies": [100.0, 1234.567]}),
+        patch("xyzrender.gif._render_frames", return_value=[b""]) as mock_render,
+        patch("xyzrender.gif._stitch_gif"),
+    ):
+        render_gif(
+            STRUCTURES / "sn2.out",
+            gif_vib=1,
+            vib_label=True,
+            orient=False,
+            output=tmp_path / "mode1.gif",
+        )
+
+    assert mock_render.call_args.kwargs["frame_label"] == "\u03bd\u0303 = 1234.6 cm⁻¹"
+
+
+def test_render_gif_normal_mode_rejects_imaginary_frequency(tmp_path):
+    from unittest.mock import patch
+
+    from xyzrender import render_gif
+
+    frames = [{"symbols": ["C", "C"], "positions": [[0.0, 0.0, 0.0], [1.4, 0.0, 0.0]]}]
+    with (
+        patch("graphrc.load_trajectory", return_value={"frames": frames, "frequencies": [-748.483]}),
+        patch("xyzrender.gif._render_frames", side_effect=AssertionError("imaginary mode was rendered")),
+        pytest.raises(ValueError, match=r"gif_vib=0.*imaginary frequency.*gif_ts=True explicitly"),
+    ):
+        render_gif(
+            STRUCTURES / "sn2.out",
+            gif_vib=0,
+            orient=False,
+            output=tmp_path / "imaginary.gif",
+        )
+
+
+def test_render_gif_ts_allows_imaginary_frequency(tmp_path):
+    from unittest.mock import patch
+
+    import networkx as nx
+
+    from xyzrender import render_gif
+
+    frames = [{"symbols": ["C", "C"], "positions": [[0.0, 0.0, 0.0], [1.4, 0.0, 0.0]]}]
+    graph = nx.Graph()
+    graph.add_nodes_from((i, {"symbol": "C", "position": tuple(p)}) for i, p in enumerate(frames[0]["positions"]))
+    analysis = {
+        "graph": {"ts_graph": graph},
+        "trajectory": {"frames": frames, "frequencies": [-748.483]},
+    }
+    with (
+        patch("graphrc.run_vib_analysis", return_value=analysis),
+        patch("xyzrender.gif._render_frames", return_value=[b""]) as mock_render,
+        patch("xyzrender.gif._stitch_gif"),
+    ):
+        render_gif(
+            STRUCTURES / "sn2.out",
+            gif_ts=True,
+            orient=False,
+            output=tmp_path / "ts.gif",
+        )
+
+    mock_render.assert_called_once()
+
+
+def test_render_gif_normal_mode_respects_no_hy(tmp_path):
+    from unittest.mock import patch
+
+    from xyzrender import render_gif
+
+    with patch("xyzrender.gif.render_vibration_gif") as mock_vib:
+        render_gif(
+            STRUCTURES / "sn2.out",
+            gif_vib=0,
+            no_hy=True,
+            output=tmp_path / "mode0.gif",
+        )
+
+    assert mock_vib.call_args.kwargs["config"].hide_h is True
+
+
 @pytest.mark.parametrize(
     ("ts_bonds", "auto_detect", "expected"),
     [(None, True, []), ([], False, []), ([(1, 3)], False, [(0, 2)])],
@@ -181,6 +413,24 @@ def test_render_gif_ts_rejects_invalid_manual_bonds(tmp_path, ts_bonds):
             orient=False,
             output=tmp_path / "ts.gif",
         )
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        ({"gif_vib": -1}, "zero-based"),
+        ({"gif_vib": 0, "vib_scale": 0}, "> 0"),
+        ({"gif_vib": 0, "vib_scale": float("nan")}, "finite"),
+        ({"gif_vib": 0, "vib_scale": float("inf")}, "finite"),
+        ({"gif_vib": 0, "vib_frames": 3}, "multiple of 4"),
+        ({"gif_vib": 0, "vib_frames": True}, "multiple of 4"),
+    ],
+)
+def test_render_gif_normal_mode_rejects_invalid_options(tmp_path, kwargs, match):
+    from xyzrender import render_gif
+
+    with pytest.raises(ValueError, match=match):
+        render_gif(STRUCTURES / "sn2.out", output=tmp_path / "bad.gif", **kwargs)
 
 
 def test_render_trajectory_gif_trj_bonds(tmp_path):

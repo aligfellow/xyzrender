@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import copy
 import logging
+import math
 import sys
 from pathlib import Path
 
@@ -105,6 +106,8 @@ GIF Animation:
   --gif-rot [AXIS]        Rotation GIF (x/y/z/xy/xz/.../hkl, default: y)
   --gif-trj               Trajectory - requires mutiframe .xyz or calculation output
   --gif-ts                TS vibration GIF - required vib trj or output with Hessian
+  --gif-vib MODE          Vibrational frequencies normal-mode GIF (zero-based mode index)
+  --vib-label             Display the calculated vibrational frequency on the GIF
   --gif-diffuse           Diffuse assembly GIF
   --gif-bounce DEG[,AXIS] Bounce GIF: 0° -> +DEG -> 0° -> -DEG -> 0° (axis default: y)
   -go FILE / --gif-fps N  GIF output path / frames per second
@@ -657,6 +660,13 @@ def main() -> None:
     # --- GIF animation ---
     gif_g = p.add_argument_group("GIF animation")
     gif_g.add_argument("--gif-ts", action="store_true", help="TS vibration GIF (via graphRC)")
+    gif_g.add_argument(
+        "--gif-vib",
+        type=int,
+        default=None,
+        metavar="MODE",
+        help="Vibrational frequency normal-mode GIF (zero-based mode index)",
+    )
     gif_g.add_argument("--gif-trj", action="store_true", help="Trajectory/optimization GIF (multi-frame input)")
     gif_g.add_argument(
         "--trj-bonds",
@@ -668,13 +678,30 @@ def main() -> None:
         nargs="?",
         const="y",
         default=None,
-        help="Rotation GIF (default axis: y). Combinable with --gif-ts (also: --gif-bounce + --gif-ts).",
+        help="Rotation GIF (default axis: y). Combinable with --gif-ts/--gif-vib.",
     )
     gif_g.add_argument("--gif-diffuse", action="store_true", help="Diffuse/assembly GIF — atoms scatter and reassemble")
     gif_g.add_argument("-go", "--gif-output", default=None, help="GIF output path")
     gif_g.add_argument("--gif-fps", type=int, default=10, help="GIF frames per second (default: 10)")
     gif_g.add_argument("--rot-frames", type=int, default=120, help="Rotation frames (default: 120)")
-    gif_g.add_argument("--vib-frames", type=int, default=None, help="Vibration frames for --gif-ts (default: 20)")
+    gif_g.add_argument(
+        "--vib-frames",
+        type=int,
+        default=None,
+        help="Number of frames for --gif-ts/--gif-vib (default: 20; positive multiple of 4)",
+    )
+    gif_g.add_argument(
+        "--vib-scale",
+        type=float,
+        default=1.0,
+        metavar="SCALE",
+        help="Vibrational displacement scale (default: 1.0)",
+    )
+    gif_g.add_argument(
+        "--vib-label",
+        action="store_true",
+        help="Display the calculated vibrational frequency on the GIF",
+    )
     gif_g.add_argument(
         "--gif-bounce",
         type=_parse_gif_bounce,
@@ -1074,10 +1101,21 @@ def main() -> None:
         supported = ", ".join("." + e for e in sorted(_SUPPORTED_EXTENSIONS))
         p.error(f"Unsupported static output format: .{static_ext} (use {supported})")
 
-    wants_gif = args.gif_ts or args.gif_rot or args.gif_trj or args.gif_diffuse or args.gif_bounce is not None
+    has_vibration = args.gif_ts or args.gif_vib is not None
+    wants_gif = has_vibration or args.gif_rot or args.gif_trj or args.gif_diffuse or args.gif_bounce is not None
 
-    if args.gif_diffuse and (args.gif_ts or args.gif_trj):
-        p.error("--gif-diffuse cannot be combined with --gif-ts or --gif-trj")
+    if args.gif_vib is not None and args.gif_vib < 0:
+        p.error("--gif-vib must be a zero-based mode index (an integer >= 0)")
+    if not math.isfinite(args.vib_scale) or args.vib_scale <= 0:
+        p.error("--vib-scale must be finite and > 0")
+    if args.vib_frames is not None and (args.vib_frames <= 0 or args.vib_frames % 4 != 0):
+        p.error("--vib-frames must be a positive multiple of 4")
+    if args.gif_ts and args.gif_vib is not None:
+        p.error("--gif-ts cannot be combined with --gif-vib")
+    if has_vibration and args.gif_trj:
+        p.error("vibration GIF modes cannot be combined with --gif-trj")
+    if args.gif_diffuse and (has_vibration or args.gif_trj):
+        p.error("--gif-diffuse cannot be combined with vibration modes or --gif-trj")
 
     if args.gif_bounce is not None:
         _bounce_deg, _bounce_ax = args.gif_bounce
@@ -1104,8 +1142,8 @@ def main() -> None:
         p.error("--ensemble requires an input trajectory file")
     if args.ensemble and (args.overlay or args.overlay_color):
         p.error("--ensemble cannot be combined with --overlay / --overlay-color")
-    if args.ensemble and (args.gif_ts or args.gif_trj):
-        p.error("--ensemble cannot be combined with --gif-ts or --gif-trj (use gif_rot only)")
+    if args.ensemble and (has_vibration or args.gif_trj):
+        p.error("--ensemble cannot be combined with vibration modes or --gif-trj (use gif_rot only)")
     if args.ensemble and from_stdin:
         p.error("--ensemble cannot be used with stdin input")
     # Validate --smi / --mol-frame / --rebuild usage
@@ -1171,8 +1209,8 @@ def main() -> None:
         except ValueError as e:
             p.error(str(e))
 
-    if (args.only or args.exclude) and (args.gif_ts or args.gif_trj):
-        p.error("--only/--exclude are not supported with --gif-ts or --gif-trj")
+    if (args.only or args.exclude) and (has_vibration or args.gif_trj):
+        p.error("--only/--exclude are not supported with vibration modes or --gif-trj")
     if args.only or args.exclude:
         from xyzrender.api import _filter_molecule_atoms
 
@@ -1493,10 +1531,10 @@ def main() -> None:
             # Ensemble rotation GIF: use the pre-built ensemble Molecule.
             mol_or_path = mol
         else:
-            mol_or_path: str | Molecule = args.input if (args.gif_ts or args.gif_trj) else mol
-        # For gif_ts/gif_trj the trajectory is read from disk (mol_or_path is a path),
+            mol_or_path: str | Molecule = args.input if (has_vibration or args.gif_trj) else mol
+        # For vibration/trajectory modes the frames are read from disk (mol_or_path is a path),
         # but pass mol.graph as reference_graph so -I orientation and TS/NCI bonds are respected.
-        _ref_graph = mol.graph if (args.gif_ts or args.gif_trj) else None
+        _ref_graph = mol.graph if (has_vibration or args.gif_trj) else None
         try:
             render_gif(
                 mol_or_path,
@@ -1507,6 +1545,7 @@ def main() -> None:
                 gif_bounce=args.gif_bounce,
                 gif_trj=args.gif_trj,
                 gif_ts=args.gif_ts,
+                gif_vib=args.gif_vib,
                 gif_diffuse=args.gif_diffuse,
                 diffuse_frames=args.diffuse_frames,
                 diffuse_noise=args.diffuse_noise,
@@ -1518,6 +1557,10 @@ def main() -> None:
                 gif_fps=args.gif_fps,
                 rot_frames=args.rot_frames,
                 vib_frames=args.vib_frames,
+                vib_scale=args.vib_scale,
+                vib_label=args.vib_label,
+                hy=hy_spec,
+                no_hy=args.no_hy,
                 ts_frame=args.ts_frame,
                 overlay=args.overlay,
                 overlay_color=args.overlay_color,
