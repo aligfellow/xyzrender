@@ -664,6 +664,11 @@ def main() -> None:
         help="Re-detect bonds for every frame (use for NEB-TS MEPs where connectivity changes)",
     )
     gif_g.add_argument(
+        "--var-atoms",
+        action="store_true",
+        help="Allow --gif-trj frames with differing atom counts instead of rejecting them",
+    )
+    gif_g.add_argument(
         "--gif-rot",
         nargs="?",
         const="y",
@@ -1528,6 +1533,7 @@ def main() -> None:
                 opacity=args.opacity,
                 reference_graph=_ref_graph,
                 trj_bonds=args.trj_bonds,
+                var_atoms=args.var_atoms,
                 detect_nci=args.nci_detect,
                 mo=args.mo,
                 dens=args.dens,

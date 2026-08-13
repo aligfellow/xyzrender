@@ -97,6 +97,13 @@ For trajectories where connectivity changes (NEB-TS MEPs, reaction paths) add `-
 xyzrender sn2.v000.xyz --gif-trj --trj-bonds -go sn2_trj_bonds.gif
 ```
 
+Trajectories with intentionally differing atom counts are rejected by default.
+Add `--var-atoms` to accept them and rebuild the molecular graph for every frame:
+
+```bash
+xyzrender growth.xyz --gif-trj --var-atoms -go growth.gif
+```
+
 ## Diffuse / assembly
 
 ```{image} ../../../examples/images/caffeine_diffuse.gif

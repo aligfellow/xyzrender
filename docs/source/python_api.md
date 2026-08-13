@@ -336,6 +336,7 @@ render_gif("ts.out", gif_ts=True)                  # TS vibration GIF
 render_gif("ts.out", gif_ts=True, ts_bonds=[(1, 6)])  # skip auto-detection; use this TS bond
 render_gif("traj.xyz", gif_trj=True)               # trajectory GIF
 render_gif("mep.xyz", gif_trj=True, trj_bonds=True)  # re-detect bonds per frame
+render_gif("growth.xyz", gif_trj=True, var_atoms=True)  # allow differing atom counts
 render_gif("mol.xyz", gif_rot="y", config=cfg)     # with shared style config
 
 # Diffuse / assembly GIF
