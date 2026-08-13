@@ -35,7 +35,7 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Structural overlay** — overlay two structures in contrasting colours; auto-aligned by best-fit (centres on the metals when present, falls back to fuzzy substructure matching that tolerates atom substitutions, then geometric best-fit). Override with `--align-atoms`. Per-overlay style knobs; `--no-align` keeps raw coords
 - **Conformer ensemble** — overlay all frames from a multi-frame XYZ trajectory, with palette colouring and opacity control
 - **Convex hull, hull faces & pores** — semi-transparent facets over selected atoms or rings, exposed faces of molecular cages, and pore rendering
-- **GIF animations** — rotation, TS vibration, trajectory, diffuse/assembly, and depth-of-field animations
+- **GIF animations** — rotation, TS vibration, vibrational transitions, trajectories, diffuse/assembly and depth-of-field animations
 - **Input formats** — XYZ, mol/SDF, MOL2, PDB, SMILES, CIF, SHELXL, cube files, and QM input/output from Gaussian, ORCA, NWChem, Q-Chem, Psi4, MOPAC, GAMESS, Turbomole, CP2K, VASP, Quantum ESPRESSO, SIESTA, and ABINIT
 - **Crystal / periodic structures** — unit cell box, ghost atoms, supercells, and crystallographic axis arrows; auto-detected from VASP POSCAR, QE pw.in, SIESTA FDF, ABINIT, CP2K, SHELXL `.res`/`.ins`, CIF, and extXYZ `Lattice=` headers
 - **Multiple output formats** — vector SVG (default), PNG, PDF, and GIF — all from the same command
@@ -222,9 +222,9 @@ Full usage, the Python API guide, every flag, and runnable examples live in the 
 |----------|----------------|------------------------------|
 | ![rotate](examples/images/caffeine.gif) | ![bounce](examples/images/caffeine_bounce_50.gif) | ![sn2 mep](examples/images/sn2_trj_bonds.gif) |
 
-| TS + NCI + vdW + rotation | Trajectory | TS |
-|---------------------------|------------|----|
-| ![ts rot](examples/images/bimp_nci_ts.gif) | ![trj](examples/images/bimp_trj.gif) | ![ts](examples/images/mn-h2.gif) |
+| TS + NCI + vdW + rotation | Trajectory | TS | Vibrational transition |
+|---------------------------|------------|----|------------------------|
+| ![ts rot](examples/images/bimp_nci_ts.gif) | ![trj](examples/images/bimp_trj.gif) | ![ts](examples/images/mn-h2.gif) | ![vibrational transition](examples/images/water_vib.gif) |
 
 | Overlay rotation | MO | Density | 
 |----------|---------------------------|------------|

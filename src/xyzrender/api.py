@@ -24,6 +24,7 @@ For GIFs use :func:`render_gif`::
     render_gif("mol.xyz", gif_rot="y")
     render_gif("trajectory.xyz", gif_trj=True)
     render_gif("ts.xyz", gif_ts=True)
+    render_gif("frequency.out", gif_vib=7, vib_scale=1.5)
 """
 
 from __future__ import annotations
@@ -1447,6 +1448,7 @@ def render_gif(
     gif_bounce: float | tuple[float, str] | None = None,
     gif_trj: bool = False,
     gif_ts: bool = False,
+    gif_vib: int | None = None,
     gif_diffuse: bool = False,
     # --- Diffuse params ---
     diffuse_frames: int = 60,
@@ -1460,6 +1462,8 @@ def render_gif(
     gif_fps: int = 10,
     rot_frames: int = 120,
     vib_frames: int | None = None,
+    vib_scale: float = 1.0,
+    vib_label: bool = False,
     ts_frame: int = 0,
     config: str | RenderConfig = "default",
     # --- Style (same as render(), only used when config is a string) ---
@@ -1528,7 +1532,7 @@ def render_gif(
     align_atoms: str | list[int] | None = None,
     # Applies to the overlay molecule (gif_rot only); mutually exclusive with surfaces.
     opacity: float | None = None,
-    # --- Orientation reference (gif_ts / gif_trj: graph after orient()) ---
+    # --- Orientation reference (gif_ts / gif_vib / gif_trj: graph after orient()) ---
     reference_graph: "nx.Graph | None" = None,
     # --- Per-frame bond detection (gif_trj only) ---
     trj_bonds: bool = False,
@@ -1582,13 +1586,13 @@ def render_gif(
     The result displays the GIF inline in Jupyter via ``_repr_html_``.
     Access the file path via ``result.path``.
 
-    At least one of *gif_rot*, *gif_bounce*, *gif_trj*, *gif_ts*, or *gif_diffuse* must be set.
+    At least one of *gif_rot*, *gif_bounce*, *gif_trj*, *gif_ts*, *gif_vib*, or *gif_diffuse* must be set.
 
     Parameters
     ----------
     molecule:
         A :class:`Molecule` from :func:`load`, or a file path.  For
-        *gif_ts* and *gif_trj* modes, a file path is required (the
+        *gif_ts*, *gif_vib*, and *gif_trj* modes, a file path is required (the
         trajectory or vibration data is read directly from disk).
     gif_rot:
         Rotation axis: ``"x"``, ``"y"``, ``"z"``, diagonal (``"xy"``,
@@ -1603,6 +1607,14 @@ def render_gif(
         Mutually exclusive with *gif_rot*.
     gif_ts:
         Transition-state vibration animation (requires ``xyzrender[ts]``).
+    gif_vib:
+        Animate a vibrational transition from a frequency calculation.
+    vib_frames:
+        Vibration frame count (a positive multiple of four).
+    vib_scale:
+        Positive multiplier for the vibration displacement amplitude.
+    vib_label:
+        Display the selected mode's calculated frequency on every frame.
     ts_bonds:
         Manual transition-state bond pairs using 1-indexed atom numbers.
         In *gif_ts* mode, supplying this skips automatic TS identification.
@@ -1639,16 +1651,32 @@ def render_gif(
     else:
         bounce_deg, bounce_ax = gif_bounce, None
 
-    if not (gif_rot or bounce_deg is not None or gif_trj or gif_ts or gif_diffuse):
-        msg = "render_gif: set gif_rot, gif_bounce, gif_trj=True, gif_ts=True, or gif_diffuse=True"
+    has_vibration = gif_ts or gif_vib is not None
+
+    if not (gif_rot or bounce_deg is not None or gif_trj or has_vibration or gif_diffuse):
+        msg = "render_gif: set gif_rot, gif_bounce, gif_trj=True, gif_ts=True, gif_vib=MODE, or gif_diffuse=True"
         raise ValueError(msg)
 
-    if gif_ts and gif_trj:
-        msg = "render_gif: gif_ts and gif_trj are mutually exclusive"
+    if gif_vib is not None and (isinstance(gif_vib, bool) or not isinstance(gif_vib, int) or gif_vib < 0):
+        msg = "render_gif: gif_vib must be a zero-based mode index (an integer >= 0)"
+        raise ValueError(msg)
+    if not np.isfinite(vib_scale) or vib_scale <= 0:
+        msg = "render_gif: vib_scale must be finite and > 0"
+        raise ValueError(msg)
+    if vib_frames is not None and (
+        isinstance(vib_frames, bool) or not isinstance(vib_frames, int) or vib_frames <= 0 or vib_frames % 4 != 0
+    ):
+        msg = "render_gif: vib_frames must be a positive multiple of 4"
+        raise ValueError(msg)
+    if gif_ts and gif_vib is not None:
+        msg = "render_gif: gif_ts and gif_vib are mutually exclusive"
+        raise ValueError(msg)
+    if has_vibration and gif_trj:
+        msg = "render_gif: vibration modes and gif_trj are mutually exclusive"
         raise ValueError(msg)
 
-    if gif_diffuse and (gif_ts or gif_trj):
-        msg = "render_gif: gif_diffuse is mutually exclusive with gif_ts / gif_trj"
+    if gif_diffuse and (has_vibration or gif_trj):
+        msg = "render_gif: gif_diffuse is mutually exclusive with vibration / gif_trj modes"
         raise ValueError(msg)
 
     if bounce_deg is not None:
@@ -1664,13 +1692,15 @@ def render_gif(
             )
             raise ValueError(msg)
 
-    if (mo or dens) and (gif_ts or gif_trj or gif_diffuse):
+    if (mo or dens) and (has_vibration or gif_trj or gif_diffuse):
         active_surf = "mo" if mo else "dens"
-        active_gif = "gif_ts" if gif_ts else ("gif_trj" if gif_trj else "gif_diffuse")
+        active_gif = (
+            "gif_ts" if gif_ts else ("gif_vib" if gif_vib is not None else ("gif_trj" if gif_trj else "gif_diffuse"))
+        )
         msg = f"render_gif: {active_surf} surface is only supported with gif_rot, not {active_gif}"
         raise ValueError(msg)
 
-    if overlay is not None and (gif_ts or gif_trj):
+    if overlay is not None and (has_vibration or gif_trj):
         msg = "render_gif: overlay= is only supported with gif_rot"
         raise ValueError(msg)
 
@@ -1696,13 +1726,15 @@ def render_gif(
 
     if rot_frames != 120 and not gif_rot and bounce_deg is None:
         logger.warning("rot_frames has no effect without gif_rot")
-    if (only is not None or exclude is not None) and (gif_ts or gif_trj):
+    if (only is not None or exclude is not None) and (has_vibration or gif_trj):
         msg = (
             "only/exclude atom filters are only supported for render_gif() rotation/diffuse modes, not trajectory modes"
         )
         raise ValueError(msg)
-    if vib_frames is not None and not gif_ts:
-        logger.warning("vib_frames has no effect without gif_ts")
+    if vib_frames is not None and not has_vibration:
+        logger.warning("vib_frames has no effect without gif_ts or gif_vib")
+    if vib_label and not has_vibration:
+        logger.warning("vib_label has no effect without gif_ts or gif_vib")
 
     # Resolve config
     _gif_mol = molecule if isinstance(molecule, Molecule) else load(molecule)
@@ -1758,6 +1790,15 @@ def render_gif(
             no_hy=no_hy,
             orient=orient,
         )
+
+    if gif_vib is not None:
+        from xyzrender.config import apply_hydrogen_flags
+
+        # Normal modes are atomic displacement visualisations, so hiding C-H
+        # atoms by default would omit part of the mode. Explicit hy/no_hy
+        # selections still take precedence.
+        vib_hy = True if hy is None and not no_hy else hy
+        apply_hydrogen_flags(cfg, hy=vib_hy, no_hy=no_hy)
 
     if haptic:
         cfg.haptic = True
@@ -1842,9 +1883,9 @@ def render_gif(
 
     # Resolve molecule → path and/or graph
     if isinstance(molecule, Molecule):
-        if gif_ts or gif_trj:
+        if has_vibration or gif_trj:
             msg = (
-                "render_gif: pass a file path (not a Molecule) for gif_ts / gif_trj modes — "
+                "render_gif: pass a file path (not a Molecule) for gif_ts / gif_vib / gif_trj modes — "
                 "the trajectory is read from disk."
             )
             raise ValueError(msg)
@@ -1873,19 +1914,31 @@ def render_gif(
     # Cache for frequent checks
     mol_obj = molecule if isinstance(molecule, Molecule) else None
 
-    if gif_ts:
+    if has_vibration:
         # render_vibration_gif reads mol_path directly — no ref_graph load needed.
         _vib_axis = bounce_ax or gif_rot or ("y" if bounce_deg is not None else None)
+        vib_cfg = cfg
+        if gif_vib is not None and cfg.ts_bonds:
+            vib_cfg = copy.copy(cfg)
+            vib_cfg.ts_bonds = []
         render_vibration_gif(
             path=str(mol_path),
-            config=cfg,
+            config=vib_cfg,
             output=str(gif_path),
+            mode=gif_vib if gif_vib is not None else 0,
             vib_frames=vib_frames,
+            vib_scale=vib_scale,
+            vib_label=vib_label,
+            reject_imaginary=gif_vib is not None,
+            prevent_atom_crossing=gif_vib is not None,
+            normalize_displacements=gif_vib is not None,
             fps=gif_fps,
             ts_frame=ts_frame,
             reference_graph=reference_graph,
             detect_nci=detect_nci,
-            auto_detect_ts=ts_bonds is None and not cfg.ts_bonds,
+            # Ordinary normal modes must never enter graphRC's TS-analysis
+            # path.  TS auto-detection is only meaningful for gif_ts.
+            auto_detect_ts=gif_ts and ts_bonds is None and not cfg.ts_bonds,
             axis=_vib_axis,
             n_frames=rot_frames if _vib_axis else None,
             bounce_degrees=float(bounce_deg) if bounce_deg is not None else None,

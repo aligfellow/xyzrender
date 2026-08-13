@@ -7,6 +7,7 @@ import logging
 import sys
 from dataclasses import dataclass
 from functools import partial
+from html import escape
 from io import BytesIO
 from typing import TYPE_CHECKING
 
@@ -17,6 +18,13 @@ from xyzrender.renderer import render_svg
 from xyzrender.utils import kabsch_rotation, pca_matrix
 
 logger = logging.getLogger(__name__)
+
+# A small non-zero margin avoids rendering two bonded atom centres at exactly
+# the same point. The limiter otherwise follows the true bond-distance internal
+# coordinate, so bending/rotation is not mistaken for bond compression.
+_MIN_BONDED_DISTANCE_ANGSTROM = 0.05
+_TARGET_ACTIVE_RMS_DISPLACEMENT_ANGSTROM = 0.25
+_ACTIVE_DISPLACEMENT_FRACTION = 0.10
 
 
 def _progress(current: int, total: int) -> None:
@@ -174,6 +182,103 @@ def _validate_manual_ts_bonds(ts_graph: "nx.Graph", ts_bonds: list[tuple[int, in
             raise ValueError(msg)
 
 
+def _scale_vibration_frames(frames: list[dict], scale: float) -> list[dict]:
+    """Scale vibrational displacements about the equilibrium (first) frame."""
+    if scale == 1.0:
+        return frames
+    equilibrium = np.asarray(frames[0]["positions"], dtype=float)
+    scaled = []
+    for frame in frames:
+        new_frame = dict(frame)
+        positions = np.asarray(frame["positions"], dtype=float)
+        new_frame["positions"] = (equilibrium + scale * (positions - equilibrium)).tolist()
+        scaled.append(new_frame)
+    return scaled
+
+
+def _normal_mode_normalization_scale(frames: list[dict]) -> float:
+    """Return a scalar giving active atoms a consistent 0.25 Å RMS amplitude."""
+    equilibrium = np.asarray(frames[0]["positions"], dtype=float)
+    displacements = np.asarray([np.asarray(frame["positions"], dtype=float) - equilibrium for frame in frames])
+    peak_by_atom = np.linalg.norm(displacements, axis=2).max(axis=0)
+    peak = float(peak_by_atom.max(initial=0.0))
+    if peak < 1e-12:
+        return 1.0
+    active = peak_by_atom >= _ACTIVE_DISPLACEMENT_FRACTION * peak
+    active_rms = float(np.sqrt(np.mean(np.square(peak_by_atom[active]))))
+    return _TARGET_ACTIVE_RMS_DISPLACEMENT_ANGSTROM / active_rms
+
+
+def _limit_normal_mode_scale(frames: list[dict], graph: "nx.Graph", requested_scale: float) -> float:
+    """Cap amplitude before a bonded-distance internal coordinate reaches zero."""
+    equilibrium = np.asarray(frames[0]["positions"], dtype=float)
+    safe_scale = requested_scale
+    n_atoms = len(equilibrium)
+    for i, j in graph.edges():
+        if not isinstance(i, int) or not isinstance(j, int) or not (0 <= i < n_atoms and 0 <= j < n_atoms):
+            continue
+        bond = equilibrium[j] - equilibrium[i]
+        bond_length = float(np.linalg.norm(bond))
+        if bond_length < 1e-12:
+            continue
+        for frame in frames:
+            positions = np.asarray(frame["positions"], dtype=float)
+            relative_displacement = (positions[j] - equilibrium[j]) - (positions[i] - equilibrium[i])
+            # Solve |bond + scale * relative_displacement|² = min_distance².
+            # The smaller positive root is the first unsafe amplitude. If the
+            # discriminant is negative, the atoms miss one another and the
+            # motion is a bend/rotation rather than a collision.
+            a = float(relative_displacement @ relative_displacement)
+            b = 2.0 * float(bond @ relative_displacement)
+            c = bond_length**2 - _MIN_BONDED_DISTANCE_ANGSTROM**2
+            if a < 1e-15 or b >= 0:
+                continue
+            discriminant = b * b - 4.0 * a * c
+            if discriminant >= 0:
+                first_unsafe_scale = (-b - np.sqrt(discriminant)) / (2.0 * a)
+                if first_unsafe_scale > 0:
+                    safe_scale = min(safe_scale, first_unsafe_scale)
+    return safe_scale
+
+
+def _format_vibrational_frequency(frequency: float) -> str:
+    """Format a signed vibrational wavenumber for a GIF frame label."""
+    return f"\u03bd\u0303 = {frequency:.1f} cm⁻¹"
+
+
+def _add_png_label(png_data: bytes, label: str, config: "RenderConfig") -> bytes:
+    """Add a fixed, haloed label at the top centre of a rendered PNG frame."""
+    import cairosvg
+    from PIL import Image
+
+    image = Image.open(BytesIO(png_data)).convert("RGBA")
+    font_size = round(max(20.0, config.label_font_size * 1.25))
+    stroke_width = max(2, round(font_size / 15))
+    label_top = max(12.0, config.padding)
+    text_attrs = (
+        f'x="50%" y="{label_top:.1f}" '
+        'font-family="FreeSans,DejaVu Sans,Noto Sans,Arial Unicode MS,Segoe UI Symbol,sans-serif" '
+        f'font-size="{font_size}px" text-anchor="middle" dominant-baseline="hanging"'
+    )
+    label_text = escape(label)
+    label_svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{image.width}" height="{image.height}">'
+        f'<text {text_attrs} fill="none" stroke="{config.background or "#ffffff"}" '
+        f'stroke-width="{stroke_width}" stroke-linejoin="round">{label_text}</text>'
+        f'<text {text_attrs} fill="{config.label_color}">{label_text}</text></svg>'
+    )
+    overlay_data = cairosvg.svg2png(
+        bytestring=label_svg.encode(),
+        output_width=image.width,
+        output_height=image.height,
+    )
+    overlay = Image.open(BytesIO(overlay_data)).convert("RGBA")
+    image.alpha_composite(overlay)
+    output = BytesIO()
+    image.save(output, format="PNG")
+    return output.getvalue()
+
+
 def render_vibration_gif(
     path: str,
     config: RenderConfig,
@@ -182,6 +287,11 @@ def render_vibration_gif(
     charge: int = 0,
     multiplicity: int | None = None,
     mode: int = 0,
+    vib_scale: float = 1.0,
+    vib_label: bool = False,
+    reject_imaginary: bool = False,
+    prevent_atom_crossing: bool = False,
+    normalize_displacements: bool = False,
     ts_frame: int = 0,
     vib_frames: int | None = None,
     fps: int = 10,
@@ -192,10 +302,10 @@ def render_vibration_gif(
     detect_nci: bool = False,
     auto_detect_ts: bool | None = None,
 ) -> None:
-    """Render a TS vibrational mode as an animated GIF.
+    """Render a normal or transition-state vibrational mode as an animated GIF.
 
-    Uses graphRC to generate the trajectory, renders each frame as SVG
-    with TS bonds dashed, converts to PNG via cairosvg, and stitches into a GIF.
+    Uses graphRC to generate the trajectory, renders each frame as SVG,
+    converts to PNG via cairosvg, and stitches the frames into a GIF.
     Automatic mode uses graphRC's TS identification; manual mode loads only
     the trajectory and builds ordinary topology with xyzgraph.
 
@@ -222,8 +332,9 @@ def render_vibration_gif(
             msg = "Vibration GIF requires graphrc"
             raise ImportError(msg) from None
 
-        trajectory = load_trajectory(path, mode=mode, print_output=False, **vib_kwargs)
+        trajectory = load_trajectory(path, mode=mode, save_to_disk=False, print_output=False, **vib_kwargs)
         frames = trajectory["frames"]
+        frequencies = trajectory.get("frequencies")
 
         from xyzgraph import build_graph
 
@@ -248,7 +359,37 @@ def render_vibration_gif(
             **vib_kwargs,
         )
         ts_graph = results["graph"]["ts_graph"]
-        frames = results["trajectory"]["frames"]
+        trajectory = results["trajectory"]
+        frames = trajectory["frames"]
+        frequencies = trajectory.get("frequencies")
+
+    normalization_scale = _normal_mode_normalization_scale(frames) if normalize_displacements else 1.0
+    requested_cartesian_scale = normalization_scale * vib_scale
+    effective_scale = (
+        _limit_normal_mode_scale(frames, ts_graph, requested_cartesian_scale)
+        if prevent_atom_crossing
+        else requested_cartesian_scale
+    )
+    if normalize_displacements and effective_scale < requested_cartesian_scale:
+        logger.warning(
+            "Reduced effective vib_scale from %.3g to %.3g to prevent a bonded distance reaching zero",
+            vib_scale,
+            effective_scale / normalization_scale,
+        )
+    frames = _scale_vibration_frames(frames, effective_scale)
+    selected_frequency = None if frequencies is None else float(frequencies[mode])
+    if selected_frequency is not None and selected_frequency < 0 and reject_imaginary:
+        msg = (
+            f"render_gif(gif_vib={mode}) cannot display imaginary frequency "
+            f"{selected_frequency:.1f} cm⁻¹; use gif_ts=True explicitly for a transition-state animation"
+        )
+        raise ValueError(msg)
+    frame_label = None
+    if vib_label:
+        if selected_frequency is None:
+            msg = "Vibrational frequency labels require a QM output file with calculated frequencies"
+            raise ValueError(msg)
+        frame_label = _format_vibrational_frequency(selected_frequency)
 
     if not auto_detect_ts:
         _validate_manual_ts_bonds(ts_graph, config.ts_bonds)
@@ -285,7 +426,7 @@ def render_vibration_gif(
 
         # graphRC's frames are already a full oscillation cycle — just loop
         logger.info("Rendering vibration GIF (%d frames)", len(frames))
-        pngs = _render_frames(ts_graph, frames, config, fixed_ncis=fixed_ncis)
+        pngs = _render_frames(ts_graph, frames, config, fixed_ncis=fixed_ncis, frame_label=frame_label)
         _stitch_gif(pngs, output, fps)
         logger.info("Wrote %s", output)
         return
@@ -324,6 +465,7 @@ def render_vibration_gif(
         rotation_axis=axis_vec,
         rotation_sign=axis_sign,
         bounce_degrees=bounce_degrees,
+        frame_label=frame_label,
     )
     _stitch_gif(pngs, output, fps)
     logger.info("Wrote %s", output)
@@ -893,6 +1035,7 @@ def _render_traj_frame(
     angles: np.ndarray | None,
     rf_vec_origins: np.ndarray,
     rf_vec_dirs: np.ndarray,
+    frame_label: str | None,
 ) -> tuple[int, bytes]:
     """Worker: render one trajectory/vibration frame to PNG."""
     if nci_analyzer is not None or fixed_ncis is not None or detect_nci_per_frame:
@@ -942,7 +1085,10 @@ def _render_traj_frame(
             frame_config = _rotate_vectors_in_cfg(config, rot_mat, _rg_centroid, rf_vec_origins, rf_vec_dirs)
 
     svg = render_svg(render_graph, frame_config, _log=False)
-    return idx, svg_to_png_bytes(svg, size=config.canvas_size)
+    png = svg_to_png_bytes(svg, size=config.canvas_size)
+    if frame_label is not None:
+        png = _add_png_label(png, frame_label, frame_config)
+    return idx, png
 
 
 def _render_frames(
@@ -957,6 +1103,7 @@ def _render_frames(
     rotation_sign: float = 1.0,
     rotation_degrees: float = 360.0,
     bounce_degrees: float | None = None,
+    frame_label: str | None = None,
 ) -> list[bytes]:
     """Render each trajectory frame to PNG, keeping graph topology fixed.
 
@@ -1004,6 +1151,7 @@ def _render_frames(
         angles=angles,
         rf_vec_origins=_rf_vec_origins,
         rf_vec_dirs=_rf_vec_dirs,
+        frame_label=frame_label,
     )
     return _parallel_render(worker, enumerate(frames), total)
 

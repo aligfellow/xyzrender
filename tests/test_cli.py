@@ -181,6 +181,87 @@ def test_gif_ts_manual_bonds_skip_auto_ts_load(monkeypatch, tmp_path):
     assert mock_load.call_args_list[0].kwargs["ts_detect"] is False
 
 
+def test_gif_vib_dispatches_mode_and_scale(monkeypatch, tmp_path):
+    import sys
+    from unittest.mock import patch
+
+    from xyzrender import api
+    from xyzrender.cli import main
+
+    source = _STRUCTURES / "sn2.out"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "xyzrender",
+            str(source),
+            "--gif-vib",
+            "7",
+            "--vib-scale",
+            "2.5",
+            "--vib-label",
+            "-o",
+            str(tmp_path / "mode.svg"),
+            "-go",
+            str(tmp_path / "mode.gif"),
+        ],
+    )
+
+    with patch.object(api, "render"), patch.object(api, "render_gif") as mock_gif:
+        main()
+
+    assert mock_gif.call_args.kwargs["gif_vib"] == 7
+    assert mock_gif.call_args.kwargs["vib_scale"] == 2.5
+    assert mock_gif.call_args.kwargs["vib_label"] is True
+    assert mock_gif.call_args.kwargs["hy"] is None
+    assert mock_gif.call_args.kwargs["no_hy"] is False
+
+
+def test_gif_vib_forwards_no_hy_override(monkeypatch, tmp_path):
+    import sys
+    from unittest.mock import patch
+
+    from xyzrender import api
+    from xyzrender.cli import main
+
+    source = _STRUCTURES / "sn2.out"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "xyzrender",
+            str(source),
+            "--gif-vib",
+            "0",
+            "--no-hy",
+            "-o",
+            str(tmp_path / "mode.svg"),
+            "-go",
+            str(tmp_path / "mode.gif"),
+        ],
+    )
+
+    with patch.object(api, "render"), patch.object(api, "render_gif") as mock_gif:
+        main()
+
+    assert mock_gif.call_args.kwargs["no_hy"] is True
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("--gif-vib", "-1"),
+        ("--gif-vib", "0", "--vib-scale", "0"),
+        ("--gif-vib", "0", "--vib-scale", "nan"),
+        ("--gif-vib", "0", "--vib-scale", "inf"),
+        ("--gif-vib", "0", "--vib-frames", "3"),
+    ],
+)
+def test_gif_vib_rejects_invalid_options(args):
+    result = _run_cli(str(_CAFFEINE), *args, expect_error=True)
+    assert "error:" in result.stderr
+
+
 def test_hl_too_many_args():
     """--hl with >2 arguments should error."""
     result = _run_cli(str(_CAFFEINE), "--hl", "1-5", "red", "extra", expect_error=True)
