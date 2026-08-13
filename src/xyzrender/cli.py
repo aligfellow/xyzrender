@@ -1167,6 +1167,10 @@ def main() -> None:
                 cell=args.cell,
                 quick=args.bo is False,
                 bohr=True if args.bohr else None,
+                # Either --orient (PCA) or --no-orient (raw coordinates) is an
+                # explicit request for a frame, so a camera saved in the file
+                # (CJSON modelView) only applies when neither was given.
+                camera=args.orient is None,
             )
         except ValueError as e:
             p.error(str(e))

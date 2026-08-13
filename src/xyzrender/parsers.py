@@ -1,6 +1,6 @@
 """Parsers for common molecular file formats.
 
-Python parsers for MOL/SDF, MOL2 and PDB require no additional
+Python parsers for MOL/SDF, MOL2, PDB and CJSON require no additional
 dependencies.  SMILES parsing requires rdkit (``pip install 'xyzrender[smi]'``).
 CIF parsing requires ase (``pip install 'xyzrender[cif]'``).
 
@@ -12,19 +12,46 @@ All parsers return a :class:`MolData` instance which carries:
 - ``name`` — molecule name/title (may be empty)
 - ``charge`` — formal charge parsed from the file (0 when unavailable)
 - ``pbc_cell`` — ``(3, 3)`` float array of row lattice vectors (Å) or ``None``
+- ``colors`` — per-atom ``#rrggbb`` overrides carried by the file, or ``None``
+- ``camera`` — saved viewer camera (:class:`CameraData`), or ``None``
 """
 
 from __future__ import annotations
 
+import json
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
 
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
 # Common data container
 # ---------------------------------------------------------------------------
+
+
+@dataclass
+class CameraData:
+    """Viewer camera saved alongside a structure (currently CJSON only).
+
+    Parameters
+    ----------
+    rotation:
+        ``(3, 3)`` world → eye rotation, re-orthonormalised.  Applying it to
+        atom positions reproduces the on-screen orientation: xyzrender projects
+        orthographically with +x right, +y up and larger z nearer the viewer,
+        which is OpenGL eye-space convention.
+    perspective:
+        ``True`` when the saved projection matrix is a perspective frustum.
+        Informational only — xyzrender always renders orthographically, so the
+        foreshortening is not reproduced.
+    """
+
+    rotation: np.ndarray = field(repr=False)
+    perspective: bool = False
 
 
 @dataclass
@@ -45,6 +72,11 @@ class MolData:
     pbc_cell:
         ``(3, 3)`` float array whose rows are the lattice vectors **a**, **b**,
         **c** in Ångström, or ``None`` for non-periodic structures.
+    colors:
+        Per-atom ``#rrggbb`` colours stored in the file (one per atom), or
+        ``None`` when the format carries no explicit colouring.
+    camera:
+        Saved viewer camera, or ``None`` when the file carries none.
     """
 
     atoms: list[tuple[str, tuple[float, float, float]]]
@@ -52,6 +84,8 @@ class MolData:
     name: str = ""
     charge: int = 0
     pbc_cell: np.ndarray | None = field(default=None, repr=False)
+    colors: list[str] | None = field(default=None, repr=False)
+    camera: CameraData | None = field(default=None, repr=False)
 
 
 # ---------------------------------------------------------------------------
@@ -549,12 +583,282 @@ def parse_pdb(path: str | Path) -> MolData:
 
 
 # ---------------------------------------------------------------------------
+# Chemical JSON (CJSON) — Avogadro's native format
+# ---------------------------------------------------------------------------
+
+
+def _cjson_matrix4(value: object) -> np.ndarray | None:
+    """Coerce a CJSON 4x4 matrix to a ``(4, 4)`` array, or ``None``.
+
+    Avogadro writes these as four nested rows; a flat 16-element array is
+    accepted too since other CJSON producers use that form.
+    """
+    if not isinstance(value, list):
+        return None
+    try:
+        matrix = np.array(value, dtype=float)
+    except (TypeError, ValueError):
+        return None
+    if matrix.shape == (16,):
+        matrix = matrix.reshape(4, 4)
+    if matrix.shape != (4, 4) or not np.isfinite(matrix).all():
+        return None
+    return matrix
+
+
+def _cjson_camera(properties: dict) -> CameraData | None:
+    """Build :class:`CameraData` from ``properties.modelView`` / ``projection``.
+
+    Avogadro stores the GL camera on save (``modelView`` maps world → eye).
+    Only the rotation is usable here: the translation is redundant because the
+    renderer re-centres the molecule, and the projection cannot be reproduced
+    by an orthographic renderer.
+    """
+    model_view = _cjson_matrix4(properties.get("modelView"))
+    if model_view is None:
+        return None
+
+    # Re-orthonormalise (polar decomposition) so any scale or numerical drift
+    # in the saved matrix cannot stretch bond lengths.
+    u, _s, vt = np.linalg.svd(model_view[:3, :3])
+    rotation = u @ vt
+    if np.linalg.det(rotation) < 0:
+        # A mirrored camera would invert stereochemistry — refuse it rather
+        # than silently rendering the enantiomer.
+        logger.warning("CJSON modelView is not a proper rotation (det < 0) — ignoring saved camera")
+        return None
+
+    projection = _cjson_matrix4(properties.get("projection"))
+    # Orthographic projections keep the homogeneous row as (0, 0, 0, 1);
+    # a perspective frustum puts -1 in the w row.
+    perspective = projection is not None and not np.isclose(projection[3, 3], 1.0)
+    return CameraData(rotation=rotation, perspective=perspective)
+
+
+def _cjson_unit_cell(root: dict) -> np.ndarray | None:
+    """Extract a ``(3, 3)`` row-vector lattice from a CJSON ``unitCell`` block."""
+    cell = root.get("unitCell")
+    if not isinstance(cell, dict):
+        cell = root.get("unit cell")
+    if not isinstance(cell, dict):
+        return None
+
+    # Cell vectors are preferred over a/b/c parameters (matches cjsonformat.cpp).
+    vectors = cell.get("cellVectors")
+    if isinstance(vectors, list) and len(vectors) == 9:
+        try:
+            matrix = np.array(vectors, dtype=float).reshape(3, 3)
+        except (TypeError, ValueError):
+            matrix = None
+        if matrix is not None and np.isfinite(matrix).all():
+            if abs(float(np.linalg.det(matrix))) > 1e-8:
+                return matrix
+            logger.warning("CJSON cellVectors are not linearly independent — falling back to a/b/c")
+
+    try:
+        a, b, c = float(cell["a"]), float(cell["b"]), float(cell["c"])
+        alpha, beta, gamma = float(cell["alpha"]), float(cell["beta"]), float(cell["gamma"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return _abc_angles_to_cell(a, b, c, alpha, beta, gamma)
+
+
+def _cjson_coords(coords: dict, n_atoms: int, frame: int, pbc_cell: np.ndarray | None) -> np.ndarray:
+    """Return ``(n_atoms, 3)`` Cartesian coordinates in Ångström.
+
+    Cartesian ``3d`` coordinates are preferred; Avogadro always writes them,
+    even for periodic structures.  ``3dFractional`` is used only when they are
+    absent, and then requires a unit cell to convert.
+    """
+    sets = coords.get("3dSets")
+    if isinstance(sets, list) and sets:
+        if frame >= len(sets):
+            msg = f"CJSON frame {frame} requested but file has only {len(sets)} coordinate set(s)"
+            raise IndexError(msg)
+        flat = sets[frame]
+    elif frame != 0:
+        msg = f"CJSON frame {frame} requested but file has no '3dSets' coordinate sets"
+        raise IndexError(msg)
+    else:
+        flat = coords.get("3d")
+
+    if isinstance(flat, list) and len(flat) == 3 * n_atoms:
+        return np.array(flat, dtype=float).reshape(n_atoms, 3)
+
+    fractional = coords.get("3dFractional")
+    if not isinstance(fractional, list):
+        fractional = coords.get("3d fractional")
+    if isinstance(fractional, list) and len(fractional) == 3 * n_atoms:
+        if pbc_cell is None:
+            msg = "CJSON has fractional coordinates but no unit cell to convert them"
+            raise ValueError(msg)
+        # Rows of pbc_cell are a, b, c — so r = fa*a + fb*b + fc*c.
+        return np.array(fractional, dtype=float).reshape(n_atoms, 3) @ pbc_cell
+
+    msg = f"CJSON has no usable coordinates for {n_atoms} atoms"
+    raise ValueError(msg)
+
+
+def _cjson_bonds(root: dict, remap: dict[int, int]) -> list[tuple[int, int, float]] | None:
+    """Extract bonds from the CJSON ``bonds`` block, or ``None`` when absent.
+
+    *remap* maps a CJSON atom index to its index in the parsed atom list; atoms
+    missing from it (dummies) have been dropped, so their bonds go with them.
+    """
+    bonds_obj = root.get("bonds")
+    if not isinstance(bonds_obj, dict):
+        return None
+    connections = bonds_obj.get("connections")
+    index = connections.get("index") if isinstance(connections, dict) else None
+    if not isinstance(index, list):
+        return None
+    orders = bonds_obj.get("order")
+
+    bonds: list[tuple[int, int, float]] = []
+    for k in range(len(index) // 2):
+        try:
+            i, j = remap.get(int(index[2 * k]), -1), remap.get(int(index[2 * k + 1]), -1)
+        except (TypeError, ValueError):
+            continue
+        # Drop self-bonds and out-of-range indices, as cjsonformat.cpp does.
+        if i == j or i < 0 or j < 0:
+            continue
+        order = 1.0
+        if isinstance(orders, list) and k < len(orders):
+            try:
+                order = float(orders[k])
+            except (TypeError, ValueError):
+                order = 1.0
+        bonds.append((i, j, order))
+    return bonds or None
+
+
+def _cjson_colors(atoms_obj: dict, n_atoms: int) -> list[str] | None:
+    """Extract per-atom ``#rrggbb`` colours from ``atoms.colors`` (flat 3N, 0-255)."""
+    from xyzrender.colors import Color
+
+    raw = atoms_obj.get("colors")
+    if not isinstance(raw, list):
+        return None
+    if len(raw) != 3 * n_atoms:
+        logger.warning("CJSON 'atoms.colors' has %d values, expected %d — ignoring", len(raw), 3 * n_atoms)
+        return None
+    try:
+        channels = [min(255, max(0, round(float(v)))) for v in raw]
+    except (TypeError, ValueError):
+        logger.warning("CJSON 'atoms.colors' is not numeric — ignoring")
+        return None
+    return [Color(*channels[3 * i : 3 * i + 3]).hex for i in range(n_atoms)]
+
+
+def parse_cjson(path: str | Path, frame: int = 0) -> MolData:
+    """Parse a Chemical JSON (CJSON) file — Avogadro's native format.
+
+    Reads atoms, explicit bond connectivity and bond orders, per-atom colour
+    overrides, the unit cell, and the viewer camera saved by Avogadro.  Dummy
+    atoms (atomic number 0) are ignored, along with any bonds to them.
+
+    Parameters
+    ----------
+    path:
+        Path to the ``.cjson`` file.
+    frame:
+        Zero-based index into ``atoms.coords.3dSets`` for multi-conformer
+        files (default: 0, which uses the primary ``3d`` coordinates).
+
+    Returns
+    -------
+    MolData
+        Parsed structure.  ``pbc_cell`` is set when the file has a ``unitCell``
+        block, ``colors`` when it has ``atoms.colors``, and ``camera`` when
+        Avogadro saved a ``modelView`` matrix in ``properties``.
+    """
+    text = Path(path).read_text(encoding="utf-8", errors="replace")
+    try:
+        root = json.loads(text)
+    except json.JSONDecodeError as exc:
+        msg = f"{path} is not valid JSON: {exc}"
+        raise ValueError(msg) from exc
+    if not isinstance(root, dict):
+        msg = f"{path} is not a CJSON object"
+        raise ValueError(msg)
+    return parse_cjson_dict(root, frame=frame)
+
+
+def parse_cjson_dict(root: dict, frame: int = 0) -> MolData:
+    """Parse an already-decoded CJSON object.  See :func:`parse_cjson`."""
+    from xyzgraph import DATA
+
+    version = root.get("chemicalJson", root.get("chemical json"))
+    if version is None:
+        msg = "Not a CJSON file: no 'chemicalJson' key"
+        raise ValueError(msg)
+    if version not in (0, 1):
+        logger.warning("CJSON version %r is newer than 1 — parsing anyway", version)
+
+    atoms_obj = root.get("atoms")
+    if not isinstance(atoms_obj, dict):
+        msg = "CJSON has no 'atoms' object"
+        raise ValueError(msg)
+    elements = atoms_obj.get("elements")
+    numbers = elements.get("number") if isinstance(elements, dict) else None
+    if not isinstance(numbers, list):
+        msg = "CJSON has no 'atoms.elements.number' array"
+        raise ValueError(msg)
+
+    # Dummy atoms (atomic number 0, or anything outside the element table) are
+    # dropped: they have no radius or colour to render.  `keep` maps CJSON atom
+    # index → index in the parsed list, so bonds and colours can follow.
+    symbols: list[str] = []
+    keep: dict[int, int] = {}
+    for raw_index, z in enumerate(numbers):
+        sym = DATA.n2s.get(int(z)) if isinstance(z, int) or (isinstance(z, float) and z.is_integer()) else None
+        if sym is None:
+            continue
+        keep[raw_index] = len(symbols)
+        symbols.append(sym)
+    n_raw = len(numbers)
+    if len(symbols) < n_raw:
+        logger.info("Ignored %d dummy atom(s) in CJSON", n_raw - len(symbols))
+
+    pbc_cell = _cjson_unit_cell(root)
+    coords = atoms_obj.get("coords")
+    if not isinstance(coords, dict):
+        msg = "CJSON has no 'atoms.coords' object"
+        raise ValueError(msg)
+    # Coordinates and colours are sized to the full atom list, so parse them at
+    # full width and then take the kept rows.
+    positions = _cjson_coords(coords, n_raw, frame, pbc_cell)[list(keep)]
+    colors = _cjson_colors(atoms_obj, n_raw)
+    if colors is not None:
+        colors = [colors[i] for i in keep]
+
+    properties = root.get("properties")
+    if not isinstance(properties, dict):
+        properties = {}
+    try:
+        charge = int(properties.get("totalCharge", 0))
+    except (TypeError, ValueError):
+        charge = 0
+
+    return MolData(
+        atoms=[(sym, (float(x), float(y), float(z))) for sym, (x, y, z) in zip(symbols, positions, strict=True)],
+        bonds=_cjson_bonds(root, keep),
+        name=str(root.get("name", "")),
+        charge=charge,
+        pbc_cell=pbc_cell,
+        colors=colors,
+        camera=_cjson_camera(properties),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Extension dispatcher
 # ---------------------------------------------------------------------------
 
 
 def parse(path: str | Path, frame: int = 0) -> MolData:
-    """Parse a molecular file, dispatching on extension (.mol, .sdf, .mol2, .pdb)."""
+    """Parse a molecular file, dispatching on extension (.mol, .sdf, .mol2, .pdb, .cjson)."""
     p = str(path)
     if p.endswith(".mol"):
         return parse_mol(path)
@@ -564,6 +868,8 @@ def parse(path: str | Path, frame: int = 0) -> MolData:
         return parse_mol2(path)
     if p.endswith(".pdb"):
         return parse_pdb(path)
+    if p.endswith(".cjson"):
+        return parse_cjson(path, frame=frame)
     msg = f"Unsupported format for parsers.parse: {p!r}"
     raise ValueError(msg)
 
