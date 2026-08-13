@@ -6,6 +6,7 @@ All fixtures use checked-in example files — no rdkit or ase generation needed.
 from __future__ import annotations
 
 import importlib.util
+import re
 from pathlib import Path
 
 import numpy as np
@@ -26,8 +27,11 @@ _WATER_PDB_CRYST = _STRUCTURES / "water_cryst.pdb"
 _ALA_PDB = _STRUCTURES / "ala_phe_ala.pdb"
 _CIF_FILE = _STRUCTURES / "caffeine_cif.cif"
 _SHELXL_FILE = _STRUCTURES / "roy.res"
+_CORONENE_CJSON = _STRUCTURES / "coronene_colors.cjson"
+_SILICON_CJSON = _STRUCTURES / "silicon.cjson"
 
 _CAFFEINE_ATOMS = 24  # C8N4O2 + 10H
+_CORONENE_ATOMS = 36  # C24H12
 
 
 # ---------------------------------------------------------------------------
@@ -178,6 +182,269 @@ class TestParsePdb:
 
 
 # ---------------------------------------------------------------------------
+# parse_cjson
+# ---------------------------------------------------------------------------
+
+
+# 90 degrees about z — used to check that a camera rotation is actually applied
+_ROT_Z90 = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+
+
+def _minimal_cjson(**extra):
+    """Two-carbon CJSON skeleton; *extra* keys are merged into the root."""
+    root = {
+        "chemicalJson": 1,
+        "atoms": {
+            "coords": {"3d": [0.0, 0.0, 0.0, 1.5, 0.0, 0.0]},
+            "elements": {"number": [6, 6]},
+        },
+        "bonds": {"connections": {"index": [0, 1]}, "order": [1]},
+    }
+    root.update(extra)
+    return root
+
+
+def _model_view(rotation: np.ndarray) -> list:
+    """A 4x4 modelView matrix carrying *rotation*, as CJSON nested rows."""
+    matrix = np.eye(4)
+    matrix[:3, :3] = rotation
+    return matrix.tolist()
+
+
+def _dummy_atom_cjson():
+    """CJSON with a dummy atom (O, dummy, N) sitting between two real ones."""
+    root = _minimal_cjson()
+    root["atoms"]["elements"]["number"] = [8, 0, 7]
+    root["atoms"]["coords"]["3d"] = [0.0, 0.0, 0.0, 9.0, 9.0, 9.0, 1.2, 0.0, 0.0]
+    return root
+
+
+class TestParseCjson:
+    def test_atom_count(self):
+        from xyzrender.parsers import parse_cjson
+
+        d = parse_cjson(_CORONENE_CJSON)
+        assert len(d.atoms) == _CORONENE_ATOMS
+
+    def test_element_symbols(self):
+        from xyzrender.parsers import parse_cjson
+
+        d = parse_cjson(_CORONENE_CJSON)
+        assert {sym for sym, _ in d.atoms} == {"C", "H"}
+
+    def test_bonds_from_file(self):
+        from xyzrender.parsers import parse_cjson
+
+        d = parse_cjson(_CORONENE_CJSON)
+        assert d.bonds is not None
+        assert len(d.bonds) == 42
+        # Coronene is aromatic — the file carries alternating Kekulé orders
+        assert {order for _, _, order in d.bonds} == {1.0, 2.0}
+
+    def test_name_and_no_cell(self):
+        from xyzrender.parsers import parse_cjson
+
+        d = parse_cjson(_CORONENE_CJSON)
+        assert d.name == "coronene"
+        assert d.pbc_cell is None
+
+    def test_colors(self):
+        from xyzrender.parsers import parse_cjson
+
+        d = parse_cjson(_CORONENE_CJSON)
+        assert d.colors is not None
+        assert len(d.colors) == _CORONENE_ATOMS
+        assert d.colors[0] == "#30123b"  # first entry is 48, 18, 59
+        assert all(re.fullmatch(r"#[0-9a-f]{6}", c) for c in d.colors)
+
+    def test_camera(self):
+        from xyzrender.parsers import parse_cjson
+
+        d = parse_cjson(_CORONENE_CJSON)
+        assert d.camera is not None
+        # This file was saved from the default (unrotated) Avogadro view
+        np.testing.assert_allclose(d.camera.rotation, np.eye(3), atol=1e-6)
+        assert d.camera.perspective is True
+
+    def test_camera_rotation_orthonormalised(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        # A uniform scale on top of the rotation must be divided out
+        d = parse_cjson_dict(_minimal_cjson(properties={"modelView": _model_view(_ROT_Z90 * 2.0)}))
+        assert d.camera is not None
+        np.testing.assert_allclose(d.camera.rotation, _ROT_Z90, atol=1e-9)
+
+    def test_camera_accepts_flat_matrix(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        # Nested rows are what Avogadro writes; a flat 16 is also valid JSON-wise
+        flat = [v for row in _model_view(_ROT_Z90) for v in row]
+        d = parse_cjson_dict(_minimal_cjson(properties={"modelView": flat}))
+        assert d.camera is not None
+        np.testing.assert_allclose(d.camera.rotation, _ROT_Z90, atol=1e-9)
+
+    def test_legacy_space_separated_keys(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        # cjsonformat.cpp accepts both spellings for these three keys
+        root = _minimal_cjson()
+        root["chemical json"] = root.pop("chemicalJson")
+        root["atoms"]["coords"] = {"3d fractional": [0.0, 0.0, 0.0, 0.5, 0.5, 0.5]}
+        root["unit cell"] = {"cellVectors": [4.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0, 4.0]}
+        d = parse_cjson_dict(root)
+        assert d.pbc_cell is not None
+        np.testing.assert_allclose(d.atoms[1][1], [2.0, 2.0, 2.0], atol=1e-9)
+
+    def test_mirrored_camera_rejected(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        # A reflection would render the enantiomer — it must be dropped
+        model_view = np.eye(4)
+        model_view[0, 0] = -1.0
+        d = parse_cjson_dict(_minimal_cjson(properties={"modelView": model_view.tolist()}))
+        assert d.camera is None
+
+    def test_orthographic_projection_flag(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        d = parse_cjson_dict(
+            _minimal_cjson(properties={"modelView": np.eye(4).tolist(), "projection": np.eye(4).tolist()})
+        )
+        assert d.camera is not None
+        assert d.camera.perspective is False
+
+    def test_no_camera_without_modelview(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        assert parse_cjson_dict(_minimal_cjson()).camera is None
+
+    def test_total_charge(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        d = parse_cjson_dict(_minimal_cjson(properties={"totalCharge": -2}))
+        assert d.charge == -2
+
+    def test_bond_order_defaults_to_single(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        root = _minimal_cjson()
+        del root["bonds"]["order"]
+        assert parse_cjson_dict(root).bonds == [(0, 1, 1.0)]
+
+    def test_self_and_out_of_range_bonds_dropped(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        root = _minimal_cjson()
+        root["bonds"] = {"connections": {"index": [0, 0, 0, 7, 0, 1]}, "order": [1, 1, 2]}
+        assert parse_cjson_dict(root).bonds == [(0, 1, 2.0)]
+
+    def test_mismatched_colors_ignored(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        root = _minimal_cjson()
+        root["atoms"]["colors"] = [255, 0, 0]  # 1 colour for 2 atoms
+        assert parse_cjson_dict(root).colors is None
+
+    def test_unit_cell_from_vectors(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        root = _minimal_cjson(unitCell={"cellVectors": [4.0, 0.0, 0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 6.0]})
+        d = parse_cjson_dict(root)
+        assert d.pbc_cell is not None
+        np.testing.assert_allclose(np.diag(d.pbc_cell), [4.0, 5.0, 6.0])
+
+    def test_cell_vectors_preferred_over_parameters(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        root = _minimal_cjson(
+            unitCell={
+                "cellVectors": [4.0, 0.0, 0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 6.0],
+                "a": 1.0,
+                "b": 1.0,
+                "c": 1.0,
+                "alpha": 90.0,
+                "beta": 90.0,
+                "gamma": 90.0,
+            }
+        )
+        d = parse_cjson_dict(root)
+        assert d.pbc_cell is not None
+        np.testing.assert_allclose(np.diag(d.pbc_cell), [4.0, 5.0, 6.0])
+
+    def test_fractional_coords_converted(self):
+        from xyzrender.parsers import parse_cjson
+
+        # silicon.cjson has only 3dFractional plus a/b/c/angles
+        d = parse_cjson(_SILICON_CJSON)
+        assert d.pbc_cell is not None
+        assert len(d.atoms) == 2
+        # (0.25, 0.25, 0.25) fractional = a quarter of (a + b + c)
+        expected = 0.25 * d.pbc_cell.sum(axis=0)
+        np.testing.assert_allclose(d.atoms[0][1], expected, atol=1e-9)
+
+    def test_fractional_without_cell_raises(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        root = _minimal_cjson()
+        root["atoms"]["coords"] = {"3dFractional": [0.0, 0.0, 0.0, 0.5, 0.5, 0.5]}
+        with pytest.raises(ValueError, match="no unit cell"):
+            parse_cjson_dict(root)
+
+    def test_coordinate_sets_frame(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        root = _minimal_cjson()
+        root["atoms"]["coords"]["3dSets"] = [
+            [0.0, 0.0, 0.0, 1.5, 0.0, 0.0],
+            [0.0, 0.0, 0.0, 0.0, 2.5, 0.0],
+        ]
+        assert parse_cjson_dict(root, frame=1).atoms[1][1] == (0.0, 2.5, 0.0)
+
+    def test_out_of_range_frame_raises(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        with pytest.raises(IndexError):
+            parse_cjson_dict(_minimal_cjson(), frame=3)
+
+    def test_missing_version_key_raises(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        root = _minimal_cjson()
+        del root["chemicalJson"]
+        with pytest.raises(ValueError, match="Not a CJSON file"):
+            parse_cjson_dict(root)
+
+    def test_dummy_atoms_ignored(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        root = _dummy_atom_cjson()
+        root["bonds"] = {"connections": {"index": [0, 2]}, "order": [3]}
+        d = parse_cjson_dict(root)
+        assert [sym for sym, _ in d.atoms] == ["O", "N"]
+        assert d.atoms[1][1] == (1.2, 0.0, 0.0)
+
+    def test_dummy_atoms_remap_bond_indices(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        root = _dummy_atom_cjson()
+        # Bond 0-2 survives (renumbered 0-1); bonds touching the dummy do not
+        root["bonds"] = {"connections": {"index": [0, 1, 0, 2, 1, 2]}, "order": [1, 3, 1]}
+        assert parse_cjson_dict(root).bonds == [(0, 1, 3.0)]
+
+    def test_dummy_atoms_drop_matching_colors(self):
+        from xyzrender.parsers import parse_cjson_dict
+
+        root = _dummy_atom_cjson()
+        root["atoms"]["colors"] = [255, 0, 0, 0, 255, 0, 0, 0, 255]
+        assert parse_cjson_dict(root).colors == ["#ff0000", "#0000ff"]
+
+    def test_dispatcher(self):
+        from xyzrender.parsers import parse
+
+        assert len(parse(_CORONENE_CJSON).atoms) == _CORONENE_ATOMS
+
+
+# ---------------------------------------------------------------------------
 # io loaders -- graph structure
 # ---------------------------------------------------------------------------
 
@@ -241,6 +508,113 @@ class TestLoaders:
         for _, _, d in g.edges(data=True):
             assert "bond_order" in d
             assert d["bond_order"] > 0
+
+    def test_load_cjson_graph(self):
+        from xyzrender.readers import load_molecule
+
+        g, crystal = load_molecule(_CORONENE_CJSON)
+        assert g.number_of_nodes() == _CORONENE_ATOMS
+        assert g.number_of_edges() == 42
+        assert crystal is None
+
+    def test_load_cjson_stamps_colors(self):
+        from xyzrender.readers import load_molecule
+
+        g, _ = load_molecule(_CORONENE_CJSON)
+        assert g.nodes[0]["file_color"] == "#30123b"
+        assert all("file_color" in g.nodes[i] for i in g.nodes)
+
+    def test_load_cjson_crystal(self):
+        from xyzrender.readers import load_molecule
+        from xyzrender.types import CellData
+
+        g, crystal = load_molecule(_SILICON_CJSON)
+        assert g.number_of_nodes() == 2
+        assert isinstance(crystal, CellData)
+        np.testing.assert_allclose(crystal.lattice[0], [3.84, 0.0, 0.0], atol=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# CJSON camera -> orientation
+# ---------------------------------------------------------------------------
+
+
+class TestCjsonCamera:
+    def test_camera_marks_molecule_oriented(self):
+        import xyzrender as xr
+
+        mol = xr.load(_CORONENE_CJSON)
+        assert mol.oriented is True
+
+    def test_camera_can_be_disabled(self):
+        import xyzrender as xr
+
+        mol = xr.load(_CORONENE_CJSON, camera=False)
+        assert mol.oriented is False
+
+    def test_camera_rotation_applied(self, tmp_path):
+        import json
+
+        import xyzrender as xr
+
+        raw = json.loads(_CORONENE_CJSON.read_text())
+        # 90 degrees about z on top of the file's identity modelView
+        raw["properties"]["modelView"] = _model_view(_ROT_Z90)
+        rotated_file = tmp_path / "rotated.cjson"
+        rotated_file.write_text(json.dumps(raw))
+
+        plain = xr.load(_CORONENE_CJSON)
+        turned = xr.load(rotated_file)
+
+        plain_pos = np.array([plain.graph.nodes[i]["position"] for i in plain.graph.nodes])
+        turned_pos = np.array([turned.graph.nodes[i]["position"] for i in turned.graph.nodes])
+        np.testing.assert_allclose(turned_pos, plain_pos @ _ROT_Z90.T, atol=1e-9)
+
+    def test_camera_centres_molecule(self):
+        import xyzrender as xr
+
+        mol = xr.load(_CORONENE_CJSON)
+        pos = np.array([mol.graph.nodes[i]["position"] for i in mol.graph.nodes])
+        np.testing.assert_allclose(pos.mean(axis=0), np.zeros(3), atol=1e-9)
+
+    def test_camera_rotates_lattice_with_atoms(self, tmp_path):
+        import json
+
+        import xyzrender as xr
+
+        raw = json.loads(_SILICON_CJSON.read_text())
+        raw["properties"] = {"modelView": _model_view(_ROT_Z90)}
+        turned_file = tmp_path / "turned.cjson"
+        turned_file.write_text(json.dumps(raw))
+
+        plain = xr.load(_SILICON_CJSON)
+        turned = xr.load(turned_file)
+        assert plain.cell_data is not None
+        assert turned.cell_data is not None
+        np.testing.assert_allclose(turned.cell_data.lattice, plain.cell_data.lattice @ _ROT_Z90.T, atol=1e-9)
+
+    def test_file_colors_reach_the_svg(self):
+        import xyzrender as xr
+
+        mol = xr.load(_CORONENE_CJSON)
+        svg = str(xr.render(mol, gradient=False, fog=False, output=None))
+        assert "#30123b" in svg.lower()
+
+    def test_mol_color_overrides_file_colors(self):
+        import xyzrender as xr
+
+        mol = xr.load(_CORONENE_CJSON)
+        svg = str(xr.render(mol, mol_color="blue", gradient=False, fog=False, output=None))
+        assert "#30123b" not in svg.lower()
+
+    def test_cmap_overrides_file_colors(self):
+        import xyzrender as xr
+
+        mol = xr.load(_CORONENE_CJSON)
+        values = {i: float(i) for i in range(1, mol.graph.number_of_nodes() + 1)}
+        svg = str(xr.render(mol, cmap=values, cmap_palette="viridis", gradient=False, fog=False, output=None))
+        assert "#30123b" not in svg.lower()
+        assert "#440154" in svg.lower()
 
 
 # ---------------------------------------------------------------------------

@@ -159,10 +159,7 @@ class Molecule:
             return None
 
         pos = np.array([self.graph.nodes[i]["position"] for i in node_ids], dtype=float)
-        # Exclude ghost nodes from PCA fit (NCI dummies etc.).
-        atom_mask = np.array([self.graph.nodes[i].get("symbol") != "*" for i in node_ids])
-        fit_mask = atom_mask if not atom_mask.all() else None
-        fit_centroid = (pos[fit_mask] if fit_mask is not None else pos).mean(axis=0)
+        fit_centroid, fit_mask = self._fit_centroid(node_ids, pos)
 
         oriented_pos, rot = pca_orient(
             pos,
@@ -183,21 +180,57 @@ class Molecule:
             rot = rx @ rot
             oriented_pos = oriented_pos @ rx.T
 
+        self._commit_orientation(node_ids, oriented_pos, rot, fit_centroid)
+        return (rot, fit_centroid) if return_transform else None
+
+    def _fit_centroid(self, node_ids: list, pos: np.ndarray) -> tuple[np.ndarray, np.ndarray | None]:
+        """Centroid of the real atoms, plus the mask that selects them.
+
+        Ghost nodes (``symbol == "*"``, NCI dummies) are excluded so they can't
+        bias an orientation fit.  The mask is ``None`` when every node is real.
+        """
+        atom_mask = np.array([self.graph.nodes[i].get("symbol") != "*" for i in node_ids])
+        fit_mask = atom_mask if not atom_mask.all() else None
+        return (pos[fit_mask] if fit_mask is not None else pos).mean(axis=0), fit_mask
+
+    def _commit_orientation(self, node_ids: list, positions: np.ndarray, rot: np.ndarray, centroid: np.ndarray) -> None:
+        """Write rotated *positions* back and rotate the lattice to match.
+
+        Shared by :meth:`orient` (PCA rotation) and :meth:`_apply_camera` (a
+        rotation read from the file) so the ``cell_data`` /
+        ``graph['lattice']`` sync lives in exactly one place.
+        """
         for idx, nid in enumerate(node_ids):
-            self.graph.nodes[nid]["position"] = tuple(oriented_pos[idx].tolist())
+            self.graph.nodes[nid]["position"] = tuple(positions[idx].tolist())
 
         if self.cell_data is not None:
             lat = np.asarray(self.cell_data.lattice, dtype=float)
             origin = np.asarray(self.cell_data.cell_origin, dtype=float)
             new_lat = lat @ rot.T
-            new_origin = (origin - fit_centroid) @ rot.T
+            new_origin = (origin - centroid) @ rot.T
             self.cell_data.lattice = new_lat
             self.cell_data.cell_origin = new_origin
             self.graph.graph["lattice"] = new_lat
             self.graph.graph["lattice_origin"] = new_origin
 
         self.oriented = True
-        return (rot, fit_centroid) if return_transform else None
+
+    def _apply_camera(self, rotation: np.ndarray) -> None:
+        """Rotate into a camera frame read from the file and mark oriented.
+
+        Used for the CJSON ``properties.modelView`` matrix.  Atoms are centred
+        at the origin exactly as :meth:`orient` leaves them, so the renderer
+        frames the molecule the same way either way.
+        """
+        node_ids = list(self.graph.nodes())
+        if not node_ids:
+            self.oriented = True
+            return
+
+        pos = np.array([self.graph.nodes[i]["position"] for i in node_ids], dtype=float)
+        centroid, _ = self._fit_centroid(node_ids, pos)
+        self._commit_orientation(node_ids, (pos - centroid) @ rotation.T, rotation, centroid)
+        logger.info("Applied saved camera orientation from file")
 
     def to_xyz(self, path: str | os.PathLike, title: str = "") -> None:
         """Write the molecule to an XYZ file.
@@ -261,6 +294,7 @@ def load(
     cell: bool = False,
     quick: bool = False,
     bohr: bool | None = None,
+    camera: bool = True,
     # --- Ensemble (multi-frame trajectory) ---
     ensemble: bool = False,
     reference_frame: int = 0,
@@ -279,7 +313,7 @@ def load(
         Path to the input file, a SMILES string when *smiles* is ``True``, or
         an RDKit ``Mol`` with embedded conformers.
         Supported extensions: ``.xyz``, ``.cube``, ``.cub``, ``.mol``, ``.sdf``,
-        ``.mol2``, ``.pdb``, ``.smi``, ``.cif``, and any QM output
+        ``.mol2``, ``.pdb``, ``.smi``, ``.cif``, ``.cjson``, and any QM output
         supported by cclib.
     smiles:
         Treat *molecule* as a SMILES string and generate 3-D geometry.
@@ -295,7 +329,14 @@ def load(
         each frame's graph is rebuilt independently (for trajectories where
         bonding changes between frames).
     mol_frame:
-        Zero-based frame index for multi-record SDF files.
+        Zero-based frame index for multi-record SDF files and CJSON
+        ``3dSets`` coordinate sets.
+    camera:
+        Honour a camera saved in the file (CJSON ``properties.modelView``,
+        written by Avogadro) by rotating the molecule into that view and
+        skipping PCA auto-orientation.  Set ``False`` to keep the file's raw
+        coordinate frame.  Only the orientation is reproduced — xyzrender
+        renders orthographically, so a perspective projection is not.
     ts_detect:
         Run graphRC transition-state detection (requires ``xyzrender[ts]``).
     ts_frame:
@@ -349,6 +390,13 @@ def load(
     -------
     Molecule
     """
+    supports_mol_frame = not (smiles or ensemble or ts_detect) and Path(str(molecule)).suffix.lower() in {
+        ".sdf",
+        ".cjson",
+    }
+    if mol_frame != 0 and not supports_mol_frame:
+        logger.warning("mol_frame has no effect unless loading an SDF or CJSON file")
+
     # --- Ensemble: load multi-frame trajectory as merged molecule ---
     if ensemble:
         return _build_ensemble_molecule(
@@ -474,7 +522,15 @@ def load(
 
         graph = detect_nci(graph)
 
-    return Molecule(graph=graph, cube_data=cube_data, cell_data=cell_data)
+    mol = Molecule(graph=graph, cube_data=cube_data, cell_data=cell_data)
+
+    # A file-supplied camera (CJSON `properties.modelView`) replaces PCA
+    # auto-orientation so the render matches what the viewer showed.
+    camera_rotation = graph.graph.pop("camera_rotation", None) if graph is not None else None
+    if camera_rotation is not None and camera:
+        mol._apply_camera(np.asarray(camera_rotation, dtype=float))
+
+    return mol
 
 
 def orient(mol: Molecule, viewer: str = "vmol", also: list[Molecule] | None = None) -> None:
