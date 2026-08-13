@@ -1108,11 +1108,9 @@ def main() -> None:
         p.error("--ensemble cannot be combined with --gif-ts or --gif-trj (use gif_rot only)")
     if args.ensemble and from_stdin:
         p.error("--ensemble cannot be used with stdin input")
-    # Validate --smi / --mol-frame / --rebuild usage
+    # Validate --smi / --rebuild usage
     if args.smi and args.input:
         p.error("--smi cannot be combined with a positional input file")
-    if args.mol_frame != 0 and not (args.input and args.input.endswith(".sdf")):
-        logger.warning("--mol-frame has no effect on non-SDF input")
     if args.rebuild and args.smi:
         logger.warning("--rebuild has no effect on SMILES input (rdkit bonds are always used)")
 

@@ -9,11 +9,10 @@ xyzrender molecule.xyz            # auto-oriented (default)
 xyzrender molecule.xyz --no-orient  # raw coordinates as-is
 ```
 
-Auto-orientation is disabled automatically when reading from stdin, and when a
-CJSON file carries a camera saved by Avogadro (see [Input Formats](formats.md#cjson)) —
-in that case the saved view is used instead. Passing either `--orient` or
-`--no-orient` explicitly overrides the saved camera, giving PCA or the raw file
-coordinates respectively.
+Auto-orientation is skipped for stdin and CJSON files with a saved Avogadro camera.
+Either orientation flag ignores the saved camera. For non-periodic structures,
+`--orient` selects PCA and `--no-orient` raw coordinates; periodic structures
+retain their crystallographic frame.
 
 If `--only` or `--exclude` is used, the atom filter is applied first and
 auto-orientation is computed from the atoms that remain in the render.

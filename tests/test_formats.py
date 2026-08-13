@@ -607,6 +607,15 @@ class TestCjsonCamera:
         svg = str(xr.render(mol, mol_color="blue", gradient=False, fog=False, output=None))
         assert "#30123b" not in svg.lower()
 
+    def test_cmap_overrides_file_colors(self):
+        import xyzrender as xr
+
+        mol = xr.load(_CORONENE_CJSON)
+        values = {i: float(i) for i in range(1, mol.graph.number_of_nodes() + 1)}
+        svg = str(xr.render(mol, cmap=values, cmap_palette="viridis", gradient=False, fog=False, output=None))
+        assert "#30123b" not in svg.lower()
+        assert "#440154" in svg.lower()
+
 
 # ---------------------------------------------------------------------------
 # parse_smiles

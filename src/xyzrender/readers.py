@@ -454,8 +454,8 @@ def graph_from_moldata(
 def _stamp_file_colors(graph: nx.Graph, data) -> None:
     """Copy per-atom colours from *data* onto graph nodes as ``file_color``.
 
-    The renderer applies these over CPK, but below any explicit user colouring
-    (``--cmap``, a matching ``--color`` element override, ``--mol-color``).
+    These override CPK and preset element colours.  ``--cmap``,
+    ``--mol-color``, and highlights still take precedence.
     """
     if not data.colors:
         return

@@ -94,7 +94,7 @@ xyzrender molecule.cjson
 Beyond atoms and bond orders, three things carry over from Avogadro:
 
 - **Per-atom colours** — colours you set in Avogadro (`atoms.colors`) are used instead of CPK. `--cmap` and `--mol-color` still override them.
-- **Camera orientation** — when the file was saved from Avogadro with a camera (`properties.modelView`), the molecule is rotated into that view and PCA auto-orientation is skipped, so the render matches what you saw on screen. Avogadro's perspective projection is *not* reproduced — xyzrender always renders orthographically. `--orient` forces PCA orientation instead and `--no-orient` keeps the file's raw coordinate frame; from Python, `load(..., camera=False)` does the latter.
+- **Camera orientation** — a camera saved by Avogadro (`properties.modelView`) is used by default, without perspective projection. `--orient` and `--no-orient` ignore it; see [Orientation](orientation.md). From Python, pass `camera=False` to `load()`.
 - **Unit cells** — a `unitCell` block enables crystal rendering automatically, with the cell box, ghost atoms, and axis arrows. See [Crystal Structures](examples/crystal.md).
 
 Multi-conformer files (`atoms.coords.3dSets`) are selected with `--mol-frame N`.

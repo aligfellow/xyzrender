@@ -390,6 +390,13 @@ def load(
     -------
     Molecule
     """
+    supports_mol_frame = not (smiles or ensemble or ts_detect) and Path(str(molecule)).suffix.lower() in {
+        ".sdf",
+        ".cjson",
+    }
+    if mol_frame != 0 and not supports_mol_frame:
+        logger.warning("mol_frame has no effect unless loading an SDF or CJSON file")
+
     # --- Ensemble: load multi-frame trajectory as merged molecule ---
     if ensemble:
         return _build_ensemble_molecule(
