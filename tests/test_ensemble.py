@@ -70,6 +70,128 @@ def test_build_ensemble_molecule(tmp_path: Path) -> None:
     assert all(c is not None and c.startswith("#") for c in ens.colors)
 
 
+def test_load_ensemble_detects_ncis_for_each_conformer() -> None:
+    mol = load(
+        "examples/structures/bimp.v000.xyz",
+        ensemble=True,
+        max_frames=2,
+        nci_detect=True,
+    )
+    assert mol.ensemble is not None
+    assert mol.ensemble.conformer_graphs is not None
+
+    nci_types = [
+        {data["nci_type"] for *_edge, data in graph.edges(data=True) if data.get("NCI")}
+        for graph in mol.ensemble.conformer_graphs
+    ]
+    assert "hbond" not in nci_types[0]
+    assert "hbond" in nci_types[1]
+
+    merged = merge_graphs(
+        mol.graph,
+        mol.ensemble.positions,
+        conformer_graphs=mol.ensemble.conformer_graphs,
+        z_nudge=False,
+    )
+    assert all(
+        any(data.get("NCI") and data.get("molecule_index") == frame_idx for *_edge, data in merged.edges(data=True))
+        for frame_idx in range(2)
+    )
+
+
+def test_rebuilt_ensemble_nci_centroids_use_aligned_positions() -> None:
+    import numpy as np
+
+    mol = load(
+        "examples/structures/bimp.v000.xyz",
+        ensemble=True,
+        max_frames=2,
+        rebuild=True,
+        nci_detect=True,
+    )
+    assert mol.ensemble is not None
+    assert mol.ensemble.conformer_graphs is not None
+
+    for frame_idx, graph in enumerate(mol.ensemble.conformer_graphs):
+        for centroid, sites in graph.graph.get("nci_centroid_sites", {}).items():
+            expected = mol.ensemble.positions[frame_idx][list(sites)].mean(axis=0)
+            assert np.allclose(graph.nodes[centroid]["position"], expected)
+
+
+def test_rebuilt_ensemble_detects_ncis_on_supplied_reference() -> None:
+    path = "examples/structures/bimp.v000.xyz"
+    mol = load(
+        path,
+        ensemble=True,
+        max_frames=2,
+        rebuild=True,
+        nci_detect=True,
+        reference_mol=load(path),
+    )
+    assert mol.ensemble is not None
+    assert mol.ensemble.conformer_graphs is not None
+    reference_graph = mol.ensemble.conformer_graphs[mol.ensemble.reference_idx]
+    assert any(data.get("NCI") for *_edge, data in reference_graph.edges(data=True))
+
+
+def test_load_ensemble_filters_detected_nci_types():
+    mol = load(
+        "examples/structures/bimp.v000.xyz",
+        ensemble=True,
+        max_frames=2,
+        nci_detect=["hb"],
+    )
+
+    nci_types = {data["nci_type"] for *_edge, data in mol.graph.edges(data=True) if data.get("NCI")}
+    assert nci_types == {"hbond_bifurcated"}
+    assert mol.ensemble is not None
+    assert mol.ensemble.conformer_graphs is not None
+    for graph in mol.ensemble.conformer_graphs:
+        frame_types = {data["nci_type"] for *_edge, data in graph.edges(data=True) if data.get("NCI")}
+        assert frame_types <= {"hbond", "hbond_bifurcated", "hb_pi"}
+
+
+def test_render_ensemble_filters_ncis_per_conformer_without_mutation():
+    from unittest.mock import patch
+
+    mol = load("examples/structures/bimp.v000.xyz", ensemble=True, max_frames=2)
+
+    with patch("xyzrender.renderer.render_svg", return_value="<svg />") as mock_render:
+        render(mol, detect_nci=["hb"], orient=False)
+
+    rendered_graph = mock_render.call_args.args[0]
+    nci_types = {data["nci_type"] for *_edge, data in rendered_graph.edges(data=True) if data.get("NCI")}
+    assert nci_types <= {"hbond", "hbond_bifurcated", "hb_pi"}
+    assert nci_types
+    assert any(
+        data.get("molecule_index") == 1 and data.get("nci_type") == "hbond"
+        for *_edge, data in rendered_graph.edges(data=True)
+    )
+    assert mol.ensemble is not None
+    assert mol.ensemble.conformer_graphs is None
+    assert not any(data.get("NCI") for *_edge, data in mol.graph.edges(data=True))
+
+
+def test_render_gif_ensemble_filters_ncis_per_conformer(tmp_path):
+    from unittest.mock import patch
+
+    from xyzrender import render_gif
+
+    mol = load("examples/structures/bimp.v000.xyz", ensemble=True, max_frames=2)
+
+    with patch("xyzrender.gif.render_rotation_gif") as mock_render:
+        render_gif(mol, gif_rot="y", detect_nci=["hb"], output=tmp_path / "ensemble.gif")
+
+    rendered_graph = mock_render.call_args.kwargs["graph"]
+    nci_types = {data["nci_type"] for *_edge, data in rendered_graph.edges(data=True) if data.get("NCI")}
+    assert nci_types <= {"hbond", "hbond_bifurcated", "hb_pi"}
+    assert nci_types
+    assert any(
+        data.get("molecule_index") == 1 and data.get("nci_type") == "hbond"
+        for *_edge, data in rendered_graph.edges(data=True)
+    )
+
+
 def test_ensemble_opacity(tmp_path: Path) -> None:
     xyz_path = _make_traj(tmp_path)
     mol = _build_ensemble_molecule(xyz_path, ensemble_opacity=0.4)
@@ -170,6 +292,54 @@ def test_merge_graphs_structure(tmp_path: Path) -> None:
     assert all(g.nodes[n].get("structure_color", "").startswith("#") for n in non_ref)
 
 
+def test_merge_graphs_preserves_each_conformers_nci_centroids() -> None:
+    import networkx as nx
+    import numpy as np
+
+    def _frame_graph(nci_type: str, centroid_x: float) -> nx.Graph:
+        graph = nx.Graph()
+        graph.add_node(0, symbol="C", position=(0.0, 0.0, 0.0))
+        graph.add_node(1, symbol="C", position=(2.0, 0.0, 0.0))
+        graph.add_node(2, symbol="*", position=(centroid_x, 0.0, 0.0))
+        graph.add_edge(0, 2, NCI=True, nci_type=nci_type)
+        graph.add_edge(2, 1, NCI=True, nci_type=nci_type)
+        graph.graph["nci_centroid"] = [2]
+        graph.graph["nci_centroid_sites"] = {2: (0, 1)}
+        return graph
+
+    frame_graphs = [_frame_graph("pi_frame_0", 1.0), _frame_graph("pi_frame_1", 2.0)]
+    positions = np.array(
+        [
+            [[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]],
+            [[1.0, 0.0, 0.0], [3.0, 0.0, 0.0]],
+        ]
+    )
+
+    merged = merge_graphs(
+        frame_graphs[1],
+        positions,
+        conformer_opacities=[None, 0.25],
+        conformer_graphs=frame_graphs,
+        z_nudge=False,
+    )
+
+    for frame_idx, expected_type in enumerate(("pi_frame_0", "pi_frame_1")):
+        centroids = [
+            node
+            for node, data in merged.nodes(data=True)
+            if data.get("molecule_index") == frame_idx and data.get("symbol") == "*"
+        ]
+        assert len(centroids) == 1
+        expected_opacity = None if frame_idx == 0 else 0.25
+        assert merged.nodes[centroids[0]].get("structure_opacity") == expected_opacity
+        nci_types = {
+            data["nci_type"]
+            for *_edge, data in merged.edges(data=True)
+            if data.get("molecule_index") == frame_idx and data.get("NCI")
+        }
+        assert nci_types == {expected_type}
+
+
 def test_merge_graphs_cpk_no_structure_color(tmp_path: Path) -> None:
     """'cpk': merge_graphs sets no structure_color override — renderer falls back to CPK."""
     xyz_path = _make_traj(tmp_path)
@@ -225,6 +395,30 @@ def test_ensemble_render_produces_svg(tmp_path: Path) -> None:
     result = render(mol, output=tmp_path / "out.svg")
     assert isinstance(result, SVGResult)
     assert "<svg" in (tmp_path / "out.svg").read_text()
+
+
+def test_ensemble_rotation_gif_preserves_per_conformer_ncis(tmp_path: Path) -> None:
+    from unittest.mock import patch
+
+    from xyzrender import render_gif
+
+    mol = load(
+        "examples/structures/bimp.v000.xyz",
+        ensemble=True,
+        max_frames=2,
+        nci_detect=True,
+    )
+
+    with patch("xyzrender.gif.render_rotation_gif") as mock_render:
+        render_gif(mol, gif_rot="y", output=tmp_path / "ensemble.gif")
+
+    rendered_graph = mock_render.call_args.kwargs["graph"]
+    frame_one_types = {
+        data["nci_type"]
+        for *_edge, data in rendered_graph.edges(data=True)
+        if data.get("molecule_index") == 1 and data.get("NCI")
+    }
+    assert "hbond" in frame_one_types
 
 
 def test_ensemble_render_twice_no_mutation(tmp_path: Path) -> None:

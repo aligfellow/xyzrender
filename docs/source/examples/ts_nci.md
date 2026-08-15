@@ -41,7 +41,9 @@ xyzrender mn-h2.log --ts -o mn-h2_qm.svg
 
 ## NCI interactions (`--nci`)
 
-`--nci` uses [xyzgraph](https://github.com/aligfellow/xyzgraph)'s `detect_ncis` to identify hydrogen bonds, halogen bonds, pi-stacking, and other non-covalent interactions from geometry. These are rendered as dotted bonds.
+`--nci` uses [xyzgraph](https://github.com/aligfellow/xyzgraph)'s `detect_ncis` to identify hydrogen bonds, halogen bonds, pi-stacking, and other non-covalent interactions from geometry. These are rendered as dotted bonds. With no value it shows every detected interaction; an optional comma-separated value selects exact xyzgraph types or the `hb`, `pi`, and `ion` groups.
+
+The `hb` group includes hydrogen-bond types, `pi` includes interactions involving a pi system, and `ion` includes cation, anion, ionic, and salt-bridge interactions. Exact names such as `hbond` select only that xyzgraph type.
 
 For pi-system interactions (e.g. pi-stacking, cation-pi), centroid dummy nodes are placed at the mean position of the pi-system atoms. For trajectory GIFs with `--nci`, interactions are re-detected per frame.
 
@@ -51,6 +53,8 @@ For pi-system interactions (e.g. pi-stacking, cation-pi), centroid dummy nodes a
 
 ```bash
 xyzrender Hbond.xyz --hy --nci -o nci.svg                 # auto-detect all NCI
+xyzrender bimp.out --nci hb,pi -o selected_nci.svg        # hydrogen-bond and pi groups
+xyzrender Hbond.xyz --nci hbond -o hbond.svg              # one exact xyzgraph type
 xyzrender Hbond.xyz --hy --nci-bond "8-9" -o nci_man.svg  # specific bond only
 xyzrender Hbond.xyz --hy --nci --nci-color teal -o nci_teal.svg
 ```
@@ -58,6 +62,10 @@ xyzrender Hbond.xyz --hy --nci --nci-color teal -o nci_teal.svg
 ```python
 mol = load("Hbond.xyz", nci_detect=True)          # equivalent to --nci at load-time
 render(mol, hy=True, output="nci.svg")
+
+mol = load("bimp.out", nci_detect="hb,pi")       # selected groups at load-time
+render(load("bimp.out"), detect_nci=["hb", "pi"])
+render_gif("trajectory.xyz", gif_trj=True, detect_nci="ion")
 
 render("Hbond.xyz", nci_bonds=[(8, 9)], hy=True)  # 1-indexed tuple list
 ```
