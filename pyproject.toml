@@ -29,7 +29,7 @@ classifiers = [
 homepage = "https://github.com/aligfellow/xyzrender"
 
 [tool.uv.sources]
-xyzgraph = { git = "https://github.com/JamesOBrien2/xyzgraph.git", rev = "63fcbd33611e73c9476d6b581bd0b387496f879d" }
+xyzgraph = { git = "https://github.com/JamesOBrien2/xyzgraph.git", rev = "ab9ba50202a74d19ae2dab4052da2ca116e3f64f" }
 
 [project.scripts]
 xyzrender = "xyzrender.cli:main"
