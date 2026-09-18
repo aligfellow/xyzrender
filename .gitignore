@@ -23,6 +23,7 @@ env/
 CLAUDE*
 *plan*
 *PLAN*
+*AGENT*
 
 # VSCode config (optional)
 .vscode/

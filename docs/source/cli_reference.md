@@ -199,6 +199,7 @@ Fine-grained overlay style (`atom_stroke_width`, `atom_stroke_color`, `bond_colo
 | `--gif-ts` | TS vibration GIF (via graphRC) |
 | `--gif-trj` | Trajectory / optimisation GIF (multi-frame input) |
 | `--trj-bonds` | Re-detect bonds for every frame (NEB-TS MEPs and other trajectories with changing connectivity) |
+| `--var-atoms` | Allow trajectory frames with differing atom counts (rebuilds the molecular graph for every frame) |
 | `--gif-diffuse` | Diffuse / assembly GIF — atoms scatter and reassemble |
 | `--diffuse-frames N` | Number of diffuse frames (default: 60) |
 | `--diffuse-noise FLOAT` | Per-frame random walk noise (default: 0.3) |

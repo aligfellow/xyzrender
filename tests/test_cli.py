@@ -181,6 +181,68 @@ def test_gif_ts_manual_bonds_skip_auto_ts_load(monkeypatch, tmp_path):
     assert mock_load.call_args_list[0].kwargs["ts_detect"] is False
 
 
+def test_var_atoms_is_forwarded_to_render_gif(monkeypatch, tmp_path):
+    """--var-atoms opts the public GIF API into variable frame sizes."""
+    import sys
+    from unittest.mock import patch
+
+    from xyzrender import api
+    from xyzrender.cli import main
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "xyzrender",
+            str(_CAFFEINE),
+            "--gif-trj",
+            "--var-atoms",
+            "-o",
+            str(tmp_path / "static.svg"),
+            "-go",
+            str(tmp_path / "trajectory.gif"),
+        ],
+    )
+
+    with patch.object(api, "render"), patch.object(api, "render_gif") as mock_render_gif:
+        main()
+
+    assert mock_render_gif.call_args.kwargs["var_atoms"] is True
+
+
+def test_variable_atom_trajectory_cli_recommends_var_atoms(monkeypatch, tmp_path, capsys):
+    """The CLI surfaces the exact opt-in guidance for an intentional count change."""
+    import sys
+    from unittest.mock import patch
+
+    from xyzrender import api
+    from xyzrender.cli import main
+
+    trajectory = tmp_path / "variable.xyz"
+    trajectory.write_text("2\nframe 0\nH 0 0 0\nH 0 0 0.7\n3\nframe 1\nH 0 0 0\nH 0 0 0.8\nH 0 0 1.6\n")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "xyzrender",
+            str(trajectory),
+            "--gif-trj",
+            "-o",
+            str(tmp_path / "static.svg"),
+            "-go",
+            str(tmp_path / "trajectory.gif"),
+        ],
+    )
+
+    with patch.object(api, "render"), pytest.raises(SystemExit):
+        main()
+
+    assert (
+        "Trajectory has non-uniform atom counts: first frame has 2 atoms, "
+        "frame 1 has 3. If this is intentional, use --var-atoms"
+    ) in capsys.readouterr().err
+
+
 def test_hl_too_many_args():
     """--hl with >2 arguments should error."""
     result = _run_cli(str(_CAFFEINE), "--hl", "1-5", "red", "extra", expect_error=True)
