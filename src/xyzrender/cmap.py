@@ -2,9 +2,36 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 import numpy as np
 
 from xyzrender.colors import PALETTES, Color, palette_color
+
+
+def cmap_value_range(
+    values: Iterable[float],
+    *,
+    cmap_range: tuple[float, float] | None,
+    cmap_symm: bool,
+) -> tuple[float, float]:
+    """Resolve vmin/vmax for scalar colormaps (atoms, bonds, etc.)."""
+    if cmap_range is not None and cmap_symm:
+        msg = "--cmap-range and --cmap-symm are mutually exclusive"
+        raise ValueError(msg)
+    if cmap_range is not None:
+        return cmap_range
+    vals = list(values)
+    if cmap_symm:
+        vmax = max(abs(v) for v in vals)
+        return -vmax, vmax
+    return min(vals), max(vals)
+
+
+def bond_color_hex(value: float, palette: str, vmin: float, vmax: float) -> str:
+    """Map a scalar bond property to a palette hex color."""
+    vrange = max(vmax - vmin, 1e-10)
+    return palette_color(palette, (value - vmin) / vrange).hex
 
 
 def build_palette_lut(palette: str, size: int = 256) -> np.ndarray:
@@ -45,15 +72,23 @@ def atom_colors(
 _BAR_W = 30.0
 _MARGIN = 16.0
 _TICK_GAP = 16.0
+_UNIT_ABOVE_BAR = 22.0  # gap between unit label and top of colorbar (px)
 
 
-def colorbar_extra_width(vmin: float, vmax: float, fs: float) -> int:
+def colorbar_extra_width(
+    vmin: float,
+    vmax: float,
+    fs: float,
+    unit: str | None = None,
+) -> int:
     """Extra SVG canvas width needed to fit the colorbar + labels."""
     fs = min(fs, 40.0)
     char_w = fs * 0.62
     mid = (vmin + vmax) / 2
     max_int_chars = max(len(f"{v:.3f}".replace("-", "\u2212").split(".")[0]) for v in (vmin, mid, vmax))
-    return int(_MARGIN + _BAR_W + _TICK_GAP + 3 + (max_int_chars + 4) * char_w + 10)
+    unit_chars = len(unit) if unit else 0
+    label_chars = max(max_int_chars + 4, unit_chars)
+    return int(_MARGIN + _BAR_W + _TICK_GAP + 3 + label_chars * char_w + 10)
 
 
 def colorbar_svg(
@@ -64,6 +99,7 @@ def colorbar_svg(
     canvas_h: float,
     font_size: float,
     label_color: str,
+    unit: str | None = None,
 ) -> list[str]:
     """Return SVG element strings for a vertical colorbar to the right of the molecule."""
     stops = PALETTES[palette]
@@ -97,6 +133,15 @@ def colorbar_svg(
     max_int_chars = max(len(f"{val:.3f}".replace("-", "\u2212").split(".")[0]) for _, val in ticks)
     decimal_x = label_x + max_int_chars * char_w
     text_attrs = f'font-family="monospace" font-size="{fs:.1f}px" fill="{label_color}" dominant-baseline="central"'
+
+    if unit:
+        unit_fs = fs * 0.85
+        unit_y = bar_top - _UNIT_ABOVE_BAR - unit_fs / 2
+        unit_attrs = (
+            f'font-family="monospace" font-size="{unit_fs:.1f}px" fill="{label_color}" '
+            f'dominant-baseline="central" text-anchor="middle"'
+        )
+        elems.append(f'  <text x="{bar_x + _BAR_W / 2:.1f}" y="{unit_y:.1f}" {unit_attrs}>{unit}</text>')
 
     for ty, val in ticks:
         s = f"{val:.3f}".replace("-", "\u2212")

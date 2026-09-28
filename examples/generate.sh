@@ -183,6 +183,27 @@ xyzrender "$DIR/MOF-5.xyz" --pore --no-cell --no-bo --fog -o "$IMG/mof5_pore.svg
 xyzrender "$DIR/MOF-5.xyz" --hull faces --pore --no-cell --no-bo --fog -o "$IMG/mof5_faces_pore.svg"
 xyzrender "$DIR/MOF-5.xyz" --hull faces --pore --no-cell --no-bo --fog --gif-rot -go "$IMG/mof5_faces_pore.gif"
 
+echo "=== Bond-order colormap (systems_bonds) ==="
+SB="$DIR/systems_bonds"
+if [[ -f "$SB/manifest.txt" ]]; then
+  while read -r slug xyz bond _; do
+    [[ -z "${slug:-}" || "$slug" == \#* ]] && continue
+    out="$IMG/systems_bonds_${slug}.svg"
+    xyzrender "$SB/$xyz" --config "$SB/render.json" --hy --no-bo \
+      --bond-cmap "$SB/$bond" \
+      --cmap-range 0 3 --cmap-palette white_reverse_plasma \
+      -o "$out"
+  done < "$SB/manifest.txt"
+  if [[ -f "$SB/caffeine.xyz" && -f "$SB/caffeine_bond_orders.txt" ]]; then
+    # No render.json here: fixed_span fills the canvas and overlaps --cbar (same flags as caffeine_cmap_colorbar).
+    xyzrender "$SB/caffeine.xyz" --hy --no-bo \
+      --bond-cmap "$SB/caffeine_bond_orders.txt" \
+      --cmap-range 0 3 --cmap-palette white_reverse_plasma \
+      --cbar --cbar-unit "Bond order" \
+      -o "$IMG/systems_bonds_caffeine.svg"
+  fi
+fi
+
 echo "=== NCI surfaces ==="
 # NCIPLOT (low-field RDG) — defaults: --iso 0.3, classified as low_field automatically
 xyzrender "$DIR/base-pair-dens.cube" --nci-surf "$DIR/base-pair-grad.cube" -o "$IMG/base-pair-nci_surf.svg"

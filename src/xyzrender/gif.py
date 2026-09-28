@@ -858,7 +858,9 @@ def _render_rot_frame(
         recompute_dens(graph, frame_cfg, ctx.dens_params, ctx.dens_cube, frame_cfg.surface_opacity, ctx.dens_cache)
 
     svg = render_svg(graph, frame_cfg, _log=False, _unique_ids=False)
-    return frame_idx, svg_to_png_bytes(svg, size=config.canvas_size)
+    return frame_idx, svg_to_png_bytes(
+        svg, size=config.canvas_size, fit_viewbox=config.raster_fit_viewbox
+    )
 
 
 def _parallel_render(worker, items, total: int) -> list[bytes]:
@@ -942,7 +944,9 @@ def _render_traj_frame(
             frame_config = _rotate_vectors_in_cfg(config, rot_mat, _rg_centroid, rf_vec_origins, rf_vec_dirs)
 
     svg = render_svg(render_graph, frame_config, _log=False)
-    return idx, svg_to_png_bytes(svg, size=config.canvas_size)
+    return idx, svg_to_png_bytes(
+        svg, size=config.canvas_size, fit_viewbox=config.raster_fit_viewbox
+    )
 
 
 def _render_frames(

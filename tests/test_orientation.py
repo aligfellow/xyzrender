@@ -365,7 +365,7 @@ def _capture_gif_frame_svg(mol_path: str, **render_gif_kw) -> str:
 
     captured: list[str] = []
 
-    def _capture(svg: str, *, size=None):
+    def _capture(svg: str, *, size=None, fit_viewbox=False, **kwargs):
         captured.append(svg)
         return b""
 

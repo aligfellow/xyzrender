@@ -1,0 +1,11 @@
+{
+  "canvas_size": 800,
+  "fixed_span": 6.5,
+  "bond_orders": false,
+  "bond_width": 20,
+  "auto_hide_h": false,
+  "gradient": true,
+  "fog": true,
+  "bond_color": "black",
+  "background": "white"
+}

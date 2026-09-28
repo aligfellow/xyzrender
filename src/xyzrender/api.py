@@ -861,6 +861,7 @@ def render(
     vdw: bool | list[int] | None = None,
     idx: bool | str = False,
     cmap: str | os.PathLike | dict[int, float] | None = None,
+    bond_cmap: str | os.PathLike | dict[tuple[int, int], float] | None = None,
     cmap_range: tuple[float, float] | None = None,
     cmap_palette: str | None = None,
     cmap_symm: bool = False,
@@ -992,6 +993,10 @@ def render(
         Atom property colour map: either a ``{1-indexed atom: value}`` dict,
         or a path to a two-column text file (index value, same format as
         ``--cmap`` in the CLI).
+    bond_cmap:
+        Bond property colour map: either a ``{(1-indexed i, 1-indexed j): value}``
+        dict, or a path to a three-column text file (``i j value``, same format as
+        ``--bond-cmap`` in the CLI).  Unlisted bonds keep default styling.
     atom_opacity:
         Per-atom fill opacity.  Accepts either a ``{1-indexed atom: value}``
         dict (use for per-atom levels) or a selector list
@@ -1200,6 +1205,7 @@ def render(
         vdw=vdw,
         idx=idx,
         cmap=cmap,
+        bond_cmap=bond_cmap,
         cmap_range=cmap_range,
         cmap_palette=cmap_palette,
         cmap_symm=cmap_symm,
@@ -2653,6 +2659,7 @@ def _apply_render_overlays(
     vdw: bool | list[int] | None = None,
     idx: bool | str = False,
     cmap: str | os.PathLike | dict[int, float] | None = None,
+    bond_cmap: str | os.PathLike | dict[tuple[int, int], float] | None = None,
     cmap_range: tuple[float, float] | None = None,
     cmap_palette: str | None = None,
     cmap_symm: bool = False,
@@ -2691,6 +2698,8 @@ def _apply_render_overlays(
         cfg.idx_format = idx if isinstance(idx, str) else "sn"
     if cmap is not None:
         cfg.atom_cmap = _resolve_cmap(cmap, graph)
+    if bond_cmap is not None:
+        cfg.bond_cmap = _resolve_bond_cmap(bond_cmap, graph)
     if cmap_range is not None:
         cfg.cmap_range = cmap_range
     if cmap_palette is not None:
@@ -2777,6 +2786,38 @@ def _resolve_cmap(
     from xyzrender.annotations import load_cmap
 
     return load_cmap(str(cmap), graph)
+
+
+def _resolve_bond_cmap(
+    bond_cmap: str | os.PathLike | dict[tuple[int, int], float],
+    graph: nx.Graph | None,
+) -> dict[tuple[int, int], float]:
+    """Resolve *bond_cmap* to a 0-indexed ``{(i, j): value}`` dict with canonical pairs."""
+    if isinstance(bond_cmap, dict):
+        from typing import cast
+
+        d = cast("dict[tuple[int, int], float]", bond_cmap)
+        result: dict[tuple[int, int], float] = {}
+        for (a, b), v in d.items():
+            i, j = int(a) - 1, int(b) - 1
+            key = (min(i, j), max(i, j))
+            result[key] = float(v)
+        if graph is not None:
+            from xyzrender.annotations import _ensure_bond_for_cmap
+
+            for (i, j), val in list(result.items()):
+                if i not in graph or j not in graph:
+                    raise ValueError(f"bond cmap: atom pair ({i + 1}, {j + 1}) not in molecule")
+                _ensure_bond_for_cmap(
+                    i,
+                    j,
+                    graph,
+                    context=f"bond cmap dict pair ({i + 1}, {j + 1})",
+                )
+        return result
+    from xyzrender.annotations import load_bond_cmap
+
+    return load_bond_cmap(str(bond_cmap), graph)
 
 
 def _combine_vector_sources(

@@ -277,6 +277,13 @@ PALETTES: dict[str, list[Color]] = {
         Color.from_str("#f89441"),
         Color.from_str("#f0f921"),
     ],
+    "white_reverse_plasma": [
+        Color.from_str("#ffffff"),
+        Color.from_str("#f0f921"),
+        Color.from_str("#cc4778"),
+        Color.from_str("#7e03a8"),
+        Color.from_str("#0d0887"),
+    ],
     "spectral": [
         Color.from_str("#9e0142"),
         Color.from_str("#d53e4f"),

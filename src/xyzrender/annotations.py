@@ -104,6 +104,19 @@ def _warn_no_bond(i: int, j: int) -> None:
     logger.warning("no bond between atoms %d and %d - placing label at midpoint", i + 1, j + 1)
 
 
+def _ensure_bond_for_cmap(i: int, j: int, graph, *, context: str) -> None:
+    """Ensure *i*-*j* exists on *graph* for bond colormap coloring (0-indexed nodes)."""
+    if graph.has_edge(i, j):
+        return
+    logger.warning(
+        "bond cmap: no existing bond between atoms %d and %d; adding NCI-style edge for coloring (%s)",
+        i + 1,
+        j + 1,
+        context,
+    )
+    graph.add_edge(i, j, bond_order=1.0, NCI=True)
+
+
 def _parse_spec(tokens: list[str], graph) -> list[Annotation]:
     """Parse one annotation spec (one -l invocation or one file line).
 
@@ -292,6 +305,71 @@ def load_cmap(file_path: str, graph) -> dict[int, float]:
                 raise ValueError(f"cmap line {lineno}: atom index {raw_idx} not found in molecule") from exc
 
             result[idx] = val
+
+    return result
+
+
+def load_bond_cmap(file_path: str, graph) -> dict[tuple[int, int], float]:
+    """Load bond property colormap from a strict i-j-value file.
+
+    Format (1-indexed atom indices, strict):
+        1  2  +0.512
+        3  4  -0.234
+
+    Blank lines and lines starting with ``#`` are skipped. Non-integer first
+    tokens are silently skipped (handles CSV headers). Any other malformed line
+    is a hard error.  Pairs are undirected; duplicate pairs keep the last value.
+    """
+    path = Path(file_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Bond colormap file not found: {file_path}")
+
+    node_ids = set(graph.nodes())
+    n = graph.number_of_nodes()
+    result: dict[tuple[int, int], float] = {}
+
+    with path.open() as f:
+        for lineno, raw in enumerate(f, 1):
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            tokens = _tokenize(line)
+            if not tokens:
+                continue
+
+            try:
+                raw_i = int(tokens[0])
+            except ValueError:
+                continue
+
+            if len(tokens) < 3:
+                raise ValueError(f"bond cmap line {lineno}: expected atom_i atom_j value, got {len(tokens)} token(s)")
+
+            try:
+                raw_j = int(tokens[1])
+            except ValueError:
+                raise ValueError(f"bond cmap line {lineno}: atom index {tokens[1]!r} is not an integer") from None
+
+            try:
+                val = float(tokens[2])
+            except ValueError:
+                raise ValueError(f"bond cmap line {lineno}: cannot parse value {tokens[2]!r} as float") from None
+
+            if raw_i == raw_j:
+                raise ValueError(f"bond cmap line {lineno}: atom indices must differ (got {raw_i} {raw_j})")
+
+            i, j = raw_i - 1, raw_j - 1
+            for idx, raw in ((i, raw_i), (j, raw_j)):
+                if idx not in node_ids:
+                    raise ValueError(
+                        f"bond cmap line {lineno}: atom index {raw} not found in molecule "
+                        f"({n} atoms, valid range 1-{n})"
+                    )
+
+            _ensure_bond_for_cmap(i, j, graph, context=f"bond cmap line {lineno}")
+
+            key = (min(i, j), max(i, j))
+            result[key] = val
 
     return result
 

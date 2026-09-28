@@ -1,0 +1,8 @@
+# Mayer bond orders (wB97X-D opt); 1-indexed pairs within 2.05 A
+1 2 1.0939
+1 3 0.9805
+1 4 0.9805
+1 5 0.9805
+2 6 0.9805
+2 7 0.9805
+2 8 0.9805

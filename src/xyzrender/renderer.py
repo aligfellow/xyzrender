@@ -12,7 +12,7 @@ import numpy as np
 from xyzgraph import DATA
 
 from xyzrender.cmap import atom_colors as cmap_atom_colors
-from xyzrender.cmap import colorbar_extra_width, colorbar_svg
+from xyzrender.cmap import bond_color_hex, cmap_value_range, colorbar_extra_width, colorbar_svg
 from xyzrender.colors import (
     _FOG_NEAR,
     DEFAULT_CMAP_PALETTE,
@@ -332,19 +332,22 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             _diffuse_op[(u, v)] = _diffuse_op[(v, u)] = dop
 
     # Atom base colors — CPK by default, palette cmap when --cmap is active
+    bond_cmap_vmin: float | None = None
+    bond_cmap_vmax: float | None = None
+    if cfg.bond_cmap is not None:
+        bond_cmap_vmin, bond_cmap_vmax = cmap_value_range(
+            cfg.bond_cmap.values(),
+            cmap_range=cfg.cmap_range,
+            cmap_symm=cfg.cmap_symm,
+        )
+
     if cfg.atom_cmap is not None:
         cmap_vals = cfg.atom_cmap
-        if cfg.cmap_range is not None and cfg.cmap_symm:
-            msg = "--cmap-range and --cmap-symm are mutually exclusive"
-            raise ValueError(msg)
-        if cfg.cmap_range is not None:
-            vmin, vmax = cfg.cmap_range
-        elif cfg.cmap_symm:
-            vmax = max(abs(v) for v in cmap_vals.values())
-            vmin = -vmax
-        else:
-            vmin = min(cmap_vals.values())
-            vmax = max(cmap_vals.values())
+        vmin, vmax = cmap_value_range(
+            cmap_vals.values(),
+            cmap_range=cfg.cmap_range,
+            cmap_symm=cfg.cmap_symm,
+        )
         colors = cmap_atom_colors(
             cmap_vals,
             n,
@@ -374,6 +377,10 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
         cbar_vmin = vmin
         cbar_vmax = vmax
         cbar_palette = cfg.cmap_palette or DEFAULT_CMAP_PALETTE
+    elif cfg.cbar and cfg.bond_cmap is not None and bond_cmap_vmin is not None and bond_cmap_vmax is not None:
+        cbar_vmin = bond_cmap_vmin
+        cbar_vmax = bond_cmap_vmax
+        cbar_palette = cfg.cmap_palette or DEFAULT_CMAP_PALETTE
     elif cfg.cbar and cfg.esp_surface is not None:
         cbar_vmin = cfg.esp_surface.esp_vmin
         cbar_vmax = cfg.esp_surface.esp_vmax
@@ -383,7 +390,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     # canvas_w stays at the molecule width so _proj() keeps the molecule centred there.
     # _cb_svg_w is the full SVG width used only in the viewBox / width attribute.
     cb_extra_w = (
-        colorbar_extra_width(cbar_vmin, cbar_vmax, fs_label) if cbar_vmin is not None and cbar_vmax is not None else 0
+        colorbar_extra_width(cbar_vmin, cbar_vmax, fs_label, cfg.cbar_unit)
+        if cbar_vmin is not None and cbar_vmax is not None
+        else 0
     )
     _cb_svg_w = canvas_w + cb_extra_w
 
@@ -490,6 +499,17 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     and (attrs.color is None or attrs.color == mol_bond_color)
                 ):
                     bonds[(i, j)] = bonds[(j, i)] = attrs._replace(color=hl_group_bond_color[gi])
+
+        if cfg.bond_cmap is not None and bond_cmap_vmin is not None and bond_cmap_vmax is not None:
+            _bc_palette = cfg.cmap_palette or DEFAULT_CMAP_PALETTE
+            for (i, j), val in cfg.bond_cmap.items():
+                attrs = bonds.get((i, j))
+                if attrs is None:
+                    continue
+                if attrs.color is not None and (mol_bond_color is None or attrs.color != mol_bond_color):
+                    continue
+                hex_color = bond_color_hex(val, _bc_palette, bond_cmap_vmin, bond_cmap_vmax)
+                bonds[(i, j)] = bonds[(j, i)] = attrs._replace(color=hex_color)
 
     # Pre-build adjacency list for O(degree) bond lookup in render loop
     bond_adj: dict[int, list[int]] = {}
@@ -1887,7 +1907,18 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
 
     # --- Colorbar (right side) ---
     if cfg.cbar and cbar_vmin is not None and cbar_vmax is not None and cbar_palette is not None:
-        svg.extend(colorbar_svg(cbar_vmin, cbar_vmax, cbar_palette, canvas_w, canvas_h, fs_label, cfg.label_color))
+        svg.extend(
+            colorbar_svg(
+                cbar_vmin,
+                cbar_vmax,
+                cbar_palette,
+                canvas_w,
+                canvas_h,
+                fs_label,
+                cfg.label_color,
+                unit=cfg.cbar_unit,
+            )
+        )
 
     svg.append("</svg>")
     raw = "\n".join(svg)

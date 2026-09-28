@@ -1,0 +1,8 @@
+c2h6 c2h6.xyz c2h6_bond_orders.txt
+c2h4 c2h4.xyz c2h4_bond_orders.txt
+c2h2 c2h2.xyz c2h2_bond_orders.txt
+c4h6_double c4h6_double.xyz c4h6_double_bond_orders.txt
+c4h6_triple c4h6_triple.xyz c4h6_triple_bond_orders.txt
+c4h8 c4h8.xyz c4h8_bond_orders.txt
+c4h2 c4h2.xyz c4h2_bond_orders.txt
+c6h6 c6h6.xyz c6h6_bond_orders.txt

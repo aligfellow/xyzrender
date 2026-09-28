@@ -1,4 +1,6 @@
-# Atom Colormap
+# Colormaps
+
+## Atom property colormap (`--cmap`)
 
 Color atoms by a per-atom scalar value (e.g. partial charges, NMR shifts, Fukui indices) using a colormap palette.
 
@@ -38,7 +40,7 @@ The colormap file has two columns — **1-indexed atom number** and value. Any e
 | Flag | Description |
 |------|-------------|
 | `--cmap FILE` | Path to colormap data file (two-column: atom index, value) |
-| `--cmap-range VMIN VMAX` | Override colormap range (useful for symmetric scales, e.g. `-0.5 0.5`) |
+| `--cmap-range VMIN VMAX` | Override vmin/vmax for atom, bond, and ESP colorbars (e.g. `-0.5 0.5`) |
 | `--cmap-symm` | Symmetric range about zero: `[-max(|v|), +max(|v|)]` |
 | `--cmap-palette NAME` | Colormap palette (default: `viridis`) |
 | `--cbar` | Add a vertical colorbar on the right showing the data range |
@@ -47,4 +49,59 @@ The colormap file has two columns — **1-indexed atom number** and value. Any e
 Recommended palette set for `xyzrender`:
 
 - Best for `--cmap`: `viridis`, `plasma`, `coolwarm`
+- Bond order from zero: `white_reverse_plasma` (with `--cmap-range 0 3`)
 - Best for ESP: `rainbow`, `coolwarm`, `RdBu`
+
+## Bond property colormap (`--bond-cmap`)
+
+Color **selected bonds** by a scalar (e.g. Mayer bond order, NBO occupancy). The file has three columns — **1-indexed atom i**, **atom j**, and **value**. Pairs are undirected (`2 3 v` equals `3 2 v`). Bonds not listed keep the normal bond styling. Both atoms must exist in the structure; if automatic bond detection did not add a link between them, xyzrender **logs a warning and adds a dotted NCI-style edge** so the contact can be colored (same linestyle as auto-detected NCI interactions). For Mayer tables, omit distant atom pairs in the file unless you intend to show that contact.
+
+```text
+# bond_orders.txt
+14  22  0.57
+14  28  0.61
+```
+
+Use the same `--cmap-range`, `--cmap-symm`, `--cmap-palette`, `--cbar`, and `--cbar-unit` flags as for atom `--cmap`. With both `--cmap` and `--bond-cmap`, the colorbar reflects the atom colormap. For rotation GIFs with a colorbar, add `--raster-fit-viewbox` so the bar is not cropped (default GIF raster is square).
+
+```{eval-rst}
+.. image:: ../../../examples/images/systems_bonds_caffeine.svg
+   :width: 420px
+   :align: center
+```
+
+```{eval-rst}
+.. list-table::
+   :widths: 25 25 25 25
+   :class: colormap-gallery
+   :align: center
+
+   * - .. image:: ../../../examples/images/systems_bonds_c2h6.svg
+          :width: 200px
+     - .. image:: ../../../examples/images/systems_bonds_c2h4.svg
+          :width: 200px
+     - .. image:: ../../../examples/images/systems_bonds_c2h2.svg
+          :width: 200px
+     - .. image:: ../../../examples/images/systems_bonds_c4h6_double.svg
+          :width: 200px
+   * - .. image:: ../../../examples/images/systems_bonds_c4h6_triple.svg
+          :width: 200px
+     - .. image:: ../../../examples/images/systems_bonds_c4h8.svg
+          :width: 200px
+     - .. image:: ../../../examples/images/systems_bonds_c4h2.svg
+          :width: 200px
+     - .. image:: ../../../examples/images/systems_bonds_c6h6.svg
+          :width: 200px
+```
+
+```bash
+xyzrender examples/structures/systems_bonds/caffeine.xyz --hy --no-bo \
+  --bond-cmap examples/structures/systems_bonds/caffeine_bond_orders.txt \
+  --cmap-range 0 3 --cmap-palette white_reverse_plasma \
+  --cbar --cbar-unit "Bond order"
+
+xyzrender examples/structures/systems_bonds/c2h2.xyz \
+  --config examples/structures/systems_bonds/render.json --hy --no-bo \
+  --bond-cmap examples/structures/systems_bonds/c2h2_bond_orders.txt \
+  --cmap-range 0 3 --cmap-palette white_reverse_plasma
+```
