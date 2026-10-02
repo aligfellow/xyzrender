@@ -103,6 +103,29 @@ def test_basic_render(tmp_path):
     assert out.read_text().startswith("<?xml") or out.read_text().startswith("<svg")
 
 
+def test_nci_flag_accepts_optional_type_groups(tmp_path):
+    source = _STRUCTURES / "bimp.v000.xyz"
+    all_out = tmp_path / "all.svg"
+    hb_out = tmp_path / "hb.svg"
+
+    all_result = _run_cli(str(source), "--nci", "--no-grad", "--no-orient", "-o", str(all_out))
+    hb_result = _run_cli(str(source), "--nci", "hb", "--no-grad", "--no-orient", "-o", str(hb_out))
+
+    assert all_result.returncode == 0
+    assert hb_result.returncode == 0
+    assert all_out.read_text().count("<circle") > hb_out.read_text().count("<circle")
+
+
+def test_bare_nci_flag_can_precede_input(tmp_path):
+    source = _STRUCTURES / "bimp.v000.xyz"
+    output = tmp_path / "nci.svg"
+
+    result = _run_cli("--nci", str(source), "--no-grad", "--no-orient", "-o", str(output))
+
+    assert result.returncode == 0
+    assert output.exists()
+
+
 @pytest.mark.skipif(not (_STRUCTURES / "caffeine_dens.cube").exists(), reason="fixture not found")
 def test_cub_density_surface(tmp_path):
     src = _STRUCTURES / "caffeine_dens.cube"

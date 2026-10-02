@@ -92,7 +92,7 @@ def merge_graphs(
     Parameters
     ----------
     reference_graph:
-        The graph for the reference conformer (frame 0).
+        Graph used for every conformer when *conformer_graphs* is not given.
     aligned_positions:
         One (N, 3) position array per frame (including reference).
     conformer_colors, conformer_opacities:
@@ -113,12 +113,19 @@ def merge_graphs(
         msg = "ensemble.merge_graphs: aligned_positions must contain at least one frame"
         raise ValueError(msg)
 
-    all_nodes = _node_list(reference_graph)
-    # Separate real atoms from NCI centroid dummy nodes (symbol="*").
-    real_nodes = [n for n in all_nodes if reference_graph.nodes[n].get("symbol") != "*"]
-    centroid_nodes = [n for n in all_nodes if reference_graph.nodes[n].get("symbol") == "*"]
-    n_real = len(real_nodes)
     n_frames = len(aligned_positions)
+    if conformer_graphs is not None and len(conformer_graphs) != n_frames:
+        msg = (
+            "ensemble.merge_graphs: conformer_graphs length does not match "
+            f"aligned_positions ({len(conformer_graphs)} != {n_frames})"
+        )
+        raise ValueError(msg)
+
+    first_graph = conformer_graphs[0] if conformer_graphs is not None else reference_graph
+    first_nodes = _node_list(first_graph)
+    first_real_nodes = [n for n in first_nodes if first_graph.nodes[n].get("symbol") != "*"]
+    first_centroid_nodes = [n for n in first_nodes if first_graph.nodes[n].get("symbol") == "*"]
+    n_real = len(first_real_nodes)
 
     if aligned_positions[0].shape[0] != n_real:
         msg = (
@@ -128,27 +135,68 @@ def merge_graphs(
         raise ValueError(msg)
 
     merged = nx.Graph()
-    merged.graph.update(reference_graph.graph)
+    merged.graph.update(first_graph.graph)
+    merged_centroids: list[int] = []
+    merged_centroid_sites: dict[int, tuple[int, ...]] = {}
+
+    def _prepare_centroids(
+        source: nx.Graph,
+        centroid_nodes: list,
+        node_map: dict,
+        real_nodes: list,
+        positions: np.ndarray,
+    ) -> np.ndarray:
+        """Return aligned dummy positions and translate NCI centroid metadata."""
+        real_position_index = {node: idx for idx, node in enumerate(real_nodes)}
+        source_centroids = set(source.graph.get("nci_centroid", []))
+        source_sites = source.graph.get("nci_centroid_sites", {})
+        centroid_positions = []
+        for old_id in centroid_nodes:
+            new_id = node_map[old_id]
+            sites = tuple(source_sites.get(old_id, ()))
+            if sites and all(site in real_position_index for site in sites):
+                site_positions = np.array([positions[real_position_index[site]] for site in sites])
+                centroid_position = site_positions.mean(axis=0)
+            else:
+                centroid_position = np.asarray(source.nodes[old_id]["position"], dtype=float)
+            centroid_positions.append(centroid_position)
+            if old_id in source_centroids:
+                merged_centroids.append(new_id)
+                if sites:
+                    merged_centroid_sites[new_id] = tuple(node_map[site] for site in sites)
+        return np.asarray(centroid_positions, dtype=float).reshape((-1, 3))
 
     # Reference conformer (index 0): keep original node IDs.
-    ref_map = {nid: nid for nid in real_nodes}
-    stamp_structure_nodes(merged, reference_graph, ref_map, aligned_positions[0], molecule_index=0)
-    stamp_structure_edges(merged, reference_graph, ref_map, molecule_index=0)
-
-    # NCI centroid dummy nodes (reference frame only) keep their existing positions.
-    for nid in centroid_nodes:
-        data = dict(reference_graph.nodes[nid])
-        data["molecule_index"] = 0
-        merged.add_node(nid, **data)
+    ref_map = {nid: nid for nid in first_real_nodes}
+    ref_centroid_map = {nid: nid for nid in first_centroid_nodes}
+    ref_all_map = {**ref_map, **ref_centroid_map}
+    ref_positions = np.vstack(
+        (
+            aligned_positions[0],
+            _prepare_centroids(
+                first_graph,
+                first_centroid_nodes,
+                ref_all_map,
+                first_real_nodes,
+                aligned_positions[0],
+            ),
+        )
+    )
+    stamp_structure_nodes(merged, first_graph, ref_all_map, ref_positions, molecule_index=0)
+    stamp_structure_edges(merged, first_graph, ref_all_map, molecule_index=0)
 
     # Additional conformers: copy node/edge attributes, renumbering node IDs.
-    next_id = max(all_nodes) + 1 if all_nodes else 0
+    next_id = max(first_nodes) + 1 if first_nodes else 0
     for conf_idx in range(1, n_frames):
         pos = aligned_positions[conf_idx]
-        if pos.shape[0] != n_real:
+        frame_graph = conformer_graphs[conf_idx] if conformer_graphs is not None else reference_graph
+        frame_nodes = _node_list(frame_graph)
+        frame_real_nodes = [n for n in frame_nodes if frame_graph.nodes[n].get("symbol") != "*"]
+        frame_centroid_nodes = [n for n in frame_nodes if frame_graph.nodes[n].get("symbol") == "*"]
+        if pos.shape[0] != len(frame_real_nodes):
             msg = (
                 "ensemble.merge_graphs: position array length does not match "
-                f"real atom count in reference graph (got {pos.shape[0]}, expected {n_real})"
+                f"real atom count in conformer {conf_idx} (got {pos.shape[0]}, expected {len(frame_real_nodes)})"
             )
             raise ValueError(msg)
 
@@ -160,26 +208,39 @@ def merge_graphs(
             if conformer_opacities is not None and conf_idx < len(conformer_opacities)
             else None
         )
-        frame_graph = conformer_graphs[conf_idx] if conformer_graphs is not None else reference_graph
-
-        id_map = {old: next_id + i for i, old in enumerate(real_nodes)}
+        id_map = {old: next_id + i for i, old in enumerate(frame_real_nodes)}
+        next_id += len(frame_real_nodes)
+        centroid_map = {old: next_id + i for i, old in enumerate(frame_centroid_nodes)}
+        next_id += len(frame_centroid_nodes)
+        all_map = {**id_map, **centroid_map}
         # Slight z-offset so conformers don't z-fight; scaled by index so later
         # frames sit further back than earlier ones.
         z_offset = conf_idx * _Z_NUDGE if z_nudge else 0.0
 
+        all_positions = np.vstack(
+            (
+                pos,
+                _prepare_centroids(frame_graph, frame_centroid_nodes, all_map, frame_real_nodes, pos),
+            )
+        )
         stamp_structure_nodes(
             merged,
-            reference_graph,  # source of node attributes (symbols, etc.) — per-frame positions come from `pos`
-            id_map,
-            pos,
+            frame_graph,
+            all_map,
+            all_positions,
             molecule_index=conf_idx,
             color=color,
             opacity=opacity,
             z_offset=z_offset,
         )
-        stamp_structure_edges(merged, frame_graph, id_map, molecule_index=conf_idx, color=color)
+        stamp_structure_edges(merged, frame_graph, all_map, molecule_index=conf_idx, color=color)
         merge_aromatic_rings(merged, frame_graph, id_map)
 
-        next_id += n_real
+    if merged_centroids:
+        merged.graph["nci_centroid"] = merged_centroids
+        merged.graph["nci_centroid_sites"] = merged_centroid_sites
+    else:
+        merged.graph.pop("nci_centroid", None)
+        merged.graph.pop("nci_centroid_sites", None)
 
     return merged
