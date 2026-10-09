@@ -71,6 +71,22 @@ Use `--ts-bond` to skip automatic TS identification and provide a manual selecti
 xyzrender mn-h2.log --gif-ts --ts-bond "1-2" -go mn-h2.gif
 ```
 
+## Vibrational transitions
+
+Animates vibrational transitions using normal modes from frequency calculations:
+
+```bash
+xyzrender frequency.out --gif-vib 7 -go mode7.gif
+xyzrender frequency.out --gif-vib 7 --vib-scale 2.0 -go mode7_large.gif
+xyzrender frequency.out --gif-vib 7 --vib-label -go mode7_labelled.gif
+```
+
+Vibrational mode amplitudes are normalized automatically; `--vib-scale` adjusts
+the amplitude and is capped before bonded atoms overlap. Vibrational modes use
+zero-based indexing: `--gif-vib 0` selects the lowest-frequency vibrational
+transition. `--vib-label` adds the calculated frequency. Hydrogens are shown
+unless `--no-hy` is set.
+
 ## Trajectory
 
 ```{image} ../../../examples/images/bimp_trj.gif
