@@ -1,11 +1,41 @@
 """Tests for gif.py — rotation axis parsing and GIF rendering."""
 
+import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 STRUCTURES = Path(__file__).parent.parent / "examples" / "structures"
+
+
+def test_trajectory_gif_from_stdin(tmp_path):
+    from PIL import Image
+
+    output = tmp_path / "stdin.gif"
+    source = (
+        "import multiprocessing\n"
+        "multiprocessing.set_start_method('spawn')\n"
+        "from xyzrender import render_gif\n"
+        f"render_gif({str(STRUCTURES / 'sn2.v000.xyz')!r}, gif_trj=True, orient=False, "
+        f"canvas_size=100, output={str(output)!r})\n"
+    )
+    subprocess.run([sys.executable, "-"], input=source, text=True, check=True, capture_output=True, timeout=30)
+    with Image.open(output) as image:
+        assert image.n_frames > 1
+
+
+def test_gif_worker_exit_propagates():
+    source = (
+        "import multiprocessing, os\n"
+        "multiprocessing.set_start_method('spawn')\n"
+        "from xyzrender.gif import _parallel_render\n"
+        "_parallel_render(os._exit, [1], 1)\n"
+    )
+    result = subprocess.run([sys.executable, "-c", source], text=True, capture_output=True, timeout=30, check=False)
+    assert result.returncode != 0
+    assert "BrokenProcessPool" in result.stderr
 
 
 def test_trajectory_orientation_uses_matching_frame(tmp_path, monkeypatch):

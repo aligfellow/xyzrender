@@ -883,16 +883,29 @@ def _parallel_render(worker, items, total: int) -> list[bytes]:
     Callers are responsible for including the ordering index in each item.
     """
     import multiprocessing
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+    from pathlib import Path
 
     pngs = [b""] * total
-    pool = multiprocessing.Pool()
-    try:
-        for i, (idx, png_data) in enumerate(pool.imap_unordered(worker, items)):
+    main_path = getattr(sys.modules["__main__"], "__file__", None)
+    if multiprocessing.get_start_method() in ("spawn", "forkserver") and main_path and not Path(main_path).is_file():
+        # Spawn cannot import <stdin>; copy inputs to retain process isolation.
+        for i, item in enumerate(items, 1):
+            frame_worker, frame_item = copy.deepcopy((worker, item))
+            idx, png_data = frame_worker(frame_item)
             pngs[idx] = png_data
-            _progress(i + 1, total)
+            _progress(i, total)
+        return pngs
+
+    pool = ProcessPoolExecutor(max_workers=min(total, multiprocessing.cpu_count()) or 1)
+    try:
+        futures = [pool.submit(worker, item) for item in items]
+        for i, future in enumerate(as_completed(futures), 1):
+            idx, png_data = future.result()
+            pngs[idx] = png_data
+            _progress(i, total)
     finally:
-        pool.close()
-        pool.join()
+        pool.shutdown(wait=True, cancel_futures=True)
     return pngs
 
 
