@@ -211,6 +211,10 @@ Fine-grained overlay style (`atom_stroke_width`, `atom_stroke_color`, `bond_colo
 | `--rot-frames` | Rotation frame count (default: 120) |
 | `--vib-frames` | Vibration frames for `--gif-ts` (default: 20) |
 
+With `--gif-trj --no-orient`, input coordinates are preserved unless `-I`,
+`--ref`, or GIF rotation is explicitly requested. An explicit orientation reference
+suppresses PCA and applies one fixed rotation across the trajectory.
+
 Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Prefix `-` to reverse (e.g. `-xy`). For crystal inputs, a 3-digit Miller index string is also accepted (e.g. `111`, `001`).
 
 ## Crystal / unit cell

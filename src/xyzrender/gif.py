@@ -516,6 +516,8 @@ def render_trajectory_gif(
     multiplicity: int | None = None,
     fps: int = 10,
     reference_graph: nx.Graph | None = None,
+    reference_frame: int = 0,
+    annotation_graph: nx.Graph | None = None,
     detect_nci: bool = False,
     axis: str | None = None,
     kekule: bool = False,
@@ -527,7 +529,9 @@ def render_trajectory_gif(
     to get correct bond orders, then updates positions per frame.
     If ``trj_bonds`` is True, builds a fresh graph for every frame so
     that changing connectivity (e.g. NEB-TS MEPs) is shown correctly.
-    If ``reference_graph`` is provided, all frames are rotated to match.
+    If ``reference_graph`` is provided, all frames are rotated using the
+    matching ``reference_frame`` as the un-oriented source. ``annotation_graph``
+    copies TS/NCI edge attributes without requesting orientation.
     If ``detect_nci`` is True, NCI interactions are re-detected per frame
     using xyzgraph's NCIAnalyzer (topology built once, geometry per frame).
     If ``axis`` is provided, the molecule rotates 360° around that axis
@@ -535,13 +539,18 @@ def render_trajectory_gif(
     """
     from xyzgraph import build_graph
 
+    if not 0 <= reference_frame < len(frames):
+        msg = f"Trajectory reference frame {reference_frame} is out of range for {len(frames)} frames"
+        raise ValueError(msg)
+    annotations = annotation_graph if annotation_graph is not None else reference_graph
+
     if trj_bonds:
         # Build one graph per frame so changing connectivity is shown correctly.
         for i, frame in enumerate(frames):
             atoms = list(zip(frame["symbols"], [tuple(p) for p in frame["positions"]], strict=True))
             g = build_graph(atoms, charge=charge, multiplicity=multiplicity, kekule=kekule)
-            if reference_graph is not None:
-                _copy_ts_nci_attrs(g, reference_graph)
+            if annotations is not None:
+                _copy_ts_nci_attrs(g, annotations)
             frame["graph"] = g
             logger.debug("Per-frame graph %d/%d: %d bonds", i + 1, len(frames), g.number_of_edges())
         bond_counts = [f["graph"].number_of_edges() for f in frames]
@@ -552,7 +561,7 @@ def render_trajectory_gif(
             max(bond_counts),
             bond_counts[-1],
         )
-        # Use last frame's graph as the topology anchor for Kabsch alignment.
+        # Bond perception uses the last frame, independently of orientation.
         graph = frames[-1]["graph"]
     else:
         # Build graph from last frame (optimized geometry → correct bond orders)
@@ -560,8 +569,8 @@ def render_trajectory_gif(
         last_atoms = list(zip(last["symbols"], [tuple(p) for p in last["positions"]], strict=True))
         graph = build_graph(last_atoms, charge=charge, multiplicity=multiplicity, kekule=kekule)
 
-        if reference_graph is not None:
-            _copy_ts_nci_attrs(graph, reference_graph)
+        if annotations is not None:
+            _copy_ts_nci_attrs(graph, annotations)
 
     # NCI: build analyzer once from the fixed topology, or rebuild per frame
     # when bonds change (trj_bonds) since π-systems / sites / pair list depend
@@ -575,13 +584,19 @@ def render_trajectory_gif(
     # Apply viewer rotation if reference orientation was given
     if reference_graph is not None:
         logger.debug("Applying Kabsch rotation from viewer orientation")
-        rot = _compute_rotation(graph, reference_graph)
+        source = frames[reference_frame]
+        real_nodes = [d for _, d in reference_graph.nodes(data=True) if d["symbol"] != "*"]
+        if [d["symbol"] for d in real_nodes] != source["symbols"]:
+            msg = "Trajectory reference graph and source frame must have the same atom count and element order"
+            raise ValueError(msg)
+        target_positions = np.array([d["position"] for d in real_nodes])
+        rot = kabsch_rotation(np.array(source["positions"]), target_positions)
         frames = _rotate_frames(frames, rot)
+        config = copy.copy(config)
+        config.auto_orient = False
 
     # PCA: compute once from first frame, apply consistently to all
     if config.auto_orient:
-        import copy
-
         vt = pca_matrix(np.array(frames[0]["positions"]))
         frames = _orient_frames(frames, vt)
         config = copy.copy(config)

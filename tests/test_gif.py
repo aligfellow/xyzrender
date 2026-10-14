@@ -8,6 +8,42 @@ import pytest
 STRUCTURES = Path(__file__).parent.parent / "examples" / "structures"
 
 
+def test_trajectory_orientation_uses_matching_frame(tmp_path, monkeypatch):
+    from xyzrender import load, render_gif
+    from xyzrender.readers import load_trajectory_frames
+    from xyzrender.types import RenderConfig
+
+    path = STRUCTURES / "sn2.v000.xyz"
+    original = load_trajectory_frames(path)
+    captured = {}
+
+    def capture(graph, frames, config, **_):
+        captured["frames"] = frames
+        captured["graph"] = graph
+        return []
+
+    monkeypatch.setattr("xyzrender.gif._render_frames", capture)
+    monkeypatch.setattr("xyzrender.gif._stitch_gif", lambda *args: None)
+    cfg = RenderConfig(auto_orient=True)
+    render_gif(path, gif_trj=True, orient=False, config=cfg, output=tmp_path / "raw.gif")
+    for before, after in zip(original, captured["frames"], strict=True):
+        np.testing.assert_array_equal(after["positions"], before["positions"])
+    assert cfg.auto_orient is True
+
+    reference = load(path).graph
+    rotation = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+    for node in reference.nodes.values():
+        node["position"] = tuple(np.array(node["position"]) @ rotation.T)
+    edge = next(iter(reference.edges))
+    reference.edges[edge]["TS"] = True
+    render_gif(path, gif_trj=True, reference_graph=reference, output=tmp_path / "rotated.gif")
+    for before, after in zip(original, captured["frames"], strict=True):
+        positions = np.array(before["positions"])
+        center = positions.mean(axis=0)
+        np.testing.assert_allclose(after["positions"], (positions - center) @ rotation.T + center, atol=1e-10)
+    assert captured["graph"].edges[edge]["TS"] is True
+
+
 # ---------------------------------------------------------------------------
 # _rotation_axis — unit tests (no I/O)
 # ---------------------------------------------------------------------------
