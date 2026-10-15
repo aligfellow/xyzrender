@@ -1496,9 +1496,8 @@ def main() -> None:
             mol_or_path = mol
         else:
             mol_or_path: str | Molecule = args.input if (args.gif_ts or args.gif_trj) else mol
-        # For gif_ts/gif_trj the trajectory is read from disk (mol_or_path is a path),
-        # but pass mol.graph as reference_graph so -I orientation and TS/NCI bonds are respected.
-        _ref_graph = mol.graph if (args.gif_ts or args.gif_trj) else None
+        # Trajectories are read from disk; annotations must not request rotation.
+        _ref_graph = mol.graph if (args.gif_ts or (args.gif_trj and mol.oriented)) else None
         try:
             render_gif(
                 mol_or_path,
@@ -1527,6 +1526,7 @@ def main() -> None:
                 auto_align=args.align,  # None = preset default; True/False = explicit override
                 opacity=args.opacity,
                 reference_graph=_ref_graph,
+                annotation_graph=mol.graph if args.gif_trj else None,
                 trj_bonds=args.trj_bonds,
                 detect_nci=args.nci_detect,
                 mo=args.mo,

@@ -1530,6 +1530,7 @@ def render_gif(
     opacity: float | None = None,
     # --- Orientation reference (gif_ts / gif_trj: graph after orient()) ---
     reference_graph: "nx.Graph | None" = None,
+    annotation_graph: "nx.Graph | None" = None,
     # --- Per-frame bond detection (gif_trj only) ---
     trj_bonds: bool = False,
     # --- NCI detection (gif_ts / gif_trj / gif_rot) ---
@@ -1614,6 +1615,11 @@ def render_gif(
         Number of frames for a full rotation.
     ts_frame:
         Reference frame index for TS detection (0-indexed).
+    reference_graph:
+        Explicit orientation reference for trajectory/vibration GIFs. Trajectory
+        references match the first XYZ frame or the last QM geometry and suppress PCA.
+    annotation_graph:
+        Trajectory TS/NCI edge attributes to copy without changing orientation.
     config:
         Preset name, JSON path, or pre-built :class:`~xyzrender.types.RenderConfig`.
 
@@ -1715,6 +1721,8 @@ def render_gif(
         cfg.vectors = list(cfg.vectors)
         cfg.annotations = list(cfg.annotations)
         cfg.overlay = copy.copy(cfg.overlay)
+        if orient is not None:
+            cfg.auto_orient = orient
     else:
         cfg = build_config(
             config,
@@ -1901,9 +1909,22 @@ def render_gif(
     else:
         ref_graph = copy.deepcopy(ref_graph)
 
+    if ref is not None and not gif_diffuse:
+        ref_source = reference_graph if gif_trj and reference_graph is not None else ref_graph
+        _ref_mol = Molecule(graph=copy.deepcopy(ref_source), cell_data=copy.deepcopy(_gif_mol.cell_data))
+        _ref_path = Path(ref)
+        if _ref_path.is_file():
+            _apply_ref_orientation(_ref_mol, _ref_path, cfg)
+        else:
+            _apply_and_save_ref(_ref_mol, cfg, _ref_path)
+        ref_graph = _ref_mol.graph
+        if gif_trj:
+            reference_graph = ref_graph
+
     if gif_trj:
         from xyzrender.readers import load_trajectory_frames
 
+        assert mol_path is not None
         frames = load_trajectory_frames(str(mol_path))
         if len(frames) < 2:
             raise ValueError("render_gif(gif_trj=True) requires a multi-frame XYZ file")
@@ -1913,7 +1934,9 @@ def render_gif(
             config=cfg,
             output=str(gif_path),
             fps=gif_fps,
-            reference_graph=reference_graph if reference_graph is not None else ref_graph,
+            reference_graph=reference_graph,
+            reference_frame=0 if mol_path.suffix.lower() == ".xyz" else len(frames) - 1,
+            annotation_graph=annotation_graph,
             axis=gif_rot,
             trj_bonds=trj_bonds,
             detect_nci=detect_nci,
@@ -1947,15 +1970,6 @@ def render_gif(
 
     else:
         # Orientation & Ensemble
-        if ref is not None:
-            _ref_mol = Molecule(graph=ref_graph)
-            _ref_path = Path(ref)
-            if _ref_path.is_file():
-                _apply_ref_orientation(_ref_mol, _ref_path, cfg)
-            else:
-                _apply_and_save_ref(_ref_mol, cfg, _ref_path)
-            ref_graph = _ref_mol.graph
-
         if isinstance(molecule, Molecule) and molecule.ensemble is not None:
             from xyzrender.ensemble import merge_graphs
 
