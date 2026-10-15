@@ -23,7 +23,7 @@ def test_trajectory_gif_from_stdin(tmp_path):
     )
     subprocess.run([sys.executable, "-"], input=source, text=True, check=True, capture_output=True, timeout=30)
     with Image.open(output) as image:
-        assert image.n_frames > 1
+        image.seek(1)
 
 
 def test_gif_worker_exit_propagates():
