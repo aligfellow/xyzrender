@@ -183,21 +183,21 @@ xyzrender "$DIR/MOF-5.xyz" --pore --no-cell --no-bo --fog -o "$IMG/mof5_pore.svg
 xyzrender "$DIR/MOF-5.xyz" --hull faces --pore --no-cell --no-bo --fog -o "$IMG/mof5_faces_pore.svg"
 xyzrender "$DIR/MOF-5.xyz" --hull faces --pore --no-cell --no-bo --fog --gif-rot -go "$IMG/mof5_faces_pore.gif"
 
-echo "=== Bond-order colormap (systems_bonds) ==="
-SB="$DIR/systems_bonds"
+echo "=== Bond-order colormap ==="
 # Match atom --cmap gallery: rotation GIF, one static molecule, colorbar.
-xyzrender "$SB/caffeine.xyz" --hy --no-bo \
-  --bond-cmap "$SB/caffeine_bond_orders.txt" \
+# caffeine_bonds.xyz matches caffeine_bond_orders.txt atom indices (main caffeine.xyz does not).
+xyzrender "$DIR/caffeine_bonds.xyz" --hy --no-bo \
+  --bond-cmap "$DIR/caffeine_bond_orders.txt" \
   --cmap-range 0 3 --cmap-palette white_reverse_plasma \
   -o "$IMG/systems_bonds_caffeine.svg" --gif-rot -go "$IMG/systems_bonds_caffeine.gif"
-xyzrender "$SB/c6h6.xyz" --config "$SB/render.json" --hy --no-bo \
-  --bond-cmap "$SB/c6h6_bond_orders.txt" \
+xyzrender "$DIR/c6h6.xyz" --config "$DIR/c6h6.json" --hy --no-bo \
+  --bond-cmap "$DIR/c6h6_bond_orders.txt" \
   --cmap-range 0 3 --cmap-palette white_reverse_plasma \
   -o "$IMG/systems_bonds_c6h6.svg"
 # Overwrite static SVG with colorbar version (GIF already written above).
-# No render.json: fixed_span fills the canvas and overlaps --cbar.
-xyzrender "$SB/caffeine.xyz" --hy --no-bo \
-  --bond-cmap "$SB/caffeine_bond_orders.txt" \
+# No c6h6.json here: fixed_span fills the canvas and overlaps --cbar.
+xyzrender "$DIR/caffeine_bonds.xyz" --hy --no-bo \
+  --bond-cmap "$DIR/caffeine_bond_orders.txt" \
   --cmap-range 0 3 --cmap-palette white_reverse_plasma \
   --cbar --cbar-unit "Bond order" \
   -o "$IMG/systems_bonds_caffeine.svg"

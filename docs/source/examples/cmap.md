@@ -69,10 +69,10 @@ Use the same `--cmap-range`, `--cmap-symm`, `--cmap-palette`, `--cbar`, and `--c
 | ![Bond orders (rotation)](../../../examples/images/systems_bonds_caffeine.gif) | ![Benzene](../../../examples/images/systems_bonds_c6h6.svg) | ![With colorbar](../../../examples/images/systems_bonds_caffeine.svg) |
 
 ```bash
-xyzrender caffeine.xyz --hy --no-bo --bond-cmap caffeine_bond_orders.txt \
+xyzrender caffeine_bonds.xyz --hy --no-bo --bond-cmap caffeine_bond_orders.txt \
   --cmap-range 0 3 --cmap-palette white_reverse_plasma --gif-rot -go caffeine_bonds.gif
-xyzrender c6h6.xyz --config render.json --hy --no-bo --bond-cmap c6h6_bond_orders.txt \
+xyzrender c6h6.xyz --config c6h6.json --hy --no-bo --bond-cmap c6h6_bond_orders.txt \
   --cmap-range 0 3 --cmap-palette white_reverse_plasma
-xyzrender caffeine.xyz --hy --no-bo --bond-cmap caffeine_bond_orders.txt \
+xyzrender caffeine_bonds.xyz --hy --no-bo --bond-cmap caffeine_bond_orders.txt \
   --cmap-range 0 3 --cmap-palette white_reverse_plasma --cbar --cbar-unit "Bond order"
 ```
