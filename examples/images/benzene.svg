@@ -1,47 +1,47 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 800 711" width="800" height="711">
   <rect width="100%" height="100%" fill="#ffffff"/>
   <defs>
-    <radialGradient id="x0g0" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
-    <radialGradient id="x0g1" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
-    <radialGradient id="x0g2" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
-    <radialGradient id="x0g3" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
-    <radialGradient id="x0g4" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
-    <radialGradient id="x0g5" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
-    <radialGradient id="x0g6" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9d7b81"/></radialGradient>
-    <radialGradient id="x0g7" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9d7b81"/></radialGradient>
-    <radialGradient id="x0g8" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9d7b81"/></radialGradient>
-    <radialGradient id="x0g9" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9d7b81"/></radialGradient>
-    <radialGradient id="x0g10" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9d7b81"/></radialGradient>
-    <radialGradient id="x0g11" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9d7b81"/></radialGradient>
+    <radialGradient id="x7da9b246fc2d40fb9cd251991db8de63g0" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
+    <radialGradient id="x7da9b246fc2d40fb9cd251991db8de63g1" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
+    <radialGradient id="x7da9b246fc2d40fb9cd251991db8de63g2" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
+    <radialGradient id="x7da9b246fc2d40fb9cd251991db8de63g3" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
+    <radialGradient id="x7da9b246fc2d40fb9cd251991db8de63g4" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
+    <radialGradient id="x7da9b246fc2d40fb9cd251991db8de63g5" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#b6b6b6"/><stop offset="40%" stop-color="#aaaaaa"/><stop offset="100%" stop-color="#6b4f55"/></radialGradient>
+    <radialGradient id="x7da9b246fc2d40fb9cd251991db8de63g6" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9d7b81"/></radialGradient>
+    <radialGradient id="x7da9b246fc2d40fb9cd251991db8de63g7" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9d7b81"/></radialGradient>
+    <radialGradient id="x7da9b246fc2d40fb9cd251991db8de63g8" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9d7b81"/></radialGradient>
+    <radialGradient id="x7da9b246fc2d40fb9cd251991db8de63g9" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9d7b81"/></radialGradient>
+    <radialGradient id="x7da9b246fc2d40fb9cd251991db8de63g10" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9d7b81"/></radialGradient>
+    <radialGradient id="x7da9b246fc2d40fb9cd251991db8de63g11" cx=".5" cy=".5" fx=".33" fy=".33" r=".66"><stop offset="0%" stop-color="#ffffff"/><stop offset="40%" stop-color="#ffffff"/><stop offset="100%" stop-color="#9d7b81"/></radialGradient>
   </defs>
-  <circle cx="492.4" cy="515.5" r="47.3" fill="url(#x0g0)" stroke="#000000" stroke-width="8.3"/>
+  <circle cx="492.4" cy="515.5" r="47.3" fill="url(#x7da9b246fc2d40fb9cd251991db8de63g0)" stroke="#000000" stroke-width="8.3"/>
   <line x1="449.8" y1="528.0" x2="350.2" y2="528.0" stroke="#000000" stroke-width="14.6" stroke-linecap="round"/>
   <line x1="449.8" y1="503.0" x2="350.2" y2="503.0" stroke="#000000" stroke-width="14.6" stroke-linecap="round" stroke-dasharray="14.6,29.2"/>
   <line x1="502.8" y1="472.4" x2="552.6" y2="386.1" stroke="#000000" stroke-width="14.6" stroke-linecap="round" stroke-dasharray="14.6,29.2"/>
   <line x1="524.5" y1="484.9" x2="574.3" y2="398.6" stroke="#000000" stroke-width="14.6" stroke-linecap="round"/>
   <line x1="513.6" y1="552.3" x2="553.1" y2="620.6" stroke="#000000" stroke-width="20.8" stroke-linecap="round"/>
-  <circle cx="307.6" cy="515.5" r="47.3" fill="url(#x0g1)" stroke="#000000" stroke-width="8.3"/>
+  <circle cx="307.6" cy="515.5" r="47.3" fill="url(#x7da9b246fc2d40fb9cd251991db8de63g1)" stroke="#000000" stroke-width="8.3"/>
   <line x1="275.5" y1="484.9" x2="225.7" y2="398.6" stroke="#000000" stroke-width="14.6" stroke-linecap="round"/>
   <line x1="297.2" y1="472.4" x2="247.4" y2="386.1" stroke="#000000" stroke-width="14.6" stroke-linecap="round" stroke-dasharray="14.6,29.2"/>
   <line x1="286.4" y1="552.3" x2="246.9" y2="620.6" stroke="#000000" stroke-width="20.8" stroke-linecap="round"/>
-  <circle cx="215.3" cy="355.5" r="47.3" fill="url(#x0g2)" stroke="#000000" stroke-width="8.3"/>
+  <circle cx="215.3" cy="355.5" r="47.3" fill="url(#x7da9b246fc2d40fb9cd251991db8de63g2)" stroke="#000000" stroke-width="8.3"/>
   <line x1="225.7" y1="312.4" x2="275.5" y2="226.1" stroke="#000000" stroke-width="14.6" stroke-linecap="round"/>
   <line x1="247.4" y1="324.9" x2="297.2" y2="238.6" stroke="#000000" stroke-width="14.6" stroke-linecap="round" stroke-dasharray="14.6,29.2"/>
   <line x1="172.7" y1="355.5" x2="93.8" y2="355.5" stroke="#000000" stroke-width="20.8" stroke-linecap="round"/>
-  <circle cx="307.6" cy="195.5" r="47.3" fill="url(#x0g3)" stroke="#000000" stroke-width="8.3"/>
+  <circle cx="307.6" cy="195.5" r="47.3" fill="url(#x7da9b246fc2d40fb9cd251991db8de63g3)" stroke="#000000" stroke-width="8.3"/>
   <line x1="350.2" y1="183.0" x2="449.8" y2="183.0" stroke="#000000" stroke-width="14.6" stroke-linecap="round"/>
   <line x1="350.2" y1="208.0" x2="449.8" y2="208.0" stroke="#000000" stroke-width="14.6" stroke-linecap="round" stroke-dasharray="14.6,29.2"/>
   <line x1="286.4" y1="158.7" x2="246.9" y2="90.4" stroke="#000000" stroke-width="20.8" stroke-linecap="round"/>
-  <circle cx="492.4" cy="195.5" r="47.3" fill="url(#x0g4)" stroke="#000000" stroke-width="8.3"/>
+  <circle cx="492.4" cy="195.5" r="47.3" fill="url(#x7da9b246fc2d40fb9cd251991db8de63g4)" stroke="#000000" stroke-width="8.3"/>
   <line x1="524.5" y1="226.1" x2="574.3" y2="312.4" stroke="#000000" stroke-width="14.6" stroke-linecap="round"/>
   <line x1="502.8" y1="238.6" x2="552.6" y2="324.9" stroke="#000000" stroke-width="14.6" stroke-linecap="round" stroke-dasharray="14.6,29.2"/>
   <line x1="513.6" y1="158.7" x2="553.1" y2="90.4" stroke="#000000" stroke-width="20.8" stroke-linecap="round"/>
-  <circle cx="584.7" cy="355.5" r="47.3" fill="url(#x0g5)" stroke="#000000" stroke-width="8.3"/>
+  <circle cx="584.7" cy="355.5" r="47.3" fill="url(#x7da9b246fc2d40fb9cd251991db8de63g5)" stroke="#000000" stroke-width="8.3"/>
   <line x1="627.3" y1="355.5" x2="706.2" y2="355.5" stroke="#000000" stroke-width="20.8" stroke-linecap="round"/>
-  <circle cx="564.3" cy="640.0" r="24.9" fill="url(#x0g6)" stroke="#000000" stroke-width="8.3"/>
-  <circle cx="235.7" cy="640.0" r="24.9" fill="url(#x0g7)" stroke="#000000" stroke-width="8.3"/>
-  <circle cx="71.4" cy="355.5" r="24.9" fill="url(#x0g8)" stroke="#000000" stroke-width="8.3"/>
-  <circle cx="235.7" cy="71.0" r="24.9" fill="url(#x0g9)" stroke="#000000" stroke-width="8.3"/>
-  <circle cx="564.3" cy="71.0" r="24.9" fill="url(#x0g10)" stroke="#000000" stroke-width="8.3"/>
-  <circle cx="728.6" cy="355.5" r="24.9" fill="url(#x0g11)" stroke="#000000" stroke-width="8.3"/>
+  <circle cx="564.3" cy="640.0" r="24.9" fill="url(#x7da9b246fc2d40fb9cd251991db8de63g6)" stroke="#000000" stroke-width="8.3"/>
+  <circle cx="235.7" cy="640.0" r="24.9" fill="url(#x7da9b246fc2d40fb9cd251991db8de63g7)" stroke="#000000" stroke-width="8.3"/>
+  <circle cx="71.4" cy="355.5" r="24.9" fill="url(#x7da9b246fc2d40fb9cd251991db8de63g8)" stroke="#000000" stroke-width="8.3"/>
+  <circle cx="235.7" cy="71.0" r="24.9" fill="url(#x7da9b246fc2d40fb9cd251991db8de63g9)" stroke="#000000" stroke-width="8.3"/>
+  <circle cx="564.3" cy="71.0" r="24.9" fill="url(#x7da9b246fc2d40fb9cd251991db8de63g10)" stroke="#000000" stroke-width="8.3"/>
+  <circle cx="728.6" cy="355.5" r="24.9" fill="url(#x7da9b246fc2d40fb9cd251991db8de63g11)" stroke="#000000" stroke-width="8.3"/>
 </svg>
