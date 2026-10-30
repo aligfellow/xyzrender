@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from xyzrender.colors import PALETTES, Color, palette_color
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 def cmap_value_range(

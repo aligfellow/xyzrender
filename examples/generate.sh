@@ -185,24 +185,22 @@ xyzrender "$DIR/MOF-5.xyz" --hull faces --pore --no-cell --no-bo --fog --gif-rot
 
 echo "=== Bond-order colormap (systems_bonds) ==="
 SB="$DIR/systems_bonds"
-if [[ -f "$SB/manifest.txt" ]]; then
-  while read -r slug xyz bond _; do
-    [[ -z "${slug:-}" || "$slug" == \#* ]] && continue
-    out="$IMG/systems_bonds_${slug}.svg"
-    xyzrender "$SB/$xyz" --config "$SB/render.json" --hy --no-bo \
-      --bond-cmap "$SB/$bond" \
-      --cmap-range 0 3 --cmap-palette white_reverse_plasma \
-      -o "$out"
-  done < "$SB/manifest.txt"
-  if [[ -f "$SB/caffeine.xyz" && -f "$SB/caffeine_bond_orders.txt" ]]; then
-    # No render.json here: fixed_span fills the canvas and overlaps --cbar (same flags as caffeine_cmap_colorbar).
-    xyzrender "$SB/caffeine.xyz" --hy --no-bo \
-      --bond-cmap "$SB/caffeine_bond_orders.txt" \
-      --cmap-range 0 3 --cmap-palette white_reverse_plasma \
-      --cbar --cbar-unit "Bond order" \
-      -o "$IMG/systems_bonds_caffeine.svg"
-  fi
-fi
+# Match atom --cmap gallery: rotation GIF, one static molecule, colorbar.
+xyzrender "$SB/caffeine.xyz" --hy --no-bo \
+  --bond-cmap "$SB/caffeine_bond_orders.txt" \
+  --cmap-range 0 3 --cmap-palette white_reverse_plasma \
+  -o "$IMG/systems_bonds_caffeine.svg" --gif-rot -go "$IMG/systems_bonds_caffeine.gif"
+xyzrender "$SB/c6h6.xyz" --config "$SB/render.json" --hy --no-bo \
+  --bond-cmap "$SB/c6h6_bond_orders.txt" \
+  --cmap-range 0 3 --cmap-palette white_reverse_plasma \
+  -o "$IMG/systems_bonds_c6h6.svg"
+# Overwrite static SVG with colorbar version (GIF already written above).
+# No render.json: fixed_span fills the canvas and overlaps --cbar.
+xyzrender "$SB/caffeine.xyz" --hy --no-bo \
+  --bond-cmap "$SB/caffeine_bond_orders.txt" \
+  --cmap-range 0 3 --cmap-palette white_reverse_plasma \
+  --cbar --cbar-unit "Bond order" \
+  -o "$IMG/systems_bonds_caffeine.svg"
 
 echo "=== NCI surfaces ==="
 # NCIPLOT (low-field RDG) — defaults: --iso 0.3, classified as low_field automatically

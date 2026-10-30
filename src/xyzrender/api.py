@@ -2805,7 +2805,7 @@ def _resolve_bond_cmap(
         if graph is not None:
             from xyzrender.annotations import _ensure_bond_for_cmap
 
-            for (i, j), val in list(result.items()):
+            for (i, j), _val in list(result.items()):
                 if i not in graph or j not in graph:
                     raise ValueError(f"bond cmap: atom pair ({i + 1}, {j + 1}) not in molecule")
                 _ensure_bond_for_cmap(

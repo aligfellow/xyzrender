@@ -62,46 +62,17 @@ Color **selected bonds** by a scalar (e.g. Mayer bond order, NBO occupancy). The
 14  28  0.61
 ```
 
-Use the same `--cmap-range`, `--cmap-symm`, `--cmap-palette`, `--cbar`, and `--cbar-unit` flags as for atom `--cmap`. With both `--cmap` and `--bond-cmap`, the colorbar reflects the atom colormap. For rotation GIFs with a colorbar, add `--raster-fit-viewbox` so the bar is not cropped (default GIF raster is square).
+Use the same `--cmap-range`, `--cmap-symm`, `--cmap-palette`, `--cbar`, and `--cbar-unit` flags as for atom `--cmap`. With both `--cmap` and `--bond-cmap`, the colorbar reflects the atom colormap. GIF frames automatically preserve the SVG viewBox aspect ratio, so a colorbar is not cropped.
 
-```{eval-rst}
-.. image:: ../../../examples/images/systems_bonds_caffeine.svg
-   :width: 420px
-   :align: center
-```
-
-```{eval-rst}
-.. list-table::
-   :widths: 25 25 25 25
-   :class: colormap-gallery
-   :align: center
-
-   * - .. image:: ../../../examples/images/systems_bonds_c2h6.svg
-          :width: 200px
-     - .. image:: ../../../examples/images/systems_bonds_c2h4.svg
-          :width: 200px
-     - .. image:: ../../../examples/images/systems_bonds_c2h2.svg
-          :width: 200px
-     - .. image:: ../../../examples/images/systems_bonds_c4h6_double.svg
-          :width: 200px
-   * - .. image:: ../../../examples/images/systems_bonds_c4h6_triple.svg
-          :width: 200px
-     - .. image:: ../../../examples/images/systems_bonds_c4h8.svg
-          :width: 200px
-     - .. image:: ../../../examples/images/systems_bonds_c4h2.svg
-          :width: 200px
-     - .. image:: ../../../examples/images/systems_bonds_c6h6.svg
-          :width: 200px
-```
+| Bond orders (rotation) | Benzene | With colorbar |
+|------------------------|---------|---------------|
+| ![Bond orders (rotation)](../../../examples/images/systems_bonds_caffeine.gif) | ![Benzene](../../../examples/images/systems_bonds_c6h6.svg) | ![With colorbar](../../../examples/images/systems_bonds_caffeine.svg) |
 
 ```bash
-xyzrender examples/structures/systems_bonds/caffeine.xyz --hy --no-bo \
-  --bond-cmap examples/structures/systems_bonds/caffeine_bond_orders.txt \
-  --cmap-range 0 3 --cmap-palette white_reverse_plasma \
-  --cbar --cbar-unit "Bond order"
-
-xyzrender examples/structures/systems_bonds/c2h2.xyz \
-  --config examples/structures/systems_bonds/render.json --hy --no-bo \
-  --bond-cmap examples/structures/systems_bonds/c2h2_bond_orders.txt \
+xyzrender caffeine.xyz --hy --no-bo --bond-cmap caffeine_bond_orders.txt \
+  --cmap-range 0 3 --cmap-palette white_reverse_plasma --gif-rot -go caffeine_bonds.gif
+xyzrender c6h6.xyz --config render.json --hy --no-bo --bond-cmap c6h6_bond_orders.txt \
   --cmap-range 0 3 --cmap-palette white_reverse_plasma
+xyzrender caffeine.xyz --hy --no-bo --bond-cmap caffeine_bond_orders.txt \
+  --cmap-range 0 3 --cmap-palette white_reverse_plasma --cbar --cbar-unit "Bond order"
 ```

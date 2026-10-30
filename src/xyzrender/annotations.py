@@ -359,10 +359,10 @@ def load_bond_cmap(file_path: str, graph) -> dict[tuple[int, int], float]:
                 raise ValueError(f"bond cmap line {lineno}: atom indices must differ (got {raw_i} {raw_j})")
 
             i, j = raw_i - 1, raw_j - 1
-            for idx, raw in ((i, raw_i), (j, raw_j)):
+            for idx, one_indexed in ((i, raw_i), (j, raw_j)):
                 if idx not in node_ids:
                     raise ValueError(
-                        f"bond cmap line {lineno}: atom index {raw} not found in molecule "
+                        f"bond cmap line {lineno}: atom index {one_indexed} not found in molecule "
                         f"({n} atoms, valid range 1-{n})"
                     )
 

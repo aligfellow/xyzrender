@@ -211,7 +211,6 @@ Fine-grained overlay style (`atom_stroke_width`, `atom_stroke_color`, `bond_colo
 | `-go`, `--gif-output` | GIF output path (default: `{basename}.gif`) |
 | `--gif-fps` | Frames per second (default: 10) |
 | `--rot-frames` | Rotation frame count (default: 120) |
-| `--raster-fit-viewbox` | Raster GIF frames to SVG viewBox aspect (default: square; use with `--cbar` to avoid cropping) |
 | `--vib-frames` | Vibration frames for `--gif-ts` (default: 20) |
 
 Available rotation axes: `x`, `y`, `z`, `xy`, `xz`, `yz`, `yx`, `zx`, `zy`. Prefix `-` to reverse (e.g. `-xy`). For crystal inputs, a 3-digit Miller index string is also accepted (e.g. `111`, `001`).

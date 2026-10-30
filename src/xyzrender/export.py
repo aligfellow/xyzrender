@@ -24,7 +24,7 @@ def _has_resvg() -> bool:
 
 
 def svg_raster_dimensions(svg: str, *, size: int = 800) -> tuple[int, int]:
-    """Return PNG width/height that fit the SVG viewBox inside a *size*×*size* box.
+    """Return PNG width/height that fit the SVG viewBox inside a *size*x*size* box.
 
     Used when ``fit_viewbox=True`` so wide SVGs (e.g. molecule + colorbar) are not
     cropped in square GIF/PNG frames.
@@ -47,7 +47,7 @@ def svg_to_png_bytes(svg: str, *, size: int = 800, fit_viewbox: bool = False) ->
     """Convert SVG string to PNG bytes at a fixed pixel size.
 
     Used by GIF frame rendering where exact pixel dimensions matter.
-    Default is a square *size*×*size* raster; set ``fit_viewbox=True`` to preserve
+    Default is a square *size*x*size* raster; set ``fit_viewbox=True`` to preserve
     the SVG viewBox aspect ratio within that box.
     """
     if fit_viewbox:

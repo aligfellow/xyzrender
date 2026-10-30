@@ -242,8 +242,6 @@ class RenderConfig:
     """Rendering settings."""
 
     canvas_size: int = 800
-    # GIF/PNG raster: False = square canvas_size×canvas_size (default); True = fit SVG viewBox aspect.
-    raster_fit_viewbox: bool = False
     padding: float = 20.0
     atom_scale: float = 1.0
     radius_scale: list[tuple[str | list[int], float]] = field(
