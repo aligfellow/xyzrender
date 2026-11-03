@@ -30,13 +30,15 @@ homepage = "https://github.com/aligfellow/xyzrender"
 
 [project.scripts]
 xyzrender = "xyzrender.cli:main"
+xyzrender-mcp = "xyzrender.mcp:main"
 
 [project.optional-dependencies]
 smi     = ["rdkit"]
 cif     = ["ase"]
 shelxl  = ["shelxfile"]
 v       = ["vmol>=3.0rc7"]
-all     = ["rdkit", "ase", "vmol>=3.0rc7", "shelxfile"]
+mcp     = ["mcp>=2.3"]
+all     = ["rdkit", "ase", "vmol>=3.0rc7", "shelxfile", "mcp>=2.3"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
