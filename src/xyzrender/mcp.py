@@ -15,6 +15,9 @@ from .agent import (
     inspect_structure as _inspect_structure,
 )
 from .agent import (
+    list_presets as _list_presets,
+)
+from .agent import (
     measure_geometry as _measure_geometry,
 )
 from .agent import (
@@ -29,6 +32,8 @@ _INSTRUCTIONS = (
     "Use render_gif only when the user asks for an animation. "
     "Use measure_geometry for distances/angles/dihedrals as JSON. "
     "Use inspect_structure to learn atom counts, formula, cube/cell/TS/NCI hints before rendering. "
+    "Use list_presets to see built-in config names for the config= argument "
+    "(a custom JSON path is also allowed). "
     "Paths should be absolute when possible. "
     "Atom indices and bond pairs are 1-indexed (e.g. ts_bonds=['1-2']). "
     "ts / nci enable automatic graph overlays; nci_surf is a volumetric RDG cube path (different). "
@@ -45,6 +50,22 @@ def build_server() -> Any:
         raise ImportError("The xyzrender MCP server needs the mcp extra: pip install 'xyzrender[mcp]'") from exc
 
     server = MCPServer("xyzrender", instructions=_INSTRUCTIONS)
+
+    @server.tool(
+        annotations=ToolAnnotations(
+            title="List presets",
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=False,
+        )
+    )
+    def list_presets() -> AgentResult:
+        """List built-in style preset names for the ``config`` argument.
+
+        ``config`` may also be a path to a custom JSON file.
+        """
+        return _list_presets()
 
     @server.tool(
         annotations=ToolAnnotations(

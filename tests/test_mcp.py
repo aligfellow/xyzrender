@@ -4,11 +4,28 @@ from pathlib import Path
 
 import pytest
 
-from xyzrender.agent import inspect_structure, measure_geometry, render_animation, render_molecule
+from xyzrender.agent import (
+    inspect_structure,
+    list_presets,
+    measure_geometry,
+    render_animation,
+    render_molecule,
+)
+from xyzrender.config import list_presets as config_list_presets
 
 STRUCTURES = Path(__file__).parent.parent / "examples" / "structures"
 CAFFEINE = STRUCTURES / "caffeine.xyz"
 ETHANOL = STRUCTURES / "ethanol.xyz"
+
+
+def test_list_presets():
+    result = list_presets()
+    assert result["success"] is True
+    assert result["action"] == "list_presets"
+    assert "default" in result["presets"]
+    assert "flat" in result["presets"]
+    assert "named_colors" not in result["presets"]
+    assert result["presets"] == config_list_presets()
 
 
 def test_inspect_structure_caffeine():

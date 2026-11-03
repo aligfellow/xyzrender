@@ -33,6 +33,20 @@ class AgentResult(TypedDict, total=False):
     distances: list[list[float | int]]
     angles: list[list[float | int]]
     dihedrals: list[list[float | int]]
+    presets: list[str]
+
+
+def list_presets() -> AgentResult:
+    """Return built-in ``config`` preset names for ``render_molecule`` / ``render_gif``."""
+    from xyzrender.config import list_presets as _list_presets
+
+    return {
+        "success": True,
+        "action": "list_presets",
+        "output": None,
+        "format": None,
+        "presets": _list_presets(),
+    }
 
 
 def inspect_structure(
