@@ -261,7 +261,7 @@ def render_animation(
         out.parent.mkdir(parents=True, exist_ok=True)
         # render_gif has no vdw= kwarg; set indices on a RenderConfig instead.
         gif_config: str | Any = config
-        if vdw_arg is not None:
+        if vdw_arg is True or isinstance(vdw_arg, list):
             from xyzrender.config import build_config
 
             cfg = build_config(config) if isinstance(config, str) else config

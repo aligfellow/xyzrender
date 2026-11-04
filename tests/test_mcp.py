@@ -40,7 +40,9 @@ def test_inspect_structure_caffeine():
 def test_inspect_structure_missing_file():
     result = inspect_structure("/no/such/molecule.xyz")
     assert result["success"] is False
-    assert "not found" in result["error"].lower() or "No such" in result["error"]
+    error = result["error"]
+    assert error is not None
+    assert "not found" in error.lower() or "No such" in error
 
 
 def test_measure_geometry_distances_only():
@@ -64,7 +66,9 @@ def test_render_molecule_rejects_bad_suffix(tmp_path):
     out = tmp_path / "caffeine.jpg"
     result = render_molecule(str(CAFFEINE), str(out))
     assert result["success"] is False
-    assert "Unsupported output suffix" in result["error"]
+    error = result["error"]
+    assert error is not None
+    assert "Unsupported output suffix" in error
 
 
 def test_render_animation_rot(tmp_path):

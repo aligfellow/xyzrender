@@ -44,8 +44,8 @@ _INSTRUCTIONS = (
 def build_server() -> Any:
     """Return a configured MCP server. Requires ``pip install 'xyzrender[mcp]'``."""
     try:
-        from mcp.server.mcpserver import MCPServer
-        from mcp.types import ToolAnnotations
+        from mcp.server.mcpserver import MCPServer  # ty: ignore[unresolved-import]
+        from mcp.types import ToolAnnotations  # ty: ignore[unresolved-import]
     except ImportError as exc:
         raise ImportError("The xyzrender MCP server needs the mcp extra: pip install 'xyzrender[mcp]'") from exc
 

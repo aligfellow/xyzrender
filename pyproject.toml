@@ -57,6 +57,7 @@ dev = [
     "rdkit",    # optional dep (needed for test_formats.py mol/sdf fixtures)
     "vmol>=3.0rc7",
     "shelxfile", # optional dep (needed for test_formats.py shelx)
+    "mcp>=2.3",  # optional dep (needed for ty + test_mcp.py build_server)
 ]
 
 # ===== Ruff =====
