@@ -1711,12 +1711,23 @@ def render_gif(
     if vib_frames is not None and not gif_ts:
         logger.warning("vib_frames has no effect without gif_ts")
 
-    # Resolve config
-    _gif_mol = molecule if isinstance(molecule, Molecule) else load(molecule)
+    # Resolve input once; retain the source path for trajectory reading and output naming.
+    if isinstance(molecule, Molecule):
+        if gif_ts or gif_trj:
+            msg = (
+                "render_gif: pass a file path (not a Molecule) for gif_ts / gif_trj modes — "
+                "the trajectory is read from disk."
+            )
+            raise ValueError(msg)
+        mol_path = None
+        mol = molecule
+    else:
+        mol_path = Path(str(molecule))
+        mol = load(molecule)
     if only is not None or exclude is not None:
-        _gif_mol = _filter_molecule_atoms(_gif_mol, only=only, exclude=exclude)
-        molecule = _gif_mol
-    _gif_graph = _gif_mol.graph
+        mol = _filter_molecule_atoms(mol, only=only, exclude=exclude)
+
+    # Resolve config
     if not isinstance(config, str):
         cfg = copy.copy(config)
         cfg.vectors = list(cfg.vectors)
@@ -1769,7 +1780,7 @@ def render_gif(
     if haptic:
         cfg.haptic = True
 
-    _apply_render_overlays(cfg, _gif_graph, ts_bonds=ts_bonds)
+    _apply_render_overlays(cfg, mol.graph, ts_bonds=ts_bonds)
 
     if opacity is not None and overlay is None:
         cfg.surface_opacity = opacity
@@ -1785,10 +1796,10 @@ def render_gif(
         cfg.mol_color = resolve_color(mol_color)
 
     # --- Highlight ---
-    _apply_highlight(cfg, highlight=highlight, graph=_gif_graph)
+    _apply_highlight(cfg, highlight=highlight, graph=mol.graph)
 
     # --- Style regions (user + preset-defined) ---
-    _apply_style_regions(cfg, _gif_graph, regions=regions)
+    _apply_style_regions(cfg, mol.graph, regions=regions)
 
     # --- Bond coloring ---
     if ts_color is not None:
@@ -1811,7 +1822,7 @@ def render_gif(
             raise ValueError(msg)
         cfg.glow_strength = glow_strength
     if glow is not None:
-        cfg.glow_indices = sorted(_resolve_glow_indices(glow, _gif_graph))
+        cfg.glow_indices = sorted(_resolve_glow_indices(glow, mol.graph))
 
     # --- Per-atom radius scale ---
     if radius_scale is not None:
@@ -1820,7 +1831,7 @@ def render_gif(
     # --- Convex hull / pore (detection + config) ---
     _apply_hull_pore_workflow(
         cfg,
-        _gif_graph,
+        mol.graph,
         hull=hull,
         hull_color=hull_color,
         hull_opacity=hull_opacity,
@@ -1832,7 +1843,7 @@ def render_gif(
         pore_opacity=pore_opacity,
         supercell=supercell,
         face_planarity=face_planarity,
-        cell_data=_gif_mol.cell_data,
+        cell_data=mol.cell_data,
         ring_max_size=ring_max_size,
         ring_min_size=ring_min_size,
         skip_hull_if_active=True,
@@ -1846,20 +1857,6 @@ def render_gif(
     if cfg.show_convex_hull and (mo or dens):
         msg = "render_gif: convex hull and surface rendering (mo/dens) are mutually exclusive"
         raise ValueError(msg)
-
-    # Resolve molecule → path and/or graph
-    if isinstance(molecule, Molecule):
-        if gif_ts or gif_trj:
-            msg = (
-                "render_gif: pass a file path (not a Molecule) for gif_ts / gif_trj modes — "
-                "the trajectory is read from disk."
-            )
-            raise ValueError(msg)
-        mol_path = None
-        ref_graph = molecule.graph
-    else:
-        mol_path = Path(str(molecule))
-        ref_graph = None
 
     # Resolve output path
     if output is not None:
@@ -1877,11 +1874,9 @@ def render_gif(
         raise ValueError(msg)
 
     # --- Dispatch ---
-    # Cache for frequent checks
-    mol_obj = molecule if isinstance(molecule, Molecule) else None
 
     if gif_ts:
-        # render_vibration_gif reads mol_path directly — no ref_graph load needed.
+        # The vibration renderer reads the source trajectory directly.
         _vib_axis = bounce_ax or gif_rot or ("y" if bounce_deg is not None else None)
         render_vibration_gif(
             path=str(mol_path),
@@ -1900,13 +1895,7 @@ def render_gif(
         logger.info("GIF written to %s", gif_path)
         return GIFResult(gif_path)
 
-    # All remaining branches need ref_graph.
-    if ref_graph is None:
-        from xyzrender.readers import load_molecule
-
-        ref_graph, _ = load_molecule(str(mol_path))
-    else:
-        ref_graph = copy.deepcopy(ref_graph)
+    rmol = mol.copy()
 
     if gif_trj:
         from xyzrender.readers import load_trajectory_frames
@@ -1914,16 +1903,20 @@ def render_gif(
         frames = load_trajectory_frames(str(mol_path))
         if len(frames) < 2:
             raise ValueError("render_gif(gif_trj=True) requires a multi-frame XYZ file")
+        # A caller-supplied reference (CLI: loaded with -c/-m) carries the electronic state.
+        trj_ref = reference_graph if reference_graph is not None else rmol.graph
 
         render_trajectory_gif(
             frames=frames,
             config=cfg,
             output=str(gif_path),
             fps=gif_fps,
-            reference_graph=reference_graph if reference_graph is not None else ref_graph,
+            reference_graph=trj_ref,
             axis=gif_rot,
             trj_bonds=trj_bonds,
             detect_nci=detect_nci,
+            charge=trj_ref.graph.get("total_charge", 0),
+            multiplicity=trj_ref.graph.get("multiplicity"),
         )
         logger.info("GIF written to %s", gif_path)
         return GIFResult(gif_path)
@@ -1934,10 +1927,10 @@ def render_gif(
         if cfg.unbond or cfg.bond or cfg.haptic:
             from xyzrender.bond_rules import apply_bond_rules
 
-            apply_bond_rules(ref_graph, cfg)
+            apply_bond_rules(rmol.graph, cfg)
 
         render_diffuse_gif(
-            graph=ref_graph,
+            graph=rmol.graph,
             config=cfg,
             output=str(gif_path),
             fps=gif_fps,
@@ -1955,20 +1948,18 @@ def render_gif(
     else:
         # Orientation & Ensemble
         if ref is not None:
-            _ref_mol = Molecule(graph=ref_graph)
-            _ref_path = Path(ref)
-            if _ref_path.is_file():
-                _apply_ref_orientation(_ref_mol, _ref_path, cfg)
+            ref_path = Path(ref)
+            if ref_path.is_file():
+                _apply_ref_orientation(rmol, ref_path, cfg)
             else:
-                _apply_and_save_ref(_ref_mol, cfg, _ref_path)
-            ref_graph = _ref_mol.graph
+                _apply_and_save_ref(rmol, cfg, ref_path)
 
-        if isinstance(molecule, Molecule) and molecule.ensemble is not None:
+        if mol.ensemble is not None:
             from xyzrender.ensemble import merge_graphs
 
-            ens = molecule.ensemble
-            ref_graph = merge_graphs(
-                ref_graph, ens.positions, conformer_colors=ens.colors, conformer_opacities=ens.opacities, z_nudge=False
+            ens = mol.ensemble
+            rmol.graph = merge_graphs(
+                rmol.graph, ens.positions, conformer_colors=ens.colors, conformer_opacities=ens.opacities, z_nudge=False
             )
 
         # Overlay & Bond Rules
@@ -1979,42 +1970,36 @@ def render_gif(
 
         if overlay is not None:
             # _setup_overlay PCA-orients and clears cfg.auto_orient — let it through.
-            base_mol = mol_obj if mol_obj is not None else Molecule(graph=ref_graph)
-            ref_graph = _apply_overlay(
-                base_mol,
-                Molecule(graph=ref_graph),
+            rmol = _apply_overlay(
+                mol,
+                rmol,
                 cfg,
                 overlay,
                 overlay_color=overlay_color,
                 overlay_opacity=opacity,
                 align_atoms=align_atoms,
-                has_surfaces=False,
-            ).graph
+                has_surfaces=bool(mo or dens),
+            )
 
         if cfg.unbond or cfg.bond or cfg.haptic:
             from xyzrender.bond_rules import apply_bond_rules
 
-            apply_bond_rules(ref_graph, cfg)
+            apply_bond_rules(rmol.graph, cfg)
 
         # Vectors & Cell Config
         _combine_vector_sources(
             cfg,
-            ref_graph,
+            rmol.graph,
             vector=vector,
             vector_scale=vector_scale,
             vector_color=vector_color,
-            cell_data=mol_obj.cell_data if mol_obj is not None else None,
+            cell_data=rmol.cell_data,
             axes=(not no_cell) if axes is None else axes,
         )
 
-        if mol_obj is not None and mol_obj.cell_data is not None:
-            _cell_mol = Molecule(
-                graph=ref_graph,
-                cell_data=copy.deepcopy(mol_obj.cell_data),
-                oriented=mol_obj.oriented,
-            )
+        if rmol.cell_data is not None:
             _apply_cell_config(
-                _cell_mol,
+                rmol,
                 cfg,
                 no_cell=no_cell,
                 axis=axis,
@@ -2026,13 +2011,9 @@ def render_gif(
                 bo_explicit=bo,
                 unwrap=unwrap,
             )
-            ref_graph = _cell_mol.graph
 
         # Surfaces
-        # NB: use _gif_mol (loaded from path or passed in), not mol_obj — the
-        # latter is None when a path was passed, which would silently drop
-        # cube_data for path-based render_gif(path, mo=True) calls.
-        cube_data = _gif_mol.cube_data
+        cube_data = rmol.cube_data
         mo_p = dens_p = None
         if cube_data is not None and (mo or dens):
             from xyzrender.config import build_surface_params
@@ -2053,7 +2034,7 @@ def render_gif(
             )
 
         render_rotation_gif(
-            graph=ref_graph,
+            graph=rmol.graph,
             config=cfg,
             output=str(gif_path),
             fps=gif_fps,
