@@ -358,6 +358,15 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     else:
         colors = [get_color(a, cfg.color_overrides) for a in a_nums]
 
+    # Per-atom colours carried by the input file (CJSON `atoms.colors`).  These
+    # are more specific than CPK or a preset's per-element `colors`, so they win
+    # over both; `--cmap` (above) and `--mol-color` (below) still override them.
+    if cfg.atom_cmap is None:
+        for ai, nid in enumerate(node_ids):
+            file_color = graph.nodes[nid].get("file_color")
+            if file_color:
+                colors[ai] = Color.from_str(file_color)
+
     cbar_vmin: float | None = None
     cbar_vmax: float | None = None
     cbar_palette: str | None = None

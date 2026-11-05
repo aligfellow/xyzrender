@@ -279,6 +279,7 @@ Contributors:
 - [Jonathan Di Pietro (@jonathandip)](https://github.com/jonathandip) — CVD colour palettes, bug fixes
 - [Henry Teahan (@HenryTeahan)](https://github.com/HenryTeahan) — direct rdkit mol object rendering
 - [Pedro Juan Royo (@Parzival1918)](https://github.com/Parzival1918) — unwrap for molecular crystals, SHELXL support
+- [Geoff Hutchison (@ghutchis)](https://github.com/ghutchis) — CJSON Avogadro support (and plugin)
 
 ## Citation
 

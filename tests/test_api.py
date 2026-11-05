@@ -71,6 +71,24 @@ def test_load_smiles():
     assert mol.graph.number_of_nodes() > 0
 
 
+def test_load_warns_when_mol_frame_is_ignored(caplog):
+    load(STRUCTURES / "caffeine.xyz", mol_frame=1)
+    assert "mol_frame has no effect" in caplog.text
+
+
+def test_load_cjson_mol_frame(tmp_path):
+    source = tmp_path / "frames.cjson"
+    source.write_text(
+        '{"chemicalJson":1,"atoms":{"elements":{"number":[6,6]},'
+        '"coords":{"3dSets":[[0,0,0,1.5,0,0],[0,0,0,0,2.5,0]]}},'
+        '"bonds":{"connections":{"index":[0,1]},"order":[1]}}'
+    )
+
+    mol = load(source, mol_frame=1)
+
+    assert mol.graph.nodes[1]["position"] == (0.0, 2.5, 0.0)
+
+
 # ---------------------------------------------------------------------------
 # SVGResult
 # ---------------------------------------------------------------------------
