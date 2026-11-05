@@ -411,8 +411,18 @@ def graph_from_moldata(
         graph: nx.Graph = nx.Graph()
         for i, (sym, pos) in enumerate(data.atoms):
             graph.add_node(i, symbol=sym, position=pos)
+            if data.formal_charges is not None:
+                graph.nodes[i]["formal_charge"] = data.formal_charges[i]
         for i, j, order in data.bonds:
             graph.add_edge(i, j, bond_order=order)
+        # NCI site rules read per-atom formal_charge and valence; valence is the
+        # non-metal bond-order sum, matching what xyzgraph's builder stamps.
+        from xyzgraph import DATA
+
+        for i in graph.nodes:
+            graph.nodes[i]["valence"] = sum(
+                e["bond_order"] for j, e in graph[i].items() if graph.nodes[j]["symbol"] not in DATA.metals
+            )
         isolated = sum(1 for n in graph.nodes if graph.degree(n) == 0)
         if isolated > 0:
             logger.warning(

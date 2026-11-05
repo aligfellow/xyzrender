@@ -77,6 +77,8 @@ class MolData:
         ``None`` when the format carries no explicit colouring.
     camera:
         Saved viewer camera, or ``None`` when the file carries none.
+    formal_charges:
+        Per-atom formal charges, or ``None`` when the format carries none.
     """
 
     atoms: list[tuple[str, tuple[float, float, float]]]
@@ -86,6 +88,7 @@ class MolData:
     pbc_cell: np.ndarray | None = field(default=None, repr=False)
     colors: list[str] | None = field(default=None, repr=False)
     camera: CameraData | None = field(default=None, repr=False)
+    formal_charges: list[int] | None = field(default=None, repr=False)
 
 
 # ---------------------------------------------------------------------------
@@ -214,8 +217,8 @@ def _parse_mol_v2000(lines: list[str], name: str) -> MolData:
             except (IndexError, ValueError):
                 pass
 
-    total_charge = sum(atom_charges.values())
-    return MolData(atoms=atoms, bonds=bonds, name=name, charge=total_charge)
+    formal_charges = [atom_charges.get(i, 0) for i in range(n_atoms)]
+    return MolData(atoms=atoms, bonds=bonds, name=name, charge=sum(formal_charges), formal_charges=formal_charges)
 
 
 def _parse_mol_v3000(lines: list[str], name: str) -> MolData:
@@ -224,7 +227,7 @@ def _parse_mol_v3000(lines: list[str], name: str) -> MolData:
     in_bond = False
     atoms: list[tuple[str, tuple[float, float, float]]] = []
     bonds: list[tuple[int, int, float]] = []
-    total_charge = 0
+    formal_charges: list[int] = []
 
     for ln in lines:
         s = ln.strip()
@@ -266,7 +269,7 @@ def _parse_mol_v3000(lines: list[str], name: str) -> MolData:
                         chg = int(p.split("=", 1)[1])
                     except ValueError:
                         pass
-            total_charge += chg
+            formal_charges.append(chg)
             atoms.append((sym, (x, y, z)))
 
         elif in_bond:
@@ -282,7 +285,7 @@ def _parse_mol_v3000(lines: list[str], name: str) -> MolData:
                 continue
             bonds.append((a1, a2, _V2000_BOND_ORDER.get(btype, 1.0)))
 
-    return MolData(atoms=atoms, bonds=bonds, name=name, charge=total_charge)
+    return MolData(atoms=atoms, bonds=bonds, name=name, charge=sum(formal_charges), formal_charges=formal_charges)
 
 
 def parse_mol(path: str | Path) -> MolData:
@@ -924,7 +927,8 @@ def parse_smiles(smiles: str, kekule: bool = False) -> MolData:
         (b.GetBeginAtomIdx(), b.GetEndAtomIdx(), b.GetBondTypeAsDouble()) for b in mol.GetBonds()
     ]
 
-    return MolData(atoms=atoms, bonds=bonds, name=smiles)
+    formal_charges = [a.GetFormalCharge() for a in mol.GetAtoms()]
+    return MolData(atoms=atoms, bonds=bonds, name=smiles, charge=sum(formal_charges), formal_charges=formal_charges)
 
 
 # ---------------------------------------------------------------------------
@@ -974,14 +978,15 @@ def parse_molobject(mol, *, conf_id: int = -1, kekule: bool = False, name: str |
         )
         for bond in mol.GetBonds()
     ]
-    charge = int(sum(atom.GetFormalCharge() for atom in mol.GetAtoms()))
+    formal_charges = [atom.GetFormalCharge() for atom in mol.GetAtoms()]
     if not name:
         name = mol.GetProp("_Name") if mol.HasProp("_Name") else ""
     return MolData(
         atoms=atoms,
         bonds=bonds,
         name=name,
-        charge=charge,
+        charge=sum(formal_charges),
+        formal_charges=formal_charges,
     )
 
 
