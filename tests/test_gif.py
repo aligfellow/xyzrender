@@ -475,40 +475,30 @@ def test_render_gif_rot_applies_auto_align_without_overlay_kwarg(tmp_path):
     )
 
 
-def test_render_gif_ts_does_not_double_load_molecule(tmp_path):
-    """`render_gif(path, gif_ts=True)` must not call `load_molecule` an extra time
-    just to populate `ref_graph` (regression for PR #126).
-
-    PR #126 hoisted `ref_graph, _ = load_molecule(str(mol_path))` to run before the
-    dispatch switch. The `gif_ts` branch passes `mol_path` straight to
-    `render_vibration_gif` and never reads `ref_graph`, so the extra load is wasted
-    work — non-trivial for files with cube data.
-
-    Expected call count for `xyzrender.readers.load_molecule`:
-      - 1: the initial `load(molecule)` at api.py:1445 (legitimate, needed for cfg setup)
-      - 2 (BUG): the extra load at api.py:1593 (the regression — should be lazy)
-    """
+@pytest.mark.parametrize(
+    ("mode", "renderer"),
+    [
+        ("gif_ts", "render_vibration_gif"),
+        ("gif_trj", "render_trajectory_gif"),
+        ("gif_rot", "render_rotation_gif"),
+        ("gif_diffuse", "render_diffuse_gif"),
+    ],
+)
+def test_render_gif_loads_once(tmp_path, mode, renderer):
     from unittest.mock import patch
 
-    from xyzrender.api import render_gif
+    from xyzrender import readers, render_gif
 
-    src = STRUCTURES / "caffeine.xyz"
-
+    source = tmp_path / "charged.xyz"
+    source.write_text("1\ncharge=-1 multiplicity=1\nCl 0 0 0\n" * 2)
     with (
-        patch("xyzrender.gif.render_vibration_gif") as mock_vib,
-        patch(
-            "xyzrender.readers.load_molecule",
-            wraps=__import__("xyzrender.readers", fromlist=["load_molecule"]).load_molecule,
-        ) as mock_load,
+        patch(f"xyzrender.gif.{renderer}") as mock_render,
+        patch("xyzrender.readers.load_molecule", wraps=readers.load_molecule) as mock_load,
     ):
-        render_gif(src, gif_ts=True, output=str(tmp_path / "x.gif"))
+        render_gif(source, **{mode: True}, output=tmp_path / "path.gif")
 
-    mock_vib.assert_called_once()
-    assert mock_load.call_count == 1, (
-        f"load_molecule called {mock_load.call_count} times for gif_ts — the second call "
-        "(api.py:1593) is wasted because render_vibration_gif uses mol_path directly. "
-        "Move the ref_graph load into the rotation/diffuse/trajectory branches that need it."
-    )
+    mock_render.assert_called_once()
+    assert mock_load.call_count == 1
 
 
 # ---------------------------------------------------------------------------
@@ -619,3 +609,43 @@ def test_render_gif_rot_accepts_align_atoms_kwarg(tmp_path):
         f"render_gif accepted align_atoms but didn't propagate to _apply_overlay: "
         f"got {captured_align.get('align_atoms')!r}"
     )
+
+
+def test_trajectory_gif_preserves_electronic_state(tmp_path, monkeypatch):
+    from xyzrender import gif, render_gif
+
+    source = tmp_path / "charged.xyz"
+    source.write_text("1\ncharge=-1 multiplicity=1\nCl 0 0 0\n" * 2)
+    captured = {}
+    monkeypatch.setattr(gif, "render_trajectory_gif", lambda **kwargs: captured.update(kwargs))
+
+    render_gif(source, gif_trj=True, trj_bonds=True, output=tmp_path / "path.gif")
+
+    assert captured["charge"] == -1
+    assert captured["multiplicity"] == 1
+    assert captured["trj_bonds"] is True
+
+
+@pytest.mark.parametrize("from_path", [False, True], ids=["molecule", "path"])
+def test_rotation_preserves_molecule_data(tmp_path, monkeypatch, from_path):
+    from xyzrender import api, gif
+
+    source = tmp_path / "cell.xyz"
+    source.write_text('2\nLattice="5 0 0 0 5 0 0 0 5" charge=0 multiplicity=1\nH 0 0 0\nH 0.74 0 0\n')
+    mol = api.load(source)
+    captured = {}
+
+    def render(graph, config, **kwargs):
+        captured.update(graph=graph, config=config)
+        graph.nodes[0]["position"] = (9.0, 9.0, 9.0)
+        config.cell_data.lattice[:] = 9.0
+
+    monkeypatch.setattr(gif, "render_rotation_gif", render)
+    monkeypatch.setattr(api, "load", lambda _: mol)
+    api.render_gif(source if from_path else mol, gif_rot=True, ghosts=False, output=tmp_path / "path.gif")
+
+    assert captured["graph"] is not mol.graph
+    assert captured["config"].cell_data is not mol.cell_data
+    assert captured["config"].show_cell
+    np.testing.assert_array_equal(mol.graph.nodes[0]["position"], (0.0, 0.0, 0.0))
+    np.testing.assert_array_equal(mol.cell_data.lattice, np.eye(3) * 5)
