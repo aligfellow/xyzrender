@@ -478,11 +478,12 @@ def test_render_gif_rot_applies_auto_align_without_overlay_kwarg(tmp_path):
 @pytest.mark.parametrize(
     ("mode", "renderer"),
     [
-        ("gif_ts", "render_vibration_gif"),
-        ("gif_trj", "render_trajectory_gif"),
-        ("gif_rot", "render_rotation_gif"),
-        ("gif_diffuse", "render_diffuse_gif"),
+        ({"gif_ts": True}, "render_vibration_gif"),
+        ({"gif_trj": True}, "render_trajectory_gif"),
+        ({"gif_rot": True}, "render_rotation_gif"),
+        ({"gif_diffuse": True}, "render_diffuse_gif"),
     ],
+    ids=["ts", "trj", "rot", "diffuse"],
 )
 def test_render_gif_loads_once(tmp_path, mode, renderer):
     from unittest.mock import patch
@@ -495,7 +496,7 @@ def test_render_gif_loads_once(tmp_path, mode, renderer):
         patch(f"xyzrender.gif.{renderer}") as mock_render,
         patch("xyzrender.readers.load_molecule", wraps=readers.load_molecule) as mock_load,
     ):
-        render_gif(source, **{mode: True}, output=tmp_path / "path.gif")
+        render_gif(source, **mode, output=tmp_path / "path.gif")
 
     mock_render.assert_called_once()
     assert mock_load.call_count == 1
@@ -633,6 +634,7 @@ def test_rotation_preserves_molecule_data(tmp_path, monkeypatch, from_path):
     source = tmp_path / "cell.xyz"
     source.write_text('2\nLattice="5 0 0 0 5 0 0 0 5" charge=0 multiplicity=1\nH 0 0 0\nH 0.74 0 0\n')
     mol = api.load(source)
+    assert mol.cell_data is not None
     captured = {}
 
     def render(graph, config, **kwargs):
