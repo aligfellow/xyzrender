@@ -158,11 +158,17 @@ Full usage, the Python API guide, every flag, and runnable examples live in the 
 |---------------------|----------------|--------------------|
 | ![ensemble](examples/images/triphenylbenzol_ensemble.svg) | ![ensemble cpk](examples/images/triphenylbenzol_ensemble_cpk.svg) | ![ensemble custom](examples/images/triphenylbenzol_ensemble_custom.svg) |
 
-### Transition states & NCI
+### Transition states
 
-| Auto TS | Manual TS | Auto NCI | TS + NCI custom colours | QM output |
-|---------|-----------|----------|-------------------------|-----------|
-| ![ts](examples/images/sn2_ts.svg) | ![ts man](examples/images/sn2_ts_man.svg) | ![nci](examples/images/nci.svg) | ![ts nci custom](examples/images/bimp_ts_nci_custom.svg) | ![bimp](examples/images/bimp_qm.svg) |
+| Auto TS | Manual TS | QM output |
+|---------|-----------|-----------|
+| ![ts](examples/images/sn2_ts.svg) | ![ts man](examples/images/sn2_ts_man.svg) | ![bimp](examples/images/bimp_qm.svg) |
+
+### NCIs
+
+| Auto NCI | Selected NCI (`--nci hb`) | TS + NCI custom colours |
+|----------|---------------------------|-------------------------|
+| ![nci](examples/images/nci.svg) | ![hydrogen-bond NCIs](examples/images/bimp_nci_hb.svg) | ![ts nci custom](examples/images/bimp_ts_nci_custom.svg) |
 
 ### Annotations & labels
 
