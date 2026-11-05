@@ -2192,7 +2192,7 @@ wheels = [
 
 [[package]]
 name = "xyzgraph"
-version = "1.6.13"
+version = "1.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -2201,9 +2201,9 @@ dependencies = [
     { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "rdkit" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d0/52/0a724654181fbe2492081acc05ece6ec96041a6b613cc282c49150d497ff/xyzgraph-1.6.13.tar.gz", hash = "sha256:54bdc8dfd2eaf8dd56a8663e1e5280238328cb46eb181f6796a864c8de0d728f", size = 180418, upload-time = "2026-07-11T16:03:11.024Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9c/d3/cdff0f08919b2cc12394af0345e36a043f37777222c2ab195c337482da51/xyzgraph-1.7.0.tar.gz", hash = "sha256:e2fefd0b26bc1974dc56ee16874e15fe1338127a810f8b623836cec2be2c314b", size = 204386, upload-time = "2026-11-05T13:49:42.763Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f8/80/9a966abdb505c5042e14136d4fc6a0ce0a3896d77ca02ab87b288e5417db/xyzgraph-1.6.13-py3-none-any.whl", hash = "sha256:8442d6d71bfc2f85944e1e5dc015e82f4abe988062b8db8e99ec9ef534b71df9", size = 130242, upload-time = "2026-07-11T16:03:09.042Z" },
+    { url = "https://files.pythonhosted.org/packages/cf/1c/ec11c00ebf7f0807d85a25f2addc641a057a0c9853aebfb3b6f08b186726/xyzgraph-1.7.0-py3-none-any.whl", hash = "sha256:69850932ddce4b35db95281df05c4a12d9b9874898407711b627256c5f97168d", size = 141507, upload-time = "2026-11-05T13:49:41.26Z" },
 ]
 
 [[package]]

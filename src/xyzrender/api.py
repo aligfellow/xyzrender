@@ -352,7 +352,9 @@ def load(
         Skip bond-order optimisation (``build_graph(quick=True)``).  Use
         when you know bond orders will be suppressed at render time (e.g.
         ``render(mol, bo=False)``).  CIF and PDB-with-cell always use
-        ``quick=True`` automatically regardless of this flag.
+        ``quick=True`` automatically regardless of this flag.  Ignored when
+        *nci_detect* is set: NCI detection needs the formal charges this step
+        assigns.
     ensemble:
         Load as a multi-frame trajectory (or RDKit Mol conformer) ensemble.
         All frames are RMSD-aligned onto *reference_frame* and merged into a
@@ -396,6 +398,11 @@ def load(
     }
     if mol_frame != 0 and not supports_mol_frame:
         logger.warning("mol_frame has no effect unless loading an SDF or CJSON file")
+    if quick and nci_detect:
+        # Bond-order optimisation is where formal charges come from; without them
+        # charge-based NCIs (cation-pi, ionic) vanish.  bo=False still hides orders.
+        logger.info("quick ignored: nci_detect needs full bond-order/charge perception")
+        quick = False
 
     # --- Ensemble: load multi-frame trajectory as merged molecule ---
     if ensemble:
