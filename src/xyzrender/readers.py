@@ -158,10 +158,11 @@ def load_molecule(
     path:
         Path to the input file.  Supported extensions: ``.xyz``, ``.cube``,
         ``.cub``,
-        ``.mol``, ``.sdf``, ``.mol2``, ``.pdb``, ``.smi``, ``.cif``, and
-        any format supported by cclib.
+        ``.mol``, ``.sdf``, ``.mol2``, ``.pdb``, ``.smi``, ``.cif``,
+        ``.cjson``, and any format supported by cclib.
     frame:
-        Zero-based frame index for multi-record SDF files (default: 0).
+        Zero-based frame index for multi-record SDF files and CJSON
+        ``3dSets`` coordinate sets (default: 0).
     charge:
         Formal charge override (0 = use value from file when available).
     multiplicity:
@@ -255,6 +256,28 @@ def load_molecule(
             graph.graph["lattice"] = data.pbc_cell
             graph.graph["lattice_origin"] = cell_origin
             crystal = CellData(lattice=data.pbc_cell, cell_origin=cell_origin)
+    elif p.endswith(".cjson"):
+        data = fmt.parse_cjson(p, frame=frame)
+        # A CJSON unit cell means bond orders will be suppressed at render time.
+        graph = graph_from_moldata(
+            data,
+            charge=charge,
+            multiplicity=multiplicity,
+            kekule=kekule,
+            rebuild=rebuild,
+            quick=quick or data.pbc_cell is not None,
+        )
+        if data.pbc_cell is not None:
+            # CJSON coordinates are referenced to a cell origin at (0, 0, 0).
+            graph.graph["lattice"] = data.pbc_cell
+            graph.graph["lattice_origin"] = np.zeros(3)
+            crystal = CellData(lattice=data.pbc_cell)
+        if data.camera is not None:
+            # Consumed by api.load(), which rotates the molecule into the
+            # saved view and marks it oriented.
+            graph.graph["camera_rotation"] = data.camera.rotation
+            if data.camera.perspective:
+                logger.info("CJSON camera is perspective; xyzrender renders orthographically")
     elif p.endswith(".smi"):
         smi = Path(p).read_text(encoding="utf-8").splitlines()[0].strip()
         data = fmt.parse_smiles(smi, kekule=kekule)
@@ -407,6 +430,7 @@ def graph_from_moldata(
         graph.graph["total_charge"] = _eff_charge
         if multiplicity is not None:
             graph.graph["multiplicity"] = multiplicity
+        _stamp_file_colors(graph, data)
         return graph
 
     # Fall back to xyzgraph distance-based detection
@@ -423,7 +447,22 @@ def graph_from_moldata(
         graph.number_of_nodes(),
         graph.number_of_edges(),
     )
+    _stamp_file_colors(graph, data)
     return graph
+
+
+def _stamp_file_colors(graph: nx.Graph, data) -> None:
+    """Copy per-atom colours from *data* onto graph nodes as ``file_color``.
+
+    These override CPK and preset element colours.  ``--cmap``,
+    ``--mol-color``, and highlights still take precedence.
+    """
+    if not data.colors:
+        return
+    for i, hex_color in enumerate(data.colors):
+        if i in graph.nodes:
+            graph.nodes[i]["file_color"] = hex_color
+    logger.debug("Applied %d per-atom colours from file", len(data.colors))
 
 
 def load_ts_molecule(

@@ -1,0 +1,21 @@
+{
+  "chemicalJson": 1,
+  "name": "silicon primitive cell",
+  "atoms": {
+    "coords": {
+      "3dFractional": [
+        0.25, 0.25, 0.25,
+        0.5, 0.5, 0.5
+      ]
+    },
+    "elements": { "number": [ 14, 14 ] }
+  },
+  "unitCell": {
+    "a": 3.84,
+    "b": 3.84,
+    "c": 3.84,
+    "alpha": 60.0,
+    "beta": 60.0,
+    "gamma": 60.0
+  }
+}
