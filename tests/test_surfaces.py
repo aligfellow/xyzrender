@@ -305,7 +305,10 @@ def test_render_svg_includes_esp_colorbar(caffeine_mol, caffeine_dens_cube, caff
 
     assert "linearGradient" in svg
     assert "\u2212" in svg
-    assert ".000" in svg
+    # Preserve the scale of caffeine's shell potential (a few 1e-2 a.u.).
+    assert cfg.esp_surface is not None
+    assert cfg.esp_surface.esp_vmin < -0.01
+    assert cfg.esp_surface.esp_vmax > 0.01
 
 
 def test_render_svg_esp_palette_changes_colorbar(caffeine_mol, caffeine_dens_cube, caffeine_esp_cube):
@@ -341,6 +344,30 @@ def test_render_svg_esp_colorbar_uses_actual_range(caffeine_mol):
     assert ">.185</text>" in svg
     assert ">\u22120</text>" in svg
     assert ">.029</text>" in svg
+
+
+def test_esp_surface_preserves_shell_potential_scale():
+    """A Gaussian density with ESP=x should retain a range comparable to its shell radius."""
+    from xyzrender.esp import build_esp_surface
+
+    n = 28
+    step = 0.5
+    axis = (np.arange(n) - (n - 1) / 2.0) * step
+    x, y, z = np.meshgrid(axis, axis, axis, indexing="ij")
+    radius = np.sqrt(x * x + y * y + z * z)
+    dens = np.exp(-((radius / 2.0) ** 2))
+    origin = (axis[0],) * 3
+    dens_cube = cube_from_array(dens, origin=origin)
+    esp_cube = cube_from_array(x, origin=origin)
+
+    iso = 0.1
+    shell_radius = 2.0 * np.sqrt(np.log(1.0 / iso))
+    surf = build_esp_surface(dens_cube, esp_cube, ESPParams(isovalue=iso))
+
+    assert surf.esp_vmax > 0.5 * shell_radius
+    assert surf.esp_vmin < -0.5 * shell_radius
+    assert surf.esp_vmax <= shell_radius * 1.05
+    assert surf.esp_vmin >= -shell_radius * 1.05
 
 
 def test_esp_surface_uses_manual_cmap_range(caffeine_mol, caffeine_dens_cube, caffeine_esp_cube):
