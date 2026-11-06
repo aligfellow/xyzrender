@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "xyzrender": {
+      "command": "python",
+      "args": ["-m", "xyzrender.mcp"]
+    }
+  }
+}

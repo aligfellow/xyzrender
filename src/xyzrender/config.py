@@ -71,6 +71,11 @@ def _merge_onto_default(overrides: dict) -> dict:
     return base
 
 
+def list_presets() -> list[str]:
+    """Return sorted names of built-in style presets (excludes ``named_colors``)."""
+    return sorted(p.stem for p in _PRESET_DIR.glob("*.json") if p.stem != "named_colors")
+
+
 def load_config(name_or_path: str) -> dict:
     """Load config from a built-in preset name or a JSON file path.
 
@@ -94,7 +99,7 @@ def load_config(name_or_path: str) -> dict:
         logger.debug("Loading config file: %s (on top of default)", path)
         return _merge_onto_default(json.loads(path.read_text()))
 
-    available = ", ".join(p.stem for p in sorted(_PRESET_DIR.glob("*.json")) if p.stem != "named_colors")
+    available = ", ".join(list_presets())
     msg = f"Config not found: {name_or_path!r} (built-in presets: {available})"
     raise FileNotFoundError(msg)
 

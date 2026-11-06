@@ -30,13 +30,15 @@ homepage = "https://github.com/aligfellow/xyzrender"
 
 [project.scripts]
 xyzrender = "xyzrender.cli:main"
+xyzrender-mcp = "xyzrender.mcp:main"
 
 [project.optional-dependencies]
 smi     = ["rdkit"]
 cif     = ["ase"]
 shelxl  = ["shelxfile"]
 v       = ["vmol>=3.0rc7"]
-all     = ["rdkit", "ase", "vmol>=3.0rc7", "shelxfile"]
+mcp     = ["mcp>=2.3"]
+all     = ["rdkit", "ase", "vmol>=3.0rc7", "shelxfile", "mcp>=2.3"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -55,6 +57,7 @@ dev = [
     "rdkit",    # optional dep (needed for test_formats.py mol/sdf fixtures)
     "vmol>=3.0rc7",
     "shelxfile", # optional dep (needed for test_formats.py shelx)
+    "mcp>=2.3",  # optional dep (needed for ty + test_mcp.py build_server)
 ]
 
 # ===== Ruff =====
