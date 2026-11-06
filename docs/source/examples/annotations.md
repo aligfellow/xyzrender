@@ -105,7 +105,7 @@ Two display modes for R/S labels: `--stereo-style atom` (default, centered on at
 
 ## Atom property colormap
 
-Per-atom scalar colouring (partial charges, NMR shifts, Fukui indices) has its own dedicated page — see [Atom Colormap](cmap.md).
+Per-atom scalar colouring (partial charges, NMR shifts, Fukui indices) has its own dedicated page — see [Colormaps](cmap.md).
 
 ## Vector arrows
 

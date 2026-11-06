@@ -178,10 +178,12 @@ Fine-grained overlay style (`atom_stroke_width`, `atom_stroke_color`, `bond_colo
 | `--stereo [CLASSES]` | Stereochemistry labels from 3D geometry. Optional comma-separated class filter: `point`, `ez`, `axis`, `plane`, `helix`. Omit to show all |
 | `--stereo-style STYLE` | R/S label placement: `atom` (centered, default) or `label` (offset) |
 | `--cmap FILE` | Per-atom property colormap (1-indexed atom index, value) |
-| `--cmap-range VMIN VMAX` | Explicit colormap range (default: auto from file) |
+| `--bond-cmap FILE` | Per-bond property colormap (1-indexed atom i, j, value); unlisted bonds unchanged |
+| `--cmap-range VMIN VMAX` | Explicit vmin/vmax for `--cmap`, `--bond-cmap`, and `--esp` colorbars (default: auto from data) |
 | `--cmap-symm` | Symmetric colormap range about zero: `[-max(|v|), +max(|v|)]` |
 | `--cmap-palette NAME` | Shared scalar palette override (`viridis` for `--cmap`, `rainbow` for `--esp`) |
-| `--cbar` | Add a vertical colorbar on the right for `--cmap` or `--esp` |
+| `--cbar` | Add a vertical colorbar on the right for `--cmap`, `--bond-cmap`, or `--esp` |
+| `--cbar-unit TEXT` | Unit label above the colorbar (e.g. `kcal/mol`) |
 
 ## Vector arrows
 

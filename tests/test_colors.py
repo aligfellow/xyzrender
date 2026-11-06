@@ -2,7 +2,16 @@
 
 import numpy as np
 
-from xyzrender.colors import _FOG_MIN_DELTA_E, _MAX_FOG, Color, blend_fog, delta_e, fog_alpha, fog_target
+from xyzrender.colors import (
+    _FOG_MIN_DELTA_E,
+    _MAX_FOG,
+    Color,
+    blend_fog,
+    delta_e,
+    fog_alpha,
+    fog_target,
+    palette_color,
+)
 
 WHITE = Color(255, 255, 255)
 BLACK = Color(0, 0, 0)
@@ -50,3 +59,8 @@ def test_fog_follows_the_background():
     assert fog_target("#ffffff", "steelblue") == Color.from_str("steelblue")
     assert fog_target("none") == WHITE  # a legal SVG fill, but not a colour
     assert int(blend_fog("#d9d9d9", fog_target("black"), _MAX_FOG)[1:3], 16) < 0xD9
+
+
+def test_white_reverse_plasma_endpoints():
+    assert palette_color("white_reverse_plasma", 0.0).hex == "#ffffff"
+    assert palette_color("white_reverse_plasma", 1.0).hex == "#0d0887"
