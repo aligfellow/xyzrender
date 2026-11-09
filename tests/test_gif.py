@@ -1340,3 +1340,99 @@ def test_rotation_preserves_molecule_data(tmp_path, monkeypatch, from_path):
     assert captured["config"].show_cell
     np.testing.assert_array_equal(mol.graph.nodes[0]["position"], (0.0, 0.0, 0.0))
     np.testing.assert_array_equal(mol.cell_data.lattice, np.eye(3) * 5)
+
+
+@pytest.mark.parametrize("orientation", ["none", "pca", "reference"])
+@pytest.mark.parametrize("axis", [None, "z"])
+def test_normal_mode_transforms_preserve_stationary_atom(monkeypatch, tmp_path, orientation, axis):
+    """Exercise frame workers: camera transforms must preserve a mode's fixed pivot."""
+    import copy
+    from unittest.mock import patch
+
+    import networkx as nx
+
+    from xyzrender.gif import render_vibration_gif
+    from xyzrender.types import RenderConfig
+
+    equilibrium = np.array([[2.0, 3.0, 0.0], [3.4, 3.0, 0.0], [2.0, 4.4, 0.0]])
+    frames = []
+    for displacement in [0.0, 0.1, 0.0, -0.1]:
+        positions = equilibrium.copy()
+        positions[1] += [displacement, 2 * displacement, displacement]
+        frames.append({"symbols": ["C", "C", "C"], "positions": positions.tolist()})
+    reference = None
+    if orientation == "reference":
+        reference = nx.Graph()
+        rotated = equilibrium[:, [1, 0, 2]] * [-1, 1, 1]
+        for i, position in enumerate(rotated):
+            reference.add_node(i, symbol="C", position=tuple(position))
+    rendered = []
+
+    def capture(graph, _config, **_kwargs):
+        rendered.append(np.array([graph.nodes[i]["position"] for i in range(3)]))
+        return "<svg />"
+
+    def serial_workers(worker, items, _total):
+        return [worker(copy.deepcopy(item))[1] for item in items]
+
+    with (
+        patch("graphrc.load_trajectory", return_value={"frames": frames, "frequencies": [100.0]}),
+        patch("xyzrender.gif._parallel_render", side_effect=serial_workers),
+        patch("xyzrender.gif.render_svg", side_effect=capture),
+        patch("xyzrender.gif.svg_to_png_bytes", return_value=b"png"),
+        patch("xyzrender.gif._stitch_gif"),
+    ):
+        render_vibration_gif(
+            "mode.out",
+            RenderConfig(auto_orient=orientation != "none"),
+            str(tmp_path / "mode.gif"),
+            gif_vib=0,
+            auto_detect_ts=False,
+            reference_graph=reference,
+            axis=axis,
+            n_frames=4 if axis else None,
+        )
+    center = equilibrium.mean(axis=0) if orientation == "none" else np.zeros(3)
+    stationary = rendered[0][0]
+    for i, positions in enumerate(rendered):
+        angle = i * np.pi / 2 if axis else 0.0
+        c, s = np.cos(angle), np.sin(angle)
+        rotation = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
+        expected = center + rotation @ (stationary - center)
+        np.testing.assert_allclose(positions[0], expected, atol=1e-12)
+    if orientation == "reference":
+        np.testing.assert_allclose(rendered[0], rotated - rotated.mean(axis=0), atol=1e-12)
+
+
+@pytest.mark.parametrize("normal_mode", [False, True])
+def test_vibration_reference_file_roundtrip(tmp_path, normal_mode):
+    """Python ref= saves and reloads orientation before vibration dispatch."""
+    from unittest.mock import patch
+
+    from xyzrender import render_gif
+
+    reference_path = tmp_path / "reference.xyz"
+    with patch("xyzrender.gif.render_vibration_gif") as worker:
+        render_gif(
+            STRUCTURES / "methanol.out",
+            gif_vib=0 if normal_mode else None,
+            gif_ts=not normal_mode,
+            ref=reference_path,
+            output=tmp_path / "first.gif",
+        )
+        assert reference_path.is_file()
+        saved = worker.call_args.kwargs["reference_graph"]
+        assert saved is not None
+        saved_positions = np.array([d["position"] for _, d in saved.nodes(data=True)])
+        render_gif(
+            STRUCTURES / "methanol.out",
+            gif_vib=0 if normal_mode else None,
+            gif_ts=not normal_mode,
+            ref=reference_path,
+            orient=False,
+            output=tmp_path / "second.gif",
+        )
+        loaded = worker.call_args.kwargs["reference_graph"]
+        assert loaded is not None
+        np.testing.assert_allclose([d["position"] for _, d in loaded.nodes(data=True)], saved_positions, atol=1e-6)
+        assert worker.call_args.kwargs["config"].auto_orient is False

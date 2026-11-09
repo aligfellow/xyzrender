@@ -1982,6 +1982,21 @@ def render_gif(
         msg = f"render_gif: output must have .gif extension, got {gif_path.suffix!r}"
         raise ValueError(msg)
 
+    # Resolve the caller's reference once, before dispatching any GIF mode.
+    rmol = mol.copy()
+
+    if ref is not None and not gif_diffuse:
+        ref_source = reference_graph if (gif_trj or has_vibration) and reference_graph is not None else rmol.graph
+        _ref_mol = Molecule(graph=copy.deepcopy(ref_source), cell_data=copy.deepcopy(mol.cell_data))
+        _ref_path = Path(ref)
+        if _ref_path.is_file():
+            _apply_ref_orientation(_ref_mol, _ref_path, cfg)
+        else:
+            _apply_and_save_ref(_ref_mol, cfg, _ref_path)
+        rmol = _ref_mol
+        if gif_trj or has_vibration:
+            reference_graph = rmol.graph
+
     # --- Dispatch ---
 
     if has_vibration:
@@ -2014,20 +2029,6 @@ def render_gif(
         )
         logger.info("GIF written to %s", gif_path)
         return GIFResult(gif_path)
-
-    rmol = mol.copy()
-
-    if ref is not None and not gif_diffuse:
-        ref_source = reference_graph if gif_trj and reference_graph is not None else rmol.graph
-        _ref_mol = Molecule(graph=copy.deepcopy(ref_source), cell_data=copy.deepcopy(mol.cell_data))
-        _ref_path = Path(ref)
-        if _ref_path.is_file():
-            _apply_ref_orientation(_ref_mol, _ref_path, cfg)
-        else:
-            _apply_and_save_ref(_ref_mol, cfg, _ref_path)
-        rmol = _ref_mol
-        if gif_trj:
-            reference_graph = rmol.graph
 
     if gif_trj:
         from xyzrender.readers import load_trajectory_frames

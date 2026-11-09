@@ -223,11 +223,14 @@ def rotation_to_align(v_from: np.ndarray, v_to: np.ndarray) -> np.ndarray:
     return np.eye(3) + np.sin(angle) * k + (1 - np.cos(angle)) * (k @ k)
 
 
-def apply_axis_angle_rotation(graph: nx.Graph, axis: np.ndarray, angle: float) -> None:
+def apply_axis_angle_rotation(
+    graph: nx.Graph, axis: np.ndarray, angle: float, *, center: np.ndarray | None = None
+) -> None:
     """Rotate all atom positions in-place around an arbitrary axis (degrees).
 
     Uses Rodrigues' rotation formula for a clean rotation around a single
-    axis vector. Rotation is around the molecular centroid.
+    axis vector. Rotation is around *center*, or the molecular centroid
+    when omitted.
 
     Parameters
     ----------
@@ -246,7 +249,7 @@ def apply_axis_angle_rotation(graph: nx.Graph, axis: np.ndarray, angle: float) -
     rot = c * np.eye(3) + s * k_cross + (1 - c) * np.outer(k, k)
 
     positions = np.array([graph.nodes[n]["position"] for n in nodes])
-    centroid = positions.mean(axis=0)
+    centroid = positions.mean(axis=0) if center is None else np.asarray(center, dtype=float)
     rotated = (rot @ (positions - centroid).T).T + centroid
     for i, nid in enumerate(nodes):
         graph.nodes[nid]["position"] = tuple(rotated[i].tolist())

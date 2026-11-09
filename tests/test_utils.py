@@ -139,13 +139,14 @@ def _frac_of(graph):
         (np.array([0.3, -0.7, 0.5]), 75.0),
     ],
 )
-def test_apply_axis_angle_rotation_preserves_atom_lattice_fractional_coords(axis, angle):
+@pytest.mark.parametrize("center", [None, np.array([3.0, -2.0, 1.0])])
+def test_apply_axis_angle_rotation_preserves_atom_lattice_fractional_coords(axis, angle, center):
     """apply_axis_angle_rotation rotates atoms AND lattice — fractional coords
     must be invariant (utils.py:264 → _apply_rot_to_vecs at utils.py:291)."""
     from xyzrender.utils import apply_axis_angle_rotation
 
     g, frac_before = _frac_pair_with_lattice()
-    apply_axis_angle_rotation(g, axis, angle)
+    apply_axis_angle_rotation(g, axis, angle, center=center)
     frac_after = _frac_of(g)
 
     assert np.allclose(frac_after, frac_before, atol=1e-9), (

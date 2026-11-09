@@ -367,6 +367,8 @@ mol_cube = load("caffeine_homo.cube")
 render_gif(mol_cube, gif_rot="y", mo=True, output="homo_rot.gif")
 ```
 
+Normal-mode GIFs use one equilibrium center for orientation and rotation, so camera transforms preserve the vibrational displacements. Use `ref="reference.xyz"` to save or reload a reference orientation for vibration, trajectory, or rotation GIFs. An explicit reference takes precedence over automatic PCA orientation.
+
 ## Return types
 
 ### SVGResult

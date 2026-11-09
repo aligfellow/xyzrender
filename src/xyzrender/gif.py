@@ -411,21 +411,25 @@ def render_vibration_gif(
 
         fixed_ncis = filter_ncis(detect_ncis(ts_graph), detect_nci)
 
-    # Apply viewer rotation to all frames if a reference orientation was given
+    # Choose one orientation before the frame workers run. An explicit
+    # reference takes precedence over PCA. Normal modes use the equilibrium
+    # center for every transform so centering cannot alter displacements.
+    orientation = None
     if reference_graph is not None:
-        logger.debug("Applying Kabsch rotation from viewer orientation")
-        rot = _compute_rotation(ts_graph, reference_graph)
-        frames = _rotate_frames(frames, rot)
+        orientation = _compute_rotation(ts_graph, reference_graph)
+    elif config.auto_orient:
+        orientation = pca_matrix(np.array(frames[0]["positions"]))
 
-    # PCA: compute once from first frame, apply consistently to all
-    if config.auto_orient:
-        import copy
-
-        vt = pca_matrix(np.array(frames[0]["positions"]))
-        frames = _orient_frames(frames, vt, center=fixed_frame_center)
-        _orient_graph(ts_graph, vt, config.cell_data, center=fixed_frame_center)
+    if orientation is not None:
+        if is_normal_mode or reference_graph is None:
+            frames = _orient_frames(frames, orientation, center=fixed_frame_center)
+            _orient_graph(ts_graph, orientation, config.cell_data, center=fixed_frame_center)
+        else:
+            frames = _rotate_frames(frames, orientation)
         config = copy.copy(config)
         config.auto_orient = False
+
+    rotation_center = np.asarray(frames[0]["positions"], dtype=float).mean(axis=0) if is_normal_mode else None
 
     if axis is None:
         if n_frames is not None:
@@ -477,6 +481,7 @@ def render_vibration_gif(
         rot_cfg,
         fixed_ncis=fixed_ncis,
         rotation_axis=axis_vec,
+        rotation_center=rotation_center,
         rotation_sign=axis_sign,
         bounce_degrees=bounce_degrees,
         frame_label=frame_label,
@@ -1116,6 +1121,7 @@ def _render_traj_frame(
     rf_vec_origins: np.ndarray,
     rf_vec_dirs: np.ndarray,
     frame_label: str | None,
+    rotation_center: np.ndarray | None = None,
 ) -> tuple[int, bytes]:
     """Worker: render one trajectory/vibration frame to PNG."""
     if nci_analyzer is not None or fixed_ncis is not None or detect_nci_per_frame:
@@ -1165,10 +1171,14 @@ def _render_traj_frame(
         frame_config.hull_opacity = config.hull_opacity * hull_factor
     if rotation_axis is not None and angles is not None:
         _rg_nodes = list(render_graph.nodes())
-        _rg_centroid = np.mean([render_graph.nodes[n]["position"] for n in _rg_nodes], axis=0)
+        _rg_centroid = (
+            np.mean([render_graph.nodes[n]["position"] for n in _rg_nodes], axis=0)
+            if rotation_center is None
+            else rotation_center
+        )
         angle_deg = rotation_sign * float(angles[idx])
         rot_mat = _axis_angle_matrix(rotation_axis, angle_deg)
-        apply_axis_angle_rotation(render_graph, rotation_axis, angle_deg)
+        apply_axis_angle_rotation(render_graph, rotation_axis, angle_deg, center=rotation_center)
         if config.vectors:
             frame_config = _rotate_vectors_in_cfg(config, rot_mat, _rg_centroid, rf_vec_origins, rf_vec_dirs)
 
@@ -1189,6 +1199,7 @@ def _render_frames(
     detect_nci_per_frame: bool = False,
     nci_types: bool | str | list[str] | None = None,
     rotation_axis: np.ndarray | None = None,
+    rotation_center: np.ndarray | None = None,
     rotation_sign: float = 1.0,
     rotation_degrees: float = 360.0,
     bounce_degrees: float | None = None,
@@ -1208,6 +1219,9 @@ def _render_frames(
     around that axis over *rotation_degrees* (default 360°), or, when
     *bounce_degrees* is set, oscillates sinusoidally between ±bounce_degrees
     over the full frame range.
+    *rotation_center* fixes the pivot across all frames; when omitted, each
+    frame rotates about its own centroid. Normal modes pass their equilibrium
+    center, while trajectories retain their per-frame centering.
     If any frame dict carries a ``"graph"`` key (trj_bonds mode), that
     per-frame graph is used instead of the shared *graph*.
     """
@@ -1239,6 +1253,7 @@ def _render_frames(
         detect_nci_per_frame=detect_nci_per_frame,
         nci_types=nci_types,
         rotation_axis=rotation_axis,
+        rotation_center=rotation_center,
         rotation_sign=rotation_sign,
         angles=angles,
         rf_vec_origins=_rf_vec_origins,
