@@ -1584,6 +1584,13 @@ def render_gif(
     detect_nci: bool | str | list[str] = False,
     # --- Manual TS bonds (1-indexed atom numbering) ---
     ts_bonds: list[tuple[int, int]] | None = None,
+    # --- Scalar colormaps (same 1-indexed public inputs as render) ---
+    cmap: str | os.PathLike | dict[int, float] | None = None,
+    bond_cmap: str | os.PathLike | dict[tuple[int, int], float] | None = None,
+    cmap_range: tuple[float, float] | None = None,
+    cmap_palette: str | None = None,
+    cmap_symm: bool = False,
+    cbar: bool = False,
     # --- Vector arrows (gif_rot only) ---
     vector: str | Path | dict | list[VectorArrow] | None = None,
     vector_scale: float | None = None,
@@ -1681,6 +1688,13 @@ def render_gif(
         Detect geometric non-covalent interactions.  ``True`` selects all
         xyzgraph NCI types; a type/group name or list selects only those
         interactions.  Groups are ``hb``, ``pi``, and ``ion``.
+    cmap, bond_cmap:
+        Atom or bond scalars as 1-indexed dictionaries or text-file paths, as in
+        :func:`render`. Only one map may be active. Explicit missing bond pairs
+        are drawn with the dotted NCI style on each frame. RenderConfig maps
+        instead use internal 0-indexed atom numbers.
+    cmap_range, cmap_palette, cmap_symm, cbar:
+        Shared scalar range, palette, symmetric range and colorbar controls.
     output:
         Output ``.gif`` path.  Defaults to ``<stem>.gif`` beside *molecule*.
     gif_fps:
@@ -1899,7 +1913,17 @@ def render_gif(
     if haptic:
         cfg.haptic = True
 
-    _apply_render_overlays(cfg, mol.graph, ts_bonds=ts_bonds)
+    _apply_render_overlays(
+        cfg,
+        mol.graph,
+        ts_bonds=ts_bonds,
+        cmap=cmap,
+        bond_cmap=bond_cmap,
+        cmap_range=cmap_range,
+        cmap_palette=cmap_palette,
+        cmap_symm=cmap_symm,
+        cbar=cbar,
+    )
 
     if opacity is not None and overlay is None:
         cfg.surface_opacity = opacity
@@ -2981,7 +3005,7 @@ def _resolve_bond_cmap(
     bond_cmap: str | os.PathLike | dict[tuple[int, int], float],
     graph: nx.Graph | None,
 ) -> dict[tuple[int, int], float]:
-    """Resolve *bond_cmap* to a 0-indexed ``{(i, j): value}`` dict with canonical pairs."""
+    """Resolve canonical 0-based pairs without changing topology before merging."""
     if isinstance(bond_cmap, dict):
         from typing import cast
 
@@ -2994,21 +3018,15 @@ def _resolve_bond_cmap(
             key = (min(i, j), max(i, j))
             result[key] = float(v)
         if graph is not None:
-            from xyzrender.annotations import _ensure_bond_for_cmap
-
-            for (i, j), _val in list(result.items()):
+            for i, j in result:
                 if i not in graph or j not in graph:
                     raise ValueError(f"bond cmap: atom pair ({i + 1}, {j + 1}) not in molecule")
-                _ensure_bond_for_cmap(
-                    i,
-                    j,
-                    graph,
-                    context=f"bond cmap dict pair ({i + 1}, {j + 1})",
-                )
+                if i == j:
+                    raise ValueError(f"bond cmap: atom indices must differ (got {i + 1} {j + 1})")
         return result
-    from xyzrender.annotations import load_bond_cmap
+    from xyzrender.annotations import read_bond_cmap
 
-    return load_bond_cmap(str(bond_cmap), graph)
+    return read_bond_cmap(str(bond_cmap), graph)
 
 
 def _combine_vector_sources(

@@ -120,6 +120,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     """Render molecular graph to SVG string."""
     cfg = config or RenderConfig()
     validate_cmap_selection(atom=cfg.atom_cmap is not None, bond=cfg.bond_cmap is not None)
+    from xyzrender.annotations import prepare_bond_cmap_graph
+
+    graph = prepare_bond_cmap_graph(graph, cfg.bond_cmap)
     node_ids = list(graph.nodes())
     n = len(node_ids)
     symbols = [graph.nodes[i]["symbol"] for i in node_ids]

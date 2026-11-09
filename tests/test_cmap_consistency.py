@@ -73,6 +73,8 @@ def test_configured_conflicting_maps_rejected_at_render_boundaries(tmp_path, ent
     if entrypoint == "gif":
         with pytest.raises(ValueError, match="Atom and bond colormaps are mutually exclusive"):
             render_gif(mol, config=config, gif_rot="y", output=output)
+        with pytest.raises(ValueError, match="Atom and bond colormaps are mutually exclusive"):
+            render_gif(mol, config=RenderConfig(atom_cmap={0: 0.2}), bond_cmap={}, gif_rot="y", output=output)
     else:
         with pytest.raises(ValueError, match="Atom and bond colormaps are mutually exclusive"):
             render_svg(mol.graph, config)
@@ -121,3 +123,106 @@ def test_colorbar_title_visible_with_existing_cairo_renderer():
     pixels = np.asarray(image)
     title_strip = pixels[max(0, int(center_y - size)) : int(center_y + size), 240:]
     assert np.any(title_strip[:, :, 3] > 128)
+
+
+@pytest.mark.parametrize(
+    ("source", "scene", "detect"),
+    [
+        ("dict", "single", True),
+        ("file", "single", True),
+        ("config", "single", True),
+        ("config", "ensemble", True),
+        ("config", "overlay", True),
+        ("dict", "ensemble", False),
+    ],
+)
+def test_explicit_missing_bond_survives_scene_preparation_without_mutating_input(tmp_path, source, scene, detect):
+    import networkx as nx
+    import numpy as np
+
+    from xyzrender.api import EnsembleFrames, Molecule
+
+    graph = nx.Graph()
+    graph.add_node(0, symbol="C", position=(-2.0, 0.0, 0.0))
+    graph.add_node(1, symbol="O", position=(2.0, 0.0, 0.0))
+    graph.graph["ncis"] = []  # Re-detection removes old NCI edges before rebuilding.
+    mol = Molecule(graph)
+    config = RenderConfig(cmap_range=(0, 1), cmap_palette="viridis", fog=False, gradient=False, auto_orient=False)
+    kwargs = {}
+    if source == "config":
+        config.bond_cmap = {(0, 1): 1.0}
+    elif source == "file":
+        path = tmp_path / "pairs.txt"
+        path.write_text("1 2 1.0\n")
+        kwargs["bond_cmap"] = path
+    else:
+        kwargs["bond_cmap"] = {(1, 2): 1.0}
+    if scene == "ensemble":
+        positions = np.array([[[-2.0, 0, 0], [2.0, 0, 0]], [[-2.0, 1, 0], [2.0, 1, 0]]])
+        mol.ensemble = EnsembleFrames(positions, [None, None], [None, None])
+    elif scene == "overlay":
+        kwargs.update(overlay=mol.copy(), auto_align=False)
+    svg = str(render(mol, config=config, detect_nci=detect, **kwargs))
+    expected = bond_color_hex(1, "viridis", 0, 1)
+    root = ET.fromstring(svg)
+    dotted = [el for el in root.iter() if "stroke-dasharray" in el.attrib]
+    assert len(dotted) == 1  # No uncoloured copies on other conformers.
+    assert dotted[0].get("stroke") == expected
+    assert not graph.edges
+    assert graph.graph["ncis"] == []
+
+
+def test_missing_bond_maps_render_in_rotation_and_rebuilt_trajectory_frames(tmp_path, monkeypatch):
+    import copy
+    from io import BytesIO
+
+    import numpy as np
+    from PIL import Image
+
+    from xyzrender import gif
+
+    svgs = []
+    original_render = gif.render_svg
+
+    def record_svg(*args, **kwargs):
+        svg = original_render(*args, **kwargs)
+        svgs.append(svg)
+        return svg
+
+    def serial(worker, items, total):
+        pngs = [b""] * total
+        for item in items:
+            owned_worker, owned_item = copy.deepcopy((worker, item))
+            idx, png = owned_worker(owned_item)
+            pngs[idx] = png
+        return pngs
+
+    monkeypatch.setattr(gif, "render_svg", record_svg)
+    monkeypatch.setattr(gif, "_parallel_render", serial)
+    path = tmp_path / "separated.xyz"
+    frame = "3\nseparated\nH 0 6 0\nC -2 0 0\nO 2 0 0\n"
+    path.write_text(frame * 2)
+    cmap_file = tmp_path / "pairs.txt"
+    cmap_file.write_text("2 3 1\n")
+    config = RenderConfig(
+        canvas_size=320, cmap_range=(0, 1), cmap_palette="viridis", fog=False, gradient=False, auto_orient=False
+    )
+    mol = load(path)
+    for name in ("rotation", "trajectory"):
+        svgs.clear()
+        output = tmp_path / f"{name}.gif"
+        if name == "rotation":
+            render_gif(mol, config=config, gif_rot="z", rot_frames=2, only="2,3", bond_cmap=cmap_file, output=output)
+        else:
+            config.bond_cmap = {(1, 2): 1.0}
+            render_gif(path, config=config, gif_trj=True, trj_bonds=True, detect_nci=True, output=output)
+        assert len(svgs) == 2
+        expected = bond_color_hex(1, "viridis", 0, 1)
+        for svg in svgs:
+            root = ET.fromstring(svg)
+            assert any(el.get("stroke") == expected and "stroke-dasharray" in el.attrib for el in root.iter())
+        image = Image.open(BytesIO(output.read_bytes())).convert("RGB")
+        r, g, b = tuple(int(expected[i : i + 2], 16) for i in (1, 3, 5))
+        pixels = np.asarray(image, dtype=int)
+        assert np.abs(pixels - (r, g, b)).sum(axis=2).min() < 60
+    assert not mol.graph.edges
