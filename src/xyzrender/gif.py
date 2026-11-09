@@ -247,15 +247,21 @@ def _format_vibrational_frequency(frequency: float) -> str:
     return f"\u03bd\u0303 = {frequency:.1f} cm⁻¹"
 
 
+def _frequency_label_layout(config: "RenderConfig") -> tuple[int, int, float]:
+    """Return font size, halo width and top offset in output pixels."""
+    # Match the renderer's convention: style sizes refer to an 800 px canvas.
+    canvas_scale = config.canvas_size / 800
+    font_size = max(1, round(max(20.0, config.label_font_size * 1.25) * canvas_scale))
+    return font_size, max(1, round(font_size / 15)), max(4.0, 12.0 * canvas_scale)
+
+
 def _add_png_label(png_data: bytes, label: str, config: "RenderConfig") -> bytes:
     """Add a fixed, haloed label at the top centre of a rendered PNG frame."""
     import cairosvg
     from PIL import Image
 
     image = Image.open(BytesIO(png_data)).convert("RGBA")
-    font_size = round(max(20.0, config.label_font_size * 1.25))
-    stroke_width = max(2, round(font_size / 15))
-    label_top = max(12.0, config.padding)
+    font_size, stroke_width, label_top = _frequency_label_layout(config)
     text_attrs = (
         f'x="50%" y="{label_top:.1f}" '
         'font-family="FreeSans,DejaVu Sans,Noto Sans,Arial Unicode MS,Segoe UI Symbol,sans-serif" '
@@ -398,6 +404,9 @@ def render_vibration_gif(
             msg = "Vibrational frequency labels require a QM output file with calculated frequencies"
             raise ValueError(msg)
         frame_label = _format_vibrational_frequency(selected_frequency)
+        font_size, stroke_width, label_top = _frequency_label_layout(config)
+        config = copy.copy(config)
+        config.padding = max(config.padding, label_top + font_size + stroke_width + 4)
 
     if not auto_detect_ts:
         _validate_manual_ts_bonds(ts_graph, config.ts_bonds)
@@ -866,10 +875,10 @@ def _fixed_viewport(
 ) -> RenderConfig:
     """Create a config with fixed viewport so every frame has identical canvas size.
 
-    When *rotation_axis* is given, computes the exact projection envelope for
-    rotation around that axis: each atom's max screen-X extent is its distance
-    from the axis, and screen-Y extent is its component along the axis.
-    Otherwise uses the tighter 2D (XY) bounding box.
+    When *rotation_axis* is given, bound each atom's circular orbit in
+    screen X and Y for any axis direction. A reference frame supplies the
+    shared pivot; otherwise each frame uses its own atom centroid, matching
+    the frame worker. Without rotation, use the tighter XY bounding box.
 
     """
     import copy
@@ -888,14 +897,23 @@ def _fixed_viewport(
 
     if rotation_axis is not None:
         centroid = reference_pos.mean(axis=0)
-        rel = all_pos - centroid
-        # Component along the rotation axis (stays fixed as screen-Y)
-        along = rel @ rotation_axis
-        # Distance from the rotation axis (sweeps into screen-X)
-        perp = np.linalg.norm(rel - np.outer(along, rotation_axis), axis=1)
-        half_x = perp.max() + atom_pad
-        half_y = float(np.abs(along).max()) + atom_pad
-        fixed_span = 2 * max(half_x, half_y)
+        axis = np.asarray(rotation_axis, dtype=float)
+        axis = axis / np.linalg.norm(axis)
+        if reference_frame is None:
+            pivots = np.vstack(
+                [np.broadcast_to(np.mean(f["positions"], axis=0), (len(f["positions"]), 3)) for f in frames]
+            )
+        else:
+            pivots = np.broadcast_to(centroid, all_pos.shape)
+        rel = all_pos - pivots
+        along = rel @ axis
+        perpendicular = np.linalg.norm(rel - np.outer(along, axis), axis=1)
+        orbit_centers = pivots[:, :2] - centroid[:2] + np.outer(along, axis[:2])
+        # Projection of a circle perpendicular to the axis onto each screen
+        # coordinate has radius r * sqrt(1 - axis_component**2).
+        orbit_radii = np.outer(perpendicular, np.sqrt(np.maximum(0.0, 1.0 - axis[:2] ** 2)))
+        half_span = float((np.abs(orbit_centers) + orbit_radii).max()) + atom_pad
+        fixed_span = 2 * max(half_span, 1e-6)
         center_xy = (float(centroid[0]), float(centroid[1]))
     else:
         xy = all_pos[:, :2]
@@ -1170,15 +1188,11 @@ def _render_traj_frame(
         frame_config = copy.copy(config)
         frame_config.hull_opacity = config.hull_opacity * hull_factor
     if rotation_axis is not None and angles is not None:
-        _rg_nodes = list(render_graph.nodes())
-        _rg_centroid = (
-            np.mean([render_graph.nodes[n]["position"] for n in _rg_nodes], axis=0)
-            if rotation_center is None
-            else rotation_center
-        )
+        # Added NCI centroid nodes must not change the physical rotation pivot.
+        _rg_centroid = np.asarray(positions, dtype=float).mean(axis=0) if rotation_center is None else rotation_center
         angle_deg = rotation_sign * float(angles[idx])
         rot_mat = _axis_angle_matrix(rotation_axis, angle_deg)
-        apply_axis_angle_rotation(render_graph, rotation_axis, angle_deg, center=rotation_center)
+        apply_axis_angle_rotation(render_graph, rotation_axis, angle_deg, center=_rg_centroid)
         if config.vectors:
             frame_config = _rotate_vectors_in_cfg(config, rot_mat, _rg_centroid, rf_vec_origins, rf_vec_dirs)
 

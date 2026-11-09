@@ -1436,3 +1436,111 @@ def test_vibration_reference_file_roundtrip(tmp_path, normal_mode):
         assert loaded is not None
         np.testing.assert_allclose([d["position"] for _, d in loaded.nodes(data=True)], saved_positions, atol=1e-6)
         assert worker.call_args.kwargs["config"].auto_orient is False
+
+
+@pytest.mark.parametrize("axis_name", ["x", "y", "z", "xy", "xz", "yz", "yx", "zx", "zy"])
+@pytest.mark.parametrize("fixed_pivot", [False, True])
+def test_rotating_camera_contains_every_atom_orbit(axis_name, fixed_pivot):
+    """Contain the actual rotation for cardinal/diagonal axes and both pivot policies."""
+    from xyzrender.gif import _axis_angle_matrix, _fixed_viewport, _rotation_axis
+    from xyzrender.types import RenderConfig
+
+    frames = [
+        {"symbols": ["C", "C"], "positions": [[-10.0, 0.0, 0.0], [10.0, 0.0, 0.0]]},
+        {"symbols": ["C", "C"], "positions": [[-9.0, 1.0, 2.0], [12.0, -1.0, -1.0]]},
+    ]
+    axis, _sign = _rotation_axis(axis_name)
+    reference = frames[0] if fixed_pivot else None
+    cfg = _fixed_viewport(frames, RenderConfig(), rotation_axis=axis, reference_frame=reference)
+    assert cfg.fixed_span is not None
+    assert cfg.fixed_center is not None
+    for frame in frames:
+        positions = np.asarray(frame["positions"])
+        pivot = np.asarray(reference["positions"]).mean(axis=0) if reference else positions.mean(axis=0)
+        for angle in range(0, 360, 5):
+            rotated = (positions - pivot) @ _axis_angle_matrix(axis, angle).T + pivot
+            extent = np.abs(rotated[:, :2] - cfg.fixed_center).max()
+            assert extent < cfg.fixed_span / 2
+
+
+def test_vibration_label_reserves_camera_margin(tmp_path, normal_mode_render):
+    from xyzrender import render_gif
+    from xyzrender.types import RenderConfig
+
+    _trajectory, _mock_load, mock_render = normal_mode_render
+    config = RenderConfig(padding=10, label_font_size=24)
+    render_gif(
+        STRUCTURES / "methanol.out",
+        gif_vib=0,
+        vib_label=True,
+        config=config,
+        output=tmp_path / "label.gif",
+    )
+    prepared = mock_render.call_args.args[2]
+    assert prepared.padding >= 12 + 30 + 2
+    assert config.padding == 10
+
+
+def test_nci_centroid_does_not_change_rotation_pivot():
+    from unittest.mock import patch
+
+    import networkx as nx
+
+    from xyzrender.gif import _render_traj_frame
+    from xyzrender.types import RenderConfig
+
+    positions = [[-1.0, 0.0, 0.0], [1.0, 0.0, 0.0]]
+    graph = nx.Graph()
+    graph.add_nodes_from((i, {"symbol": "C", "position": tuple(p)}) for i, p in enumerate(positions))
+
+    def decorated(source, _ncis):
+        result = source.copy()
+        result.add_node(2, symbol="*", position=(1.0, 2.0, 0.0))
+        return result
+
+    with (
+        patch("xyzgraph.nci.build_nci_graph", side_effect=decorated),
+        patch("xyzrender.gif.render_svg", return_value="<svg />") as render_svg,
+        patch("xyzrender.gif.svg_to_png_bytes", return_value=b"png"),
+    ):
+        _render_traj_frame(
+            (0, {"symbols": ["C", "C"], "positions": positions}),
+            graph,
+            RenderConfig(),
+            nci_analyzer=None,
+            fixed_ncis=[],
+            detect_nci_per_frame=False,
+            nci_types=None,
+            rotation_axis=np.array([0.0, 0.0, 1.0]),
+            rotation_sign=1.0,
+            angles=np.array([90.0]),
+            rf_vec_origins=np.empty((0, 3)),
+            rf_vec_dirs=np.empty((0, 3)),
+            frame_label=None,
+        )
+    rendered = render_svg.call_args.args[0]
+    np.testing.assert_allclose(
+        [rendered.nodes[i]["position"] for i in range(3)], [[0, -1, 0], [0, 1, 0], [-2, 1, 0]], atol=1e-12
+    )
+
+
+@pytest.mark.parametrize("canvas_size", [240, 800])
+def test_frequency_label_fits_output_canvas(canvas_size):
+    from io import BytesIO
+
+    from PIL import Image
+
+    from xyzrender.gif import _add_png_label
+    from xyzrender.types import RenderConfig
+
+    source = BytesIO()
+    Image.new("RGBA", (canvas_size, canvas_size), "white").save(source, format="PNG")
+    labelled = _add_png_label(
+        source.getvalue(), "\u03bd\u0303 = 320.9 cm⁻¹", RenderConfig(canvas_size=canvas_size, label_font_size=40)
+    )
+    pixels = np.asarray(Image.open(BytesIO(labelled)).convert("RGB"))
+    y, x = np.where(np.any(pixels < 128, axis=2))
+    assert len(x) > 0
+    assert x.min() > 0
+    assert x.max() < canvas_size - 1
+    assert y.min() > 0
