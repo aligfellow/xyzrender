@@ -4,6 +4,11 @@ xyzrender has a full Python API. Every CLI flag has a keyword-argument equivalen
 
 See also the [auto-generated API reference](api/core.rst) for docstrings and type signatures, and the runnable [`examples/examples.ipynb`](https://github.com/aligfellow/xyzrender/blob/main/examples/examples.ipynb) notebook.
 
+GIF rendering uses processes when the entrypoint supports them. On spawn-based
+platforms, calls supplied through stdin render serially. In saved Python scripts,
+put GIF calls inside `if __name__ == "__main__":` to prevent spawned workers from
+running the script's rendering calls again.
+
 ## Loading molecules
 
 `load()` parses a file and returns a `Molecule` object. Pass it to `render()` to avoid re-reading the file on every call. You can also pass a path string directly to `render()` as a shorthand.
