@@ -373,6 +373,8 @@ def render_vibration_gif(
             charge=charge,
             multiplicity=multiplicity,
             print_output=False,
+            save_trajectory=False,
+            save_displacement=False,
             **vib_kwargs,
         )
         ts_graph = results["graph"]["ts_graph"]
