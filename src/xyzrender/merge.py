@@ -99,8 +99,7 @@ def stamp_structure_edges(
     The width / outline kwargs stamp absolute per-edge overrides
     (``bond_width_override``, ``bond_outline_width_override``,
     ``bond_outline_color_override``) that the renderer applies on top of the
-    base / style-region config. Explicit source edge colours are retained even
-    when a structure colour is supplied. Edges whose
+    base / style-region config — an explicit overlay value wins.  Edges whose
     endpoints are not both in *id_map* are skipped (useful for per-frame
     ensemble graphs that contain out-of-range references).
     """
@@ -118,12 +117,7 @@ def stamp_structure_edges(
 
     for i, j, d in source.edges(data=True):
         if i in id_map and j in id_map:
-            attributes = {**d, **extras}
-            # A source edge's explicit colour is more specific than a structure
-            # colour, including its derived darkened bond colour.
-            if d.get("bond_color_override") is not None:
-                attributes["bond_color_override"] = d["bond_color_override"]
-            merged.add_edge(id_map[i], id_map[j], **attributes)
+            merged.add_edge(id_map[i], id_map[j], **dict(d), **extras)
 
 
 def merge_aromatic_rings(merged: nx.Graph, source: nx.Graph, id_map: dict) -> None:

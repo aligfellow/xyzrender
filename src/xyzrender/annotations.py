@@ -119,28 +119,6 @@ def _ensure_bond_for_cmap(i: int, j: int, graph, *, context: str) -> None:
     graph.add_edge(i, j, bond_order=1.0, NCI=True)
 
 
-def prepare_bond_cmap_graph(graph, values: dict[tuple[int, int], float] | None):
-    """Materialize explicit 0-based map pairs on an owned render graph.
-
-    Run after NCI decoration and graph merging, including each GIF frame. Existing
-    bonds keep their style; missing pairs use the established dotted NCI style.
-    The input graph is returned unchanged when all pairs already exist.
-    """
-    if values is None:
-        return graph
-    for i, j in values:
-        if i == j:
-            raise ValueError(f"bond cmap: atom indices must differ (got {i + 1} {j + 1})")
-        if i not in graph or j not in graph:
-            raise ValueError(f"bond cmap: atom pair ({i + 1}, {j + 1}) not in molecule")
-    missing = [(i, j) for i, j in values if not graph.has_edge(i, j)]
-    if not missing:
-        return graph
-    graph = graph.copy()
-    graph.add_edges_from(missing, bond_order=1.0, NCI=True)
-    return graph
-
-
 def _parse_spec(tokens: list[str], graph) -> list[Annotation]:
     """Parse one annotation spec (one -l invocation or one file line).
 
@@ -333,7 +311,7 @@ def load_cmap(file_path: str, graph) -> dict[int, float]:
     return result
 
 
-def read_bond_cmap(file_path: str, graph) -> dict[tuple[int, int], float]:
+def load_bond_cmap(file_path: str, graph) -> dict[tuple[int, int], float]:
     """Load bond property colormap from a strict i-j-value file.
 
     Format (1-indexed atom indices, strict):
@@ -343,7 +321,6 @@ def read_bond_cmap(file_path: str, graph) -> dict[tuple[int, int], float]:
     Blank lines and lines starting with ``#`` are skipped. Non-integer first
     tokens are silently skipped (handles CSV headers). Any other malformed line
     is a hard error.  Pairs are undirected; duplicate pairs keep the last value.
-    Resolves and validates pairs without changing the supplied graph.
     """
     path = Path(file_path)
     if not path.exists():
@@ -386,23 +363,12 @@ def read_bond_cmap(file_path: str, graph) -> dict[tuple[int, int], float]:
             except ValueError as exc:
                 raise ValueError(f"bond cmap line {lineno}: {exc}") from exc
 
+            _ensure_bond_for_cmap(i, j, graph, context=f"bond cmap line {lineno}")
+
             key = (min(i, j), max(i, j))
             result[key] = val
 
     return result
-
-
-def load_bond_cmap(file_path: str, graph) -> dict[tuple[int, int], float]:
-    """Read bond scalars and add missing NCI-style edges to the supplied graph.
-
-    This compatibility entry point retains its mutating contract. Rendering
-    frontends use :func:`read_bond_cmap` and materialize display edges only after
-    merging and NCI detection.
-    """
-    values = read_bond_cmap(file_path, graph)
-    for i, j in values:
-        _ensure_bond_for_cmap(i, j, graph, context=f"bond cmap file {file_path}")
-    return values
 
 
 # ---------------------------------------------------------------------------

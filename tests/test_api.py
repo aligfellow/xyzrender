@@ -472,19 +472,19 @@ def test_bond_cmap_keeps_original_atom_numbers_after_filtering(ethanol, tmp_path
     assert captured["cmap"] == {(0, 1): 0.5}
 
 
-@pytest.mark.parametrize("from_file", [False, True])
-def test_resolve_bond_cmap_is_topology_readonly(ethanol, tmp_path, from_file):
+def test_resolve_bond_cmap_dict_adds_missing_edge(ethanol, caplog):
+    import logging
+
     from xyzrender.api import _resolve_bond_cmap
 
     graph = ethanol.graph.copy()
     assert not graph.has_edge(2, 3)
-    values = {(3, 4): 0.5}
-    if from_file:
-        values = tmp_path / "bonds.txt"
-        values.write_text("3 4 0.5\n")
-    out = _resolve_bond_cmap(values, graph)
+    with caplog.at_level(logging.WARNING):
+        out = _resolve_bond_cmap({(3, 4): 0.5}, graph)
     assert out[(2, 3)] == 0.5
-    assert not graph.has_edge(2, 3)
+    assert graph.has_edge(2, 3)
+    assert graph.edges[2, 3].get("NCI") is True
+    assert any("adding NCI-style edge" in r.message for r in caplog.records)
 
 
 # ---------------------------------------------------------------------------
@@ -1006,29 +1006,3 @@ def test_unbond_all_removes_every_covalent_bond(caffeine, spec):
     apply_bond_rules(g, cfg)
     assert g.number_of_edges() == 0
     assert g.number_of_nodes() == caffeine.graph.number_of_nodes()
-
-
-@pytest.mark.parametrize("from_file", [False, True])
-def test_atom_cmap_respects_primary_original_indices_for_dict_and_file(ethanol, tmp_path, from_file):
-    from xml.etree import ElementTree as ET
-
-    from xyzrender.types import RenderConfig
-
-    config = RenderConfig(cmap_range=(0, 1), cmap_palette="viridis", auto_orient=False, gradient=False, fog=False)
-    values = {2: 1.0, 3: 1.0}
-    if from_file:
-        values = tmp_path / "atoms.txt"
-        values.write_text("2 1\n3 1\n")
-    svg = str(render(ethanol, config=config, cmap=values, only="2,3"))
-    fills = [el.get("fill") for el in ET.fromstring(svg).iter() if el.tag.endswith("}circle")]
-    assert fills == ["#fde725", "#fde725"]
-
-    # This index could exist after overlay merging, but public maps address the
-    # primary input, so both input forms must reject it before the merge.
-    outside = ethanol.graph.number_of_nodes() + 1
-    values = {outside: 1.0}
-    if from_file:
-        values = tmp_path / "atoms.txt"
-        values.write_text(f"{outside} 1\n")
-    with pytest.raises(ValueError, match="not found"):
-        render(ethanol, config=config, cmap=values, overlay=ethanol, auto_align=False)

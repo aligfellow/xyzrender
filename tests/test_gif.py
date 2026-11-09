@@ -1532,14 +1532,3 @@ def test_frequency_label_header_preserves_entire_wide_frame(width, background):
     assert x.max() < width - 1
     assert y.min() > 0
     assert y.max() < header_height - 1
-
-
-def test_ts_loading_and_gif_output_leave_source_directory_read_only(tmp_path):
-    from xyzrender import load, render_gif
-
-    source = tmp_path / "sn2.out"
-    source.write_bytes((STRUCTURES / "sn2.out").read_bytes())
-    load(source, ts_detect=True)
-    assert {path.name for path in tmp_path.iterdir()} == {"sn2.out"}
-    render_gif(source, gif_ts=True, vib_frames=4, canvas_size=120, output=tmp_path / "ts.gif")
-    assert {path.name for path in tmp_path.iterdir()} == {"sn2.out", "ts.gif"}

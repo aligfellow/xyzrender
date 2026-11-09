@@ -525,8 +525,6 @@ def load_ts_molecule(
         charge=charge,
         multiplicity=multiplicity,
         print_output=False,
-        save_trajectory=False,
-        save_displacement=False,
     )
 
     graph = results["graph"]["ts_graph"]
