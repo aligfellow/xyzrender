@@ -34,6 +34,39 @@ def _make_traj(tmp_path: Path) -> Path:
     return xyz_path
 
 
+@pytest.mark.parametrize("animated", [False, True])
+def test_render_nci_selection_preserves_rebuilt_topology(tmp_path, monkeypatch, animated):
+    from xyzrender import render_gif
+
+    trajectory = tmp_path / "changing.xyz"
+    _write_multiframe_xyz(
+        trajectory,
+        [
+            [("H", (0, 0, 0)), ("H", (0.74, 0, 0))],
+            [("H", (0, 0, 0)), ("H", (4.0, 0, 0))],
+        ],
+    )
+    mol = load(trajectory, ensemble=True, rebuild=True)
+    assert mol.ensemble is not None
+    assert mol.ensemble.conformer_graphs is not None
+    before = [set(graph.edges) for graph in mol.ensemble.conformer_graphs]
+    captured = {}
+
+    def capture(graph, *args, **kwargs):
+        captured["graph"] = graph
+        return "<svg />"
+
+    if animated:
+        monkeypatch.setattr("xyzrender.gif.render_rotation_gif", capture)
+        render_gif(mol, gif_rot="y", detect_nci="hb", output=tmp_path / "ensemble.gif")
+    else:
+        monkeypatch.setattr("xyzrender.renderer.render_svg", capture)
+        render(mol, detect_nci="hb", orient=False)
+    covalent = [(i, j) for i, j, data in captured["graph"].edges(data=True) if not data.get("NCI")]
+    assert covalent == [(0, 1)]
+    assert [set(graph.edges) for graph in mol.ensemble.conformer_graphs] == before
+
+
 def _make_triatomic_traj(tmp_path: Path) -> Path:
     frames = [
         [("C", (0.0, 0.0, 0.0)), ("H", (1.0, 0.0, 0.0)), ("H", (0.0, 1.0, 0.0))],
@@ -132,6 +165,64 @@ def test_rebuilt_ensemble_detects_ncis_on_supplied_reference() -> None:
     assert mol.ensemble.conformer_graphs is not None
     reference_graph = mol.ensemble.conformer_graphs[mol.ensemble.reference_idx]
     assert any(data.get("NCI") for *_edge, data in reference_graph.edges(data=True))
+
+
+def test_load_ensemble_filters_detected_nci_types():
+    mol = load(
+        "examples/structures/bimp.v000.xyz",
+        ensemble=True,
+        max_frames=2,
+        nci_detect=["hb"],
+    )
+
+    nci_types = {data["nci_type"] for *_edge, data in mol.graph.edges(data=True) if data.get("NCI")}
+    assert nci_types == {"hbond_bifurcated"}
+    assert mol.ensemble is not None
+    assert mol.ensemble.conformer_graphs is not None
+    for graph in mol.ensemble.conformer_graphs:
+        frame_types = {data["nci_type"] for *_edge, data in graph.edges(data=True) if data.get("NCI")}
+        assert frame_types <= {"hbond", "hbond_bifurcated", "hb_pi"}
+
+
+def test_render_ensemble_filters_ncis_per_conformer_without_mutation():
+    from unittest.mock import patch
+
+    mol = load("examples/structures/bimp.v000.xyz", ensemble=True, max_frames=2)
+
+    with patch("xyzrender.renderer.render_svg", return_value="<svg />") as mock_render:
+        render(mol, detect_nci=["hb"], orient=False)
+
+    rendered_graph = mock_render.call_args.args[0]
+    nci_types = {data["nci_type"] for *_edge, data in rendered_graph.edges(data=True) if data.get("NCI")}
+    assert nci_types <= {"hbond", "hbond_bifurcated", "hb_pi"}
+    assert nci_types
+    assert any(
+        data.get("molecule_index") == 1 and data.get("nci_type") == "hbond"
+        for *_edge, data in rendered_graph.edges(data=True)
+    )
+    assert mol.ensemble is not None
+    assert mol.ensemble.conformer_graphs is None
+    assert not any(data.get("NCI") for *_edge, data in mol.graph.edges(data=True))
+
+
+def test_render_gif_ensemble_filters_ncis_per_conformer(tmp_path):
+    from unittest.mock import patch
+
+    from xyzrender import render_gif
+
+    mol = load("examples/structures/bimp.v000.xyz", ensemble=True, max_frames=2)
+
+    with patch("xyzrender.gif.render_rotation_gif") as mock_render:
+        render_gif(mol, gif_rot="y", detect_nci=["hb"], output=tmp_path / "ensemble.gif")
+
+    rendered_graph = mock_render.call_args.kwargs["graph"]
+    nci_types = {data["nci_type"] for *_edge, data in rendered_graph.edges(data=True) if data.get("NCI")}
+    assert nci_types <= {"hbond", "hbond_bifurcated", "hb_pi"}
+    assert nci_types
+    assert any(
+        data.get("molecule_index") == 1 and data.get("nci_type") == "hbond"
+        for *_edge, data in rendered_graph.edges(data=True)
+    )
 
 
 def test_ensemble_opacity(tmp_path: Path) -> None:
