@@ -591,9 +591,14 @@ def render_trajectory_gif(
         logger.debug("Applying Kabsch rotation from viewer orientation")
         source = frames[reference_frame]
         real_nodes = [d for _, d in reference_graph.nodes(data=True) if d["symbol"] != "*"]
-        if [d["symbol"] for d in real_nodes] != source["symbols"]:
-            msg = "Trajectory reference graph and source frame must have the same atom count and element order"
+        if len(real_nodes) != len(source["symbols"]):
+            msg = (
+                "Trajectory reference orientation requires the reference graph and source frame "
+                "to have the same atom count"
+            )
             raise ValueError(msg)
+        if [d["symbol"] for d in real_nodes] != source["symbols"]:
+            raise ValueError("Trajectory reference graph and source frame must use the same atom order")
         target_positions = np.array([d["position"] for d in real_nodes])
         rot = kabsch_rotation(np.array(source["positions"]), target_positions)
         frames = _rotate_frames(frames, rot)

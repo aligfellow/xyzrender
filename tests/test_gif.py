@@ -1,8 +1,8 @@
 """Tests for gif.py — rotation axis parsing and GIF rendering."""
 
+import re
 import subprocess
 import sys
-import re
 from pathlib import Path
 
 import numpy as np
@@ -854,7 +854,8 @@ def test_render_gif_rot_accepts_align_atoms_kwarg(tmp_path):
     )
 
 
-def test_trajectory_gif_preserves_electronic_state(tmp_path, monkeypatch):
+@pytest.mark.parametrize("var_atoms", [False, True])
+def test_trajectory_gif_preserves_electronic_state(tmp_path, monkeypatch, var_atoms):
     from xyzrender import gif, render_gif
 
     source = tmp_path / "charged.xyz"
@@ -862,7 +863,7 @@ def test_trajectory_gif_preserves_electronic_state(tmp_path, monkeypatch):
     captured = {}
     monkeypatch.setattr(gif, "render_trajectory_gif", lambda **kwargs: captured.update(kwargs))
 
-    render_gif(source, gif_trj=True, trj_bonds=True, output=tmp_path / "path.gif")
+    render_gif(source, gif_trj=True, trj_bonds=True, var_atoms=var_atoms, output=tmp_path / "path.gif")
 
     assert captured["charge"] == -1
     assert captured["multiplicity"] == 1

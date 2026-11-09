@@ -1615,7 +1615,8 @@ def render_gif(
         correctly.
     var_atoms:
         Allow *gif_trj* frames with differing atom counts instead of
-        raising an error.
+        raising an error. Multiplicity is inferred independently for each
+        frame, since the electron-count parity can change.
     trj_reference_frame:
         Zero-based trajectory frame corresponding to *reference_graph*.
         The same frame is used to derive a rotation that is applied to all
@@ -1944,6 +1945,7 @@ def render_gif(
             raise ValueError("render_gif(gif_trj=True) requires a multi-frame XYZ file")
         # A caller-supplied reference (CLI: loaded with -c/-m) carries the electronic state.
         trj_ref = reference_graph if reference_graph is not None else rmol.graph
+        variable_atom_counts = len({len(frame["symbols"]) for frame in frames}) > 1
 
         reference_frame = trj_reference_frame
         if reference_frame is None:
@@ -1961,7 +1963,7 @@ def render_gif(
             trj_bonds=trj_bonds,
             detect_nci=detect_nci,
             charge=trj_ref.graph.get("total_charge", 0),
-            multiplicity=trj_ref.graph.get("multiplicity"),
+            multiplicity=None if variable_atom_counts else trj_ref.graph.get("multiplicity"),
         )
         logger.info("GIF written to %s", gif_path)
         return GIFResult(gif_path)
