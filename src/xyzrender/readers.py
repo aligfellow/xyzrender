@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TypeAlias
 
 import numpy as np
-from xyzgraph import DATA, build_graph, read_xyz_file
+from xyzgraph import DATA, build_graph, read_xyz_file, read_xyz_frames
 
 from xyzrender.types import CellData
 
@@ -554,7 +554,7 @@ def load_ts_molecule(
 # ---------------------------------------------------------------------------
 
 
-def detect_nci(graph: nx.Graph) -> nx.Graph:
+def detect_nci(graph: nx.Graph, nci_types: bool | str | list[str] = True) -> nx.Graph:
     """Detect non-covalent interactions and return a decorated graph.
 
     Uses xyzgraph's NCI detection algorithm.  Returns a new graph with
@@ -565,20 +565,33 @@ def detect_nci(graph: nx.Graph) -> nx.Graph:
     ----------
     graph:
         Molecular graph built by xyzgraph (e.g. from :func:`load_molecule`).
+    nci_types:
+        ``True`` selects every detected interaction.  Exact xyzgraph type
+        names and the ``hb``, ``pi``, and ``ion`` groups may be supplied as
+        a string or list.
 
     Returns
     -------
     networkx.Graph
         New graph with NCI edges and centroid nodes added.
     """
-    from xyzgraph import detect_ncis
     from xyzgraph.nci import build_nci_graph
 
     logger.info("Detecting NCI interactions")
-    detect_ncis(graph)
-    nci_graph = build_nci_graph(graph)
-    n_nci = sum(1 for _, _, d in nci_graph.edges(data=True) if d.get("NCI"))
-    logger.info("Detected %d NCI interactions", n_nci)
+    from xyzrender.nci_filter import filter_ncis
+
+    if "ncis" in graph.graph:
+        graph.remove_edges_from([(i, j) for i, j, data in graph.edges(data=True) if data.get("NCI")])
+        graph.remove_nodes_from(graph.graph.get("nci_centroid", []))
+        for key in ("ncis", "nci_centroid", "nci_centroid_sites"):
+            graph.graph.pop(key, None)
+
+    from xyzgraph import detect_ncis
+
+    ncis = filter_ncis(detect_ncis(graph), nci_types)
+    graph.graph["ncis"] = ncis
+    nci_graph = build_nci_graph(graph, ncis)
+    logger.info("Detected %d NCI interactions", len(ncis))
     return nci_graph
 
 
@@ -587,7 +600,7 @@ def detect_nci(graph: nx.Graph) -> nx.Graph:
 # ---------------------------------------------------------------------------
 
 
-def load_trajectory_frames(path: str | Path) -> list[dict]:
+def load_trajectory_frames(path: str | Path, *, var_atoms: bool = False) -> list[dict]:
     """Load all frames from a multi-frame XYZ or QM output (cclib).
 
     Returns list of ``{"symbols": [...], "positions": [[x,y,z], ...]}``
@@ -597,6 +610,9 @@ def load_trajectory_frames(path: str | Path) -> list[dict]:
     ----------
     path:
         Path to a multi-frame XYZ file or QM output file.
+    var_atoms:
+        Allow frames with differing atom counts instead of raising
+        ``ValueError`` (default: treat a non-uniform trajectory as malformed).
 
     Returns
     -------
@@ -605,8 +621,33 @@ def load_trajectory_frames(path: str | Path) -> list[dict]:
     """
     p = str(path)
     logger.info("Loading trajectory from %s", p)
-    frames = _load_xyz_frames(p) if p.endswith(".xyz") else _load_qm_frames(p)
+    if p.endswith(".xyz"):
+        frames = [
+            {
+                "symbols": [symbol for symbol, _ in atoms],
+                "positions": [list(position) for _, position in atoms],
+            }
+            for atoms in read_xyz_frames(p)
+        ]
+    else:
+        frames = _load_qm_frames(p)
     logger.info("Loaded %d frames", len(frames))
+
+    counts = [len(f["symbols"]) for f in frames]
+    if counts and len(set(counts)) > 1:
+        if not var_atoms:
+            first_n = counts[0]
+            bad_idx, bad_n = next((i, n) for i, n in enumerate(counts) if n != first_n)
+            msg = (
+                f"Trajectory has non-uniform atom counts: first frame has {first_n} atoms, "
+                f"frame {bad_idx} has {bad_n}. If this is intentional, use --var-atoms"
+            )
+            raise ValueError(msg)
+        logger.info(
+            "Trajectory has non-uniform atom counts (min=%d, max=%d atoms); var_atoms=True",
+            min(counts),
+            max(counts),
+        )
     return frames
 
 
@@ -713,24 +754,6 @@ def _parse_qm_output(path: str) -> tuple[_Atoms, int, int | None]:
         atoms.append((DATA.n2s[int(z)], (float(x), float(y), float(zc))))
 
     return atoms, getattr(data, "charge", 0), getattr(data, "mult", None)
-
-
-def _load_xyz_frames(path: str) -> list[dict]:
-    """Read all frames from a multi-frame XYZ file."""
-    from xyzgraph import count_frames_and_atoms
-
-    n_frames, n_atoms = count_frames_and_atoms(path)
-    logger.debug("XYZ file: %d frames, %d atoms per frame", n_frames, n_atoms)
-    frames = []
-    for i in range(n_frames):
-        atoms = read_xyz_file(path, frame=i)
-        frames.append(
-            {
-                "symbols": [a[0] for a in atoms],
-                "positions": [list(a[1]) for a in atoms],
-            }
-        )
-    return frames
 
 
 def _looks_like_rdkit_mol(obj) -> bool:

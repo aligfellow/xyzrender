@@ -1,5 +1,6 @@
 """Tests for gif.py — rotation axis parsing and GIF rendering."""
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -503,6 +504,47 @@ def test_vibration_dispatch_preserves_loaded_electronic_state(tmp_path, monkeypa
     assert worker.call_args.kwargs["multiplicity"] == 2
 
 
+def test_render_gif_vibration_filters_detected_nci_types(tmp_path):
+    from unittest.mock import patch
+
+    import networkx as nx
+    from xyzgraph.nci import NCIData
+
+    from xyzrender import render_gif
+
+    frames = [{"symbols": ["C", "C", "C"], "positions": [[0, 0, 0], [1.4, 0, 0], [2.8, 0, 0]]}]
+    ts_graph = nx.Graph()
+    ts_graph.add_nodes_from(
+        (i, {"symbol": "C", "position": tuple(position)}) for i, position in enumerate(frames[0]["positions"])
+    )
+    analysis = {"graph": {"ts_graph": ts_graph}, "trajectory": {"frames": frames}}
+    detected = [
+        NCIData("hbond", (0,), (1,), (), {}, 1.0),
+        NCIData("pi_pi_parallel", (1,), (2,), (), {}, 1.0),
+    ]
+
+    def _detect(graph):
+        graph.graph["ncis"] = detected
+        return detected
+
+    with (
+        patch("graphrc.run_vib_analysis", return_value=analysis),
+        patch("xyzgraph.detect_ncis", side_effect=_detect),
+        patch("xyzrender.gif._render_frames", return_value=[b""]) as mock_render,
+        patch("xyzrender.gif._stitch_gif"),
+    ):
+        render_gif(
+            STRUCTURES / "sn2.out",
+            gif_ts=True,
+            detect_nci=["hb"],
+            orient=False,
+            output=tmp_path / "ts.gif",
+        )
+
+    fixed_ncis = mock_render.call_args.kwargs["fixed_ncis"]
+    assert [nci.type for nci in fixed_ncis] == ["hbond"]
+
+
 @pytest.mark.parametrize("ts_bonds", [[(1, 1)], [(1, 999)]])
 def test_render_gif_ts_rejects_invalid_manual_bonds(tmp_path, ts_bonds):
     from unittest.mock import patch
@@ -575,6 +617,235 @@ def test_render_trajectory_gif_trj_bonds(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Non-uniform atom counts across frames (issue #169)
+# ---------------------------------------------------------------------------
+
+_VARIABLE_ATOM_FRAMES = [
+    {"symbols": ["H", "H"], "positions": [[0.0, 0.0, 0.0], [0.0, 0.0, 0.74]]},
+    {
+        "symbols": ["H", "H", "H"],
+        "positions": [[0.0, 0.0, 0.0], [0.0, 0.0, 0.80], [0.0, 0.0, 1.60]],
+    },
+]
+
+_VARIABLE_ATOM_XYZ = """2
+frame 0: H2
+H  0.000  0.000  0.000
+H  0.000  0.000  0.740
+3
+frame 1: H3
+H  0.000  0.000  0.000
+H  0.000  0.000  0.800
+H  0.000  0.000  1.600
+2
+frame 2: H2
+H  1.000  0.000  0.000
+H  1.000  0.000  0.750
+2
+frame 3: H2
+H  0.000  1.000  0.000
+H  0.000  1.000  0.730
+"""
+
+
+def test_render_gif_variable_atoms_recommends_opt_in(tmp_path):
+    """The public trajectory pipeline explains how to allow intentional count changes."""
+    from xyzrender import render_gif
+
+    trajectory = tmp_path / "variable.xyz"
+    trajectory.write_text(_VARIABLE_ATOM_XYZ)
+
+    message = (
+        "Trajectory has non-uniform atom counts: first frame has 2 atoms, "
+        "frame 1 has 3. If this is intentional, use --var-atoms"
+    )
+    with pytest.raises(ValueError, match=re.escape(message)) as exc_info:
+        render_gif(trajectory, gif_trj=True, output=tmp_path / "variable.gif")
+    assert str(exc_info.value) == message
+
+
+def test_render_gif_variable_atoms_opt_in_reaches_public_renderer(tmp_path):
+    """var_atoms=True renders every independently sized frame through the public API."""
+    from unittest.mock import patch
+
+    from xyzrender import render_gif
+
+    trajectory = tmp_path / "variable.xyz"
+    trajectory.write_text(_VARIABLE_ATOM_XYZ)
+    captured: dict = {}
+
+    def _spy(graph, frames, config, **_):
+        captured["frames"] = frames
+        return [b""] * len(frames)
+
+    with (
+        patch("xyzrender.gif._render_frames", side_effect=_spy),
+        patch("xyzrender.gif._stitch_gif"),
+    ):
+        render_gif(
+            trajectory,
+            gif_trj=True,
+            var_atoms=True,
+            orient=False,
+            output=tmp_path / "variable.gif",
+        )
+
+    assert [len(frame["symbols"]) for frame in captured["frames"]] == [2, 3, 2, 2]
+    assert all("graph" in frame for frame in captured["frames"])
+
+
+def test_render_trajectory_gif_auto_enables_trj_bonds_for_variable_atoms(tmp_path):
+    """Differing atom counts must trigger per-frame graphs even if trj_bonds=False."""
+    from unittest.mock import patch
+
+    from xyzrender.gif import render_trajectory_gif
+    from xyzrender.types import RenderConfig
+
+    captured: dict = {}
+
+    def _spy(graph, frames, config, **_):
+        captured["frames"] = frames
+        return [b""] * len(frames)
+
+    with (
+        patch("xyzrender.gif._render_frames", side_effect=_spy),
+        patch("xyzrender.gif._stitch_gif"),
+    ):
+        render_trajectory_gif(
+            frames=[dict(f) for f in _VARIABLE_ATOM_FRAMES],
+            config=RenderConfig(),
+            output=str(tmp_path / "x.gif"),
+            trj_bonds=False,
+        )
+
+    seen = captured["frames"]
+    assert all("graph" in f for f in seen), "variable atom counts must trigger per-frame graphs"
+    assert [g.number_of_nodes() for g in (f["graph"] for f in seen)] == [2, 3]
+
+
+def test_render_trajectory_gif_orients_from_matching_reference_frame(tmp_path):
+    """Reference orientation must not align a differently sized final frame."""
+    from unittest.mock import patch
+
+    import networkx as nx
+
+    from xyzrender.gif import render_trajectory_gif
+    from xyzrender.types import RenderConfig
+
+    frames = [
+        {
+            "symbols": ["C", "N", "O"],
+            "positions": [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        },
+        {
+            "symbols": ["C", "N", "O", "H"],
+            "positions": [[0.0, 0.0, 0.0], [2.0, 0.0, 0.0], [0.0, 2.0, 0.0], [0.0, 0.0, 1.0]],
+        },
+    ]
+    reference = nx.Graph()
+    for i, (symbol, position) in enumerate(
+        zip(frames[0]["symbols"], [[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]], strict=True)
+    ):
+        reference.add_node(i, symbol=symbol, position=position)
+
+    captured: dict = {}
+
+    def _spy(graph, rendered_frames, config, **_):
+        captured["frames"] = rendered_frames
+        return [b""] * len(rendered_frames)
+
+    with (
+        patch("xyzrender.gif._render_frames", side_effect=_spy),
+        patch("xyzrender.gif._stitch_gif"),
+    ):
+        render_trajectory_gif(
+            frames=frames,
+            config=RenderConfig(auto_orient=False),
+            output=str(tmp_path / "oriented.gif"),
+            reference_graph=reference,
+        )
+
+    assert [len(frame["positions"]) for frame in captured["frames"]] == [3, 4]
+    np.testing.assert_allclose(
+        captured["frames"][0]["positions"],
+        [[2 / 3, 0.0, 0.0], [2 / 3, 1.0, 0.0], [-1 / 3, 0.0, 0.0]],
+        atol=1e-12,
+    )
+
+    with pytest.raises(ValueError, match="reference graph and source frame to have the same atom count"):
+        render_trajectory_gif(
+            frames=frames,
+            config=RenderConfig(auto_orient=False),
+            output=str(tmp_path / "wrong-reference.gif"),
+            reference_graph=reference,
+            reference_frame=1,
+        )
+
+    mismatched_reference = reference.copy()
+    mismatched_reference.nodes[1]["symbol"] = "O"
+    mismatched_reference.nodes[2]["symbol"] = "N"
+    with pytest.raises(ValueError, match="same atom order"):
+        render_trajectory_gif(
+            frames=frames,
+            config=RenderConfig(auto_orient=False),
+            output=str(tmp_path / "wrong-order.gif"),
+            reference_graph=mismatched_reference,
+        )
+
+
+def test_render_trajectory_frame_filters_detected_nci_types():
+    from unittest.mock import Mock, patch
+
+    import networkx as nx
+    from xyzgraph.nci import NCIData
+
+    from xyzrender.gif import _render_traj_frame
+    from xyzrender.types import RenderConfig
+
+    graph = nx.Graph()
+    graph.add_nodes_from(
+        [
+            (0, {"symbol": "C", "position": (0.0, 0.0, 0.0)}),
+            (1, {"symbol": "C", "position": (1.4, 0.0, 0.0)}),
+        ]
+    )
+    frame = {"symbols": ["C", "C"], "positions": [[0.0, 0.0, 0.0], [1.4, 0.0, 0.0]]}
+    analyzer = Mock()
+    analyzer.detect.return_value = [
+        NCIData("hbond", (0,), (1,), (), {}, 1.0),
+        NCIData("pi_pi_parallel", (0,), (1,), (), {}, 1.0),
+    ]
+    captured = {}
+
+    def _build(source, ncis):
+        captured["types"] = [nci.type for nci in ncis]
+        return source
+
+    with (
+        patch("xyzgraph.nci.build_nci_graph", side_effect=_build),
+        patch("xyzrender.gif.render_svg", return_value="<svg />"),
+        patch("xyzrender.gif.svg_to_png_bytes", return_value=b"png"),
+    ):
+        _render_traj_frame(
+            (0, frame),
+            graph,
+            RenderConfig(),
+            analyzer,
+            None,
+            False,
+            ["hb"],
+            None,
+            1.0,
+            None,
+            np.full((0, 3), np.nan),
+            np.full((0, 3), np.nan),
+            frame_label=None,
+        )
+
+    assert captured["types"] == ["hbond"]
+
+
+# ---------------------------------------------------------------------------
 # render_gif API — rotation GIF via public API
 # ---------------------------------------------------------------------------
 
@@ -606,6 +877,63 @@ def test_api_render_gif_rotation_true_uses_y_axis(tmp_path):
         render_gif(_tiny_molecule(), gif_rot=True, output=tmp_path / "true.gif")
 
     assert mock_render.call_args.kwargs["axis"] == "y"
+
+
+def test_render_gif_rotation_filters_detected_nci_types(tmp_path):
+    from unittest.mock import patch
+
+    from xyzrender import render_gif
+
+    with patch("xyzrender.gif.render_rotation_gif") as mock_render:
+        render_gif(
+            STRUCTURES / "bimp.v000.xyz",
+            gif_rot="y",
+            detect_nci=["hb"],
+            output=tmp_path / "nci.gif",
+        )
+
+    graph = mock_render.call_args.kwargs["graph"]
+    nci_types = {data["nci_type"] for *_edge, data in graph.edges(data=True) if data.get("NCI")}
+    assert nci_types == {"hbond_bifurcated"}
+
+
+def test_render_gif_rotation_filters_molecule_without_mutating_it(tmp_path):
+    from unittest.mock import patch
+
+    from xyzrender import load, render_gif
+
+    molecule = load(STRUCTURES / "bimp.v000.xyz")
+
+    with patch("xyzrender.gif.render_rotation_gif") as mock_render:
+        render_gif(
+            molecule,
+            gif_rot="y",
+            detect_nci=["hb"],
+            output=tmp_path / "nci.gif",
+        )
+
+    graph = mock_render.call_args.kwargs["graph"]
+    nci_types = {data["nci_type"] for *_edge, data in graph.edges(data=True) if data.get("NCI")}
+    assert nci_types == {"hbond_bifurcated"}
+    assert not any(data.get("NCI") for *_edge, data in molecule.graph.edges(data=True))
+
+
+def test_render_gif_rotation_detects_ncis_after_atom_filtering(tmp_path):
+    from unittest.mock import patch
+
+    from xyzrender import render_gif
+
+    with patch("xyzrender.gif.render_rotation_gif") as mock_render:
+        render_gif(
+            STRUCTURES / "bimp.v000.xyz",
+            gif_rot="y",
+            detect_nci="pi",
+            only="1-172",
+            output=tmp_path / "nci.gif",
+        )
+
+    graph = mock_render.call_args.kwargs["graph"]
+    assert any(data.get("NCI") for *_edge, data in graph.edges(data=True))
 
 
 def test_api_render_gif_bounce(tmp_path):
@@ -972,7 +1300,8 @@ def test_render_gif_rot_accepts_align_atoms_kwarg(tmp_path):
     )
 
 
-def test_trajectory_gif_preserves_electronic_state(tmp_path, monkeypatch):
+@pytest.mark.parametrize("var_atoms", [False, True])
+def test_trajectory_gif_preserves_electronic_state(tmp_path, monkeypatch, var_atoms):
     from xyzrender import gif, render_gif
 
     source = tmp_path / "charged.xyz"
@@ -980,7 +1309,7 @@ def test_trajectory_gif_preserves_electronic_state(tmp_path, monkeypatch):
     captured = {}
     monkeypatch.setattr(gif, "render_trajectory_gif", lambda **kwargs: captured.update(kwargs))
 
-    render_gif(source, gif_trj=True, trj_bonds=True, output=tmp_path / "path.gif")
+    render_gif(source, gif_trj=True, trj_bonds=True, var_atoms=var_atoms, output=tmp_path / "path.gif")
 
     assert captured["charge"] == -1
     assert captured["multiplicity"] == 1

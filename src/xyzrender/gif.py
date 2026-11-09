@@ -297,7 +297,7 @@ def render_vibration_gif(
     n_frames: int | None = None,
     bounce_degrees: float | None = None,
     reference_graph: nx.Graph | None = None,
-    detect_nci: bool = False,
+    detect_nci: bool | str | list[str] = False,
     auto_detect_ts: bool | None = None,
 ) -> None:
     """Render a normal or transition-state vibrational mode as an animated GIF.
@@ -309,8 +309,9 @@ def render_vibration_gif(
 
     If ``reference_graph`` is provided (e.g. from ``-V`` viewer rotation),
     all frames are rotated to match that orientation.
-    If ``detect_nci`` is True, NCI interactions are detected once on the
+    If ``detect_nci`` is enabled, NCI interactions are detected once on the
     TS geometry and applied to every frame (centroids recomputed per frame).
+    A string or list limits detection to the selected NCI types or groups.
     If ``axis`` is provided, the vibration is combined with a rotation
     around that axis (``n_frames`` controls total frames). When
     ``bounce_degrees`` is also set, the rotation oscillates sinusoidally
@@ -319,6 +320,11 @@ def render_vibration_gif(
     """
     is_normal_mode = gif_vib is not None
     mode = gif_vib if gif_vib is not None else 0
+    if detect_nci:
+        from xyzrender.nci_filter import resolve_nci_types
+
+        resolve_nci_types(detect_nci)
+
     vib_kwargs = {}
     if vib_frames is not None:
         vib_kwargs["n_frames"] = vib_frames
@@ -401,8 +407,9 @@ def render_vibration_gif(
     if detect_nci:
         from xyzgraph import detect_ncis
 
-        detect_ncis(ts_graph)
-        fixed_ncis = ts_graph.graph.get("ncis", [])
+        from xyzrender.nci_filter import filter_ncis
+
+        fixed_ncis = filter_ncis(detect_ncis(ts_graph), detect_nci)
 
     # Apply viewer rotation to all frames if a reference orientation was given
     if reference_graph is not None:
@@ -667,7 +674,7 @@ def render_trajectory_gif(
     reference_graph: nx.Graph | None = None,
     reference_frame: int = 0,
     annotation_graph: nx.Graph | None = None,
-    detect_nci: bool = False,
+    detect_nci: bool | str | list[str] = False,
     axis: str | None = None,
     kekule: bool = False,
     trj_bonds: bool = False,
@@ -681,17 +688,28 @@ def render_trajectory_gif(
     If ``reference_graph`` is provided, all frames are rotated using the
     matching ``reference_frame`` as the un-oriented source. ``annotation_graph``
     copies TS/NCI edge attributes without requesting orientation.
-    If ``detect_nci`` is True, NCI interactions are re-detected per frame
+    If ``detect_nci`` is enabled, NCI interactions are re-detected per frame
     using xyzgraph's NCIAnalyzer (topology built once, geometry per frame).
+    A string or list limits detection to the selected NCI types or groups.
     If ``axis`` is provided, the molecule rotates 360° around that axis
-    over the course of the trajectory.
+    over the course of the trajectory. Frames with differing atom counts
+    always get a fresh graph per frame, regardless of ``trj_bonds``.
     """
+    if detect_nci:
+        from xyzrender.nci_filter import resolve_nci_types
+
+        resolve_nci_types(detect_nci)
+
     from xyzgraph import build_graph
 
     if not 0 <= reference_frame < len(frames):
         msg = f"Trajectory reference frame {reference_frame} is out of range for {len(frames)} frames"
         raise ValueError(msg)
     annotations = annotation_graph if annotation_graph is not None else reference_graph
+    frame_atom_counts = {len(f["symbols"]) for f in frames}
+    if len(frame_atom_counts) > 1 and not trj_bonds:
+        # A shared graph assumes a fixed atom count; force the per-frame path.
+        trj_bonds = True
 
     if trj_bonds:
         # Build one graph per frame so changing connectivity is shown correctly.
@@ -735,9 +753,14 @@ def render_trajectory_gif(
         logger.debug("Applying Kabsch rotation from viewer orientation")
         source = frames[reference_frame]
         real_nodes = [d for _, d in reference_graph.nodes(data=True) if d["symbol"] != "*"]
-        if [d["symbol"] for d in real_nodes] != source["symbols"]:
-            msg = "Trajectory reference graph and source frame must have the same atom count and element order"
+        if len(real_nodes) != len(source["symbols"]):
+            msg = (
+                "Trajectory reference orientation requires the reference graph and source frame "
+                "to have the same atom count"
+            )
             raise ValueError(msg)
+        if [d["symbol"] for d in real_nodes] != source["symbols"]:
+            raise ValueError("Trajectory reference graph and source frame must use the same atom order")
         target_positions = np.array([d["position"] for d in real_nodes])
         rot = kabsch_rotation(np.array(source["positions"]), target_positions)
         frames = _rotate_frames(frames, rot)
@@ -765,7 +788,8 @@ def render_trajectory_gif(
         frames,
         config,
         nci_analyzer=nci_analyzer,
-        detect_nci_per_frame=detect_nci and trj_bonds,
+        detect_nci_per_frame=bool(detect_nci and trj_bonds),
+        nci_types=detect_nci,
         rotation_axis=axis_vec,
         rotation_sign=axis_sign,
     )
@@ -847,7 +871,8 @@ def _fixed_viewport(
 
     from xyzgraph import DATA
 
-    max_vdw = max(DATA.vdw.get(s, 1.5) for s in set(frames[0]["symbols"]))
+    all_symbols = {s for f in frames for s in f["symbols"]}
+    max_vdw = max(DATA.vdw.get(s, 1.5) for s in all_symbols)
     if config.vdw_indices is not None:
         atom_pad = max_vdw * config.vdw_scale
     else:
@@ -930,6 +955,15 @@ def _rotate_vectors_in_cfg(
 def _compute_rotation(original_graph: nx.Graph, rotated_graph: nx.Graph) -> np.ndarray:
     """Compute 3x3 rotation matrix from original to rotated graph positions."""
     n = original_graph.number_of_nodes()
+    if rotated_graph.number_of_nodes() != n:
+        msg = (
+            "Trajectory reference orientation requires the reference graph and source frame to have the same atom count"
+        )
+        raise ValueError(msg)
+    original_symbols = [original_graph.nodes[i].get("symbol") for i in range(n)]
+    rotated_symbols = [rotated_graph.nodes[i].get("symbol") for i in range(n)]
+    if all(symbol is not None for symbol in original_symbols + rotated_symbols) and original_symbols != rotated_symbols:
+        raise ValueError("Trajectory reference graph and source frame must use the same atom order")
     orig = np.array([original_graph.nodes[i]["position"] for i in range(n)])
     rot = np.array([rotated_graph.nodes[i]["position"] for i in range(n)])
     return kabsch_rotation(orig, rot)
@@ -1075,6 +1109,7 @@ def _render_traj_frame(
     nci_analyzer: "NCIAnalyzer | None",
     fixed_ncis: list | None,
     detect_nci_per_frame: bool,
+    nci_types: bool | str | list[str] | None,
     rotation_axis: np.ndarray | None,
     rotation_sign: float,
     angles: np.ndarray | None,
@@ -1106,9 +1141,17 @@ def _render_traj_frame(
         from xyzgraph.nci import NCIAnalyzer
 
         ncis = NCIAnalyzer(graph).detect(np.array(positions))
+        if nci_types is not None:
+            from xyzrender.nci_filter import filter_ncis
+
+            ncis = filter_ncis(ncis, nci_types)
         render_graph = build_nci_graph(graph, ncis)
     elif nci_analyzer is not None:
         ncis = nci_analyzer.detect(np.array(positions))
+        if nci_types is not None:
+            from xyzrender.nci_filter import filter_ncis
+
+            ncis = filter_ncis(ncis, nci_types)
         render_graph = build_nci_graph(graph, ncis)
     elif fixed_ncis is not None:
         render_graph = build_nci_graph(graph, fixed_ncis)
@@ -1144,6 +1187,7 @@ def _render_frames(
     nci_analyzer: NCIAnalyzer | None = None,
     fixed_ncis: list | None = None,
     detect_nci_per_frame: bool = False,
+    nci_types: bool | str | list[str] | None = None,
     rotation_axis: np.ndarray | None = None,
     rotation_sign: float = 1.0,
     rotation_degrees: float = 360.0,
@@ -1158,6 +1202,8 @@ def _render_frames(
     (centroids recomputed from current atom positions each frame).
     If *detect_nci_per_frame* is True, a fresh ``NCIAnalyzer`` is built
     inside each worker from ``frame["graph"]`` (trj_bonds + detect_nci).
+    *nci_types* optionally filters the per-frame detections before graph
+    decoration.
     If *rotation_axis* is provided, each frame is incrementally rotated
     around that axis over *rotation_degrees* (default 360°), or, when
     *bounce_degrees* is set, oscillates sinusoidally between ±bounce_degrees
@@ -1191,6 +1237,7 @@ def _render_frames(
         nci_analyzer=nci_analyzer,
         fixed_ncis=fixed_ncis,
         detect_nci_per_frame=detect_nci_per_frame,
+        nci_types=nci_types,
         rotation_axis=rotation_axis,
         rotation_sign=rotation_sign,
         angles=angles,
