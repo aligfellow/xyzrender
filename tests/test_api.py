@@ -1006,3 +1006,29 @@ def test_unbond_all_removes_every_covalent_bond(caffeine, spec):
     apply_bond_rules(g, cfg)
     assert g.number_of_edges() == 0
     assert g.number_of_nodes() == caffeine.graph.number_of_nodes()
+
+
+@pytest.mark.parametrize("from_file", [False, True])
+def test_atom_cmap_respects_primary_original_indices_for_dict_and_file(ethanol, tmp_path, from_file):
+    from xml.etree import ElementTree as ET
+
+    from xyzrender.types import RenderConfig
+
+    config = RenderConfig(cmap_range=(0, 1), cmap_palette="viridis", auto_orient=False, gradient=False, fog=False)
+    values = {2: 1.0, 3: 1.0}
+    if from_file:
+        values = tmp_path / "atoms.txt"
+        values.write_text("2 1\n3 1\n")
+    svg = str(render(ethanol, config=config, cmap=values, only="2,3"))
+    fills = [el.get("fill") for el in ET.fromstring(svg).iter() if el.tag.endswith("}circle")]
+    assert fills == ["#fde725", "#fde725"]
+
+    # This index could exist after overlay merging, but public maps address the
+    # primary input, so both input forms must reject it before the merge.
+    outside = ethanol.graph.number_of_nodes() + 1
+    values = {outside: 1.0}
+    if from_file:
+        values = tmp_path / "atoms.txt"
+        values.write_text(f"{outside} 1\n")
+    with pytest.raises(ValueError, match="not found"):
+        render(ethanol, config=config, cmap=values, overlay=ethanol, auto_align=False)

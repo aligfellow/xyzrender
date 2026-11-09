@@ -2993,8 +2993,11 @@ def _resolve_cmap(
         from typing import cast
 
         d = cast("dict[int, float]", cmap)
-        mapping = _original_to_render_index(graph) if graph is not None else None
-        return {_remap_original_atom_index(k, mapping, what="cmap"): v for k, v in d.items()}
+        if graph is None:
+            return {_remap_original_atom_index(k, None, what="cmap"): v for k, v in d.items()}
+        from xyzrender.annotations import _check_atom
+
+        return {_check_atom(k, graph): v for k, v in d.items()}
     # File path
     from xyzrender.annotations import load_cmap
 
