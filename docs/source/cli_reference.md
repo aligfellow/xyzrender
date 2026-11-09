@@ -185,6 +185,8 @@ Fine-grained overlay style (`atom_stroke_width`, `atom_stroke_color`, `bond_colo
 | `--cbar` | Add a vertical colorbar on the right for `--cmap`, `--bond-cmap`, or `--esp` |
 | `--cbar-unit TEXT` | Unit label above the colorbar (e.g. `kcal/mol`) |
 
+Atom `--cmap` and `--bond-cmap` are mutually exclusive, including maps supplied by a config. Choose one scalar property per scene; the range, palette, unit and optional colorbar describe that map.
+
 ## Vector arrows
 
 | Flag | Description |

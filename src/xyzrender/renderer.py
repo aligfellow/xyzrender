@@ -12,7 +12,7 @@ import numpy as np
 from xyzgraph import DATA
 
 from xyzrender.cmap import atom_colors as cmap_atom_colors
-from xyzrender.cmap import bond_color_hex, cmap_value_range, colorbar_extra_width, colorbar_svg
+from xyzrender.cmap import bond_color_hex, cmap_value_range, colorbar_extra_width, colorbar_svg, validate_cmap_selection
 from xyzrender.colors import (
     _FOG_NEAR,
     DEFAULT_CMAP_PALETTE,
@@ -119,6 +119,7 @@ class _BondAttrs(NamedTuple):
 def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, _unique_ids: bool = True) -> str:
     """Render molecular graph to SVG string."""
     cfg = config or RenderConfig()
+    validate_cmap_selection(atom=cfg.atom_cmap is not None, bond=cfg.bond_cmap is not None)
     node_ids = list(graph.nodes())
     n = len(node_ids)
     symbols = [graph.nodes[i]["symbol"] for i in node_ids]
@@ -332,26 +333,21 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             _diffuse_op[(u, v)] = _diffuse_op[(v, u)] = dop
 
     # Atom base colors — CPK by default, palette cmap when --cmap is active
-    bond_cmap_vmin: float | None = None
-    bond_cmap_vmax: float | None = None
-    if cfg.bond_cmap is not None:
-        bond_cmap_vmin, bond_cmap_vmax = cmap_value_range(
-            cfg.bond_cmap.values(),
-            cmap_range=cfg.cmap_range,
-            cmap_symm=cfg.cmap_symm,
-        )
+    scalar_values = cfg.atom_cmap if cfg.atom_cmap is not None else cfg.bond_cmap
+    scalar_palette = cfg.cmap_palette or DEFAULT_CMAP_PALETTE
+    scalar_range = (
+        cmap_value_range(scalar_values.values(), cmap_range=cfg.cmap_range, cmap_symm=cfg.cmap_symm)
+        if scalar_values is not None
+        else None
+    )
 
-    if cfg.atom_cmap is not None:
+    if cfg.atom_cmap is not None and scalar_range is not None:
         cmap_vals = cfg.atom_cmap
-        vmin, vmax = cmap_value_range(
-            cmap_vals.values(),
-            cmap_range=cfg.cmap_range,
-            cmap_symm=cfg.cmap_symm,
-        )
+        vmin, vmax = scalar_range
         colors = cmap_atom_colors(
             cmap_vals,
             n,
-            cfg.cmap_palette or DEFAULT_CMAP_PALETTE,
+            scalar_palette,
             vmin,
             vmax,
             cfg.cmap_unlabeled,
@@ -373,14 +369,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     cbar_vmin: float | None = None
     cbar_vmax: float | None = None
     cbar_palette: str | None = None
-    if cfg.cbar and cfg.atom_cmap is not None:
-        cbar_vmin = vmin
-        cbar_vmax = vmax
-        cbar_palette = cfg.cmap_palette or DEFAULT_CMAP_PALETTE
-    elif cfg.cbar and cfg.bond_cmap is not None and bond_cmap_vmin is not None and bond_cmap_vmax is not None:
-        cbar_vmin = bond_cmap_vmin
-        cbar_vmax = bond_cmap_vmax
-        cbar_palette = cfg.cmap_palette or DEFAULT_CMAP_PALETTE
+    if cfg.cbar and scalar_range is not None:
+        cbar_vmin, cbar_vmax = scalar_range
+        cbar_palette = scalar_palette
     elif cfg.cbar and cfg.esp_surface is not None:
         cbar_vmin = cfg.esp_surface.esp_vmin
         cbar_vmax = cfg.esp_surface.esp_vmax
@@ -500,15 +491,15 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 ):
                     bonds[(i, j)] = bonds[(j, i)] = attrs._replace(color=hl_group_bond_color[gi])
 
-        if cfg.bond_cmap is not None and bond_cmap_vmin is not None and bond_cmap_vmax is not None:
-            _bc_palette = cfg.cmap_palette or DEFAULT_CMAP_PALETTE
+        if cfg.bond_cmap is not None and scalar_range is not None:
+            bond_cmap_vmin, bond_cmap_vmax = scalar_range
             for (i, j), val in cfg.bond_cmap.items():
                 attrs = bonds.get((i, j))
                 if attrs is None:
                     continue
                 if attrs.color is not None and (mol_bond_color is None or attrs.color != mol_bond_color):
                     continue
-                hex_color = bond_color_hex(val, _bc_palette, bond_cmap_vmin, bond_cmap_vmax)
+                hex_color = bond_color_hex(val, scalar_palette, bond_cmap_vmin, bond_cmap_vmax)
                 bonds[(i, j)] = bonds[(j, i)] = attrs._replace(color=hex_color)
 
     # Pre-build adjacency list for O(degree) bond lookup in render loop

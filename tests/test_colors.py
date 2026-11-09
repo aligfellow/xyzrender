@@ -64,3 +64,13 @@ def test_fog_follows_the_background():
 def test_white_reverse_plasma_endpoints():
     assert palette_color("white_reverse_plasma", 0.0).hex == "#ffffff"
     assert palette_color("white_reverse_plasma", 1.0).hex == "#0d0887"
+
+
+def test_colorbar_unit_is_xml_text():
+    from xml.etree import ElementTree as ET
+
+    from xyzrender.cmap import colorbar_svg
+
+    elements = colorbar_svg(0, 1, "coolwarm", 800, 800, 20, "black", unit="E & F < G")
+    root = ET.fromstring("<svg>" + "".join(elements) + "</svg>")
+    assert any(element.text == "E & F < G" for element in root.iter("text"))

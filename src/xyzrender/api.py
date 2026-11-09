@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     from xyzrender.cube import CubeData
     from xyzrender.types import CellData, VectorArrow
 
+from xyzrender.cmap import validate_cmap_selection
 from xyzrender.colors import resolve_color
 from xyzrender.config import SurfaceOverrides
 from xyzrender.types import GIFResult, OverlayConfig, RenderConfig, SVGResult
@@ -1012,7 +1013,10 @@ def render(
     bond_cmap:
         Bond property colour map: either a ``{(1-indexed i, 1-indexed j): value}``
         dict, or a path to a three-column text file (``i j value``, same format as
-        ``--bond-cmap`` in the CLI).  Unlisted bonds keep default styling.
+        ``--bond-cmap`` in the CLI). Explicit pairs create missing bonds on
+        the render-owned molecule. Unlisted bonds keep default styling.
+        Mutually exclusive with ``cmap`` / ``config.atom_cmap``; one scalar
+        map controls the range, palette, unit and optional colorbar.
     atom_opacity:
         Per-atom fill opacity.  Accepts either a ``{1-indexed atom: value}``
         dict (use for per-atom levels) or a selector list
@@ -1213,9 +1217,15 @@ def render(
     # molecule (set later via _apply_overlay); otherwise it's a surface setting.
     # The two paths are mutually exclusive, so a single flag covers both.
     _surface_opacity = None if overlay is not None else opacity
+    # render() must never mutate mol — work on a render-time copy.
+    # See ``Molecule.copy``: PCA orient writes back to graph in-place and
+    # add_crystal_images appends ghost nodes; a shared mol would drift
+    # across repeated renders.
+    rmol = mol.copy()
+
     _apply_render_overlays(
         cfg,
-        mol.graph,
+        rmol.graph,
         ts_bonds=ts_bonds,
         nci_bonds=nci_bonds,
         vdw=vdw,
@@ -1281,12 +1291,6 @@ def render(
     # --- Surface style ---
     if surface_style is not None:
         cfg.surface_style = surface_style
-
-    # render() must never mutate mol — work on a render-time copy.
-    # See ``Molecule.copy``: PCA orient writes back to graph in-place and
-    # add_crystal_images appends ghost nodes; a shared mol would drift
-    # across repeated renders.
-    rmol = mol.copy()
 
     detected_conformer_graphs: list[nx.Graph] | None = None
     if detect_nci:
@@ -2853,6 +2857,10 @@ def _apply_render_overlays(
     All atom indices in ts_bonds, nci_bonds, vdw, atom_opacity are 1-indexed
     (user-facing); they are converted to 0-indexed storage on *cfg*.
     """
+    validate_cmap_selection(
+        atom=cmap is not None or cfg.atom_cmap is not None,
+        bond=bond_cmap is not None or cfg.bond_cmap is not None,
+    )
     mapping = _original_to_render_index(graph)
     if ts_bonds is not None:
         cfg.ts_bonds = [
@@ -2978,9 +2986,11 @@ def _resolve_bond_cmap(
         from typing import cast
 
         d = cast("dict[tuple[int, int], float]", bond_cmap)
+        mapping = _original_to_render_index(graph) if graph is not None else None
         result: dict[tuple[int, int], float] = {}
         for (a, b), v in d.items():
-            i, j = int(a) - 1, int(b) - 1
+            i = _remap_original_atom_index(int(a), mapping, what="bond cmap")
+            j = _remap_original_atom_index(int(b), mapping, what="bond cmap")
             key = (min(i, j), max(i, j))
             result[key] = float(v)
         if graph is not None:

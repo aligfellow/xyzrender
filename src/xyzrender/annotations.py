@@ -106,6 +106,8 @@ def _warn_no_bond(i: int, j: int) -> None:
 
 def _ensure_bond_for_cmap(i: int, j: int, graph, *, context: str) -> None:
     """Ensure *i*-*j* exists on *graph* for bond colormap coloring (0-indexed nodes)."""
+    if i == j:
+        raise ValueError(f"{context}: atom indices must differ (got {i + 1} {j + 1})")
     if graph.has_edge(i, j):
         return
     logger.warning(
@@ -324,8 +326,6 @@ def load_bond_cmap(file_path: str, graph) -> dict[tuple[int, int], float]:
     if not path.exists():
         raise FileNotFoundError(f"Bond colormap file not found: {file_path}")
 
-    node_ids = set(graph.nodes())
-    n = graph.number_of_nodes()
     result: dict[tuple[int, int], float] = {}
 
     with path.open() as f:
@@ -358,13 +358,10 @@ def load_bond_cmap(file_path: str, graph) -> dict[tuple[int, int], float]:
             if raw_i == raw_j:
                 raise ValueError(f"bond cmap line {lineno}: atom indices must differ (got {raw_i} {raw_j})")
 
-            i, j = raw_i - 1, raw_j - 1
-            for idx, one_indexed in ((i, raw_i), (j, raw_j)):
-                if idx not in node_ids:
-                    raise ValueError(
-                        f"bond cmap line {lineno}: atom index {one_indexed} not found in molecule "
-                        f"({n} atoms, valid range 1-{n})"
-                    )
+            try:
+                i, j = _check_atom(raw_i, graph), _check_atom(raw_j, graph)
+            except ValueError as exc:
+                raise ValueError(f"bond cmap line {lineno}: {exc}") from exc
 
             _ensure_bond_for_cmap(i, j, graph, context=f"bond cmap line {lineno}")
 

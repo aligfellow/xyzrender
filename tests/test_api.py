@@ -431,6 +431,47 @@ def test_render_bond_cmap_with_colorbar(ethanol):
     assert "linearGradient" in svg or "stop-color" in svg
 
 
+@pytest.mark.parametrize("from_file", [False, True])
+def test_render_missing_bond_cmap_does_not_mutate_input(ethanol, tmp_path, from_file):
+    mol = ethanol.copy()
+    i, j = next((i, j) for i in mol.graph for j in mol.graph if i < j and not mol.graph.has_edge(i, j))
+    original_edges = set(mol.graph.edges)
+    values = {(i + 1, j + 1): 0.5}
+    if from_file:
+        values = tmp_path / "bonds.txt"
+        values.write_text(f"{i + 1} {j + 1} 0.5\n")
+    svg = str(render(mol, bond_cmap=values, orient=False))
+    assert "stroke-dasharray" in svg
+    assert set(mol.graph.edges) == original_edges
+    again = str(render(mol, bond_cmap=values, orient=False))
+    assert re.sub(r"x[0-9a-f]{32}", "", again) == re.sub(r"x[0-9a-f]{32}", "", svg)
+
+
+def test_render_bond_cmap_rejects_self_pair_without_mutation(ethanol):
+    mol = ethanol.copy()
+    before = set(mol.graph.edges)
+    with pytest.raises(ValueError, match="atom indices must differ"):
+        render(mol, bond_cmap={(1, 1): 0.5})
+    assert set(mol.graph.edges) == before
+
+
+@pytest.mark.parametrize("from_file", [False, True])
+def test_bond_cmap_keeps_original_atom_numbers_after_filtering(ethanol, tmp_path, monkeypatch, from_file):
+    values = {(2, 3): 0.5}
+    if from_file:
+        values = tmp_path / "bonds.txt"
+        values.write_text("2 3 0.5\n")
+    captured = {}
+
+    def capture(graph, config, **kwargs):
+        captured["cmap"] = config.bond_cmap
+        return "<svg />"
+
+    monkeypatch.setattr("xyzrender.renderer.render_svg", capture)
+    render(ethanol, only="2,3", bond_cmap=values)
+    assert captured["cmap"] == {(0, 1): 0.5}
+
+
 def test_resolve_bond_cmap_dict_adds_missing_edge(ethanol, caplog):
     import logging
 

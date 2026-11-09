@@ -1013,6 +1013,7 @@ def main() -> None:
     from xyzrender import configure_logging
     from xyzrender.api import (
         Molecule,
+        _apply_render_overlays,
         load,
         orient,
         render,
@@ -1366,22 +1367,11 @@ def main() -> None:
         except ValueError as e:
             p.error(str(e))
 
-    # --- Atom property colormap (store on cfg) ---
-    if args.cmap:
-        from xyzrender.annotations import load_cmap
-
-        try:
-            cfg.atom_cmap = load_cmap(args.cmap, mol.graph)
-        except (ValueError, FileNotFoundError) as e:
-            p.error(str(e))
-
-    if args.bond_cmap:
-        from xyzrender.annotations import load_bond_cmap
-
-        try:
-            cfg.bond_cmap = load_bond_cmap(args.bond_cmap, mol.graph)
-        except (ValueError, FileNotFoundError) as e:
-            p.error(str(e))
+    # Resolve scalar maps through the same validation/loading path as render().
+    try:
+        _apply_render_overlays(cfg, mol.graph, cmap=args.cmap, bond_cmap=args.bond_cmap)
+    except (ValueError, FileNotFoundError) as e:
+        p.error(str(e))
 
     if args.cbar_unit:
         cfg.cbar_unit = args.cbar_unit

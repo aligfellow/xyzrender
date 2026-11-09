@@ -72,6 +72,8 @@ render(mol, detect_nci=["hb", "pi"])
 render_gif("trajectory.xyz", gif_trj=True, detect_nci="ion")
 ```
 
+Use either `cmap={atom: value}` or `bond_cmap={(atom_i, atom_j): value}` for one scalar property per scene; combining them, including through `RenderConfig`, raises `ValueError`. Atom indices are 1-based in these arguments. Explicit bond pairs create missing bonds on the render-owned molecule. Both map types use the same `cmap_range`, `cmap_palette`, `cmap_symm` and `cbar` controls; ordinary styling of the other atoms or bonds remains available.
+
 ### Styling
 
 `config=` accepts a built-in preset name, a path to your own JSON file, or a pre-built `RenderConfig` from [`build_config()`](#reusing-a-style-config).

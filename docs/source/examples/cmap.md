@@ -62,7 +62,7 @@ Color **selected bonds** by a scalar (e.g. Mayer bond order, NBO occupancy). The
 14  28  0.61
 ```
 
-Use the same `--cmap-range`, `--cmap-symm`, `--cmap-palette`, `--cbar`, and `--cbar-unit` flags as for atom `--cmap`. With both `--cmap` and `--bond-cmap`, the colorbar reflects the atom colormap. GIF frames automatically preserve the SVG viewBox aspect ratio, so a colorbar is not cropped.
+Use the same `--cmap-range`, `--cmap-symm`, `--cmap-palette`, `--cbar`, and `--cbar-unit` flags as for atom `--cmap`. `--cmap` and `--bond-cmap` are mutually exclusive: one scalar map supplies the range, palette, unit and optional legend. Ordinary atom colors remain available with a bond map, and ordinary bond styling remains available with an atom map. This rule also applies to Python arguments and configured maps. GIF frames automatically preserve the SVG viewBox aspect ratio, so a colorbar is not cropped.
 
 | Bond orders (rotation) | Benzene | With colorbar |
 |------------------------|---------|---------------|

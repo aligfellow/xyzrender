@@ -1,7 +1,8 @@
-"""Colormap utilities for scalar color legends and ``--cmap`` atom coloring."""
+"""Shared scalar colors and legends for atom and bond colormaps."""
 
 from __future__ import annotations
 
+from html import escape
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -10,6 +11,13 @@ from xyzrender.colors import PALETTES, Color, palette_color
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+
+def validate_cmap_selection(*, atom: bool, bond: bool) -> None:
+    """Require one scalar map per scene, with one range, palette and legend."""
+    if atom and bond:
+        msg = "Atom and bond colormaps are mutually exclusive; choose cmap (--cmap) or bond_cmap (--bond-cmap)"
+        raise ValueError(msg)
 
 
 def cmap_value_range(
@@ -31,10 +39,15 @@ def cmap_value_range(
     return min(vals), max(vals)
 
 
-def bond_color_hex(value: float, palette: str, vmin: float, vmax: float) -> str:
-    """Map a scalar bond property to a palette hex color."""
+def scalar_color(value: float, palette: str, vmin: float, vmax: float) -> Color:
+    """Map an atom or bond scalar to a palette using the same range normalization."""
     vrange = max(vmax - vmin, 1e-10)
-    return palette_color(palette, (value - vmin) / vrange).hex
+    return palette_color(palette, (value - vmin) / vrange)
+
+
+def bond_color_hex(value: float, palette: str, vmin: float, vmax: float) -> str:
+    """Return the shared scalar mapping as hex for bond-color callers."""
+    return scalar_color(value, palette, vmin, vmax).hex
 
 
 def build_palette_lut(palette: str, size: int = 256) -> np.ndarray:
@@ -62,10 +75,7 @@ def atom_colors(
 ) -> list[Color]:
     """Return per-atom Color list; atoms absent from atom_cmap get unlabeled_hex."""
     unlabeled = Color.from_hex(unlabeled_hex)
-    vrange = max(vmax - vmin, 1e-10)
-    return [
-        palette_color(palette, (atom_cmap[ai] - vmin) / vrange) if ai in atom_cmap else unlabeled for ai in range(n)
-    ]
+    return [scalar_color(atom_cmap[ai], palette, vmin, vmax) if ai in atom_cmap else unlabeled for ai in range(n)]
 
 
 # ---------------------------------------------------------------------------
@@ -144,7 +154,7 @@ def colorbar_svg(
             f'font-family="monospace" font-size="{unit_fs:.1f}px" fill="{label_color}" '
             f'dominant-baseline="central" text-anchor="middle"'
         )
-        elems.append(f'  <text x="{bar_x + _BAR_W / 2:.1f}" y="{unit_y:.1f}" {unit_attrs}>{unit}</text>')
+        elems.append(f'  <text x="{bar_x + _BAR_W / 2:.1f}" y="{unit_y:.1f}" {unit_attrs}>{escape(unit)}</text>')
 
     for ty, val in ticks:
         s = f"{val:.3f}".replace("-", "\u2212")

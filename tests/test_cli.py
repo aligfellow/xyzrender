@@ -366,3 +366,20 @@ def test_variable_atom_trajectory_cli_recommends_var_atoms(monkeypatch, tmp_path
         "Trajectory has non-uniform atom counts: first frame has 2 atoms, "
         "frame 1 has 3. If this is intentional, use --var-atoms"
     ) in capsys.readouterr().err
+
+
+def test_cli_rejects_conflicting_maps_before_opening_property_files(tmp_path):
+    output = tmp_path / "conflicting.svg"
+    result = _run_cli(
+        str(_CAFFEINE),
+        "--cmap",
+        str(tmp_path / "absent-atoms.txt"),
+        "--bond-cmap",
+        str(tmp_path / "absent-bonds.txt"),
+        "-o",
+        str(output),
+        expect_error=True,
+    )
+    assert "Atom and bond colormaps are mutually exclusive" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not output.exists()
