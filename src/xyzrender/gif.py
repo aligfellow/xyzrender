@@ -543,7 +543,8 @@ def render_trajectory_gif(
     using xyzgraph's NCIAnalyzer (topology built once, geometry per frame).
     A string or list limits detection to the selected NCI types or groups.
     If ``axis`` is provided, the molecule rotates 360° around that axis
-    over the course of the trajectory.
+    over the course of the trajectory. Frames with differing atom counts
+    always get a fresh graph per frame, regardless of ``trj_bonds``.
     """
     if detect_nci:
         from xyzrender.nci_filter import resolve_nci_types
@@ -556,6 +557,10 @@ def render_trajectory_gif(
         msg = f"Trajectory reference frame {reference_frame} is out of range for {len(frames)} frames"
         raise ValueError(msg)
     annotations = annotation_graph if annotation_graph is not None else reference_graph
+    frame_atom_counts = {len(f["symbols"]) for f in frames}
+    if len(frame_atom_counts) > 1 and not trj_bonds:
+        # A shared graph assumes a fixed atom count; force the per-frame path.
+        trj_bonds = True
 
     if trj_bonds:
         # Build one graph per frame so changing connectivity is shown correctly.
@@ -599,9 +604,14 @@ def render_trajectory_gif(
         logger.debug("Applying Kabsch rotation from viewer orientation")
         source = frames[reference_frame]
         real_nodes = [d for _, d in reference_graph.nodes(data=True) if d["symbol"] != "*"]
-        if [d["symbol"] for d in real_nodes] != source["symbols"]:
-            msg = "Trajectory reference graph and source frame must have the same atom count and element order"
+        if len(real_nodes) != len(source["symbols"]):
+            msg = (
+                "Trajectory reference orientation requires the reference graph and source frame "
+                "to have the same atom count"
+            )
             raise ValueError(msg)
+        if [d["symbol"] for d in real_nodes] != source["symbols"]:
+            raise ValueError("Trajectory reference graph and source frame must use the same atom order")
         target_positions = np.array([d["position"] for d in real_nodes])
         rot = kabsch_rotation(np.array(source["positions"]), target_positions)
         frames = _rotate_frames(frames, rot)
@@ -707,7 +717,8 @@ def _fixed_viewport(frames: list[dict], config: RenderConfig, rotation_axis: np.
 
     from xyzgraph import DATA
 
-    max_vdw = max(DATA.vdw.get(s, 1.5) for s in set(frames[0]["symbols"]))
+    all_symbols = {s for f in frames for s in f["symbols"]}
+    max_vdw = max(DATA.vdw.get(s, 1.5) for s in all_symbols)
     if config.vdw_indices is not None:
         atom_pad = max_vdw * config.vdw_scale
     else:
@@ -785,6 +796,15 @@ def _rotate_vectors_in_cfg(
 def _compute_rotation(original_graph: nx.Graph, rotated_graph: nx.Graph) -> np.ndarray:
     """Compute 3x3 rotation matrix from original to rotated graph positions."""
     n = original_graph.number_of_nodes()
+    if rotated_graph.number_of_nodes() != n:
+        msg = (
+            "Trajectory reference orientation requires the reference graph and source frame to have the same atom count"
+        )
+        raise ValueError(msg)
+    original_symbols = [original_graph.nodes[i].get("symbol") for i in range(n)]
+    rotated_symbols = [rotated_graph.nodes[i].get("symbol") for i in range(n)]
+    if all(symbol is not None for symbol in original_symbols + rotated_symbols) and original_symbols != rotated_symbols:
+        raise ValueError("Trajectory reference graph and source frame must use the same atom order")
     orig = np.array([original_graph.nodes[i]["position"] for i in range(n)])
     rot = np.array([rotated_graph.nodes[i]["position"] for i in range(n)])
     return kabsch_rotation(orig, rot)

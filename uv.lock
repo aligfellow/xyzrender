@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.11'",
@@ -2275,7 +2275,7 @@ requires-dist = [
     { name = "shelxfile", marker = "extra == 'shelxl'" },
     { name = "vmol", marker = "extra == 'all'", specifier = ">=3.0rc7" },
     { name = "vmol", marker = "extra == 'v'", specifier = ">=3.0rc7" },
-    { name = "xyzgraph", specifier = ">=1.6.13" },
+    { name = "xyzgraph", specifier = ">=1.7.0" },
 ]
 provides-extras = ["smi", "cif", "shelxl", "v", "all"]
 
