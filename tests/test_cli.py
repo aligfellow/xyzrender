@@ -110,6 +110,29 @@ def test_basic_render(tmp_path):
     assert out.read_text().startswith("<?xml") or out.read_text().startswith("<svg")
 
 
+def test_nci_flag_accepts_optional_type_groups(tmp_path):
+    source = _STRUCTURES / "bimp.v000.xyz"
+    all_out = tmp_path / "all.svg"
+    hb_out = tmp_path / "hb.svg"
+
+    all_result = _run_cli(str(source), "--nci", "--no-grad", "--no-orient", "-o", str(all_out))
+    hb_result = _run_cli(str(source), "--nci", "hb", "--no-grad", "--no-orient", "-o", str(hb_out))
+
+    assert all_result.returncode == 0
+    assert hb_result.returncode == 0
+    assert all_out.read_text().count("<circle") > hb_out.read_text().count("<circle")
+
+
+def test_bare_nci_flag_can_precede_input(tmp_path):
+    source = _STRUCTURES / "bimp.v000.xyz"
+    output = tmp_path / "nci.svg"
+
+    result = _run_cli("--nci", str(source), "--no-grad", "--no-orient", "-o", str(output))
+
+    assert result.returncode == 0
+    assert output.exists()
+
+
 @pytest.mark.skipif(not (_STRUCTURES / "caffeine_dens.cube").exists(), reason="fixture not found")
 def test_cub_density_surface(tmp_path):
     src = _STRUCTURES / "caffeine_dens.cube"
@@ -210,6 +233,68 @@ def test_gif_ts_manual_bonds_skip_auto_ts_load(monkeypatch, tmp_path):
         main()
 
     assert mock_load.call_args_list[0].kwargs["ts_detect"] is False
+
+
+def test_var_atoms_is_forwarded_to_render_gif(monkeypatch, tmp_path):
+    """--var-atoms opts the public GIF API into variable frame sizes."""
+    import sys
+    from unittest.mock import patch
+
+    from xyzrender import api
+    from xyzrender.cli import main
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "xyzrender",
+            str(_CAFFEINE),
+            "--gif-trj",
+            "--var-atoms",
+            "-o",
+            str(tmp_path / "static.svg"),
+            "-go",
+            str(tmp_path / "trajectory.gif"),
+        ],
+    )
+
+    with patch.object(api, "render"), patch.object(api, "render_gif") as mock_render_gif:
+        main()
+
+    assert mock_render_gif.call_args.kwargs["var_atoms"] is True
+
+
+def test_variable_atom_trajectory_cli_recommends_var_atoms(monkeypatch, tmp_path, capsys):
+    """The CLI surfaces the exact opt-in guidance for an intentional count change."""
+    import sys
+    from unittest.mock import patch
+
+    from xyzrender import api
+    from xyzrender.cli import main
+
+    trajectory = tmp_path / "variable.xyz"
+    trajectory.write_text("2\nframe 0\nH 0 0 0\nH 0 0 0.7\n3\nframe 1\nH 0 0 0\nH 0 0 0.8\nH 0 0 1.6\n")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "xyzrender",
+            str(trajectory),
+            "--gif-trj",
+            "-o",
+            str(tmp_path / "static.svg"),
+            "-go",
+            str(tmp_path / "trajectory.gif"),
+        ],
+    )
+
+    with patch.object(api, "render"), pytest.raises(SystemExit):
+        main()
+
+    assert (
+        "Trajectory has non-uniform atom counts: first frame has 2 atoms, "
+        "frame 1 has 3. If this is intentional, use --var-atoms"
+    ) in capsys.readouterr().err
 
 
 def test_hl_too_many_args():

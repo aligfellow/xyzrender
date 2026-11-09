@@ -75,9 +75,9 @@ class EnsembleFrames:
     opacities:
         Per-conformer opacity override (``None`` = fully opaque).
     conformer_graphs:
-        Optional per-frame graphs for ``rebuild=True`` ensembles (topology
-        can differ per frame).  ``None`` means all frames share the reference
-        topology.
+        Optional per-frame graphs for rebuilt topology or independently
+        detected NCI interactions.  ``None`` means all frames share the
+        reference topology.
     reference_idx:
         Index into *positions* / *colors* / *opacities* that is the reference.
     """
@@ -290,7 +290,7 @@ def load(
     mol_frame: int = 0,
     ts_detect: bool = False,
     ts_frame: int = 0,
-    nci_detect: bool = False,
+    nci_detect: bool | str | list[str] = False,
     cell: bool = False,
     quick: bool = False,
     bohr: bool | None = None,
@@ -343,6 +343,9 @@ def load(
         Reference frame index for TS detection in multi-frame files.
     nci_detect:
         Detect non-covalent interactions with xyzgraph after loading.
+        ``True`` selects all interactions; an exact type/group name or list
+        selects only those interactions.  Groups are ``hb``, ``pi``, and
+        ``ion``.
         When used with ``ensemble=True``, NCI detection is run on
         each frame independently.
     cell:
@@ -352,7 +355,9 @@ def load(
         Skip bond-order optimisation (``build_graph(quick=True)``).  Use
         when you know bond orders will be suppressed at render time (e.g.
         ``render(mol, bo=False)``).  CIF and PDB-with-cell always use
-        ``quick=True`` automatically regardless of this flag.
+        ``quick=True`` automatically regardless of this flag.  Ignored when
+        *nci_detect* is set: NCI detection needs the formal charges this step
+        assigns.
     ensemble:
         Load as a multi-frame trajectory (or RDKit Mol conformer) ensemble.
         All frames are RMSD-aligned onto *reference_frame* and merged into a
@@ -396,6 +401,11 @@ def load(
     }
     if mol_frame != 0 and not supports_mol_frame:
         logger.warning("mol_frame has no effect unless loading an SDF or CJSON file")
+    if quick and nci_detect:
+        # Bond-order optimisation is where formal charges come from; without them
+        # charge-based NCIs (cation-pi, ionic) vanish.  bo=False still hides orders.
+        logger.info("quick ignored: nci_detect needs full bond-order/charge perception")
+        quick = False
 
     # --- Ensemble: load multi-frame trajectory as merged molecule ---
     if ensemble:
@@ -443,7 +453,7 @@ def load(
         if nci_detect:
             from xyzrender.readers import detect_nci
 
-            graph = detect_nci(graph)
+            graph = detect_nci(graph, nci_detect)
         return Molecule(graph=graph)
 
     import xyzrender.parsers as fmt
@@ -520,7 +530,7 @@ def load(
     if nci_detect:
         from xyzrender.readers import detect_nci
 
-        graph = detect_nci(graph)
+        graph = detect_nci(graph, nci_detect)
 
     mol = Molecule(graph=graph, cube_data=cube_data, cell_data=cell_data)
 
@@ -856,6 +866,7 @@ def render(
     ghost_opacity: float | None = None,
     unwrap: bool = False,
     # --- Rendering overlays (1-indexed atom numbering) ---
+    detect_nci: bool | str | list[str] = False,
     ts_bonds: list[tuple[int, int]] | None = None,
     nci_bonds: list[tuple[int, int]] | None = None,
     vdw: bool | list[int] | None = None,
@@ -981,6 +992,10 @@ def render(
         Force-show or add bonds as 1-indexed index-pair strings
         (``["4-5"]``).  Overrides ``unbond`` — a bond listed here
         will not be removed even if it matches an unbond rule.
+    detect_nci:
+        Detect geometric non-covalent interactions.  ``True`` selects all
+        xyzgraph NCI types; a type/group name or list selects only those
+        interactions.  Groups are ``hb``, ``pi``, and ``ion``.
     ts_bonds, nci_bonds:
         Manual TS / NCI bond overlays as 1-indexed atom pairs.
     vdw:
@@ -1272,6 +1287,20 @@ def render(
     # across repeated renders.
     rmol = mol.copy()
 
+    detected_conformer_graphs: list[nx.Graph] | None = None
+    if detect_nci:
+        if _is_ensemble:
+            ens = mol.ensemble
+            assert ens is not None
+            detected_conformer_graphs = _detect_ensemble_ncis(
+                rmol.graph, ens.positions, detect_nci, conformer_graphs=ens.conformer_graphs
+            )
+            rmol.graph = detected_conformer_graphs[ens.reference_idx]
+        else:
+            from xyzrender.readers import detect_nci as _detect_nci
+
+            rmol.graph = _detect_nci(rmol.graph, detect_nci)
+
     # --- Orientation reference ---
     if ref is not None:
         ref_path = Path(ref)
@@ -1296,7 +1325,7 @@ def render(
             ens.positions,
             conformer_colors=ens.colors,
             conformer_opacities=ens.opacities,
-            conformer_graphs=ens.conformer_graphs,
+            conformer_graphs=detected_conformer_graphs or ens.conformer_graphs,
             z_nudge=True,
         )
         rmol = Molecule(
@@ -1536,10 +1565,15 @@ def render_gif(
     opacity: float | None = None,
     # --- Orientation reference (gif_ts / gif_trj: graph after orient()) ---
     reference_graph: "nx.Graph | None" = None,
+    annotation_graph: "nx.Graph | None" = None,
+    # --- Source trajectory frame corresponding to reference_graph ---
+    trj_reference_frame: int | None = None,
     # --- Per-frame bond detection (gif_trj only) ---
     trj_bonds: bool = False,
+    # --- Allow non-uniform atom counts across frames (gif_trj only) ---
+    var_atoms: bool = False,
     # --- NCI detection (gif_ts / gif_trj / gif_rot) ---
-    detect_nci: bool = False,
+    detect_nci: bool | str | list[str] = False,
     # --- Manual TS bonds (1-indexed atom numbering) ---
     ts_bonds: list[tuple[int, int]] | None = None,
     # --- Vector arrows (gif_rot only) ---
@@ -1601,7 +1635,22 @@ def render_gif(
         …), or a 3-digit Miller index (``"111"``). Pass ``True`` to use
         the default ``"y"`` axis.
     gif_trj:
-        Trajectory animation — *molecule* must be a multi-frame XYZ.
+        Trajectory animation — *molecule* must be a multi-frame XYZ with a
+        fixed atom count, unless *var_atoms* is set.
+    trj_bonds:
+        Rebuild the molecular graph from every frame instead of once from
+        the last frame, so changing connectivity (e.g. NEB-TS MEPs) is shown
+        correctly.
+    var_atoms:
+        Allow *gif_trj* frames with differing atom counts instead of
+        raising an error. Multiplicity is inferred independently for each
+        frame, since the electron-count parity can change.
+    trj_reference_frame:
+        Zero-based trajectory frame corresponding to *reference_graph*.
+        The same frame is used to derive a rotation that is applied to all
+        trajectory frames. By default this matches the frame used by
+        :func:`load`: the first frame for XYZ and the last geometry for QM
+        outputs.
     gif_bounce:
         Bounce rotation GIF. Either an amplitude in degrees (axis defaults
         to ``"y"``) or a ``(degrees, axis)`` tuple — e.g. ``50`` or
@@ -1612,6 +1661,10 @@ def render_gif(
     ts_bonds:
         Manual transition-state bond pairs using 1-indexed atom numbers.
         In *gif_ts* mode, supplying this skips automatic TS identification.
+    detect_nci:
+        Detect geometric non-covalent interactions.  ``True`` selects all
+        xyzgraph NCI types; a type/group name or list selects only those
+        interactions.  Groups are ``hb``, ``pi``, and ``ion``.
     output:
         Output ``.gif`` path.  Defaults to ``<stem>.gif`` beside *molecule*.
     gif_fps:
@@ -1620,6 +1673,11 @@ def render_gif(
         Number of frames for a full rotation.
     ts_frame:
         Reference frame index for TS detection (0-indexed).
+    reference_graph:
+        Explicit orientation reference for trajectory/vibration GIFs. Trajectory
+        references match the first XYZ frame or the last QM geometry and suppress PCA.
+    annotation_graph:
+        Trajectory TS/NCI edge attributes to copy without changing orientation.
     config:
         Preset name, JSON path, or pre-built :class:`~xyzrender.types.RenderConfig`.
 
@@ -1710,17 +1768,45 @@ def render_gif(
     if vib_frames is not None and not gif_ts:
         logger.warning("vib_frames has no effect without gif_ts")
 
-    # Resolve config
-    _gif_mol = molecule if isinstance(molecule, Molecule) else load(molecule)
+    # Resolve input once; retain the source path for trajectory reading and output naming.
+    if isinstance(molecule, Molecule):
+        if gif_ts or gif_trj:
+            msg = (
+                "render_gif: pass a file path (not a Molecule) for gif_ts / gif_trj modes — "
+                "the trajectory is read from disk."
+            )
+            raise ValueError(msg)
+        mol_path = None
+        mol = molecule
+    else:
+        mol_path = Path(str(molecule))
+        mol = load(molecule)
     if only is not None or exclude is not None:
-        _gif_mol = _filter_molecule_atoms(_gif_mol, only=only, exclude=exclude)
-        molecule = _gif_mol
-    _gif_graph = _gif_mol.graph
+        mol = _filter_molecule_atoms(mol, only=only, exclude=exclude)
+
+    _dynamic_nci = gif_ts or gif_trj
+    _gif_conformer_graphs: list[nx.Graph] | None = None
+    if detect_nci and not _dynamic_nci:
+        mol = mol.copy()
+        if mol.ensemble is not None:
+            ens = mol.ensemble
+            _gif_conformer_graphs = _detect_ensemble_ncis(
+                mol.graph, ens.positions, detect_nci, conformer_graphs=ens.conformer_graphs
+            )
+            mol.graph = _gif_conformer_graphs[ens.reference_idx]
+        else:
+            from xyzrender.readers import detect_nci as _detect_nci
+
+            mol.graph = _detect_nci(mol.graph, detect_nci)
+
+    # Resolve config
     if not isinstance(config, str):
         cfg = copy.copy(config)
         cfg.vectors = list(cfg.vectors)
         cfg.annotations = list(cfg.annotations)
         cfg.overlay = copy.copy(cfg.overlay)
+        if orient is not None:
+            cfg.auto_orient = orient
     else:
         cfg = build_config(
             config,
@@ -1768,7 +1854,7 @@ def render_gif(
     if haptic:
         cfg.haptic = True
 
-    _apply_render_overlays(cfg, _gif_graph, ts_bonds=ts_bonds)
+    _apply_render_overlays(cfg, mol.graph, ts_bonds=ts_bonds)
 
     if opacity is not None and overlay is None:
         cfg.surface_opacity = opacity
@@ -1784,10 +1870,10 @@ def render_gif(
         cfg.mol_color = resolve_color(mol_color)
 
     # --- Highlight ---
-    _apply_highlight(cfg, highlight=highlight, graph=_gif_graph)
+    _apply_highlight(cfg, highlight=highlight, graph=mol.graph)
 
     # --- Style regions (user + preset-defined) ---
-    _apply_style_regions(cfg, _gif_graph, regions=regions)
+    _apply_style_regions(cfg, mol.graph, regions=regions)
 
     # --- Bond coloring ---
     if ts_color is not None:
@@ -1810,7 +1896,7 @@ def render_gif(
             raise ValueError(msg)
         cfg.glow_strength = glow_strength
     if glow is not None:
-        cfg.glow_indices = sorted(_resolve_glow_indices(glow, _gif_graph))
+        cfg.glow_indices = sorted(_resolve_glow_indices(glow, mol.graph))
 
     # --- Per-atom radius scale ---
     if radius_scale is not None:
@@ -1819,7 +1905,7 @@ def render_gif(
     # --- Convex hull / pore (detection + config) ---
     _apply_hull_pore_workflow(
         cfg,
-        _gif_graph,
+        mol.graph,
         hull=hull,
         hull_color=hull_color,
         hull_opacity=hull_opacity,
@@ -1831,7 +1917,7 @@ def render_gif(
         pore_opacity=pore_opacity,
         supercell=supercell,
         face_planarity=face_planarity,
-        cell_data=_gif_mol.cell_data,
+        cell_data=mol.cell_data,
         ring_max_size=ring_max_size,
         ring_min_size=ring_min_size,
         skip_hull_if_active=True,
@@ -1845,20 +1931,6 @@ def render_gif(
     if cfg.show_convex_hull and (mo or dens):
         msg = "render_gif: convex hull and surface rendering (mo/dens) are mutually exclusive"
         raise ValueError(msg)
-
-    # Resolve molecule → path and/or graph
-    if isinstance(molecule, Molecule):
-        if gif_ts or gif_trj:
-            msg = (
-                "render_gif: pass a file path (not a Molecule) for gif_ts / gif_trj modes — "
-                "the trajectory is read from disk."
-            )
-            raise ValueError(msg)
-        mol_path = None
-        ref_graph = molecule.graph
-    else:
-        mol_path = Path(str(molecule))
-        ref_graph = None
 
     # Resolve output path
     if output is not None:
@@ -1876,11 +1948,9 @@ def render_gif(
         raise ValueError(msg)
 
     # --- Dispatch ---
-    # Cache for frequent checks
-    mol_obj = molecule if isinstance(molecule, Molecule) else None
 
     if gif_ts:
-        # render_vibration_gif reads mol_path directly — no ref_graph load needed.
+        # The vibration renderer reads the source trajectory directly.
         _vib_axis = bounce_ax or gif_rot or ("y" if bounce_deg is not None else None)
         render_vibration_gif(
             path=str(mol_path),
@@ -1899,30 +1969,48 @@ def render_gif(
         logger.info("GIF written to %s", gif_path)
         return GIFResult(gif_path)
 
-    # All remaining branches need ref_graph.
-    if ref_graph is None:
-        from xyzrender.readers import load_molecule
+    rmol = mol.copy()
 
-        ref_graph, _ = load_molecule(str(mol_path))
-    else:
-        ref_graph = copy.deepcopy(ref_graph)
+    if ref is not None and not gif_diffuse:
+        ref_source = reference_graph if gif_trj and reference_graph is not None else rmol.graph
+        _ref_mol = Molecule(graph=copy.deepcopy(ref_source), cell_data=copy.deepcopy(mol.cell_data))
+        _ref_path = Path(ref)
+        if _ref_path.is_file():
+            _apply_ref_orientation(_ref_mol, _ref_path, cfg)
+        else:
+            _apply_and_save_ref(_ref_mol, cfg, _ref_path)
+        rmol = _ref_mol
+        if gif_trj:
+            reference_graph = rmol.graph
 
     if gif_trj:
         from xyzrender.readers import load_trajectory_frames
 
-        frames = load_trajectory_frames(str(mol_path))
+        assert mol_path is not None
+        frames = load_trajectory_frames(str(mol_path), var_atoms=var_atoms)
         if len(frames) < 2:
             raise ValueError("render_gif(gif_trj=True) requires a multi-frame XYZ file")
+        # A caller-supplied reference (CLI: loaded with -c/-m) carries the electronic state.
+        trj_ref = reference_graph if reference_graph is not None else rmol.graph
+        variable_atom_counts = len({len(frame["symbols"]) for frame in frames}) > 1
+
+        reference_frame = trj_reference_frame
+        if reference_frame is None:
+            reference_frame = 0 if Path(mol_path).suffix.lower() == ".xyz" else len(frames) - 1
 
         render_trajectory_gif(
             frames=frames,
             config=cfg,
             output=str(gif_path),
             fps=gif_fps,
-            reference_graph=reference_graph if reference_graph is not None else ref_graph,
+            reference_graph=reference_graph,
+            reference_frame=reference_frame,
+            annotation_graph=annotation_graph,
             axis=gif_rot,
             trj_bonds=trj_bonds,
             detect_nci=detect_nci,
+            charge=trj_ref.graph.get("total_charge", 0),
+            multiplicity=None if variable_atom_counts else trj_ref.graph.get("multiplicity"),
         )
         logger.info("GIF written to %s", gif_path)
         return GIFResult(gif_path)
@@ -1933,10 +2021,10 @@ def render_gif(
         if cfg.unbond or cfg.bond or cfg.haptic:
             from xyzrender.bond_rules import apply_bond_rules
 
-            apply_bond_rules(ref_graph, cfg)
+            apply_bond_rules(rmol.graph, cfg)
 
         render_diffuse_gif(
-            graph=ref_graph,
+            graph=rmol.graph,
             config=cfg,
             output=str(gif_path),
             fps=gif_fps,
@@ -1953,21 +2041,17 @@ def render_gif(
 
     else:
         # Orientation & Ensemble
-        if ref is not None:
-            _ref_mol = Molecule(graph=ref_graph)
-            _ref_path = Path(ref)
-            if _ref_path.is_file():
-                _apply_ref_orientation(_ref_mol, _ref_path, cfg)
-            else:
-                _apply_and_save_ref(_ref_mol, cfg, _ref_path)
-            ref_graph = _ref_mol.graph
-
-        if isinstance(molecule, Molecule) and molecule.ensemble is not None:
+        if mol.ensemble is not None:
             from xyzrender.ensemble import merge_graphs
 
-            ens = molecule.ensemble
-            ref_graph = merge_graphs(
-                ref_graph, ens.positions, conformer_colors=ens.colors, conformer_opacities=ens.opacities, z_nudge=False
+            ens = mol.ensemble
+            rmol.graph = merge_graphs(
+                rmol.graph,
+                ens.positions,
+                conformer_colors=ens.colors,
+                conformer_opacities=ens.opacities,
+                conformer_graphs=_gif_conformer_graphs or ens.conformer_graphs,
+                z_nudge=False,
             )
 
         # Overlay & Bond Rules
@@ -1978,42 +2062,36 @@ def render_gif(
 
         if overlay is not None:
             # _setup_overlay PCA-orients and clears cfg.auto_orient — let it through.
-            base_mol = mol_obj if mol_obj is not None else Molecule(graph=ref_graph)
-            ref_graph = _apply_overlay(
-                base_mol,
-                Molecule(graph=ref_graph),
+            rmol = _apply_overlay(
+                mol,
+                rmol,
                 cfg,
                 overlay,
                 overlay_color=overlay_color,
                 overlay_opacity=opacity,
                 align_atoms=align_atoms,
-                has_surfaces=False,
-            ).graph
+                has_surfaces=bool(mo or dens),
+            )
 
         if cfg.unbond or cfg.bond or cfg.haptic:
             from xyzrender.bond_rules import apply_bond_rules
 
-            apply_bond_rules(ref_graph, cfg)
+            apply_bond_rules(rmol.graph, cfg)
 
         # Vectors & Cell Config
         _combine_vector_sources(
             cfg,
-            ref_graph,
+            rmol.graph,
             vector=vector,
             vector_scale=vector_scale,
             vector_color=vector_color,
-            cell_data=mol_obj.cell_data if mol_obj is not None else None,
+            cell_data=rmol.cell_data,
             axes=(not no_cell) if axes is None else axes,
         )
 
-        if mol_obj is not None and mol_obj.cell_data is not None:
-            _cell_mol = Molecule(
-                graph=ref_graph,
-                cell_data=copy.deepcopy(mol_obj.cell_data),
-                oriented=mol_obj.oriented,
-            )
+        if rmol.cell_data is not None:
             _apply_cell_config(
-                _cell_mol,
+                rmol,
                 cfg,
                 no_cell=no_cell,
                 axis=axis,
@@ -2025,13 +2103,9 @@ def render_gif(
                 bo_explicit=bo,
                 unwrap=unwrap,
             )
-            ref_graph = _cell_mol.graph
 
         # Surfaces
-        # NB: use _gif_mol (loaded from path or passed in), not mol_obj — the
-        # latter is None when a path was passed, which would silently drop
-        # cube_data for path-based render_gif(path, mo=True) calls.
-        cube_data = _gif_mol.cube_data
+        cube_data = rmol.cube_data
         mo_p = dens_p = None
         if cube_data is not None and (mo or dens):
             from xyzrender.config import build_surface_params
@@ -2052,7 +2126,7 @@ def render_gif(
             )
 
         render_rotation_gif(
-            graph=ref_graph,
+            graph=rmol.graph,
             config=cfg,
             output=str(gif_path),
             fps=gif_fps,
@@ -2105,6 +2179,52 @@ def _resolve_ensemble_colors(
         return sample_palette(DEFAULT_ENSEMBLE_PALETTE, n_conformers)
 
 
+def _detect_ensemble_ncis(
+    reference_graph: nx.Graph,
+    aligned_positions: list[np.ndarray] | np.ndarray,
+    selection: bool | str | list[str] = True,
+    *,
+    conformer_graphs: list[nx.Graph] | None = None,
+) -> list[nx.Graph]:
+    """Detect selected NCIs, preserving independently rebuilt topology."""
+    from xyzgraph.nci import NCIAnalyzer, build_nci_graph
+
+    from xyzrender.nci_filter import resolve_nci_types
+
+    selected_types = resolve_nci_types(selection)
+    if conformer_graphs is not None:
+        from xyzrender.readers import detect_nci
+
+        result = []
+        for source, positions in zip(conformer_graphs, aligned_positions, strict=True):
+            graph = copy.deepcopy(source)
+            real_nodes = [n for n, data in graph.nodes(data=True) if data.get("symbol") != "*"]
+            for node, position in zip(real_nodes, positions, strict=True):
+                graph.nodes[node]["position"] = tuple(float(value) for value in position)
+            result.append(detect_nci(graph, selection))
+        return result
+
+    topology_graph = copy.deepcopy(reference_graph)
+    topology_graph.remove_edges_from([(i, j) for i, j, data in topology_graph.edges(data=True) if data.get("NCI")])
+    topology_graph.remove_nodes_from(topology_graph.graph.get("nci_centroid", []))
+    for key in ("ncis", "nci_centroid", "nci_centroid_sites"):
+        topology_graph.graph.pop(key, None)
+
+    analyzer = NCIAnalyzer(topology_graph)
+    atom_nodes = list(topology_graph.nodes())
+    conformer_graphs = []
+    for frame_positions in aligned_positions:
+        for node, position in zip(atom_nodes, frame_positions, strict=True):
+            topology_graph.nodes[node]["position"] = tuple(float(value) for value in position)
+        ncis = analyzer.detect(np.asarray(frame_positions))
+        if selected_types is not None:
+            ncis = [nci for nci in ncis if nci.type in selected_types]
+        topology_graph.graph["ncis"] = ncis
+        conformer_graphs.append(build_nci_graph(topology_graph, ncis))
+
+    return conformer_graphs
+
+
 def _build_ensemble_molecule(
     trajectory: str | os.PathLike,
     *,
@@ -2119,7 +2239,7 @@ def _build_ensemble_molecule(
     kekule: bool = False,
     rebuild: bool = False,
     quick: bool = False,
-    nci_detect: bool = False,
+    nci_detect: bool | str | list[str] = False,
     reference_mol: Molecule | None = None,
 ) -> Molecule:
     """Build a :class:`Molecule` representing an ensemble of conformers.
@@ -2131,7 +2251,10 @@ def _build_ensemble_molecule(
     When *rebuild* is ``True``, each frame's graph is built independently
     so that bonding can differ between conformers — analogous to ``--gif-trj``
     but rendered on one image.  NCI detection is run on each rebuilt frame too
-    when *nci_detect* is also ``True``.
+    when *nci_detect* is enabled.
+
+    With fixed topology, NCI detection reuses one analyzer but decorates each
+    conformer independently so geometry-dependent interactions remain distinct.
 
     When *reference_mol* is given, its graph (and positions) are used as the
     reference frame instead of loading from *trajectory*.  This lets
@@ -2282,30 +2405,35 @@ def _build_ensemble_molecule(
         # --no-align: keep each frame's raw coordinates; no Kabsch step.
         aligned_positions = [np.array(fr["positions"], dtype=float) for fr in frames]
 
-    # NCI detection and per-frame graph building happen *after* alignment so that
-    # centroid dummy nodes don't interfere with position array sizes.
-    if nci_detect:
+    conformer_graphs: list[nx.Graph] | None = None
+    if nci_detect and not rebuild:
+        conformer_graphs = _detect_ensemble_ncis(ref_graph, aligned_positions, nci_detect)
+        ref_graph = conformer_graphs[reference_frame]
+
+    elif rebuild:
+        from xyzgraph import build_graph
+
         from xyzrender.readers import detect_nci as _detect_nci
 
-        if reference_mol is None:
-            ref_graph = _detect_nci(ref_graph)
-
-    conformer_graphs: list[nx.Graph] | None = None
-    if rebuild:
-        from xyzgraph import build_graph
+        if nci_detect:
+            ref_graph = _detect_ensemble_ncis(
+                ref_graph,
+                [aligned_positions[reference_frame]],
+                nci_detect,
+            )[0]
 
         conformer_graphs = []
         for fi, frame in enumerate(frames):
             if fi == reference_frame:
                 conformer_graphs.append(ref_graph)
                 continue
-            atoms = list(zip(frame["symbols"], [tuple(p) for p in frame["positions"]], strict=True))
+            atoms = list(zip(frame["symbols"], [tuple(p) for p in aligned_positions[fi]], strict=True))
             fg = build_graph(atoms, charge=charge, multiplicity=multiplicity, kekule=kekule, quick=quick)
             for _i, _j, d in fg.edges(data=True):
                 if "bond_order" in d:
                     d["bond_order"] = 1
             if nci_detect:
-                fg = _detect_nci(fg)
+                fg = _detect_nci(fg, nci_detect)
             conformer_graphs.append(fg)
 
     n_conf = len(frames)

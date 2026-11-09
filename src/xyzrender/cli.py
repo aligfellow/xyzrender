@@ -98,7 +98,7 @@ Orientation:
   --ref [FILE]            Save/load orientation reference
 
 TS / NCI:
-  --ts / --nci            Auto-detect TS bonds / NCI interactions
+  --ts / --nci [TYPES]    Auto-detect TS bonds / NCI interactions (all or selected types)
   --ts-bond / --nci-bond  Manual bond pairs (1-indexed)
 
 GIF Animation:
@@ -626,9 +626,12 @@ def main() -> None:
     )
     ts_g.add_argument(
         "--nci",
-        action="store_true",
+        nargs="?",
+        const=True,
+        default=False,
+        metavar="TYPES",
         dest="nci_detect",
-        help="Auto-detect NCI interactions via xyzgraph",
+        help="Auto-detect NCIs via xyzgraph; optionally select comma-separated exact types or hb/pi/ion groups",
     )
     ts_g.add_argument("--nci-bond", default="", help='Manual NCI bond pair(s), 1-indexed: "1-5,2-8"')
     ts_g.add_argument(
@@ -662,6 +665,11 @@ def main() -> None:
         "--trj-bonds",
         action="store_true",
         help="Re-detect bonds for every frame (use for NEB-TS MEPs where connectivity changes)",
+    )
+    gif_g.add_argument(
+        "--var-atoms",
+        action="store_true",
+        help="Allow --gif-trj frames with differing atom counts instead of rejecting them",
     )
     gif_g.add_argument(
         "--gif-rot",
@@ -956,11 +964,24 @@ def main() -> None:
 
     args = p.parse_args()
 
+    # ``--nci`` has an optional selector, so argparse may consume an input
+    # path that follows the bare flag. Preserve the original option ordering.
+    if args.input is None and isinstance(args.nci_detect, str) and Path(args.nci_detect).is_file():
+        args.input = args.nci_detect
+        args.nci_detect = True
+
     from_stdin = not args.input and not sys.stdin.isatty()
     if not args.input and not args.smi and not from_stdin:
         p.error("No input file provided. Pass a file path, --smi, or pipe via stdin.")
     if args.input and not Path(args.input).is_file():
         p.error(f"No such file or directory: {args.input!r}")
+    if args.nci_detect:
+        from xyzrender.nci_filter import resolve_nci_types
+
+        try:
+            resolve_nci_types(args.nci_detect)
+        except ValueError as exc:
+            p.error(str(exc))
 
     from xyzrender import configure_logging
     from xyzrender.api import (
@@ -1153,12 +1174,17 @@ def main() -> None:
             charge=args.charge,
             multiplicity=args.multiplicity,
             kekule=args.kekule,
+            nci_detect=args.nci_detect,
         )
         xyz_path = Path(args.output).with_suffix(".xyz")
         mol.to_xyz(xyz_path, title=args.smi)
         logger.info("3D geometry written to %s", xyz_path)
     elif from_stdin:
         graph = load_stdin(charge=args.charge, multiplicity=args.multiplicity, kekule=args.kekule)
+        if args.nci_detect:
+            from xyzrender.readers import detect_nci
+
+            graph = detect_nci(graph, args.nci_detect)
         mol = Molecule(graph=graph, cube_data=None, cell_data=None, oriented=False)
     elif not args.input:
         p.error("No input file and stdin is a terminal")
@@ -1519,9 +1545,8 @@ def main() -> None:
             mol_or_path = mol
         else:
             mol_or_path: str | Molecule = args.input if (args.gif_ts or args.gif_trj) else mol
-        # For gif_ts/gif_trj the trajectory is read from disk (mol_or_path is a path),
-        # but pass mol.graph as reference_graph so -I orientation and TS/NCI bonds are respected.
-        _ref_graph = mol.graph if (args.gif_ts or args.gif_trj) else None
+        # Trajectories are read from disk; annotations must not request rotation.
+        _ref_graph = mol.graph if (args.gif_ts or (args.gif_trj and mol.oriented)) else None
         try:
             render_gif(
                 mol_or_path,
@@ -1550,7 +1575,9 @@ def main() -> None:
                 auto_align=args.align,  # None = preset default; True/False = explicit override
                 opacity=args.opacity,
                 reference_graph=_ref_graph,
+                annotation_graph=mol.graph if args.gif_trj else None,
                 trj_bonds=args.trj_bonds,
+                var_atoms=args.var_atoms,
                 detect_nci=args.nci_detect,
                 mo=args.mo,
                 dens=args.dens,

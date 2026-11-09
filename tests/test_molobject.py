@@ -7,6 +7,8 @@ optional dependency, so the module is skipped when it is unavailable.
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 pytest.importorskip("rdkit", reason="rdkit required for MolObject tests")
@@ -64,3 +66,29 @@ def test_load_ensemble_payload_shape():
 def test_nci_detect_adds_nci_edge():
     m = load(_water_dimer(), nci_detect=True)
     assert any(d.get("NCI") for *_, d in m.graph.edges(data=True))
+
+
+def _ion_pair() -> Chem.Mol:
+    """NH4+ with one N-H pointing at Cl- (N...Cl 3.1 A)."""
+    upper = [(0.971 * math.cos(t), 0.971 * math.sin(t), 3.443) for t in (0, 2 * math.pi / 3, 4 * math.pi / 3)]
+    coords = [(0.0, 0.0, 3.1), (0.0, 0.0, 2.07), *upper, (0.0, 0.0, 0.0)]
+    mol = Chem.RWMol(Chem.CombineMols(Chem.AddHs(Chem.MolFromSmiles("[NH4+]")), Chem.MolFromSmiles("[Cl-]")))
+    conf = Chem.Conformer(mol.GetNumAtoms())
+    for i, xyz in enumerate(coords):
+        conf.SetAtomPosition(i, Point3D(*xyz))
+    mol.AddConformer(conf)
+    return mol.GetMol()
+
+
+@pytest.mark.parametrize("route", ["mol", "xyz_quick"])
+def test_nci_detect_finds_ion_pair(tmp_path, route):
+    # Ionic contacts need per-atom formal charges: copied from the Mol, and not
+    # skipped by quick=True.
+    mol = _ion_pair()
+    if route == "mol":
+        m = load(mol, nci_detect=True)
+    else:
+        path = tmp_path / "pose.xyz"
+        Chem.MolToXYZFile(mol, str(path))
+        m = load(path, quick=True, nci_detect=True)
+    assert "ionic" in {d.get("nci_type") for *_, d in m.graph.edges(data=True)}

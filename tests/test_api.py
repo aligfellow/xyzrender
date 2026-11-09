@@ -64,6 +64,79 @@ def test_load_nci_detect():
     assert mol.graph.number_of_nodes() > 0
 
 
+def test_load_nci_detect_filters_by_group():
+    mol = load(STRUCTURES / "bimp.v000.xyz", nci_detect=["hb"])
+
+    nci_types = {data["nci_type"] for *_edge, data in mol.graph.edges(data=True) if data.get("NCI")}
+    assert nci_types == {"hbond_bifurcated"}
+    assert all(data.get("symbol") != "*" for _, data in mol.graph.nodes(data=True))
+
+
+def test_nci_type_groups_and_exact_names_resolve_distinctly():
+    from xyzrender.nci_filter import resolve_nci_types
+
+    assert resolve_nci_types("hbond") == {"hbond"}
+    assert resolve_nci_types("HB") == {"hbond", "hbond_bifurcated", "hb_pi"}
+    assert resolve_nci_types("pi") == {
+        "anion_pi",
+        "cation_pi",
+        "ch_pi",
+        "halogen_pi",
+        "hb_pi",
+        "pi_pi_domain_domain",
+        "pi_pi_parallel",
+        "pi_pi_ring_domain",
+        "pi_pi_t_shaped",
+    }
+    assert resolve_nci_types("ion") == {"anion_pi", "cation_lp", "cation_pi", "ionic", "salt_bridge"}
+    assert resolve_nci_types("hb, ionic") == {"hbond", "hbond_bifurcated", "hb_pi", "ionic"}
+    assert resolve_nci_types(True) is None
+    assert resolve_nci_types("all") is None
+
+
+def test_nci_type_selection_rejects_unknown_names():
+    from xyzrender.nci_filter import resolve_nci_types
+
+    with pytest.raises(ValueError, match="Unknown NCI type or group 'dispersion'"):
+        resolve_nci_types("dispersion")
+
+
+def test_render_detect_nci_filters_without_mutating_molecule():
+    mol = load(STRUCTURES / "bimp.v000.xyz")
+    original_nodes = mol.graph.number_of_nodes()
+    original_edges = mol.graph.number_of_edges()
+
+    svg = str(render(mol, detect_nci=["hb"], orient=False))
+
+    assert "stroke-dasharray" in svg
+    assert mol.graph.number_of_nodes() == original_nodes
+    assert mol.graph.number_of_edges() == original_edges
+    assert not any(data.get("NCI") for *_edge, data in mol.graph.edges(data=True))
+
+
+def test_render_refilters_previously_detected_ncis():
+    mol = load(STRUCTURES / "bimp.v000.xyz", nci_detect=True)
+    original_nci_types = {data["nci_type"] for *_edge, data in mol.graph.edges(data=True) if data.get("NCI")}
+
+    svg = str(render(mol, detect_nci=["hb"], orient=False))
+
+    assert "stroke-dasharray" in svg
+    assert {data["nci_type"] for *_edge, data in mol.graph.edges(data=True) if data.get("NCI")} == original_nci_types
+
+
+def test_render_can_change_a_previous_nci_selection():
+    from unittest.mock import patch
+
+    mol = load(STRUCTURES / "bimp.v000.xyz", nci_detect=["hb"])
+
+    with patch("xyzrender.renderer.render_svg", return_value="<svg />") as mock_render:
+        render(mol, detect_nci=["pi"], orient=False)
+
+    rendered_graph = mock_render.call_args.args[0]
+    nci_types = {data["nci_type"] for *_edge, data in rendered_graph.edges(data=True) if data.get("NCI")}
+    assert nci_types == {"pi_pi_parallel", "pi_pi_t_shaped"}
+
+
 def test_load_smiles():
     pytest.importorskip("rdkit", reason="rdkit required")
     mol = load("CCO", smiles=True)

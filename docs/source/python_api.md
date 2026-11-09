@@ -4,6 +4,11 @@ xyzrender has a full Python API. Every CLI flag has a keyword-argument equivalen
 
 See also the [auto-generated API reference](api/core.rst) for docstrings and type signatures, and the runnable [`examples/examples.ipynb`](https://github.com/aligfellow/xyzrender/blob/main/examples/examples.ipynb) notebook.
 
+GIF rendering uses processes when the entrypoint supports them. On spawn-based
+platforms, calls supplied through stdin render serially. In saved Python scripts,
+put GIF calls inside `if __name__ == "__main__":` to prevent spawned workers from
+running the script's rendering calls again.
+
 ## Loading molecules
 
 `load()` parses a file and returns a `Molecule` object. Pass it to `render()` to avoid re-reading the file on every call. You can also pass a path string directly to `render()` as a shorthand.
@@ -26,7 +31,7 @@ The CLI runs everything in one command, but the Python API separates **parsing**
 
 * **`load()` options** change how the file is *parsed* and must be passed to `load()`:
   `smiles`, `charge`, `multiplicity`, `kekule`, `rebuild`, `mol_frame`, `bohr`, `quick`,
-  `ts_detect` (`--ts`), `ts_frame`, `nci_detect` (`--nci-detect`), `cell` (`--cell`),
+  `ts_detect` (`--ts`), `ts_frame`, `nci_detect` (`--nci`), `cell` (`--cell`),
   and all `ensemble*` options (`--ensemble`, `--ensemble-color`, `--align-atoms`, `--max-frames`, …).
 * **`render()` / `render_gif()` options** change how the parsed molecule is *drawn* — everything else
   (styling, bond rules, surfaces, overlays, hulls, annotations, output).
@@ -46,6 +51,7 @@ Use `load()` keyword arguments for non-default loading behaviour:
 ```python
 mol = load("ts.out", ts_detect=True)            # detect TS bonds via graphRC
 mol = load("mol.xyz", nci_detect=True)          # detect NCI interactions
+mol = load("mol.xyz", nci_detect="hb,pi")       # select NCI groups
 mol = load("mol.sdf", mol_frame=2, kekule=True) # SDF frame + Kekule bonds
 mol = load("CC(=O)O", smiles=True)              # SMILES → 3D (requires rdkit)
 mol = load(rdkit_mol)                           # RDKit Mol w/ embedded confs; ensemble=True overlays all
@@ -57,6 +63,14 @@ mol = load("mol.xyz", quick=True)               # skip BO detection (faster, use
 ## Render options
 
 Render-time CLI flags are available as keyword arguments to `render()`:
+
+Automatic NCI detection can also be requested at render time without changing the loaded molecule. `True` selects all interactions; exact xyzgraph type names or the `hb`, `pi`, and `ion` groups can be supplied as a comma-separated string or list. `render_gif()` accepts the same `detect_nci` values.
+
+```python
+render(mol, detect_nci="hbond")
+render(mol, detect_nci=["hb", "pi"])
+render_gif("trajectory.xyz", gif_trj=True, detect_nci="ion")
+```
 
 ### Styling
 
@@ -336,6 +350,7 @@ render_gif("ts.out", gif_ts=True)                  # TS vibration GIF
 render_gif("ts.out", gif_ts=True, ts_bonds=[(1, 6)])  # skip auto-detection; use this TS bond
 render_gif("traj.xyz", gif_trj=True)               # trajectory GIF
 render_gif("mep.xyz", gif_trj=True, trj_bonds=True)  # re-detect bonds per frame
+render_gif("growth.xyz", gif_trj=True, var_atoms=True)  # allow differing atom counts
 render_gif("mol.xyz", gif_rot="y", config=cfg)     # with shared style config
 
 # Diffuse / assembly GIF
