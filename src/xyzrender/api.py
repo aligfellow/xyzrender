@@ -1286,7 +1286,9 @@ def render(
         if _is_ensemble:
             ens = mol.ensemble
             assert ens is not None
-            detected_conformer_graphs = _detect_ensemble_ncis(rmol.graph, ens.positions, detect_nci)
+            detected_conformer_graphs = _detect_ensemble_ncis(
+                rmol.graph, ens.positions, detect_nci, conformer_graphs=ens.conformer_graphs
+            )
             rmol.graph = detected_conformer_graphs[ens.reference_idx]
         else:
             from xyzrender.readers import detect_nci as _detect_nci
@@ -1757,7 +1759,9 @@ def render_gif(
         mol = mol.copy()
         if mol.ensemble is not None:
             ens = mol.ensemble
-            _gif_conformer_graphs = _detect_ensemble_ncis(mol.graph, ens.positions, detect_nci)
+            _gif_conformer_graphs = _detect_ensemble_ncis(
+                mol.graph, ens.positions, detect_nci, conformer_graphs=ens.conformer_graphs
+            )
             mol.graph = _gif_conformer_graphs[ens.reference_idx]
         else:
             from xyzrender.readers import detect_nci as _detect_nci
@@ -2133,13 +2137,27 @@ def _detect_ensemble_ncis(
     reference_graph: nx.Graph,
     aligned_positions: list[np.ndarray] | np.ndarray,
     selection: bool | str | list[str] = True,
+    *,
+    conformer_graphs: list[nx.Graph] | None = None,
 ) -> list[nx.Graph]:
-    """Detect selected NCIs per conformer while reusing fixed topology."""
+    """Detect selected NCIs, preserving independently rebuilt topology."""
     from xyzgraph.nci import NCIAnalyzer, build_nci_graph
 
     from xyzrender.nci_filter import resolve_nci_types
 
     selected_types = resolve_nci_types(selection)
+    if conformer_graphs is not None:
+        from xyzrender.readers import detect_nci
+
+        result = []
+        for source, positions in zip(conformer_graphs, aligned_positions, strict=True):
+            graph = copy.deepcopy(source)
+            real_nodes = [n for n, data in graph.nodes(data=True) if data.get("symbol") != "*"]
+            for node, position in zip(real_nodes, positions, strict=True):
+                graph.nodes[node]["position"] = tuple(float(value) for value in position)
+            result.append(detect_nci(graph, selection))
+        return result
+
     topology_graph = copy.deepcopy(reference_graph)
     topology_graph.remove_edges_from([(i, j) for i, j, data in topology_graph.edges(data=True) if data.get("NCI")])
     topology_graph.remove_nodes_from(topology_graph.graph.get("nci_centroid", []))
