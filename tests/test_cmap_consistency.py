@@ -77,3 +77,47 @@ def test_configured_conflicting_maps_rejected_at_render_boundaries(tmp_path, ent
         with pytest.raises(ValueError, match="Atom and bond colormaps are mutually exclusive"):
             render_svg(mol.graph, config)
     assert not output.exists()
+
+
+@pytest.mark.parametrize("height", [80, 240, 800])
+def test_colorbar_title_and_ticks_fit_legend_bounds(height):
+    from xyzrender.cmap import colorbar_extra_width, colorbar_svg
+
+    width = 240 + colorbar_extra_width(0, 3, 40, "Bond order")
+    elements = colorbar_svg(0, 3, "viridis", 240, height, 40, "black", unit="Bond order")
+    root = ET.fromstring(
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}">' + "".join(elements) + "</svg>"
+    )
+    ns = {"svg": "http://www.w3.org/2000/svg"}
+    title = next(text for text in root.findall("svg:text", ns) if text.text == "Bond order")
+    title_size = float(title.attrib["font-size"].removesuffix("px"))
+    title_y = float(title.attrib["y"])
+    assert title_size / 2 < title_y < height - title_size / 2
+    assert 240 < float(title.attrib["x"]) < width
+    for text in root.findall("svg:text", ns):
+        size = float(text.attrib["font-size"].removesuffix("px"))
+        assert size / 2 <= float(text.attrib["y"]) <= height - size / 2
+
+
+def test_colorbar_title_visible_with_existing_cairo_renderer():
+    from io import BytesIO
+
+    import cairosvg
+    import numpy as np
+    from PIL import Image
+
+    from xyzrender.cmap import colorbar_extra_width, colorbar_svg
+
+    width = 240 + colorbar_extra_width(0, 3, 40, "Bond order")
+    elements = colorbar_svg(0, 3, "viridis", 240, 240, 40, "black", unit="Bond order")
+    root = ET.fromstring(
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="240">' + "".join(elements) + "</svg>"
+    )
+    ns = {"svg": "http://www.w3.org/2000/svg"}
+    title = next(text for text in root.findall("svg:text", ns) if text.text == "Bond order")
+    size = float(title.attrib["font-size"].removesuffix("px"))
+    center_y = float(title.attrib["y"])
+    image = Image.open(BytesIO(cairosvg.svg2png(bytestring=ET.tostring(root)))).convert("RGBA")
+    pixels = np.asarray(image)
+    title_strip = pixels[max(0, int(center_y - size)) : int(center_y + size), 240:]
+    assert np.any(title_strip[:, :, 3] > 128)

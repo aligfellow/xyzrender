@@ -1463,7 +1463,7 @@ def test_rotating_camera_contains_every_atom_orbit(axis_name, fixed_pivot):
             assert extent < cfg.fixed_span / 2
 
 
-def test_vibration_label_reserves_camera_margin(tmp_path, normal_mode_render):
+def test_vibration_label_preserves_scene_camera(tmp_path, normal_mode_render):
     from xyzrender import render_gif
     from xyzrender.types import RenderConfig
 
@@ -1477,7 +1477,7 @@ def test_vibration_label_reserves_camera_margin(tmp_path, normal_mode_render):
         output=tmp_path / "label.gif",
     )
     prepared = mock_render.call_args.args[2]
-    assert prepared.padding >= 12 + 30 + 2
+    assert prepared.padding == config.padding
     assert config.padding == 10
 
 
@@ -1544,3 +1544,28 @@ def test_frequency_label_fits_output_canvas(canvas_size):
     assert x.min() > 0
     assert x.max() < canvas_size - 1
     assert y.min() > 0
+
+
+@pytest.mark.parametrize("background", ["#ffffff", None])
+def test_frequency_label_header_preserves_entire_wide_frame(background):
+    from io import BytesIO
+
+    from PIL import Image, ImageDraw
+
+    from xyzrender.gif import _add_png_label
+    from xyzrender.types import RenderConfig
+
+    frame = Image.new("RGBA", (240, 141), background or (0, 0, 0, 0))
+    # A colorbar can occupy the top of a wide frame. No label pixels may
+    # overwrite it, and composing a caption must not rescale the scene.
+    ImageDraw.Draw(frame).rectangle((180, 0, 239, 140), fill="red")
+    source = BytesIO()
+    frame.save(source, format="PNG")
+    labelled = Image.open(
+        BytesIO(_add_png_label(source.getvalue(), "frequency", RenderConfig(canvas_size=240, background=background)))
+    ).convert("RGBA")
+    header_height = labelled.height - frame.height
+    assert labelled.width == frame.width
+    assert header_height > 0
+    np.testing.assert_array_equal(labelled.crop((0, header_height, labelled.width, labelled.height)), frame)
+    assert np.any(np.asarray(labelled)[:header_height, :, 3] > 0)

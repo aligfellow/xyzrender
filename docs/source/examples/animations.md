@@ -88,8 +88,8 @@ atom centers at least 0.05 Å apart.
 
 Mode indices are zero-based in the parsed frequency list. Imaginary frequencies
 are rejected by `--gif-vib`; use `--gif-ts` for a transition-state animation.
-`--vib-label` requires calculated frequency metadata and reserves space above
-the molecule. Hydrogens are shown unless `--no-hy` is set.
+`--vib-label` requires calculated frequency metadata and adds a separate header
+above the complete frame, including any colorbar. Hydrogens are shown unless `--no-hy` is set.
 
 One equilibrium center is used throughout normal-mode orientation and rotation.
 The camera stays fixed over the complete cycle, including diagonal rotation

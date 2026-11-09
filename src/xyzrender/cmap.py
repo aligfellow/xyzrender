@@ -117,9 +117,17 @@ def colorbar_svg(
     """Return SVG element strings for a vertical colorbar to the right of the molecule."""
     stops = PALETTES[palette]
 
+    # Fit the entire legend, not just the colored rectangle. Titles and
+    # endpoint ticks need their own space on short molecular canvases.
+    fs = min(font_size, 40.0, canvas_h / 6)
+    unit_fs = fs * 0.85
+    unit_gap = min(_UNIT_ABOVE_BAR, fs * 1.1)
+    top_space = unit_fs + unit_gap if unit else fs / 2
+    bottom_space = fs / 2
     bar_x = mol_canvas_w + _MARGIN
-    bar_h = max(min(canvas_h * 0.80, 400.0), 60.0)
-    bar_top = (canvas_h - bar_h) / 2
+    available = max(canvas_h - top_space - bottom_space - 6, 1.0)
+    bar_h = min(max(min(canvas_h * 0.80, 400.0), 60.0), available)
+    bar_top = top_space + (canvas_h - top_space - bottom_space - bar_h) / 2
     bar_bot = bar_top + bar_h
 
     # Gradient: top = vmax, bottom = vmin.
@@ -135,7 +143,6 @@ def colorbar_svg(
 
     tick_x1 = bar_x + _BAR_W
     label_x = tick_x1 + _TICK_GAP + 3
-    fs = min(font_size, 40.0)
     char_w = fs * 0.62
 
     ticks = [
@@ -148,13 +155,14 @@ def colorbar_svg(
     text_attrs = f'font-family="monospace" font-size="{fs:.1f}px" fill="{label_color}" dominant-baseline="central"'
 
     if unit:
-        unit_fs = fs * 0.85
-        unit_y = bar_top - _UNIT_ABOVE_BAR - unit_fs / 2
+        unit_y = bar_top - unit_gap - unit_fs / 2
+        legend_width = colorbar_extra_width(vmin, vmax, font_size, unit)
+        unit_x = mol_canvas_w + legend_width / 2
         unit_attrs = (
             f'font-family="monospace" font-size="{unit_fs:.1f}px" fill="{label_color}" '
             f'dominant-baseline="central" text-anchor="middle"'
         )
-        elems.append(f'  <text x="{bar_x + _BAR_W / 2:.1f}" y="{unit_y:.1f}" {unit_attrs}>{escape(unit)}</text>')
+        elems.append(f'  <text x="{unit_x:.1f}" y="{unit_y:.1f}" {unit_attrs}>{escape(unit)}</text>')
 
     for ty, val in ticks:
         s = f"{val:.3f}".replace("-", "\u2212")
