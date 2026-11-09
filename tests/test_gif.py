@@ -289,22 +289,6 @@ def test_format_vibrational_frequency_preserves_sign():
     assert _format_vibrational_frequency(-748.483) == "\u03bd\u0303 = -748.5 cm⁻¹"
 
 
-def test_add_frequency_label_to_png():
-    from io import BytesIO
-
-    from PIL import Image
-
-    from xyzrender.gif import _add_png_label
-    from xyzrender.types import RenderConfig
-
-    source = BytesIO()
-    Image.new("RGBA", (200, 100), "white").save(source, format="PNG")
-    labelled = _add_png_label(source.getvalue(), "\u03bd\u0303 = 1234.6 cm⁻¹", RenderConfig(canvas_size=200))
-    image = np.asarray(Image.open(BytesIO(labelled)).convert("RGB"))
-
-    assert np.any(image[:50] < 128)
-
-
 def test_render_gif_normal_mode_selection_and_scale(tmp_path, normal_mode_render):
     from xyzrender import render_gif
 
@@ -327,17 +311,22 @@ def test_render_gif_normal_mode_selection_and_scale(tmp_path, normal_mode_render
 
 def test_render_gif_normal_mode_frequency_label(tmp_path, normal_mode_render):
     from xyzrender import render_gif
+    from xyzrender.types import RenderConfig
 
     _trajectory, _mock_load, mock_render = normal_mode_render
+    config = RenderConfig(padding=10)
     render_gif(
         STRUCTURES / "methanol.out",
         gif_vib=1,
+        config=config,
         vib_label=True,
         orient=False,
         output=tmp_path / "mode.gif",
     )
 
     assert mock_render.call_args.kwargs["frame_label"] == "\u03bd\u0303 = 1234.6 cm⁻¹"
+
+    assert mock_render.call_args.args[2].padding == config.padding == 10
 
 
 def test_render_gif_normal_mode_rejects_imaginary_frequency(tmp_path, normal_mode_render):
@@ -1463,24 +1452,6 @@ def test_rotating_camera_contains_every_atom_orbit(axis_name, fixed_pivot):
             assert extent < cfg.fixed_span / 2
 
 
-def test_vibration_label_preserves_scene_camera(tmp_path, normal_mode_render):
-    from xyzrender import render_gif
-    from xyzrender.types import RenderConfig
-
-    _trajectory, _mock_load, mock_render = normal_mode_render
-    config = RenderConfig(padding=10, label_font_size=24)
-    render_gif(
-        STRUCTURES / "methanol.out",
-        gif_vib=0,
-        vib_label=True,
-        config=config,
-        output=tmp_path / "label.gif",
-    )
-    prepared = mock_render.call_args.args[2]
-    assert prepared.padding == config.padding
-    assert config.padding == 10
-
-
 def test_nci_centroid_does_not_change_rotation_pivot():
     from unittest.mock import patch
 
@@ -1524,30 +1495,8 @@ def test_nci_centroid_does_not_change_rotation_pivot():
     )
 
 
-@pytest.mark.parametrize("canvas_size", [240, 800])
-def test_frequency_label_fits_output_canvas(canvas_size):
-    from io import BytesIO
-
-    from PIL import Image
-
-    from xyzrender.gif import _add_png_label
-    from xyzrender.types import RenderConfig
-
-    source = BytesIO()
-    Image.new("RGBA", (canvas_size, canvas_size), "white").save(source, format="PNG")
-    labelled = _add_png_label(
-        source.getvalue(), "\u03bd\u0303 = 320.9 cm⁻¹", RenderConfig(canvas_size=canvas_size, label_font_size=40)
-    )
-    pixels = np.asarray(Image.open(BytesIO(labelled)).convert("RGB"))
-    y, x = np.where(np.any(pixels < 128, axis=2))
-    assert len(x) > 0
-    assert x.min() > 0
-    assert x.max() < canvas_size - 1
-    assert y.min() > 0
-
-
-@pytest.mark.parametrize("background", ["#ffffff", None])
-def test_frequency_label_header_preserves_entire_wide_frame(background):
+@pytest.mark.parametrize(("width", "background"), [(240, None), (800, "#ffffff")])
+def test_frequency_label_header_preserves_entire_wide_frame(width, background):
     from io import BytesIO
 
     from PIL import Image, ImageDraw
@@ -1555,17 +1504,31 @@ def test_frequency_label_header_preserves_entire_wide_frame(background):
     from xyzrender.gif import _add_png_label
     from xyzrender.types import RenderConfig
 
-    frame = Image.new("RGBA", (240, 141), background or (0, 0, 0, 0))
+    height = round(width * 0.6)
+    frame = Image.new("RGBA", (width, height), background or (0, 0, 0, 0))
     # A colorbar can occupy the top of a wide frame. No label pixels may
     # overwrite it, and composing a caption must not rescale the scene.
-    ImageDraw.Draw(frame).rectangle((180, 0, 239, 140), fill="red")
+    ImageDraw.Draw(frame).rectangle((width * 3 // 4, 0, width - 1, height - 1), fill="red")
     source = BytesIO()
     frame.save(source, format="PNG")
     labelled = Image.open(
-        BytesIO(_add_png_label(source.getvalue(), "frequency", RenderConfig(canvas_size=240, background=background)))
+        BytesIO(
+            _add_png_label(
+                source.getvalue(),
+                "\u03bd\u0303 = 320.9 cm⁻¹",
+                RenderConfig(canvas_size=width, background=background, label_font_size=40),
+            )
+        )
     ).convert("RGBA")
     header_height = labelled.height - frame.height
     assert labelled.width == frame.width
     assert header_height > 0
     np.testing.assert_array_equal(labelled.crop((0, header_height, labelled.width, labelled.height)), frame)
-    assert np.any(np.asarray(labelled)[:header_height, :, 3] > 0)
+    header = np.asarray(labelled)[:header_height]
+    ink = np.any(header[:, :, :3] < 128, axis=2) & (header[:, :, 3] > 128)
+    y, x = np.where(ink)
+    assert len(x) > 0  # visible glyphs, including on a transparent background
+    assert x.min() > 0
+    assert x.max() < width - 1
+    assert y.min() > 0
+    assert y.max() < header_height - 1
