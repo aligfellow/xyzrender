@@ -226,3 +226,36 @@ def test_missing_bond_maps_render_in_rotation_and_rebuilt_trajectory_frames(tmp_
         pixels = np.asarray(image, dtype=int)
         assert np.abs(pixels - (r, g, b)).sum(axis=2).min() < 60
     assert not mol.graph.edges
+
+
+@pytest.mark.parametrize("priority", ["edge", "highlight", "overlay-edge"])
+def test_local_bond_color_priority_uses_source_not_rgb_equality(priority):
+    import networkx as nx
+
+    from xyzrender.api import Molecule
+    from xyzrender.colors import Color, bond_color_from_atom
+
+    derived = bond_color_from_atom(Color.from_str("#00ffff"))
+    graph = nx.Graph()
+    graph.add_node(0, symbol="C", position=(-1.0, 0.0, 0.0))
+    graph.add_node(1, symbol="C", position=(1.0, 0.0, 0.0))
+    graph.add_edge(0, 1, bond_order=1.0)
+    kwargs = {}
+    expected = derived
+    if priority == "edge":
+        graph[0][1]["bond_color_override"] = derived
+    elif priority == "highlight":
+        kwargs["highlight"] = [("1-2", "#00ffff")]
+    else:
+        extra = graph.copy()
+        extra[0][1]["bond_color_override"] = expected = "#ff8800"
+        for i in extra:
+            x, y, z = extra.nodes[i]["position"]
+            extra.nodes[i]["position"] = (x, y + 2.0, z)
+        kwargs.update(overlay=Molecule(extra), overlay_color="#00ff00", auto_align=False)
+    config = RenderConfig(cmap_range=(0, 1), cmap_palette="viridis", fog=False, gradient=False, auto_orient=False)
+    svg = str(render(Molecule(graph), config=config, mol_color="#00ffff", bond_cmap={(1, 2): 1.0}, **kwargs))
+    lines = [el for el in ET.fromstring(svg).iter() if el.tag.endswith("}line")]
+    assert any(el.get("stroke") == expected for el in lines)
+    if priority != "overlay-edge":
+        assert all(el.get("stroke") != "#fde725" for el in lines)
