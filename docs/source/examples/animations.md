@@ -71,6 +71,31 @@ Use `--ts-bond` to skip automatic TS identification and provide a manual selecti
 xyzrender mn-h2.log --gif-ts --ts-bond "1-2" -go mn-h2.gif
 ```
 
+## Vibrational transitions
+
+Animates vibrational transitions using normal modes from frequency calculations:
+
+```bash
+xyzrender frequency.out --gif-vib 7 -go mode7.gif
+xyzrender frequency.out --gif-vib 7 --vib-scale 2.0 -go mode7_large.gif
+xyzrender frequency.out --gif-vib 7 --vib-label -go mode7_labelled.gif
+```
+
+Normal-mode amplitudes are normalized to a 0.25 Å RMS peak displacement
+across active atoms (those reaching at least 10% of the largest peak
+displacement). `--vib-scale` multiplies this amplitude; a cap keeps bonded
+atom centers at least 0.05 Å apart.
+
+Mode indices are zero-based in the parsed frequency list. Imaginary frequencies
+are rejected by `--gif-vib`; use `--gif-ts` for a transition-state animation.
+`--vib-label` requires calculated frequency metadata and reserves space above
+the molecule. Hydrogens are shown unless `--no-hy` is set.
+
+One equilibrium center is used throughout normal-mode orientation and rotation.
+The camera stays fixed over the complete cycle, including diagonal rotation
+axes. `--ref reference.xyz` saves or reloads an orientation and takes precedence
+over automatic PCA orientation.
+
 ## Trajectory
 
 ```{image} ../../../examples/images/bimp_trj.gif

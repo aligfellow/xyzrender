@@ -235,6 +235,77 @@ def test_gif_ts_manual_bonds_skip_auto_ts_load(monkeypatch, tmp_path):
     assert mock_load.call_args_list[0].kwargs["ts_detect"] is False
 
 
+@pytest.mark.parametrize(("mode", "no_hy"), [(7, False), (0, True)])
+def test_gif_vib_dispatches_options(monkeypatch, tmp_path, mode, no_hy):
+    from unittest.mock import patch
+
+    from xyzrender import api
+    from xyzrender.cli import main
+
+    argv = [
+        "xyzrender",
+        str(_STRUCTURES / "methanol.out"),
+        "--gif-vib",
+        str(mode),
+        "--vib-scale",
+        "2.5",
+        "--vib-label",
+        "-o",
+        str(tmp_path / "mode.svg"),
+        "-go",
+        str(tmp_path / "mode.gif"),
+    ]
+    if no_hy:
+        argv.append("--no-hy")
+    monkeypatch.setattr(sys, "argv", argv)
+
+    with patch.object(api, "render"), patch.object(api, "render_gif") as mock_gif:
+        main()
+
+    assert mock_gif.call_args.kwargs["gif_vib"] == mode
+    assert mock_gif.call_args.kwargs["vib_scale"] == 2.5
+    assert mock_gif.call_args.kwargs["vib_label"] is True
+    assert mock_gif.call_args.kwargs["hy"] is None
+    assert mock_gif.call_args.kwargs["no_hy"] is no_hy
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        (("--gif-vib", "-1"), "zero-based mode index"),
+        (("--gif-vib", "0", "--vib-scale", "0"), "--vib-scale must be finite and > 0"),
+        (("--gif-vib", "0", "--vib-scale", "nan"), "--vib-scale must be finite and > 0"),
+        (("--gif-vib", "0", "--vib-scale", "inf"), "--vib-scale must be finite and > 0"),
+        (("--gif-vib", "0", "--vib-frames", "3"), "positive multiple of 4"),
+    ],
+)
+def test_gif_vib_rejects_invalid_options(args, message):
+    result = _run_cli(str(_CAFFEINE), *args, expect_error=True)
+    assert message in result.stderr
+
+
+def test_hl_too_many_args():
+    """--hl with >2 arguments should error."""
+    result = _run_cli(str(_CAFFEINE), "--hl", "1-5", "red", "extra", expect_error=True)
+    assert result.returncode != 0
+
+
+def test_cjson_camera_used_by_default(tmp_path):
+    """A CJSON camera is honoured unless --orient explicitly asks for PCA."""
+    result = _run_cli(str(_STRUCTURES / "coronene_colors.cjson"), "-o", str(tmp_path / "out.svg"))
+    assert result.returncode == 0
+    assert (tmp_path / "out.svg").exists()
+    assert "Applied saved camera orientation" in result.stderr
+
+
+@pytest.mark.parametrize("flag", ["--orient", "--no-orient"])
+def test_explicit_orient_flags_override_cjson_camera(tmp_path, flag):
+    """Both --orient (PCA) and --no-orient (raw coords) beat a saved camera."""
+    result = _run_cli(str(_STRUCTURES / "coronene_colors.cjson"), flag, "-o", str(tmp_path / "out.svg"))
+    assert result.returncode == 0
+    assert "Applied saved camera orientation" not in result.stderr
+
+
 def test_var_atoms_is_forwarded_to_render_gif(monkeypatch, tmp_path):
     """--var-atoms opts the public GIF API into variable frame sizes."""
     import sys
@@ -295,25 +366,3 @@ def test_variable_atom_trajectory_cli_recommends_var_atoms(monkeypatch, tmp_path
         "Trajectory has non-uniform atom counts: first frame has 2 atoms, "
         "frame 1 has 3. If this is intentional, use --var-atoms"
     ) in capsys.readouterr().err
-
-
-def test_hl_too_many_args():
-    """--hl with >2 arguments should error."""
-    result = _run_cli(str(_CAFFEINE), "--hl", "1-5", "red", "extra", expect_error=True)
-    assert result.returncode != 0
-
-
-def test_cjson_camera_used_by_default(tmp_path):
-    """A CJSON camera is honoured unless --orient explicitly asks for PCA."""
-    result = _run_cli(str(_STRUCTURES / "coronene_colors.cjson"), "-o", str(tmp_path / "out.svg"))
-    assert result.returncode == 0
-    assert (tmp_path / "out.svg").exists()
-    assert "Applied saved camera orientation" in result.stderr
-
-
-@pytest.mark.parametrize("flag", ["--orient", "--no-orient"])
-def test_explicit_orient_flags_override_cjson_camera(tmp_path, flag):
-    """Both --orient (PCA) and --no-orient (raw coords) beat a saved camera."""
-    result = _run_cli(str(_STRUCTURES / "coronene_colors.cjson"), flag, "-o", str(tmp_path / "out.svg"))
-    assert result.returncode == 0
-    assert "Applied saved camera orientation" not in result.stderr

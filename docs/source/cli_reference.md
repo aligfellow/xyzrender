@@ -199,6 +199,7 @@ Fine-grained overlay style (`atom_stroke_width`, `atom_stroke_color`, `bond_colo
 | `--gif-rot [AXIS]` | Rotation GIF (default axis: `y`). Combinable with `--gif-ts` and `--gif-bounce` |
 | `--gif-bounce DEG[,AXIS]` | Bounce rotation: starts at the original orientation, then rotates to `+DEG`, back through `0`, and to `-DEG` on the rotation axis (`y` by default). Append `,AXIS` to override |
 | `--gif-ts` | TS vibration GIF (via graphRC) |
+| `--gif-vib MODE` | Normal-mode vibration GIF from a frequency calculation; zero-based mode index |
 | `--gif-trj` | Trajectory / optimisation GIF (multi-frame input) |
 | `--trj-bonds` | Re-detect bonds for every frame (NEB-TS MEPs and other trajectories with changing connectivity) |
 | `--var-atoms` | Allow trajectory frames with differing atom counts (rebuilds the molecular graph for every frame) |
@@ -212,7 +213,9 @@ Fine-grained overlay style (`atom_stroke_width`, `atom_stroke_color`, `bond_colo
 | `-go`, `--gif-output` | GIF output path (default: `{basename}.gif`) |
 | `--gif-fps` | Frames per second (default: 10) |
 | `--rot-frames` | Rotation frame count (default: 120) |
-| `--vib-frames` | Vibration frames for `--gif-ts` (default: 20) |
+| `--vib-frames` | Vibration frames for `--gif-ts` / `--gif-vib`: positive multiple of four (default: 20) |
+| `--vib-scale SCALE` | Positive displacement multiplier (default: 1.0); ordinary modes are normalized and capped before bonded atoms coincide |
+| `--vib-label` | Display the calculated frequency in cm⁻¹; requires frequency metadata |
 
 With `--gif-trj --no-orient`, input coordinates are preserved unless `-I`,
 `--ref`, or GIF rotation is explicitly requested. An explicit orientation reference
