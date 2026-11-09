@@ -463,6 +463,46 @@ def test_render_gif_normal_mode_keeps_shared_camera_center(tmp_path, normal_mode
     assert config.auto_orient is False
 
 
+@pytest.mark.parametrize("axis", [None, np.array([0.0, 1.0, 0.0])])
+def test_vibration_viewport_contains_asymmetric_displacements(axis):
+    from xyzrender.gif import _fixed_viewport
+    from xyzrender.types import RenderConfig
+
+    frames = [
+        {"symbols": ["C", "C"], "positions": [[0, 0, 0], [0, 1, 0]]},
+        {"symbols": ["C", "C"], "positions": [[0, 0, 0], [0, 3, 0]]},
+    ]
+    cfg = _fixed_viewport(frames, RenderConfig(), rotation_axis=axis, reference_frame=frames[0])
+    assert cfg.fixed_center is not None
+    assert cfg.fixed_span is not None
+    np.testing.assert_allclose(cfg.fixed_center, [0, 0.5])
+    assert cfg.fixed_span > 5.0  # furthest atom is 2.5 Å from the fixed centre
+
+
+@pytest.mark.parametrize("normal_mode", [False, True])
+def test_vibration_dispatch_preserves_loaded_electronic_state(tmp_path, monkeypatch, normal_mode):
+    from unittest.mock import Mock
+
+    import networkx as nx
+
+    from xyzrender import render_gif
+    from xyzrender.api import Molecule
+
+    graph = nx.Graph(total_charge=1, multiplicity=2)
+    graph.add_node(0, symbol="C", position=(0.0, 0.0, 0.0))
+    monkeypatch.setattr("xyzrender.api.load", Mock(return_value=Molecule(graph=graph)))
+    worker = Mock()
+    monkeypatch.setattr("xyzrender.gif.render_vibration_gif", worker)
+    render_gif(
+        STRUCTURES / "methanol.out",
+        gif_vib=0 if normal_mode else None,
+        gif_ts=not normal_mode,
+        output=tmp_path / "charged.gif",
+    )
+    assert worker.call_args.kwargs["charge"] == 1
+    assert worker.call_args.kwargs["multiplicity"] == 2
+
+
 @pytest.mark.parametrize("ts_bonds", [[(1, 1)], [(1, 999)]])
 def test_render_gif_ts_rejects_invalid_manual_bonds(tmp_path, ts_bonds):
     from unittest.mock import patch

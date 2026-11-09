@@ -864,21 +864,19 @@ def _fixed_viewport(
         # Distance from the rotation axis (sweeps into screen-X)
         perp = np.linalg.norm(rel - np.outer(along, rotation_axis), axis=1)
         half_x = perp.max() + atom_pad
-        half_y = max(along.max() - along.min(), 0) / 2 + atom_pad
+        half_y = float(np.abs(along).max()) + atom_pad
         fixed_span = 2 * max(half_x, half_y)
         center_xy = (float(centroid[0]), float(centroid[1]))
     else:
         xy = all_pos[:, :2]
         reference_xy = reference_pos[:, :2]
-        lo = xy.min(axis=0) - atom_pad
-        hi = xy.max(axis=0) + atom_pad
         reference_lo = reference_xy.min(axis=0)
         reference_hi = reference_xy.max(axis=0)
         center_xy = (
             float((reference_lo[0] + reference_hi[0]) / 2),
             float((reference_lo[1] + reference_hi[1]) / 2),
         )
-        fixed_span = float(max((hi - lo).max(), 1e-6))
+        fixed_span = float(max(2 * (np.abs(xy - np.asarray(center_xy)).max() + atom_pad), 1e-6))
 
     cfg = copy.copy(config)
     cfg.fixed_span = fixed_span

@@ -1935,6 +1935,8 @@ def render_gif(
             path=str(mol_path),
             config=vib_cfg,
             output=str(gif_path),
+            charge=mol.graph.graph.get("total_charge", 0),
+            multiplicity=mol.graph.graph.get("multiplicity"),
             gif_vib=gif_vib,
             vib_frames=vib_frames,
             vib_scale=vib_scale,
