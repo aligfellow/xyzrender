@@ -137,8 +137,7 @@ def prepare_bond_cmap_graph(graph, values: dict[tuple[int, int], float] | None):
     if not missing:
         return graph
     graph = graph.copy()
-    for i, j in missing:
-        _ensure_bond_for_cmap(i, j, graph, context="rendered bond map")
+    graph.add_edges_from(missing, bond_order=1.0, NCI=True)
     return graph
 
 

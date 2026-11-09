@@ -54,7 +54,7 @@ Recommended palette set for `xyzrender`:
 
 ## Bond property colormap (`--bond-cmap`)
 
-Color **selected bonds** by a scalar (e.g. Mayer bond order, NBO occupancy). The file has three columns — **1-indexed atom i**, **atom j**, and **value**. Pairs are undirected (`2 3 v` equals `3 2 v`). Bonds not listed keep the normal bond styling. Both atoms must exist in the structure; if automatic bond detection did not add a link between them, xyzrender **logs a warning and adds a dotted NCI-style edge** so the contact can be colored (same linestyle as auto-detected NCI interactions). For Mayer tables, omit distant atom pairs in the file unless you intend to show that contact.
+Color **selected bonds** by a scalar (e.g. Mayer bond order, NBO occupancy). The file has three columns — **1-indexed atom i**, **atom j**, and **value**. Pairs are undirected (`2 3 v` equals `3 2 v`). Bonds not listed keep the normal bond styling. Both atoms must exist in the structure; if automatic bond detection did not add a link between them, xyzrender **adds a dotted display edge** so the contact can be colored (same linestyle as auto-detected NCI interactions). For Mayer tables, omit distant atom pairs in the file unless you intend to show that contact.
 
 ```text
 # bond_orders.txt
@@ -76,3 +76,20 @@ xyzrender c6h6.xyz --config c6h6.json --hy --no-bo --bond-cmap c6h6_bond_orders.
 xyzrender caffeine_bonds.xyz --hy --no-bo --bond-cmap caffeine_bond_orders.txt \
   --cmap-range 0 3 --cmap-palette white_reverse_plasma --cbar --cbar-unit "Bond order"
 ```
+
+
+Python uses the same scalar-map arguments for static and GIF output:
+
+```python
+from xyzrender import render, render_gif
+
+values = {(1, 2): 1.5, (2, 3): 0.8}  # original 1-based atom pairs
+render(mol, bond_cmap=values, cmap_range=(0, 3), cbar=True)
+render_gif(mol, gif_rot="y", bond_cmap=values, cmap_range=(0, 3), cbar=True)
+```
+
+Parsing validates the pairs without changing the input molecule. Missing pairs
+are drawn after topology preparation, so NCI detection and rebuilt trajectory
+frames cannot erase them. In overlays and ensembles, public map arguments refer
+to the primary molecule; they are not implicitly broadcast to other components.
+Configured maps use internal 0-based render indices.
