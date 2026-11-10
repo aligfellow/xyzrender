@@ -120,6 +120,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     """Render molecular graph to SVG string."""
     cfg = config or RenderConfig()
     validate_cmap_selection(atom=cfg.atom_cmap is not None, bond=cfg.bond_cmap is not None)
+    from xyzrender.annotations import prepare_bond_cmap_graph
+
+    graph = prepare_bond_cmap_graph(graph, cfg.bond_cmap)
     node_ids = list(graph.nodes())
     n = len(node_ids)
     symbols = [graph.nodes[i]["symbol"] for i in node_ids]
@@ -450,6 +453,7 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
     # Bond lookup: per-edge attrs needed by the render loop.
     bonds: dict[tuple[int, int], _BondAttrs] = {}
     if not cfg.hide_bonds:
+        explicit_bond_colors: set[tuple[int, int]] = set()
         for i, j, d in graph.edges(data=True):
             if d.get("TS", False):
                 style = BondStyle.DASHED
@@ -466,6 +470,8 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 outline_color=d.get("bond_outline_color_override"),
             )
             bonds[(i, j)] = bonds[(j, i)] = attrs
+            if attrs.color is not None:
+                explicit_bond_colors.update(((i, j), (j, i)))
         # Manual overrides (add or restyle)
         _default = _BondAttrs(order=1.0, style=BondStyle.SOLID)
         for i, j in cfg.ts_bonds:
@@ -477,6 +483,17 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
             for (i, j), attrs in list(bonds.items()):
                 if attrs.color is None and attrs.style == BondStyle.SOLID:
                     bonds[(i, j)] = bonds[(j, i)] = attrs._replace(color=mol_bond_color)
+        if cfg.bond_cmap is not None and scalar_range is not None:
+            bond_cmap_vmin, bond_cmap_vmax = scalar_range
+            for (i, j), val in cfg.bond_cmap.items():
+                attrs = bonds.get((i, j))
+                if attrs is None:
+                    continue
+                if (i, j) in explicit_bond_colors:
+                    continue
+                hex_color = bond_color_hex(val, scalar_palette, bond_cmap_vmin, bond_cmap_vmax)
+                bonds[(i, j)] = bonds[(j, i)] = attrs._replace(color=hex_color)
+
         # Highlight: color bonds between two atoms in the SAME highlight group.
         # Only SOLID covalent bonds — TS/NCI are structural overlays.
         # Overrides mol_color bond coloring (but not explicit per-edge overrides).
@@ -487,20 +504,9 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                     gi is not None
                     and gi == gj
                     and attrs.style == BondStyle.SOLID
-                    and (attrs.color is None or attrs.color == mol_bond_color)
+                    and (i, j) not in explicit_bond_colors
                 ):
                     bonds[(i, j)] = bonds[(j, i)] = attrs._replace(color=hl_group_bond_color[gi])
-
-        if cfg.bond_cmap is not None and scalar_range is not None:
-            bond_cmap_vmin, bond_cmap_vmax = scalar_range
-            for (i, j), val in cfg.bond_cmap.items():
-                attrs = bonds.get((i, j))
-                if attrs is None:
-                    continue
-                if attrs.color is not None and (mol_bond_color is None or attrs.color != mol_bond_color):
-                    continue
-                hex_color = bond_color_hex(val, scalar_palette, bond_cmap_vmin, bond_cmap_vmax)
-                bonds[(i, j)] = bonds[(j, i)] = attrs._replace(color=hex_color)
 
     # Pre-build adjacency list for O(degree) bond lookup in render loop
     bond_adj: dict[int, list[int]] = {}

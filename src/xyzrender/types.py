@@ -332,7 +332,7 @@ class RenderConfig:
     atom_opacity: dict[int, float] = field(default_factory=dict)
     # Atom property colormap (--cmap)
     atom_cmap: dict[int, float] | None = None
-    # Bond property colormap (--bond-cmap)
+    # Bond property colormap: 0-indexed pairs; missing pairs render as dotted NCI edges.
     bond_cmap: dict[tuple[int, int], float] | None = None
     cmap_range: tuple[float, float] | None = None
     cmap_symm: bool = False  # symmetric range about 0: [-max(|v|), +max(|v|)]

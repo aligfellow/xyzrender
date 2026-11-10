@@ -472,19 +472,19 @@ def test_bond_cmap_keeps_original_atom_numbers_after_filtering(ethanol, tmp_path
     assert captured["cmap"] == {(0, 1): 0.5}
 
 
-def test_resolve_bond_cmap_dict_adds_missing_edge(ethanol, caplog):
-    import logging
-
+@pytest.mark.parametrize("from_file", [False, True])
+def test_resolve_bond_cmap_is_topology_readonly(ethanol, tmp_path, from_file):
     from xyzrender.api import _resolve_bond_cmap
 
     graph = ethanol.graph.copy()
     assert not graph.has_edge(2, 3)
-    with caplog.at_level(logging.WARNING):
-        out = _resolve_bond_cmap({(3, 4): 0.5}, graph)
+    values = {(3, 4): 0.5}
+    if from_file:
+        values = tmp_path / "bonds.txt"
+        values.write_text("3 4 0.5\n")
+    out = _resolve_bond_cmap(values, graph)
     assert out[(2, 3)] == 0.5
-    assert graph.has_edge(2, 3)
-    assert graph.edges[2, 3].get("NCI") is True
-    assert any("adding NCI-style edge" in r.message for r in caplog.records)
+    assert not graph.has_edge(2, 3)
 
 
 # ---------------------------------------------------------------------------
