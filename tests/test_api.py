@@ -1006,3 +1006,111 @@ def test_unbond_all_removes_every_covalent_bond(caffeine, spec):
     apply_bond_rules(g, cfg)
     assert g.number_of_edges() == 0
     assert g.number_of_nodes() == caffeine.graph.number_of_nodes()
+
+
+@pytest.mark.parametrize("value", [-1.0, 0.25, 1.0])
+def test_rendered_atom_and_bond_share_color_with_explicit_common_range(value):
+    from pathlib import Path
+    from xml.etree import ElementTree as ET
+
+    from xyzrender import render
+    from xyzrender.cmap import bond_color_hex
+    from xyzrender.types import RenderConfig
+
+    structure = Path(__file__).resolve().parent.parent / "examples/structures/ethanol.xyz"
+    config = RenderConfig(
+        cmap_range=(-1, 1), cmap_palette="coolwarm", gradient=False, fog=False, auto_orient=False, bond_orders=False
+    )
+    atom_svg = str(render(structure, cmap={1: value}, config=config))
+    bond_svg = str(render(structure, bond_cmap={(1, 2): value}, config=config))
+    atom_root = ET.fromstring(atom_svg)
+    bond_root = ET.fromstring(bond_svg)
+    namespaces = {"svg": "http://www.w3.org/2000/svg"}
+    expected = bond_color_hex(value, "coolwarm", -1, 1)
+    assert any(circle.attrib.get("fill") == expected for circle in atom_root.findall(".//svg:circle", namespaces))
+    assert any(line.attrib.get("stroke") == expected for line in bond_root.findall(".//svg:line", namespaces))
+
+
+@pytest.mark.parametrize(
+    ("configured", "requested"),
+    [("none", "both"), ("atom", "bond"), ("bond", "atom"), ("both", "none"), ("none", "empty")],
+)
+def test_conflicting_maps_rejected_before_resolution_or_graph_mutation(configured, requested):
+    from pathlib import Path
+
+    from xyzrender import load, render
+    from xyzrender.types import RenderConfig
+
+    structure = Path(__file__).resolve().parent.parent / "examples/structures/ethanol.xyz"
+    mol = load(structure)
+    before = list(mol.graph.edges(data=True))
+    config = RenderConfig(
+        atom_cmap={0: 0.2} if configured in {"atom", "both"} else None,
+        bond_cmap={(0, 2): 0.5} if configured in {"bond", "both"} else None,
+    )
+    atom = {} if requested == "empty" else ({1: 0.2} if requested in {"atom", "both"} else None)
+    bond = {} if requested == "empty" else ({(1, 3): 0.5} if requested in {"bond", "both"} else None)
+    with pytest.raises(ValueError, match="Atom and bond colormaps are mutually exclusive"):
+        render(mol, config=config, cmap=atom, bond_cmap=bond)
+    assert list(mol.graph.edges(data=True)) == before
+
+
+@pytest.mark.parametrize(
+    ("source", "scene", "detect"),
+    [
+        ("dict", "single", True),
+        ("file", "single", True),
+        ("config", "single", True),
+        ("config", "ensemble", True),
+        ("config", "overlay", True),
+        ("dict", "ensemble", False),
+    ],
+)
+def test_explicit_missing_bond_survives_scene_preparation_without_mutating_input(tmp_path, source, scene, detect):
+    from xml.etree import ElementTree as ET
+
+    import networkx as nx
+    import numpy as np
+
+    from xyzrender import render
+    from xyzrender.api import EnsembleFrames, Molecule
+    from xyzrender.cmap import bond_color_hex
+    from xyzrender.types import RenderConfig
+
+    graph = nx.Graph()
+    graph.add_node(0, symbol="C", position=(-2.0, 0.0, 0.0))
+    graph.add_node(1, symbol="O", position=(2.0, 0.0, 0.0))
+    graph.graph["ncis"] = []  # Re-detection removes old NCI edges before rebuilding.
+    mol = Molecule(graph)
+    config = RenderConfig(cmap_range=(0, 1), cmap_palette="viridis", fog=False, gradient=False, auto_orient=False)
+    kwargs = {}
+    if source == "config":
+        config.bond_cmap = {(0, 1): 1.0}
+    elif source == "file":
+        path = tmp_path / "pairs.txt"
+        path.write_text("1 2 1.0\n")
+        kwargs["bond_cmap"] = path
+    else:
+        kwargs["bond_cmap"] = {(1, 2): 1.0}
+    if scene == "ensemble":
+        positions = np.array([[[-2.0, 0, 0], [2.0, 0, 0]], [[-2.0, 1, 0], [2.0, 1, 0]]])
+        mol.ensemble = EnsembleFrames(positions, [None, None], [None, None])
+    elif scene == "overlay":
+        kwargs.update(overlay=mol.copy(), auto_align=False)
+    svg = str(render(mol, config=config, detect_nci=detect, **kwargs))
+    expected = bond_color_hex(1, "viridis", 0, 1)
+    root = ET.fromstring(svg)
+    dotted = [el for el in root.iter() if "stroke-dasharray" in el.attrib]
+    assert len(dotted) == 1  # No uncoloured copies on other conformers.
+    assert dotted[0].get("stroke") == expected
+    assert not graph.edges
+    assert graph.graph["ncis"] == []
+
+
+@pytest.mark.parametrize("target", ["atom", "bond"])
+def test_render_rejects_nonfinite_colormap_values(ethanol, target):
+    from typing import Any
+
+    kwargs: dict[str, Any] = {"cmap": {1: float("nan")}} if target == "atom" else {"bond_cmap": {(1, 2): float("nan")}}
+    with pytest.raises(ValueError, match="Colormap scalar values must be finite"):
+        render(ethanol, **kwargs)

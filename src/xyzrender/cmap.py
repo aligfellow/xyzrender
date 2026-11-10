@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from html import escape
+from math import isfinite
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -30,9 +31,16 @@ def cmap_value_range(
     if cmap_range is not None and cmap_symm:
         msg = "--cmap-range and --cmap-symm are mutually exclusive"
         raise ValueError(msg)
-    if cmap_range is not None:
-        return cmap_range
     vals = list(values)
+    if not vals:
+        raise ValueError("Colormap must contain at least one scalar value")
+    if not all(isfinite(value) for value in vals):
+        raise ValueError("Colormap scalar values must be finite")
+    if cmap_range is not None:
+        vmin, vmax = cmap_range
+        if not isfinite(vmin) or not isfinite(vmax) or vmin > vmax:
+            raise ValueError("Colormap range must have finite bounds with vmin <= vmax")
+        return vmin, vmax
     if cmap_symm:
         vmax = max(abs(v) for v in vals)
         return -vmax, vmax

@@ -93,3 +93,6 @@ are drawn after topology preparation, so NCI detection and rebuilt trajectory
 frames cannot erase them. In overlays and ensembles, public map arguments refer
 to the primary molecule; they are not implicitly broadcast to other components.
 Configured maps use internal 0-based render indices.
+
+Scalar maps must contain at least one value, and all values must be finite.
+Explicit ranges must have finite bounds with `vmin <= vmax`; equal bounds are supported.

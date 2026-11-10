@@ -1532,3 +1532,76 @@ def test_frequency_label_header_preserves_entire_wide_frame(width, background):
     assert x.max() < width - 1
     assert y.min() > 0
     assert y.max() < header_height - 1
+
+
+def test_missing_bond_maps_render_in_rotation_and_rebuilt_trajectory_frames(tmp_path, monkeypatch):
+    import copy
+    from io import BytesIO
+    from xml.etree import ElementTree as ET
+
+    import numpy as np
+    from PIL import Image
+
+    from xyzrender import gif, load, render_gif
+    from xyzrender.cmap import bond_color_hex
+    from xyzrender.types import RenderConfig
+
+    svgs = []
+    original_render = gif.render_svg
+
+    def record_svg(*args, **kwargs):
+        svg = original_render(*args, **kwargs)
+        svgs.append(svg)
+        return svg
+
+    def serial(worker, items, total):
+        pngs = [b""] * total
+        for item in items:
+            owned_worker, owned_item = copy.deepcopy((worker, item))
+            idx, png = owned_worker(owned_item)
+            pngs[idx] = png
+        return pngs
+
+    monkeypatch.setattr(gif, "render_svg", record_svg)
+    monkeypatch.setattr(gif, "_parallel_render", serial)
+    path = tmp_path / "separated.xyz"
+    frame = "3\nseparated\nH 0 6 0\nC -2 0 0\nO 2 0 0\n"
+    path.write_text(frame * 2)
+    cmap_file = tmp_path / "pairs.txt"
+    cmap_file.write_text("2 3 1\n")
+    config = RenderConfig(
+        canvas_size=320, cmap_range=(0, 1), cmap_palette="viridis", fog=False, gradient=False, auto_orient=False
+    )
+    mol = load(path)
+    for name in ("rotation", "trajectory"):
+        svgs.clear()
+        output = tmp_path / f"{name}.gif"
+        if name == "rotation":
+            render_gif(mol, config=config, gif_rot="z", rot_frames=2, only="2,3", bond_cmap=cmap_file, output=output)
+        else:
+            config.bond_cmap = {(1, 2): 1.0}
+            render_gif(path, config=config, gif_trj=True, trj_bonds=True, detect_nci=True, output=output)
+        assert len(svgs) == 2
+        expected = bond_color_hex(1, "viridis", 0, 1)
+        for svg in svgs:
+            root = ET.fromstring(svg)
+            assert any(el.get("stroke") == expected and "stroke-dasharray" in el.attrib for el in root.iter())
+        image = Image.open(BytesIO(output.read_bytes())).convert("RGB")
+        r, g, b = tuple(int(expected[i : i + 2], 16) for i in (1, 3, 5))
+        pixels = np.asarray(image, dtype=int)
+        assert np.abs(pixels - (r, g, b)).sum(axis=2).min() < 60
+    assert not mol.graph.edges
+
+
+@pytest.mark.parametrize("bond_map", [{(0, 1): 0.5}, {}])
+def test_render_gif_rejects_conflicting_maps_without_writing_output(tmp_path, bond_map):
+    from pathlib import Path
+
+    from xyzrender import load, render_gif
+    from xyzrender.types import RenderConfig
+
+    mol = load(Path(__file__).resolve().parent.parent / "examples/structures/ethanol.xyz")
+    output = tmp_path / "conflicting.gif"
+    with pytest.raises(ValueError, match="Atom and bond colormaps are mutually exclusive"):
+        render_gif(mol, config=RenderConfig(atom_cmap={0: 0.2}), bond_cmap=bond_map, gif_rot="y", output=output)
+    assert not output.exists()
