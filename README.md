@@ -59,7 +59,14 @@ uvx xyzrender mol.xyz                                              # try without
 pip install git+https://github.com/aligfellow/xyzrender.git        # from source
 ```
 
-Optional extras (`[smi]`, `[cif]`, `[shelxl]`, `[v]`, `[all]`) and full setup in the [installation docs](https://xyzrender.readthedocs.io/en/latest/installation.html).
+Optional extras (`[smi]`, `[cif]`, `[shelxl]`, `[v]`, `[mcp]`, `[all]`) and full setup in the [installation docs](https://xyzrender.readthedocs.io/en/latest/installation.html).
+
+For Cursor / coding agents, install the MCP extra and see [`AGENTS.md`](AGENTS.md):
+
+```bash
+pip install 'xyzrender[mcp]'   # or: pip install -e '.[mcp]'
+python -m xyzrender.mcp
+```
 
 ## Quick start
 
