@@ -1,4 +1,6 @@
-# Atom Colormap
+# Colormaps
+
+## Atom property colormap (`--cmap`)
 
 Color atoms by a per-atom scalar value (e.g. partial charges, NMR shifts, Fukui indices) using a colormap palette.
 
@@ -38,7 +40,7 @@ The colormap file has two columns — **1-indexed atom number** and value. Any e
 | Flag | Description |
 |------|-------------|
 | `--cmap FILE` | Path to colormap data file (two-column: atom index, value) |
-| `--cmap-range VMIN VMAX` | Override colormap range (useful for symmetric scales, e.g. `-0.5 0.5`) |
+| `--cmap-range VMIN VMAX` | Override vmin/vmax for atom, bond, and ESP colorbars (e.g. `-0.5 0.5`) |
 | `--cmap-symm` | Symmetric range about zero: `[-max(|v|), +max(|v|)]` |
 | `--cmap-palette NAME` | Colormap palette (default: `viridis`) |
 | `--cbar` | Add a vertical colorbar on the right showing the data range |
@@ -47,4 +49,50 @@ The colormap file has two columns — **1-indexed atom number** and value. Any e
 Recommended palette set for `xyzrender`:
 
 - Best for `--cmap`: `viridis`, `plasma`, `coolwarm`
+- Bond order from zero: `white_reverse_plasma` (with `--cmap-range 0 3`)
 - Best for ESP: `rainbow`, `coolwarm`, `RdBu`
+
+## Bond property colormap (`--bond-cmap`)
+
+Color **selected bonds** by a scalar (e.g. Mayer bond order, NBO occupancy). The file has three columns — **1-indexed atom i**, **atom j**, and **value**. Pairs are undirected (`2 3 v` equals `3 2 v`). Bonds not listed keep the normal bond styling. Both atoms must exist in the structure; if automatic bond detection did not add a link between them, xyzrender **adds a dotted display edge** so the contact can be colored (same linestyle as auto-detected NCI interactions). For Mayer tables, omit distant atom pairs in the file unless you intend to show that contact.
+
+```text
+# bond_orders.txt
+14  22  0.57
+14  28  0.61
+```
+
+Use the same `--cmap-range`, `--cmap-symm`, `--cmap-palette`, `--cbar`, and `--cbar-unit` flags as for atom `--cmap`. `--cmap` and `--bond-cmap` are mutually exclusive: one scalar map supplies the range, palette, unit and optional legend. Ordinary atom colors remain available with a bond map, and ordinary bond styling remains available with an atom map. This rule also applies to Python arguments and configured maps. GIF frames automatically preserve the SVG viewBox aspect ratio, so a colorbar is not cropped.
+
+| Bond orders (rotation) | Benzene | With colorbar |
+|------------------------|---------|---------------|
+| ![Bond orders (rotation)](../../../examples/images/systems_bonds_caffeine.gif) | ![Benzene](../../../examples/images/systems_bonds_c6h6.svg) | ![With colorbar](../../../examples/images/systems_bonds_caffeine.svg) |
+
+```bash
+xyzrender caffeine_bonds.xyz --hy --no-bo --bond-cmap caffeine_bond_orders.txt \
+  --cmap-range 0 3 --cmap-palette white_reverse_plasma --gif-rot -go caffeine_bonds.gif
+xyzrender c6h6.xyz --config c6h6.json --hy --no-bo --bond-cmap c6h6_bond_orders.txt \
+  --cmap-range 0 3 --cmap-palette white_reverse_plasma
+xyzrender caffeine_bonds.xyz --hy --no-bo --bond-cmap caffeine_bond_orders.txt \
+  --cmap-range 0 3 --cmap-palette white_reverse_plasma --cbar --cbar-unit "Bond order"
+```
+
+
+Python uses the same scalar-map arguments for static and GIF output:
+
+```python
+from xyzrender import render, render_gif
+
+values = {(1, 2): 1.5, (2, 3): 0.8}  # original 1-based atom pairs
+render(mol, bond_cmap=values, cmap_range=(0, 3), cbar=True)
+render_gif(mol, gif_rot="y", bond_cmap=values, cmap_range=(0, 3), cbar=True)
+```
+
+Parsing validates the pairs without changing the input molecule. Missing pairs
+are drawn after topology preparation, so NCI detection and rebuilt trajectory
+frames cannot erase them. In overlays and ensembles, public map arguments refer
+to the primary molecule; they are not implicitly broadcast to other components.
+Configured maps use internal 0-based render indices.
+
+Scalar maps must contain at least one value, and all values must be finite.
+Explicit ranges must have finite bounds with `vmin <= vmax`; equal bounds are supported.

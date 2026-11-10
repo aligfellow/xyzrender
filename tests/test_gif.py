@@ -289,22 +289,6 @@ def test_format_vibrational_frequency_preserves_sign():
     assert _format_vibrational_frequency(-748.483) == "\u03bd\u0303 = -748.5 cm⁻¹"
 
 
-def test_add_frequency_label_to_png():
-    from io import BytesIO
-
-    from PIL import Image
-
-    from xyzrender.gif import _add_png_label
-    from xyzrender.types import RenderConfig
-
-    source = BytesIO()
-    Image.new("RGBA", (200, 100), "white").save(source, format="PNG")
-    labelled = _add_png_label(source.getvalue(), "\u03bd\u0303 = 1234.6 cm⁻¹", RenderConfig(canvas_size=200))
-    image = np.asarray(Image.open(BytesIO(labelled)).convert("RGB"))
-
-    assert np.any(image[:50] < 128)
-
-
 def test_render_gif_normal_mode_selection_and_scale(tmp_path, normal_mode_render):
     from xyzrender import render_gif
 
@@ -327,17 +311,22 @@ def test_render_gif_normal_mode_selection_and_scale(tmp_path, normal_mode_render
 
 def test_render_gif_normal_mode_frequency_label(tmp_path, normal_mode_render):
     from xyzrender import render_gif
+    from xyzrender.types import RenderConfig
 
     _trajectory, _mock_load, mock_render = normal_mode_render
+    config = RenderConfig(padding=10)
     render_gif(
         STRUCTURES / "methanol.out",
         gif_vib=1,
+        config=config,
         vib_label=True,
         orient=False,
         output=tmp_path / "mode.gif",
     )
 
     assert mock_render.call_args.kwargs["frame_label"] == "\u03bd\u0303 = 1234.6 cm⁻¹"
+
+    assert mock_render.call_args.args[2].padding == config.padding == 10
 
 
 def test_render_gif_normal_mode_rejects_imaginary_frequency(tmp_path, normal_mode_render):
@@ -1463,24 +1452,6 @@ def test_rotating_camera_contains_every_atom_orbit(axis_name, fixed_pivot):
             assert extent < cfg.fixed_span / 2
 
 
-def test_vibration_label_reserves_camera_margin(tmp_path, normal_mode_render):
-    from xyzrender import render_gif
-    from xyzrender.types import RenderConfig
-
-    _trajectory, _mock_load, mock_render = normal_mode_render
-    config = RenderConfig(padding=10, label_font_size=24)
-    render_gif(
-        STRUCTURES / "methanol.out",
-        gif_vib=0,
-        vib_label=True,
-        config=config,
-        output=tmp_path / "label.gif",
-    )
-    prepared = mock_render.call_args.args[2]
-    assert prepared.padding >= 12 + 30 + 2
-    assert config.padding == 10
-
-
 def test_nci_centroid_does_not_change_rotation_pivot():
     from unittest.mock import patch
 
@@ -1524,23 +1495,113 @@ def test_nci_centroid_does_not_change_rotation_pivot():
     )
 
 
-@pytest.mark.parametrize("canvas_size", [240, 800])
-def test_frequency_label_fits_output_canvas(canvas_size):
+@pytest.mark.parametrize(("width", "background"), [(240, None), (800, "#ffffff")])
+def test_frequency_label_header_preserves_entire_wide_frame(width, background):
     from io import BytesIO
 
-    from PIL import Image
+    from PIL import Image, ImageDraw
 
     from xyzrender.gif import _add_png_label
     from xyzrender.types import RenderConfig
 
+    height = round(width * 0.6)
+    frame = Image.new("RGBA", (width, height), background or (0, 0, 0, 0))
+    # A colorbar can occupy the top of a wide frame. No label pixels may
+    # overwrite it, and composing a caption must not rescale the scene.
+    ImageDraw.Draw(frame).rectangle((width * 3 // 4, 0, width - 1, height - 1), fill="red")
     source = BytesIO()
-    Image.new("RGBA", (canvas_size, canvas_size), "white").save(source, format="PNG")
-    labelled = _add_png_label(
-        source.getvalue(), "\u03bd\u0303 = 320.9 cm⁻¹", RenderConfig(canvas_size=canvas_size, label_font_size=40)
-    )
-    pixels = np.asarray(Image.open(BytesIO(labelled)).convert("RGB"))
-    y, x = np.where(np.any(pixels < 128, axis=2))
-    assert len(x) > 0
+    frame.save(source, format="PNG")
+    labelled = Image.open(
+        BytesIO(
+            _add_png_label(
+                source.getvalue(),
+                "\u03bd\u0303 = 320.9 cm⁻¹",
+                RenderConfig(canvas_size=width, background=background, label_font_size=40),
+            )
+        )
+    ).convert("RGBA")
+    header_height = labelled.height - frame.height
+    assert labelled.width == frame.width
+    assert header_height > 0
+    np.testing.assert_array_equal(labelled.crop((0, header_height, labelled.width, labelled.height)), frame)
+    header = np.asarray(labelled)[:header_height]
+    ink = np.any(header[:, :, :3] < 128, axis=2) & (header[:, :, 3] > 128)
+    y, x = np.where(ink)
+    assert len(x) > 0  # visible glyphs, including on a transparent background
     assert x.min() > 0
-    assert x.max() < canvas_size - 1
+    assert x.max() < width - 1
     assert y.min() > 0
+    assert y.max() < header_height - 1
+
+
+def test_missing_bond_maps_render_in_rotation_and_rebuilt_trajectory_frames(tmp_path, monkeypatch):
+    import copy
+    from io import BytesIO
+    from xml.etree import ElementTree as ET
+
+    import numpy as np
+    from PIL import Image
+
+    from xyzrender import gif, load, render_gif
+    from xyzrender.cmap import bond_color_hex
+    from xyzrender.types import RenderConfig
+
+    svgs = []
+    original_render = gif.render_svg
+
+    def record_svg(*args, **kwargs):
+        svg = original_render(*args, **kwargs)
+        svgs.append(svg)
+        return svg
+
+    def serial(worker, items, total):
+        pngs = [b""] * total
+        for item in items:
+            owned_worker, owned_item = copy.deepcopy((worker, item))
+            idx, png = owned_worker(owned_item)
+            pngs[idx] = png
+        return pngs
+
+    monkeypatch.setattr(gif, "render_svg", record_svg)
+    monkeypatch.setattr(gif, "_parallel_render", serial)
+    path = tmp_path / "separated.xyz"
+    frame = "3\nseparated\nH 0 6 0\nC -2 0 0\nO 2 0 0\n"
+    path.write_text(frame * 2)
+    cmap_file = tmp_path / "pairs.txt"
+    cmap_file.write_text("2 3 1\n")
+    config = RenderConfig(
+        canvas_size=320, cmap_range=(0, 1), cmap_palette="viridis", fog=False, gradient=False, auto_orient=False
+    )
+    mol = load(path)
+    for name in ("rotation", "trajectory"):
+        svgs.clear()
+        output = tmp_path / f"{name}.gif"
+        if name == "rotation":
+            render_gif(mol, config=config, gif_rot="z", rot_frames=2, only="2,3", bond_cmap=cmap_file, output=output)
+        else:
+            config.bond_cmap = {(1, 2): 1.0}
+            render_gif(path, config=config, gif_trj=True, trj_bonds=True, detect_nci=True, output=output)
+        assert len(svgs) == 2
+        expected = bond_color_hex(1, "viridis", 0, 1)
+        for svg in svgs:
+            root = ET.fromstring(svg)
+            assert any(el.get("stroke") == expected and "stroke-dasharray" in el.attrib for el in root.iter())
+        image = Image.open(BytesIO(output.read_bytes())).convert("RGB")
+        r, g, b = tuple(int(expected[i : i + 2], 16) for i in (1, 3, 5))
+        pixels = np.asarray(image, dtype=int)
+        assert np.abs(pixels - (r, g, b)).sum(axis=2).min() < 60
+    assert not mol.graph.edges
+
+
+@pytest.mark.parametrize("bond_map", [{(0, 1): 0.5}, {}])
+def test_render_gif_rejects_conflicting_maps_without_writing_output(tmp_path, bond_map):
+    from pathlib import Path
+
+    from xyzrender import load, render_gif
+    from xyzrender.types import RenderConfig
+
+    mol = load(Path(__file__).resolve().parent.parent / "examples/structures/ethanol.xyz")
+    output = tmp_path / "conflicting.gif"
+    with pytest.raises(ValueError, match="Atom and bond colormaps are mutually exclusive"):
+        render_gif(mol, config=RenderConfig(atom_cmap={0: 0.2}), bond_cmap=bond_map, gif_rot="y", output=output)
+    assert not output.exists()

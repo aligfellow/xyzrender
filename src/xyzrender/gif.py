@@ -256,20 +256,21 @@ def _frequency_label_layout(config: "RenderConfig") -> tuple[int, int, float]:
 
 
 def _add_png_label(png_data: bytes, label: str, config: "RenderConfig") -> bytes:
-    """Add a fixed, haloed label at the top centre of a rendered PNG frame."""
+    """Add a separate label header, preserving the complete rendered frame."""
     import cairosvg
     from PIL import Image
 
     image = Image.open(BytesIO(png_data)).convert("RGBA")
     font_size, stroke_width, label_top = _frequency_label_layout(config)
+    header_height = int(np.ceil(label_top + font_size + stroke_width + 4))
     text_attrs = (
         f'x="50%" y="{label_top:.1f}" '
-        'font-family="FreeSans,DejaVu Sans,Noto Sans,Arial Unicode MS,Segoe UI Symbol,sans-serif" '
+        'font-family="sans-serif" '
         f'font-size="{font_size}px" text-anchor="middle" dominant-baseline="hanging"'
     )
     label_text = escape(label)
     label_svg = (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{image.width}" height="{image.height}">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{image.width}" height="{header_height}">'
         f'<text {text_attrs} fill="none" stroke="{config.background or "#ffffff"}" '
         f'stroke-width="{stroke_width}" stroke-linejoin="round">{label_text}</text>'
         f'<text {text_attrs} fill="{config.label_color}">{label_text}</text></svg>'
@@ -277,12 +278,16 @@ def _add_png_label(png_data: bytes, label: str, config: "RenderConfig") -> bytes
     overlay_data = cairosvg.svg2png(
         bytestring=label_svg.encode(),
         output_width=image.width,
-        output_height=image.height,
+        output_height=header_height,
     )
     overlay = Image.open(BytesIO(overlay_data)).convert("RGBA")
-    image.alpha_composite(overlay)
+    header = Image.new("RGBA", (image.width, header_height), config.background or (0, 0, 0, 0))
+    header.alpha_composite(overlay)
+    labelled = Image.new("RGBA", (image.width, image.height + header_height))
+    labelled.paste(header, (0, 0))
+    labelled.paste(image, (0, header_height))
     output = BytesIO()
-    image.save(output, format="PNG")
+    labelled.save(output, format="PNG")
     return output.getvalue()
 
 
@@ -404,9 +409,6 @@ def render_vibration_gif(
             msg = "Vibrational frequency labels require a QM output file with calculated frequencies"
             raise ValueError(msg)
         frame_label = _format_vibrational_frequency(selected_frequency)
-        font_size, stroke_width, label_top = _frequency_label_layout(config)
-        config = copy.copy(config)
-        config.padding = max(config.padding, label_top + font_size + stroke_width + 4)
 
     if not auto_detect_ts:
         _validate_manual_ts_bonds(ts_graph, config.ts_bonds)
@@ -1089,7 +1091,8 @@ def _render_rot_frame(
         recompute_dens(graph, frame_cfg, ctx.dens_params, ctx.dens_cube, frame_cfg.surface_opacity, ctx.dens_cache)
 
     svg = render_svg(graph, frame_cfg, _log=False, _unique_ids=False)
-    return frame_idx, svg_to_png_bytes(svg, size=config.canvas_size)
+    # Fit viewBox aspect so wide SVGs (e.g. molecule + colorbar) are not cropped.
+    return frame_idx, svg_to_png_bytes(svg, size=config.canvas_size, fit_viewbox=True)
 
 
 def _parallel_render(worker, items, total: int) -> list[bytes]:
@@ -1197,7 +1200,8 @@ def _render_traj_frame(
             frame_config = _rotate_vectors_in_cfg(config, rot_mat, _rg_centroid, rf_vec_origins, rf_vec_dirs)
 
     svg = render_svg(render_graph, frame_config, _log=False)
-    png = svg_to_png_bytes(svg, size=config.canvas_size)
+    # Fit viewBox aspect so wide SVGs (e.g. molecule + colorbar) are not cropped.
+    png = svg_to_png_bytes(svg, size=config.canvas_size, fit_viewbox=True)
     if frame_label is not None:
         png = _add_png_label(png, frame_label, frame_config)
     return idx, png

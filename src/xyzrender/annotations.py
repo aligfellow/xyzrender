@@ -104,6 +104,43 @@ def _warn_no_bond(i: int, j: int) -> None:
     logger.warning("no bond between atoms %d and %d - placing label at midpoint", i + 1, j + 1)
 
 
+def _ensure_bond_for_cmap(i: int, j: int, graph, *, context: str) -> None:
+    """Ensure *i*-*j* exists on *graph* for bond colormap coloring (0-indexed nodes)."""
+    if i == j:
+        raise ValueError(f"{context}: atom indices must differ (got {i + 1} {j + 1})")
+    if graph.has_edge(i, j):
+        return
+    logger.warning(
+        "bond cmap: no existing bond between atoms %d and %d; adding NCI-style edge for coloring (%s)",
+        i + 1,
+        j + 1,
+        context,
+    )
+    graph.add_edge(i, j, bond_order=1.0, NCI=True)
+
+
+def prepare_bond_cmap_graph(graph, values: dict[tuple[int, int], float] | None):
+    """Materialize explicit 0-based map pairs on an owned render graph.
+
+    Run after NCI decoration and graph merging, including each GIF frame. Existing
+    bonds keep their style; missing pairs use the established dotted NCI style.
+    The input graph is returned unchanged when all pairs already exist.
+    """
+    if values is None:
+        return graph
+    for i, j in values:
+        if i == j:
+            raise ValueError(f"bond cmap: atom indices must differ (got {i + 1} {j + 1})")
+        if i not in graph or j not in graph:
+            raise ValueError(f"bond cmap: atom pair ({i + 1}, {j + 1}) not in molecule")
+    missing = [(i, j) for i, j in values if not graph.has_edge(i, j)]
+    if not missing:
+        return graph
+    graph = graph.copy()
+    graph.add_edges_from(missing, bond_order=1.0, NCI=True)
+    return graph
+
+
 def _parse_spec(tokens: list[str], graph) -> list[Annotation]:
     """Parse one annotation spec (one -l invocation or one file line).
 
@@ -294,6 +331,78 @@ def load_cmap(file_path: str, graph) -> dict[int, float]:
             result[idx] = val
 
     return result
+
+
+def read_bond_cmap(file_path: str, graph) -> dict[tuple[int, int], float]:
+    """Load bond property colormap from a strict i-j-value file.
+
+    Format (1-indexed atom indices, strict):
+        1  2  +0.512
+        3  4  -0.234
+
+    Blank lines and lines starting with ``#`` are skipped. Non-integer first
+    tokens are silently skipped (handles CSV headers). Any other malformed line
+    is a hard error.  Pairs are undirected; duplicate pairs keep the last value.
+    Resolves and validates pairs without changing the supplied graph.
+    """
+    path = Path(file_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Bond colormap file not found: {file_path}")
+
+    result: dict[tuple[int, int], float] = {}
+
+    with path.open() as f:
+        for lineno, raw in enumerate(f, 1):
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            tokens = _tokenize(line)
+            if not tokens:
+                continue
+
+            try:
+                raw_i = int(tokens[0])
+            except ValueError:
+                continue
+
+            if len(tokens) < 3:
+                raise ValueError(f"bond cmap line {lineno}: expected atom_i atom_j value, got {len(tokens)} token(s)")
+
+            try:
+                raw_j = int(tokens[1])
+            except ValueError:
+                raise ValueError(f"bond cmap line {lineno}: atom index {tokens[1]!r} is not an integer") from None
+
+            try:
+                val = float(tokens[2])
+            except ValueError:
+                raise ValueError(f"bond cmap line {lineno}: cannot parse value {tokens[2]!r} as float") from None
+
+            if raw_i == raw_j:
+                raise ValueError(f"bond cmap line {lineno}: atom indices must differ (got {raw_i} {raw_j})")
+
+            try:
+                i, j = _check_atom(raw_i, graph), _check_atom(raw_j, graph)
+            except ValueError as exc:
+                raise ValueError(f"bond cmap line {lineno}: {exc}") from exc
+
+            key = (min(i, j), max(i, j))
+            result[key] = val
+
+    return result
+
+
+def load_bond_cmap(file_path: str, graph) -> dict[tuple[int, int], float]:
+    """Read bond scalars and add missing NCI-style edges to the supplied graph.
+
+    This compatibility entry point retains its mutating contract. Rendering
+    frontends use :func:`read_bond_cmap` and materialize display edges only after
+    merging and NCI detection.
+    """
+    values = read_bond_cmap(file_path, graph)
+    for i, j in values:
+        _ensure_bond_for_cmap(i, j, graph, context=f"bond cmap file {file_path}")
+    return values
 
 
 # ---------------------------------------------------------------------------

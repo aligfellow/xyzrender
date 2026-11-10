@@ -1,10 +1,61 @@
-"""Colormap utilities for scalar color legends and ``--cmap`` atom coloring."""
+"""Shared scalar colors and legends for atom and bond colormaps."""
 
 from __future__ import annotations
+
+from html import escape
+from math import isfinite
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from xyzrender.colors import PALETTES, Color, palette_color
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+
+def validate_cmap_selection(*, atom: bool, bond: bool) -> None:
+    """Require one scalar map per scene, with one range, palette and legend."""
+    if atom and bond:
+        msg = "Atom and bond colormaps are mutually exclusive; choose cmap (--cmap) or bond_cmap (--bond-cmap)"
+        raise ValueError(msg)
+
+
+def cmap_value_range(
+    values: Iterable[float],
+    *,
+    cmap_range: tuple[float, float] | None,
+    cmap_symm: bool,
+) -> tuple[float, float]:
+    """Resolve vmin/vmax for scalar colormaps (atoms, bonds, etc.)."""
+    if cmap_range is not None and cmap_symm:
+        msg = "--cmap-range and --cmap-symm are mutually exclusive"
+        raise ValueError(msg)
+    vals = list(values)
+    if not vals:
+        raise ValueError("Colormap must contain at least one scalar value")
+    if not all(isfinite(value) for value in vals):
+        raise ValueError("Colormap scalar values must be finite")
+    if cmap_range is not None:
+        vmin, vmax = cmap_range
+        if not isfinite(vmin) or not isfinite(vmax) or vmin > vmax:
+            raise ValueError("Colormap range must have finite bounds with vmin <= vmax")
+        return vmin, vmax
+    if cmap_symm:
+        vmax = max(abs(v) for v in vals)
+        return -vmax, vmax
+    return min(vals), max(vals)
+
+
+def scalar_color(value: float, palette: str, vmin: float, vmax: float) -> Color:
+    """Map an atom or bond scalar to a palette using the same range normalization."""
+    vrange = max(vmax - vmin, 1e-10)
+    return palette_color(palette, (value - vmin) / vrange)
+
+
+def bond_color_hex(value: float, palette: str, vmin: float, vmax: float) -> str:
+    """Return the shared scalar mapping as hex for bond-color callers."""
+    return scalar_color(value, palette, vmin, vmax).hex
 
 
 def build_palette_lut(palette: str, size: int = 256) -> np.ndarray:
@@ -32,10 +83,7 @@ def atom_colors(
 ) -> list[Color]:
     """Return per-atom Color list; atoms absent from atom_cmap get unlabeled_hex."""
     unlabeled = Color.from_hex(unlabeled_hex)
-    vrange = max(vmax - vmin, 1e-10)
-    return [
-        palette_color(palette, (atom_cmap[ai] - vmin) / vrange) if ai in atom_cmap else unlabeled for ai in range(n)
-    ]
+    return [scalar_color(atom_cmap[ai], palette, vmin, vmax) if ai in atom_cmap else unlabeled for ai in range(n)]
 
 
 # ---------------------------------------------------------------------------
@@ -45,15 +93,23 @@ def atom_colors(
 _BAR_W = 30.0
 _MARGIN = 16.0
 _TICK_GAP = 16.0
+_UNIT_ABOVE_BAR = 22.0  # gap between unit label and top of colorbar (px)
 
 
-def colorbar_extra_width(vmin: float, vmax: float, fs: float) -> int:
+def colorbar_extra_width(
+    vmin: float,
+    vmax: float,
+    fs: float,
+    unit: str | None = None,
+) -> int:
     """Extra SVG canvas width needed to fit the colorbar + labels."""
     fs = min(fs, 40.0)
     char_w = fs * 0.62
     mid = (vmin + vmax) / 2
     max_int_chars = max(len(f"{v:.3f}".replace("-", "\u2212").split(".")[0]) for v in (vmin, mid, vmax))
-    return int(_MARGIN + _BAR_W + _TICK_GAP + 3 + (max_int_chars + 4) * char_w + 10)
+    unit_chars = len(unit) if unit else 0
+    label_chars = max(max_int_chars + 4, unit_chars)
+    return int(_MARGIN + _BAR_W + _TICK_GAP + 3 + label_chars * char_w + 10)
 
 
 def colorbar_svg(
@@ -64,13 +120,22 @@ def colorbar_svg(
     canvas_h: float,
     font_size: float,
     label_color: str,
+    unit: str | None = None,
 ) -> list[str]:
     """Return SVG element strings for a vertical colorbar to the right of the molecule."""
     stops = PALETTES[palette]
 
+    # Fit the entire legend, not just the colored rectangle. Titles and
+    # endpoint ticks need their own space on short molecular canvases.
+    fs = min(font_size, 40.0, canvas_h / 6)
+    unit_fs = fs * 0.85
+    unit_gap = min(_UNIT_ABOVE_BAR, fs * 1.1)
+    top_space = unit_fs + unit_gap if unit else fs / 2
+    bottom_space = fs / 2
     bar_x = mol_canvas_w + _MARGIN
-    bar_h = max(min(canvas_h * 0.80, 400.0), 60.0)
-    bar_top = (canvas_h - bar_h) / 2
+    available = max(canvas_h - top_space - bottom_space - 6, 1.0)
+    bar_h = min(max(min(canvas_h * 0.80, 400.0), 60.0), available)
+    bar_top = top_space + (canvas_h - top_space - bottom_space - bar_h) / 2
     bar_bot = bar_top + bar_h
 
     # Gradient: top = vmax, bottom = vmin.
@@ -86,7 +151,6 @@ def colorbar_svg(
 
     tick_x1 = bar_x + _BAR_W
     label_x = tick_x1 + _TICK_GAP + 3
-    fs = min(font_size, 40.0)
     char_w = fs * 0.62
 
     ticks = [
@@ -97,6 +161,16 @@ def colorbar_svg(
     max_int_chars = max(len(f"{val:.3f}".replace("-", "\u2212").split(".")[0]) for _, val in ticks)
     decimal_x = label_x + max_int_chars * char_w
     text_attrs = f'font-family="monospace" font-size="{fs:.1f}px" fill="{label_color}" dominant-baseline="central"'
+
+    if unit:
+        unit_y = bar_top - unit_gap - unit_fs / 2
+        legend_width = colorbar_extra_width(vmin, vmax, font_size, unit)
+        unit_x = mol_canvas_w + legend_width / 2
+        unit_attrs = (
+            f'font-family="monospace" font-size="{unit_fs:.1f}px" fill="{label_color}" '
+            f'dominant-baseline="central" text-anchor="middle"'
+        )
+        elems.append(f'  <text x="{unit_x:.1f}" y="{unit_y:.1f}" {unit_attrs}>{escape(unit)}</text>')
 
     for ty, val in ticks:
         s = f"{val:.3f}".replace("-", "\u2212")

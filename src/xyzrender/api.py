@@ -44,6 +44,7 @@ if TYPE_CHECKING:
     from xyzrender.cube import CubeData
     from xyzrender.types import CellData, VectorArrow
 
+from xyzrender.cmap import validate_cmap_selection
 from xyzrender.colors import resolve_color
 from xyzrender.config import SurfaceOverrides
 from xyzrender.types import GIFResult, OverlayConfig, RenderConfig, SVGResult
@@ -873,6 +874,7 @@ def render(
     vdw: bool | list[int] | None = None,
     idx: bool | str = False,
     cmap: str | os.PathLike | dict[int, float] | None = None,
+    bond_cmap: str | os.PathLike | dict[tuple[int, int], float] | None = None,
     cmap_range: tuple[float, float] | None = None,
     cmap_palette: str | None = None,
     cmap_symm: bool = False,
@@ -1008,6 +1010,13 @@ def render(
         Atom property colour map: either a ``{1-indexed atom: value}`` dict,
         or a path to a two-column text file (index value, same format as
         ``--cmap`` in the CLI).
+    bond_cmap:
+        Bond property colour map: either a ``{(1-indexed i, 1-indexed j): value}``
+        dict, or a path to a three-column text file (``i j value``, same format as
+        ``--bond-cmap`` in the CLI). Explicit pairs create missing bonds on
+        the render-owned molecule. Unlisted bonds keep default styling.
+        Mutually exclusive with ``cmap`` / ``config.atom_cmap``; one scalar
+        map controls the range, palette, unit and optional colorbar.
     atom_opacity:
         Per-atom fill opacity.  Accepts either a ``{1-indexed atom: value}``
         dict (use for per-atom levels) or a selector list
@@ -1208,14 +1217,21 @@ def render(
     # molecule (set later via _apply_overlay); otherwise it's a surface setting.
     # The two paths are mutually exclusive, so a single flag covers both.
     _surface_opacity = None if overlay is not None else opacity
+    # render() must never mutate mol — work on a render-time copy.
+    # See ``Molecule.copy``: PCA orient writes back to graph in-place and
+    # add_crystal_images appends ghost nodes; a shared mol would drift
+    # across repeated renders.
+    rmol = mol.copy()
+
     _apply_render_overlays(
         cfg,
-        mol.graph,
+        rmol.graph,
         ts_bonds=ts_bonds,
         nci_bonds=nci_bonds,
         vdw=vdw,
         idx=idx,
         cmap=cmap,
+        bond_cmap=bond_cmap,
         cmap_range=cmap_range,
         cmap_palette=cmap_palette,
         cmap_symm=cmap_symm,
@@ -1275,12 +1291,6 @@ def render(
     # --- Surface style ---
     if surface_style is not None:
         cfg.surface_style = surface_style
-
-    # render() must never mutate mol — work on a render-time copy.
-    # See ``Molecule.copy``: PCA orient writes back to graph in-place and
-    # add_crystal_images appends ghost nodes; a shared mol would drift
-    # across repeated renders.
-    rmol = mol.copy()
 
     detected_conformer_graphs: list[nx.Graph] | None = None
     if detect_nci:
@@ -1574,6 +1584,13 @@ def render_gif(
     detect_nci: bool | str | list[str] = False,
     # --- Manual TS bonds (1-indexed atom numbering) ---
     ts_bonds: list[tuple[int, int]] | None = None,
+    # --- Scalar colormaps (same 1-indexed public inputs as render) ---
+    cmap: str | os.PathLike | dict[int, float] | None = None,
+    bond_cmap: str | os.PathLike | dict[tuple[int, int], float] | None = None,
+    cmap_range: tuple[float, float] | None = None,
+    cmap_palette: str | None = None,
+    cmap_symm: bool = False,
+    cbar: bool = False,
     # --- Vector arrows (gif_rot only) ---
     vector: str | Path | dict | list[VectorArrow] | None = None,
     vector_scale: float | None = None,
@@ -1671,6 +1688,13 @@ def render_gif(
         Detect geometric non-covalent interactions.  ``True`` selects all
         xyzgraph NCI types; a type/group name or list selects only those
         interactions.  Groups are ``hb``, ``pi``, and ``ion``.
+    cmap, bond_cmap:
+        Atom or bond scalars as 1-indexed dictionaries or text-file paths, as in
+        :func:`render`. Only one map may be active. Explicit missing bond pairs
+        are drawn with the dotted NCI style on each frame. RenderConfig maps
+        instead use internal 0-indexed atom numbers.
+    cmap_range, cmap_palette, cmap_symm, cbar:
+        Shared scalar range, palette, symmetric range and colorbar controls.
     output:
         Output ``.gif`` path.  Defaults to ``<stem>.gif`` beside *molecule*.
     gif_fps:
@@ -1889,7 +1913,17 @@ def render_gif(
     if haptic:
         cfg.haptic = True
 
-    _apply_render_overlays(cfg, mol.graph, ts_bonds=ts_bonds)
+    _apply_render_overlays(
+        cfg,
+        mol.graph,
+        ts_bonds=ts_bonds,
+        cmap=cmap,
+        bond_cmap=bond_cmap,
+        cmap_range=cmap_range,
+        cmap_palette=cmap_palette,
+        cmap_symm=cmap_symm,
+        cbar=cbar,
+    )
 
     if opacity is not None and overlay is None:
         cfg.surface_opacity = opacity
@@ -2834,6 +2868,7 @@ def _apply_render_overlays(
     vdw: bool | list[int] | None = None,
     idx: bool | str = False,
     cmap: str | os.PathLike | dict[int, float] | None = None,
+    bond_cmap: str | os.PathLike | dict[tuple[int, int], float] | None = None,
     cmap_range: tuple[float, float] | None = None,
     cmap_palette: str | None = None,
     cmap_symm: bool = False,
@@ -2846,6 +2881,10 @@ def _apply_render_overlays(
     All atom indices in ts_bonds, nci_bonds, vdw, atom_opacity are 1-indexed
     (user-facing); they are converted to 0-indexed storage on *cfg*.
     """
+    validate_cmap_selection(
+        atom=cmap is not None or cfg.atom_cmap is not None,
+        bond=bond_cmap is not None or cfg.bond_cmap is not None,
+    )
     mapping = _original_to_render_index(graph)
     if ts_bonds is not None:
         cfg.ts_bonds = [
@@ -2872,6 +2911,8 @@ def _apply_render_overlays(
         cfg.idx_format = idx if isinstance(idx, str) else "sn"
     if cmap is not None:
         cfg.atom_cmap = _resolve_cmap(cmap, graph)
+    if bond_cmap is not None:
+        cfg.bond_cmap = _resolve_bond_cmap(bond_cmap, graph)
     if cmap_range is not None:
         cfg.cmap_range = cmap_range
     if cmap_palette is not None:
@@ -2958,6 +2999,34 @@ def _resolve_cmap(
     from xyzrender.annotations import load_cmap
 
     return load_cmap(str(cmap), graph)
+
+
+def _resolve_bond_cmap(
+    bond_cmap: str | os.PathLike | dict[tuple[int, int], float],
+    graph: nx.Graph | None,
+) -> dict[tuple[int, int], float]:
+    """Resolve canonical 0-based pairs without changing topology before merging."""
+    if isinstance(bond_cmap, dict):
+        from typing import cast
+
+        d = cast("dict[tuple[int, int], float]", bond_cmap)
+        mapping = _original_to_render_index(graph) if graph is not None else None
+        result: dict[tuple[int, int], float] = {}
+        for (a, b), v in d.items():
+            i = _remap_original_atom_index(int(a), mapping, what="bond cmap")
+            j = _remap_original_atom_index(int(b), mapping, what="bond cmap")
+            key = (min(i, j), max(i, j))
+            result[key] = float(v)
+        if graph is not None:
+            for i, j in result:
+                if i not in graph or j not in graph:
+                    raise ValueError(f"bond cmap: atom pair ({i + 1}, {j + 1}) not in molecule")
+                if i == j:
+                    raise ValueError(f"bond cmap: atom indices must differ (got {i + 1} {j + 1})")
+        return result
+    from xyzrender.annotations import read_bond_cmap
+
+    return read_bond_cmap(str(bond_cmap), graph)
 
 
 def _combine_vector_sources(

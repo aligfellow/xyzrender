@@ -874,12 +874,18 @@ def main() -> None:
         help="Atom property colormap file: two columns (1-indexed atom index, value); header lines are skipped",
     )
     annot_g.add_argument(
+        "--bond-cmap",
+        default=None,
+        metavar="FILE",
+        help="Bond property colormap file: three columns (1-indexed atom i, j, value); header lines are skipped",
+    )
+    annot_g.add_argument(
         "--cmap-range",
         nargs=2,
         type=float,
         default=None,
         metavar=("VMIN", "VMAX"),
-        help="Explicit colormap range (default: auto from file values)",
+        help="Explicit vmin/vmax for --cmap, --bond-cmap, and --esp colorbars (default: auto from data)",
     )
     annot_g.add_argument(
         "--cmap-palette",
@@ -892,7 +898,13 @@ def main() -> None:
         "--cbar",
         action="store_true",
         default=False,
-        help="Add a vertical colorbar on the right for --cmap or --esp data",
+        help="Add a vertical colorbar on the right for --cmap, --bond-cmap, or --esp data",
+    )
+    annot_g.add_argument(
+        "--cbar-unit",
+        default=None,
+        metavar="TEXT",
+        help="Unit label printed above the colorbar (e.g. kcal/mol)",
     )
     annot_g.add_argument(
         "--cmap-symm",
@@ -1001,6 +1013,7 @@ def main() -> None:
     from xyzrender import configure_logging
     from xyzrender.api import (
         Molecule,
+        _apply_render_overlays,
         load,
         orient,
         render,
@@ -1354,14 +1367,14 @@ def main() -> None:
         except ValueError as e:
             p.error(str(e))
 
-    # --- Atom property colormap (store on cfg) ---
-    if args.cmap:
-        from xyzrender.annotations import load_cmap
+    # Resolve scalar maps through the same validation/loading path as render().
+    try:
+        _apply_render_overlays(cfg, mol.graph, cmap=args.cmap, bond_cmap=args.bond_cmap)
+    except (ValueError, FileNotFoundError) as e:
+        p.error(str(e))
 
-        try:
-            cfg.atom_cmap = load_cmap(args.cmap, mol.graph)
-        except (ValueError, FileNotFoundError) as e:
-            p.error(str(e))
+    if args.cbar_unit:
+        cfg.cbar_unit = args.cbar_unit
 
     # --- align-atoms: pass through as a selector string ---
     # The full selector grammar applies — numeric ranges ("1,2-5"),

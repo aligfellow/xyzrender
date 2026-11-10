@@ -332,11 +332,14 @@ class RenderConfig:
     atom_opacity: dict[int, float] = field(default_factory=dict)
     # Atom property colormap (--cmap)
     atom_cmap: dict[int, float] | None = None
+    # Bond property colormap: 0-indexed pairs; missing pairs render as dotted NCI edges.
+    bond_cmap: dict[tuple[int, int], float] | None = None
     cmap_range: tuple[float, float] | None = None
     cmap_symm: bool = False  # symmetric range about 0: [-max(|v|), +max(|v|)]
     cmap_unlabeled: str = "#ffffff"  # fill for atoms absent from cmap file
     cmap_palette: str | None = None
     cbar: bool = False  # show a vertical colorbar on the right
+    cbar_unit: str | None = None  # optional unit label drawn above the colorbar
     # Surface parameter defaults (populated from preset by build_config)
     mo_isovalue: float = _DEFAULT_MO_ISOVALUE
     mo_pos_color: str = _DEFAULT_MO_POS_COLOR

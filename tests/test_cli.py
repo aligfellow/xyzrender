@@ -1,5 +1,6 @@
 """Tests for CLI helpers and dispatch validation."""
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -8,8 +9,13 @@ import pytest
 
 from xyzrender.cli import _basename, _parse_pairs
 
-_STRUCTURES = Path(__file__).resolve().parent.parent / "examples" / "structures"
+_ROOT = Path(__file__).resolve().parent.parent
+_STRUCTURES = _ROOT / "examples" / "structures"
 _CAFFEINE = _STRUCTURES / "caffeine.xyz"
+_CLI_ENV = os.environ.copy()
+_CLI_ENV["PYTHONPATH"] = str(_ROOT / "src") + (
+    os.pathsep + _CLI_ENV["PYTHONPATH"] if _CLI_ENV.get("PYTHONPATH") else ""
+)
 
 
 def test_basename_from_xyz():
@@ -67,6 +73,7 @@ def _run_cli(*args: str, expect_error: bool = False) -> subprocess.CompletedProc
         text=True,
         timeout=30,
         check=False,
+        env=_CLI_ENV,
     )
     if expect_error:
         assert result.returncode != 0, f"Expected error but got rc=0: {result.stdout}"
@@ -137,6 +144,30 @@ def test_cub_density_surface(tmp_path):
 
     assert result.returncode == 0
     assert out.exists()
+
+
+@pytest.mark.skipif(not (_STRUCTURES / "ethanol.xyz").exists(), reason="fixture not found")
+def test_cli_bond_cmap(tmp_path):
+    eth = _STRUCTURES / "ethanol.xyz"
+    cmap_file = tmp_path / "bond_cmap.txt"
+    cmap_file.write_text("2 3 1.0\n")
+    out = tmp_path / "ethanol_bond.svg"
+    result = _run_cli(
+        str(eth),
+        "--bond-cmap",
+        str(cmap_file),
+        "--cmap-range",
+        "0",
+        "1",
+        "--cmap-palette",
+        "coolwarm",
+        "-o",
+        str(out),
+    )
+    assert result.returncode == 0
+    from xyzrender.cmap import bond_color_hex
+
+    assert bond_color_hex(1.0, "coolwarm", 0.0, 1.0) in out.read_text()
 
 
 @pytest.mark.skipif(
@@ -335,3 +366,20 @@ def test_variable_atom_trajectory_cli_recommends_var_atoms(monkeypatch, tmp_path
         "Trajectory has non-uniform atom counts: first frame has 2 atoms, "
         "frame 1 has 3. If this is intentional, use --var-atoms"
     ) in capsys.readouterr().err
+
+
+def test_cli_rejects_conflicting_maps_before_opening_property_files(tmp_path):
+    output = tmp_path / "conflicting.svg"
+    result = _run_cli(
+        str(_CAFFEINE),
+        "--cmap",
+        str(tmp_path / "absent-atoms.txt"),
+        "--bond-cmap",
+        str(tmp_path / "absent-bonds.txt"),
+        "-o",
+        str(output),
+        expect_error=True,
+    )
+    assert "Atom and bond colormaps are mutually exclusive" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not output.exists()
