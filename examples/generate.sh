@@ -176,6 +176,10 @@ xyzrender "$DIR/anthracene.xyz" --hull 1-6 4,6-10 8,10-14 -o "$IMG/anthracene_hu
 xyzrender "$DIR/CoCl6.xyz" --hull --hull-color teal --hull-opacity 0.5 -o "$IMG/CoCl6_octahedron_hull.svg" --gif-rot -go "$IMG/CoCl6_octahedron_hull.gif"
 xyzrender "$DIR/mn-h2.log" --ts --hull rings --hull-color teal -o "$IMG/mnh_hull_rings.svg"
 
+echo "=== Metal coordination polyhedra ==="
+xyzrender "$DIR/MOF-5.xyz" --hull metals --no-cell --no-bo --fog --hull-opacity 0.5 --gif-rot -go "$IMG/mof5_metals_hull.gif"
+xyzrender "$DIR/zr_oxocluster.xyz" --hull metals --hull-opacity 0.5 --no-orient --gif-rot -go "$IMG/zr_oxocluster_metals_hull.gif"
+
 echo "=== Hull faces & pores ==="
 xyzrender "$DIR/buckyball.xyz" --hull faces --no-bo -o "$IMG/buckyball_faces.svg"
 xyzrender "$DIR/buckyball.xyz" --pore --no-bo -o "$IMG/buckyball_pore.svg"

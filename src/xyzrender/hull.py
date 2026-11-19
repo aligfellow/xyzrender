@@ -1,10 +1,10 @@
 """Convex hull facet computation and SVG rendering for molecular visualization.
 
-In ``render()`` pass ``hull=True`` (all heavy atoms), a flat list of 1-indexed
-atom indices (one hull, e.g. ``[1, 2, 3, 4, 5, 6]``), or a list of lists
-(multiple hulls, e.g. ``[[1, 2, 3], [4, 5, 6]]``).  Per-subset colours are
-set via ``hull_color``.  Facets from all subsets are depth-sorted together
-for correct occlusion.
+In ``render()`` pass ``hull=True`` (all heavy atoms), ``"rings"`` / ``"faces"`` /
+``"metals"`` for auto modes, a flat list of 1-indexed atom indices (one hull,
+e.g. ``[1, 2, 3, 4, 5, 6]``), or a list of lists (multiple hulls).  Per-subset
+colours are set via ``hull_color``.  Facets from all subsets are depth-sorted
+together for correct occlusion.
 
 Hull edges (the 1-skeleton of the convex hull) that do not coincide with a
 molecular bond can be drawn as thin lines; toggle with ``hull_edge=False``.
@@ -518,6 +518,91 @@ def resolve_hull_rings(graph: nx.Graph) -> list[list[int]]:
     return [list(r) for r in rings]
 
 
+def resolve_hull_metals(graph: nx.Graph) -> list[list[int]]:
+    """Return ligand-shell atom indices for each metal coordination polyhedron.
+
+    For every metal atom (``DATA.metals``) with at least three non-metal,
+    non-dummy bonded neighbours, returns that ligand list as one hull subset.
+    The metal itself is omitted (it lies inside the polyhedron).  Metal–metal
+    neighbours are excluded from the shell.  Subsets are ordered by metal
+    node id for stability.
+
+    If no qualifying metal shells are found, logs a warning and returns an
+    empty list.
+    """
+    from xyzgraph import DATA
+
+    subsets: list[list[int]] = []
+    skipped_low_cn = 0
+    for nid in sorted(graph.nodes()):
+        sym = graph.nodes[nid].get("symbol")
+        if sym not in DATA.metals:
+            continue
+        ligands = [
+            nb
+            for nb in graph.neighbors(nid)
+            if graph.nodes[nb].get("symbol") not in DATA.metals and graph.nodes[nb].get("symbol") != "*"
+        ]
+        if len(ligands) < 3:
+            skipped_low_cn += 1
+            continue
+        subsets.append(sorted(ligands))
+
+    if not subsets:
+        if skipped_low_cn:
+            logger.warning(
+                "hull='metals' requested but no metal coordination shells with ≥3 ligands "
+                "(%d metal(s) skipped for low CN)",
+                skipped_low_cn,
+            )
+        else:
+            logger.warning("hull='metals' requested but no metal atoms found in the molecular graph")
+        return []
+    if skipped_low_cn:
+        logger.info(
+            "hull='metals': %d polyhedron(s); skipped %d metal(s) with CN < 3",
+            len(subsets),
+            skipped_low_cn,
+        )
+    return subsets
+
+
+def _metal_shell_colors(
+    subsets: list[list[int]],
+    graph: nx.Graph | None = None,
+    palette: list[str] | None = None,
+) -> list[str]:
+    """Map metal-shell subsets to colours (CPK of the central metal when known)."""
+    from xyzgraph import DATA
+
+    from xyzrender.colors import get_color
+
+    pal = palette or ["steelblue", "firebrick", "mediumseagreen", "mediumpurple", "darkgoldenrod", "cadetblue"]
+    shell_to_sym: dict[frozenset[int], str] = {}
+    if graph is not None:
+        for nid, data in graph.nodes(data=True):
+            sym = data.get("symbol")
+            if sym not in DATA.metals:
+                continue
+            ligands = frozenset(
+                nb
+                for nb in graph.neighbors(nid)
+                if graph.nodes[nb].get("symbol") not in DATA.metals and graph.nodes[nb].get("symbol") != "*"
+            )
+            if len(ligands) >= 3:
+                shell_to_sym[ligands] = sym
+
+    colors: list[str] = []
+    for i, subset in enumerate(subsets):
+        sym = shell_to_sym.get(frozenset(subset))
+        if sym is not None:
+            z = DATA.s2n.get(sym, 0)
+            colors.append(get_color(z).hex)
+        else:
+            colors.append(pal[i % len(pal)])
+    return colors
+
+
 def resolve_hull_pores(
     graph: nx.Graph,
     cfg: RenderConfig,
@@ -617,6 +702,13 @@ def resolve_hull_flag_and_indices(
             if not ring_indices:
                 return None, None
             return True, ring_indices
+        if hull in {"metals", "metal"}:
+            if graph is None:
+                return None, None
+            metal_indices = resolve_hull_metals(graph)
+            if not metal_indices:
+                return None, None
+            return True, metal_indices
         if hull in {"pores", "pore"}:
             if graph is None:
                 return None, None
@@ -695,6 +787,7 @@ def apply_hull_to_config(
     # Ordered-ring hull modes — render as actual polygons, not convex hulls.
     _ring_modes = {"pores", "pore", "faces", "face", "rings", "ring"}
     _is_ring_mode = isinstance(hull, str) and hull in _ring_modes
+    _is_metals_mode = isinstance(hull, str) and hull in {"metals", "metal"}
     if _is_ring_mode and hull_idx is not None:
         cfg.hull_ordered = True
     # Auto-set per-size colours via ring fingerprint.
@@ -707,6 +800,11 @@ def apply_hull_to_config(
                 palette=cfg.hull_colors,
                 mode=hull_color_type,
             )
+    # Auto-colour metal polyhedra by central-metal CPK when no colour given.
+    if _is_metals_mode and hull_idx is not None and hull_color is None:
+        subsets = normalize_hull_subsets(hull_idx)
+        if subsets:
+            cfg.hull_colors = _metal_shell_colors(subsets, graph, palette=cfg.hull_colors)
     if hull_color is not None:
         cfg.hull_colors = [hull_color] if isinstance(hull_color, str) else hull_color
     if hull_opacity is not None:

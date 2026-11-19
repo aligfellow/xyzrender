@@ -61,6 +61,7 @@ Full flag reference for `xyzrender`. See also `xyzrender --help`.
 | `--no-hy` | Hide C-bound H except those on R/S stereocenters or explicit TS/NCI bonds |
 | `--only ATOMS` | Render only selected atoms before orientation/canvas fitting. Repeatable; same selector grammar as `--hl`, e.g. `"1-24"`, `"C,N,O"`, `"M"`. Cube/surface fields are not cropped |
 | `--exclude ATOMS` | Remove selected atoms before orientation/canvas fitting. Repeatable; same selector grammar as `--hl`, e.g. `"25-40"`, `"Na,Cl"`. Cube/surface fields are not cropped |
+| `--hide-metals` | Remove metal atoms *after* hull/pore detection so `--hull metals` still builds coordination polyhedra, then omits the metals from the figure |
 | `-k`, `--kekule` | Use Kekulé bond orders (no aromatic 1.5) |
 | `--vdw [ATOMS]` | vdW spheres (no args = all, or selectors like `"1-6"`, `"M"`, `"Pt"`) |
 | `--vdw-opacity` | vdW sphere opacity (default: 0.25) |
@@ -132,7 +133,7 @@ These flags draw graph-detected bond overlays (dashes / dots) on top of the mole
 
 | Flag | Description |
 |------|-------------|
-| `--hull [INDICES ...]` | Draw convex hull (no args = all heavy atoms; `rings` = auto aromatic rings; `faces` = 2D structural faces; or 1-indexed subsets e.g. `1-6` or `1-6 7-12`) |
+| `--hull [INDICES ...]` | Draw convex hull (no args = all heavy atoms; `rings` = auto aromatic rings; `metals` = coordination polyhedra around metals; `faces` = 2D structural faces; or 1-indexed subsets e.g. `1-6` or `1-6 7-12`) |
 | `--hull-color COLOR [...]` | Hull fill color(s) (hex or named, one per subset) |
 | `--hull-opacity FLOAT` | Hull fill opacity (0–1) |
 | `--hull-color-type {type,size,env}` | Ring colouring: `type` (atom types + size, default), `size` (size only), `env` (type + ring fusion) |

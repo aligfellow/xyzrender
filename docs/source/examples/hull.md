@@ -1,8 +1,8 @@
-# Convex hull, faces & pores
+# Convex hull, metal polyhedra, faces & pores
 
-Draw the convex hull of selected atoms as semi-transparent facets — useful for aromatic rings, coordination spheres, or any subset of atoms. Facets are depth-sorted for correct occlusion. Hull edges that do not coincide with bonds are drawn as thin lines for better 3D perception; disable with `--no-hull-edge`.
+Draw the convex hull of selected atoms as semi-transparent facets — useful for aromatic rings, coordination polyhedra, or any subset of atoms. Facets are depth-sorted for correct occlusion. Hull edges that do not coincide with bonds are drawn as thin lines in a slightly darkened shade of the hull fill; disable with `--no-hull-edge`.
 
-Use `--hull` from the CLI (no args = all heavy atoms, `rings` to auto-detect aromatic rings, or 1-indexed atom ranges for subsets), or from Python pass `hull=` to `render()`: `True` for all heavy atoms, `"rings"` for automatic aromatic ring detection (one hull per ring), a flat list of 1-indexed atom indices for one hull, or a list of lists for multiple hulls with optional per-subset `hull_color=["red", "blue"]`. A default color palette cycles automatically for multiple subsets.
+Use `--hull` from the CLI (no args = all heavy atoms, `rings` / `metals` for auto modes, or 1-indexed atom ranges for subsets), or from Python pass `hull=` to `render()`: `True` for all heavy atoms, `"rings"` for aromatic rings, `"metals"` for metal coordination polyhedra, a flat list of 1-indexed atom indices for one hull, or a list of lists for multiple hulls with optional per-subset `hull_color=["red", "blue"]`. A default color palette cycles automatically for multiple subsets.
 
 | Benzene ring | Anthracene (all ring carbons) | CoCl₆ octahedron |
 |--------------|-------------------------------|------------------|
@@ -53,12 +53,51 @@ render(mol, hull="rings", hull_color="teal")
 
 | Option | Description |
 |--------|-------------|
-| `hull` | `True` = all heavy atoms; `"rings"` = auto-detect aromatic rings; `"faces"` = structural face detection; flat list = one subset; list of lists = multiple hulls |
+| `hull` | `True` = all heavy atoms; `"rings"` = auto aromatic rings; `"metals"` = metal coordination polyhedra; `"faces"` = structural face detection; flat list = one subset; list of lists = multiple hulls |
 | `hull_color` | Single string or list of strings for per-subset colours (default palette cycles automatically) |
 | `hull_color_type` | Ring colouring mode: `"type"` (default, by atom types + size), `"size"` (by ring size only), `"env"` (type + ring fusion) |
 | `hull_opacity` | Fill opacity for all hull surfaces |
 | `hull_edge` | Draw non-bond hull edges as thin lines (default: `True`) |
 | `hull_edge_width_ratio` | Edge stroke width as fraction of bond width |
+
+## Metal coordination polyhedra
+
+Draw a convex hull around each metal's first coordination shell — the ligands bonded to that metal in the molecular graph. Metals with fewer than three non-metal ligands are skipped. The metal centre is omitted from the hull (it lies inside the polyhedron); metal–metal neighbours are excluded from the shell. When `hull_color` is not set, each polyhedron is coloured by the central metal's CPK colour.
+
+Use `--hide-metals` / `hide_metals=True` to drop the metal atoms from the figure *after* polyhedra are detected (unlike `--exclude M`, which would remove metals before detection and yield no shells).
+
+Useful for frameworks and clusters (e.g. Zn tetrahedra in MOF-5, ZrO₈ shells in Zr oxoclusters).
+
+| MOF-5 (ZnO₄) | Zr oxocluster (ZrO₈) |
+|--------------|----------------------|
+| ![MOF-5 metals](../../../examples/images/mof5_metals_hull.gif) | ![Zr oxocluster metals](../../../examples/images/zr_oxocluster_metals_hull.gif) |
+
+**CLI:**
+
+```bash
+# MOF Zn tetrahedra:
+xyzrender MOF-5.xyz --hull metals --no-cell --no-bo --fog --hull-opacity 0.5 --gif-rot
+
+# Zr oxocluster (raw frame: opposing Zr–Zr already along the vertical y-axis):
+xyzrender zr_oxocluster.xyz --hull metals --hull-opacity 0.5 --no-orient --gif-rot
+
+# Without drawing the metal atoms:
+xyzrender MOF-5.xyz --hull metals --hide-metals --no-cell --no-bo --fog --hull-opacity 0.5
+```
+
+**Python:**
+
+```python
+from xyzrender import load, render, render_gif
+
+mof = load("structures/MOF-5.xyz")
+render_gif(mof, hull="metals", no_cell=True, no_bo=True, fog=True,
+           hull_opacity=0.5, gif_rot="y", output="images/mof5_metals_hull.gif")
+
+cluster = load("structures/zr_oxocluster.xyz")
+render_gif(cluster, hull="metals", hull_opacity=0.5, orient=False, gif_rot="y",
+           output="images/zr_oxocluster_metals_hull.gif")
+```
 
 ## Face detection
 
