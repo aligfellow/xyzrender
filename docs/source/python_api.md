@@ -252,9 +252,11 @@ See [Molecular Orbitals](examples/mo.md), [Electron Density and ESP](examples/de
 render(mol, hull=[1, 2, 3, 4, 5, 6],
        hull_color="steelblue", hull_opacity=0.35)
 render(mol, hull="rings", hull_color="teal")       # auto-detect aromatic rings
+render(mol, hull="metals")                         # metal coordination polyhedra
+render(mol, hull="metals", hide_metals=True)       # polyhedra without metal atoms
 ```
 
-See [Convex hull, faces & pores](examples/hull.md) for multi-subset hulls and all options.
+See [Convex hull, metal polyhedra, faces & pores](examples/hull.md) for multi-subset hulls and all options.
 
 ### Crystal / periodic structures
 

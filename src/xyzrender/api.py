@@ -857,6 +857,7 @@ def render(
     # --- Atom filtering ---
     only: _AtomSelector | list[_AtomSelector] | None = None,
     exclude: _AtomSelector | list[_AtomSelector] | None = None,
+    hide_metals: bool = False,
     # --- Crystal display (when mol has cell_data) ---
     no_cell: bool = False,
     axes: bool | None = None,
@@ -983,6 +984,10 @@ def render(
         matching atoms from that kept set.  Auto-orientation, canvas fitting,
         bond rules, style regions, annotations, hulls, and overlays see the
         filtered graph.  Cube/surface fields are not cropped.
+    hide_metals:
+        If ``True``, remove metal atoms *after* hull/pore detection so
+        ``hull="metals"`` still builds coordination polyhedra, then the metals
+        themselves are omitted from the figure (ligands and polyhedra remain).
     unbond:
         Bond display rules.  A list of spec strings that hide bonds:
         categories (``"M"``, ``"sbm"``, ``"L"``, ``"het"``), element
@@ -1057,10 +1062,11 @@ def render(
         Path to an NCI reduced-density-gradient ``.cube`` or ``.cub`` file.
     hull:
         ``True`` = hull over all heavy atoms; ``"rings"`` = one hull per
-        aromatic ring (auto-detected from the molecular graph); a flat list
-        of 1-indexed atom indices (one hull, e.g. ``[1,2,3,4,5,6]``); a list
-        of lists (multiple hulls, e.g. ``[[1,2,3,4,5,6], [7,8,9]]``).
-        ``None`` (default) = off.
+        aromatic ring (auto-detected from the molecular graph); ``"metals"``
+        = one coordination polyhedron per metal (convex hull of bonded
+        non-metal ligands with CN ≥ 3); a flat list of 1-indexed atom indices
+        (one hull, e.g. ``[1,2,3,4,5,6]``); a list of lists (multiple hulls,
+        e.g. ``[[1,2,3,4,5,6], [7,8,9]]``).  ``None`` (default) = off.
     hull_color:
         A single color string for all hulls, or a list of colors for per-subset
         colouring (one per subset).  Hex or named color.
@@ -1465,6 +1471,9 @@ def render(
         color_graph=rmol.graph,
     )
 
+    if hide_metals:
+        rmol = _hide_metals(rmol, cfg)
+
     # --- Render ---
     svg = render_svg(rmol.graph, cfg)
 
@@ -1549,6 +1558,7 @@ def render_gif(
     # --- Atom filtering ---
     only: _AtomSelector | list[_AtomSelector] | None = None,
     exclude: _AtomSelector | list[_AtomSelector] | None = None,
+    hide_metals: bool = False,
     # --- Molecule color ---
     mol_color: str | None = None,
     # --- Highlight ---
@@ -1991,6 +2001,9 @@ def render_gif(
         ring_min_size=ring_min_size,
         skip_hull_if_active=True,
     )
+
+    if hide_metals:
+        mol = _hide_metals(mol, cfg)
 
     # --- Surface style ---
     if surface_style is not None:
@@ -2580,6 +2593,52 @@ def _resolve_filter_indices(spec: _AtomSelector | list[_AtomSelector] | None, gr
         else:
             resolved.update(resolve_atom_indices(",".join(str(i) for i in item), graph))
     return resolved
+
+
+def _hide_metals(mol: Molecule, cfg: "RenderConfig") -> Molecule:
+    """Remove metal atoms after hull/pore detection, remapping hull indices.
+
+    Unlike ``exclude="M"`` (applied before hull resolution), this keeps metals
+    available for ``hull="metals"`` coordination-shell detection, then drops
+    them from the rendered molecule so only ligands and polyhedra remain.
+    """
+    from xyzgraph import DATA
+
+    from xyzrender.hull import normalize_hull_subsets
+
+    metal_ids = {n for n, d in mol.graph.nodes(data=True) if d.get("symbol") in DATA.metals}
+    if not metal_ids:
+        logger.warning("hide_metals=True but no metal atoms found in the molecular graph")
+        return mol
+
+    keep = [n for n in mol.graph.nodes() if n not in metal_ids]
+    old_to_new = {old: idx for idx, old in enumerate(keep)}
+
+    def _remap_subsets(raw: list[int] | list[list[int]] | None) -> list[list[int]] | None:
+        if raw is None:
+            return None
+        out: list[list[int]] = []
+        for subset in normalize_hull_subsets(raw):
+            remapped = [old_to_new[i] for i in subset if i in old_to_new]
+            if len(remapped) >= 3:
+                out.append(remapped)
+        return out or None
+
+    if cfg.hull_atom_indices is not None:
+        remapped = _remap_subsets(cfg.hull_atom_indices)
+        cfg.hull_atom_indices = remapped
+        if remapped is None:
+            cfg.show_convex_hull = False
+
+    if cfg.pore_node_ids is not None:
+        remapped_pores: list[list[int]] = []
+        for subset in cfg.pore_node_ids:
+            news = [old_to_new[i] for i in subset if i in old_to_new]
+            if news:
+                remapped_pores.append(news)
+        cfg.pore_node_ids = remapped_pores or None
+
+    return _filter_molecule_atoms(mol, exclude="M")
 
 
 def _filter_molecule_atoms(

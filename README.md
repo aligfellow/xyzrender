@@ -34,7 +34,7 @@ Most molecular visualisation tools require manual setup: loading files into a GU
 - **Annotations** — distances, angles, dihedrals, custom labels, atom indices, and 3D vector arrows (dipoles, forces, fields)
 - **Structural overlay** — overlay two structures in contrasting colours; auto-aligned by best-fit (centres on the metals when present, falls back to fuzzy substructure matching that tolerates atom substitutions, then geometric best-fit). Override with `--align-atoms`. Per-overlay style knobs; `--no-align` keeps raw coords
 - **Conformer ensemble** — overlay all frames from a multi-frame XYZ trajectory, with palette colouring and opacity control
-- **Convex hull, hull faces & pores** — semi-transparent facets over selected atoms or rings, exposed faces of molecular cages, and pore rendering
+- **Convex hull, metal polyhedra, hull faces & pores** — semi-transparent facets over selected atoms, rings, or metal coordination shells; exposed faces of molecular cages; and pore rendering
 - **GIF animations** — rotation, TS vibration, vibrational transitions, trajectories, diffuse/assembly and depth-of-field animations
 - **Input formats** — XYZ, mol/SDF, MOL2, PDB, SMILES, CIF, SHELXL, cube files, and QM input/output from Gaussian, ORCA, NWChem, Q-Chem, Psi4, MOPAC, GAMESS, Turbomole, CP2K, VASP, Quantum ESPRESSO, SIESTA, and ABINIT
 - **Crystal / periodic structures** — unit cell box, ghost atoms, supercells, and crystallographic axis arrows; auto-detected from VASP POSCAR, QE pw.in, SIESTA FDF, ABINIT, CP2K, SHELXL `.res`/`.ins`, CIF, and extXYZ `Lattice=` headers
@@ -125,6 +125,12 @@ Full usage, the Python API guide, every flag, and runnable examples live in the 
 | Benzene ring | Anthracene rings | Auto rings | Rotation |
 |--------------|------------------|------------|----------|
 | ![benzene hull](examples/images/benzene_ring_hull.svg) | ![anthracene hull](examples/images/anthracene_hull.svg) | ![mnh hull](examples/images/mnh_hull_rings.svg) | ![anthracene rot](examples/images/anthracene_hull.gif) |
+
+### Metal coordination polyhedra
+
+| MOF-5 (ZnO₄) | Zr oxocluster (ZrO₈) |
+|--------------|----------------------|
+| ![MOF-5 metals](examples/images/mof5_metals_hull.gif) | ![Zr oxocluster metals](examples/images/zr_oxocluster_metals_hull.gif) |
 
 ### Hull faces & pore detection
 

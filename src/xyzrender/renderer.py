@@ -47,6 +47,12 @@ _RADIUS_SCALE = 0.075  # VdW → atoms display radius
 _REF_SPAN = 6.0  # reference molecular span (Å) for proportional bond/stroke scaling
 _REF_CANVAS = 800  # reference canvas size (px) — bond/label widths are defined at this size
 _CENTROID_VDW = 0.5  # VdW radius (Å) for NCI pi-system centroid dummy nodes
+_HULL_EDGE_DARKEN = 0.4  # mild darken of hull edge stroke vs fill color
+
+
+def _hull_edge_stroke(fill_hex: str) -> str:
+    """Return a slightly darkened hex stroke for a hull fill color."""
+    return Color.from_hex(fill_hex).darken(strength=_HULL_EDGE_DARKEN).hex
 
 
 def _stereocenter_hydrogens(graph: nx.Graph) -> set[int]:
@@ -752,14 +758,14 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                 )
             )
 
-        # Non-bond hull edges (1-skeleton) — per-subset color matches the fill
+        # Non-bond hull edges (1-skeleton) — darkened shade of the hull fill
         if cfg.show_hull_edges:
             bond_pairs = {(min(i, j), max(i, j)) for (i, j) in bonds}
             # Each entry: ((ni, nj), mid_z, edge_color)
             hull_edges_with_z: list[tuple[tuple[int, int], float, str]] = []
             if subsets:
                 for sidx, subset in enumerate(subsets):
-                    sub_color = palette[sidx % len(palette)]
+                    sub_color = _hull_edge_stroke(palette[sidx % len(palette)])
                     if cfg.hull_ordered:
                         valid = [i for i in subset if 0 <= i < n]
                         edges = get_ring_edges(valid)
@@ -775,10 +781,11 @@ def render_svg(graph, config: RenderConfig | None = None, *, _log: bool = True, 
                             hull_edges_with_z.append(((ni, nj), mid_z, sub_color))
             elif subsets is None:
                 include_mask = np.array([s not in ("*", "H") for s in symbols]) if n > 0 else None
+                edge_hex = _hull_edge_stroke(hull_color_hex)
                 for ni, nj in get_convex_hull_edges_silhouette(pos, include_mask):
                     if (ni, nj) not in bond_pairs:
                         mid_z = (pos[ni][2] + pos[nj][2]) / 2.0
-                        hull_edges_with_z.append(((ni, nj), mid_z, hull_color_hex))
+                        hull_edges_with_z.append(((ni, nj), mid_z, edge_hex))
             hull_edges_with_z.sort(key=lambda x: x[1])
             hull_lw = max(bw * cfg.hull_edge_width_ratio, 1.0)
             for (ni, nj), _, edge_color in hull_edges_with_z:
