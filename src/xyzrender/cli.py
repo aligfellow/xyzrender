@@ -1321,9 +1321,7 @@ def main() -> None:
                 if g in _valid_modes:
                     p.error(f"--hull {g}: did you mean '--hull {g}'? (no other arguments alongside mode names)")
                 if not any(c.isdigit() for c in g):
-                    p.error(
-                        f"--hull {g!r}: expected 'faces', 'rings', 'metals', or atom indices (e.g. '1-6 7-12')"
-                    )
+                    p.error(f"--hull {g!r}: expected 'faces', 'rings', 'metals', or atom indices (e.g. '1-6 7-12')")
             _hull_arg = [parse_atom_indices(g, one_indexed=True) for g in args.hull]
 
     # Pre-load overlay once so render() + render_gif() don't each load it from disk.

@@ -523,7 +523,7 @@ def resolve_hull_metals(graph: nx.Graph) -> list[list[int]]:
 
     For every metal atom (``DATA.metals``) with at least three non-metal,
     non-dummy bonded neighbours, returns that ligand list as one hull subset.
-    The metal itself is omitted (it lies inside the polyhedron).  Metal–metal
+    The metal itself is omitted (it lies inside the polyhedron).  Metal-metal
     neighbours are excluded from the shell.  Subsets are ordered by metal
     node id for stability.
 

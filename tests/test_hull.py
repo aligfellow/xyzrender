@@ -955,7 +955,7 @@ def test_resolve_hull_metals_octahedron():
 
 
 def test_resolve_hull_metals_skips_low_cn_and_excludes_mm():
-    """Linear M–L and M–M neighbours are not treated as polyhedron vertices."""
+    """Skip metals with too few ligands and exclude metal neighbours from shells."""
     import networkx as nx
 
     from xyzrender.hull import resolve_hull_metals
@@ -975,7 +975,7 @@ def test_resolve_hull_metals_skips_low_cn_and_excludes_mm():
     ):
         g.add_node(i, symbol="N", position=pos)
         g.add_edge(3, i)
-    g.add_edge(0, 3)  # Fe–Zn
+    g.add_edge(0, 3)  # Fe-Zn
 
     subsets = resolve_hull_metals(g)
     assert len(subsets) == 1
@@ -1032,8 +1032,7 @@ def test_render_hull_metals_cocl6():
     import xyzrender as xr
 
     mol = _load("CoCl6.xyz")
-    result = xr.render(mol, hull="metals", hull_opacity=0.5, orient=False)
-    svg = result.svg if hasattr(result, "svg") else str(result)
+    svg = str(xr.render(mol, hull="metals", hull_opacity=0.5, orient=False))
     assert "<polygon" in svg
     assert "fill-opacity" in svg
 
@@ -1042,8 +1041,9 @@ def test_hide_metals_keeps_metals_hull():
     """hide_metals drops metals after hull='metals' detection; polyhedra remain."""
     from unittest.mock import patch
 
-    import xyzrender as xr
     from xyzgraph import DATA
+
+    import xyzrender as xr
 
     mol = _load("CoCl6.xyz")
     assert any(d.get("symbol") in DATA.metals for _, d in mol.graph.nodes(data=True))
