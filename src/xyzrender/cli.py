@@ -85,6 +85,7 @@ Styling:
 Display:
   --hy [ATOMS] / --no-hy  Show/hide H atoms (all or specific indices)
   --only / --exclude      Keep or remove selected atoms before rendering
+  --hide-metals           Drop metals after hull detection (polyhedra stay)
   --bo / --no-bo          Show/hide bond orders
   --unbond SPEC           Hide bonds: M-L  sbm  Fe-het  1-3  pi  all
   --bond PAIR             Force-show bonds: 1-3  4-5
@@ -118,7 +119,7 @@ Surfaces:
   --nci-surf CUBE         Interaction surface cube (auto low_field / high_field)
   --iso F                 Isovalue — MO: 0.05, dens: 0.001; tune per cube for interaction surfaces:
                           NCIPLOT RDG: 0.3, IGMH δg_inter: 0.005, IGMH δg_intra: 0.05-0.3
-  --hull [INDICES]        Convex hull (all / "rings" / atom subsets)
+  --hull [INDICES]        Convex hull (all / "rings" / "metals" / atom subsets)
   --surface-style STYLE   solid, mesh, contour, dot
 
 Overlay / Ensemble:
@@ -302,6 +303,15 @@ def main() -> None:
         ),
     )
     disp_g.add_argument(
+        "--hide-metals",
+        action="store_true",
+        default=False,
+        help=(
+            "Remove metal atoms after hull/pore detection so --hull metals still builds "
+            "coordination polyhedra, then omits the metals from the figure"
+        ),
+    )
+    disp_g.add_argument(
         "--no-bonds", action="store_true", default=False, help="Hide all bonds (e.g. space-filling style)"
     )
     disp_g.add_argument(
@@ -415,6 +425,7 @@ def main() -> None:
         default=None,
         metavar="INDICES",
         help='Convex hull (no args = all heavy atoms; "rings" = per aromatic ring;'
+        ' "metals" = coordination polyhedra around metal centres;'
         ' "faces" = 2D structural faces colored by size (sheets);'
         ' "pores" = 3D pore windows via coarse-grained net topology (MOFs);'
         ' or 1-indexed subsets e.g. "1-6" or "1-6 7-12")',
@@ -1297,18 +1308,20 @@ def main() -> None:
     if args.hull is not None:
         if args.hull in (["rings"], ["ring"]):
             _hull_arg = "rings"
+        elif args.hull in (["metals"], ["metal"]):
+            _hull_arg = "metals"
         elif args.hull in (["faces"], ["face"]):
             _hull_arg = "faces"
         elif not args.hull:
             _hull_arg = True
         else:
             # Must be numeric atom indices — validate before parsing.
-            _valid_modes = ("rings", "ring", "faces", "face")
+            _valid_modes = ("rings", "ring", "metals", "metal", "faces", "face")
             for g in args.hull:
                 if g in _valid_modes:
                     p.error(f"--hull {g}: did you mean '--hull {g}'? (no other arguments alongside mode names)")
                 if not any(c.isdigit() for c in g):
-                    p.error(f"--hull {g!r}: expected 'faces', 'rings', or atom indices (e.g. '1-6 7-12')")
+                    p.error(f"--hull {g!r}: expected 'faces', 'rings', 'metals', or atom indices (e.g. '1-6 7-12')")
             _hull_arg = [parse_atom_indices(g, one_indexed=True) for g in args.hull]
 
     # Pre-load overlay once so render() + render_gif() don't each load it from disk.
@@ -1545,6 +1558,7 @@ def main() -> None:
             face_planarity=args.face_planarity,
             pore_color=args.pore_color,
             pore_opacity=args.pore_opacity,
+            hide_metals=args.hide_metals,
             bo=args.bo,
             output=args.output,
             ref=args.ref,
@@ -1650,6 +1664,7 @@ def main() -> None:
                 face_planarity=args.face_planarity,
                 pore_color=args.pore_color,
                 pore_opacity=args.pore_opacity,
+                hide_metals=args.hide_metals,
             )
         except ValueError as e:
             p.error(str(e))

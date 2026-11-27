@@ -254,11 +254,14 @@ def test_render_svg_hull_edges_not_drawn_when_all_bonds():
     )
     svg = render_svg(g, cfg)
     # All 6 hull edges are bonds → no extra hull-edge <line> elements beyond bonds.
-    # Bonds use bond_color (black by default); hull edges use fill color (#4682b4).
-    # Count <line> elements with the hull fill color as stroke.
+    # Hull edges use a darkened shade of the fill color.
     import re
 
-    hull_edge_lines = re.findall(r'<line [^>]*stroke="#4682b4"', svg)
+    from xyzrender.colors import Color
+    from xyzrender.renderer import _HULL_EDGE_DARKEN
+
+    edge_hex = Color.from_hex("#4682b4").darken(strength=_HULL_EDGE_DARKEN).hex
+    hull_edge_lines = re.findall(rf'<line [^>]*stroke="{edge_hex}"', svg)
     assert len(hull_edge_lines) == 0
 
 
@@ -292,10 +295,15 @@ def test_render_svg_hull_edges_drawn_for_non_bond():
         hull_opacity=0.2,
     )
     svg = render_svg(g, cfg)
-    # Edge color = fill color (#4682b4); at least one non-bond edge drawn
+    # Edge color = darkened fill; at least one non-bond edge drawn
     import re
 
-    hull_edge_lines = re.findall(r'<line [^>]*stroke="#4682b4"', svg)
+    from xyzrender.colors import Color
+    from xyzrender.renderer import _HULL_EDGE_DARKEN
+
+    edge_hex = Color.from_hex("#4682b4").darken(strength=_HULL_EDGE_DARKEN).hex
+    assert edge_hex != "#4682b4"
+    hull_edge_lines = re.findall(rf'<line [^>]*stroke="{edge_hex}"', svg)
     assert len(hull_edge_lines) >= 1
 
 
@@ -913,3 +921,145 @@ def test_render_supercell_hull_faces_keeps_per_type_coloring():
         "per-type/per-env hull coloring collapses to size-only "
         "(see ring_fingerprint at hull.py:447)"
     )
+
+
+# ---------------------------------------------------------------------------
+# Metal coordination polyhedra (hull="metals")
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_hull_metals_octahedron():
+    """CoCl6: one shell of the six chlorides around Co."""
+    import networkx as nx
+    from xyzgraph import DATA
+
+    from xyzrender.hull import resolve_hull_metals
+
+    g = nx.Graph()
+    g.add_node(0, symbol="Co", position=(0.0, 0.0, 0.0))
+    coords = [
+        (-2.4, 0.0, 0.0),
+        (2.4, 0.0, 0.0),
+        (0.0, 2.4, 0.0),
+        (0.0, -2.4, 0.0),
+        (0.0, 0.0, 2.4),
+        (0.0, 0.0, -2.4),
+    ]
+    for i, pos in enumerate(coords, start=1):
+        g.add_node(i, symbol="Cl", position=pos)
+        g.add_edge(0, i)
+
+    assert "Co" in DATA.metals
+    subsets = resolve_hull_metals(g)
+    assert subsets == [[1, 2, 3, 4, 5, 6]]
+
+
+def test_resolve_hull_metals_skips_low_cn_and_excludes_mm():
+    """Skip metals with too few ligands and exclude metal neighbours from shells."""
+    import networkx as nx
+
+    from xyzrender.hull import resolve_hull_metals
+
+    g = nx.Graph()
+    # Fe with only two ligands → skip
+    g.add_node(0, symbol="Fe", position=(0.0, 0.0, 0.0))
+    g.add_node(1, symbol="C", position=(1.8, 0.0, 0.0))
+    g.add_node(2, symbol="C", position=(-1.8, 0.0, 0.0))
+    g.add_edge(0, 1)
+    g.add_edge(0, 2)
+    # Zn tetrahedron, plus an Fe neighbour that must not enter the shell
+    g.add_node(3, symbol="Zn", position=(5.0, 0.0, 0.0))
+    for i, pos in enumerate(
+        [(6.5, 0.0, 0.0), (5.0, 1.5, 0.0), (5.0, -0.8, 1.3), (5.0, -0.8, -1.3)],
+        start=4,
+    ):
+        g.add_node(i, symbol="N", position=pos)
+        g.add_edge(3, i)
+    g.add_edge(0, 3)  # Fe-Zn
+
+    subsets = resolve_hull_metals(g)
+    assert len(subsets) == 1
+    assert subsets[0] == [4, 5, 6, 7]
+    assert 0 not in subsets[0]
+
+
+def test_resolve_hull_metals_no_metals_warns(caplog):
+    import logging
+
+    import networkx as nx
+
+    from xyzrender.hull import resolve_hull_metals
+
+    g = nx.Graph()
+    g.add_node(0, symbol="C", position=(0.0, 0.0, 0.0))
+    g.add_node(1, symbol="C", position=(1.5, 0.0, 0.0))
+    g.add_edge(0, 1)
+
+    with caplog.at_level(logging.WARNING, logger="xyzrender.hull"):
+        assert resolve_hull_metals(g) == []
+    assert any("no metal atoms" in r.message for r in caplog.records)
+
+
+def test_apply_hull_metals_sets_indices_and_cpk_color():
+    """hull='metals' enables hull, stores ligand indices, CPK-colours by metal."""
+    import networkx as nx
+    from xyzgraph import DATA
+
+    from xyzrender.colors import get_color
+    from xyzrender.hull import apply_hull_to_config
+    from xyzrender.types import RenderConfig
+
+    g = nx.Graph()
+    g.add_node(0, symbol="Co", position=(0.0, 0.0, 0.0))
+    for i, pos in enumerate(
+        [(-2.0, 0, 0), (2.0, 0, 0), (0, 2.0, 0), (0, -2.0, 0), (0, 0, 2.0), (0, 0, -2.0)],
+        start=1,
+    ):
+        g.add_node(i, symbol="Cl", position=pos)
+        g.add_edge(0, i)
+
+    cfg = RenderConfig()
+    apply_hull_to_config(cfg, "metals", None, 0.4, None, None, g)
+    assert cfg.show_convex_hull is True
+    assert cfg.hull_ordered is False
+    assert cfg.hull_atom_indices == [[1, 2, 3, 4, 5, 6]]
+    assert cfg.hull_opacity == 0.4
+    assert cfg.hull_colors == [get_color(DATA.s2n["Co"]).hex]
+
+
+def test_render_hull_metals_cocl6():
+    """End-to-end: CoCl6 with hull='metals' draws a filled hull polygon."""
+    import xyzrender as xr
+
+    mol = _load("CoCl6.xyz")
+    svg = str(xr.render(mol, hull="metals", hull_opacity=0.5, orient=False))
+    assert "<polygon" in svg
+    assert "fill-opacity" in svg
+
+
+def test_hide_metals_keeps_metals_hull():
+    """hide_metals drops metals after hull='metals' detection; polyhedra remain."""
+    from unittest.mock import patch
+
+    from xyzgraph import DATA
+
+    import xyzrender as xr
+
+    mol = _load("CoCl6.xyz")
+    assert any(d.get("symbol") in DATA.metals for _, d in mol.graph.nodes(data=True))
+
+    captured: dict = {}
+
+    def _spy(graph, cfg, **_kwargs):
+        captured["symbols"] = [graph.nodes[n].get("symbol") for n in graph.nodes()]
+        captured["hull"] = cfg.hull_atom_indices
+        captured["show"] = cfg.show_convex_hull
+        return "<svg/>"
+
+    with patch("xyzrender.renderer.render_svg", side_effect=_spy):
+        xr.render(mol, hull="metals", hide_metals=True, orient=False)
+
+    assert captured["show"] is True
+    assert captured["hull"] == [[0, 1, 2, 3, 4, 5]]
+    assert "Co" not in captured["symbols"]
+    assert captured["symbols"].count("Cl") == 6
